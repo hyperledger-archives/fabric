@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
-	"time"
 
 	google_protobuf "google/protobuf"
 
@@ -104,17 +103,9 @@ func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 // this will give you the peer's PBFT ID
 func (op *obcSieve) waitForID(config *viper.Viper) {
 	var id uint64
-	var size int
 
-	for { // wait until you have a whitelist
-		size = op.stack.CheckWhitelistExists()
-		if size > 0 { // there is a waitlist so you know your ID
-			id = op.stack.GetOwnID()
-			logger.Debug("replica ID = %v", id)
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
+	op.stack.CheckWhitelistExists()
+	id = op.stack.GetOwnID()
 
 	// instantiate pbft-core
 	op.id = id

@@ -35,7 +35,7 @@ const dbkey = "consensus.whitelist"
 
 // Gatekeeper is used to manage the list of validating peers a validator should connect to
 type Gatekeeper interface {
-	CheckWhitelistExists() (size int)
+	CheckWhitelistExists()
 	LoadWhitelist() (err error)
 	SaveWhitelist() (err error)
 	GetWhitelist() (whitelistedMap map[string]int, sortedKeys []string, sortedValues []*pb.PeerID)
@@ -43,9 +43,9 @@ type Gatekeeper interface {
 	SetWhitelistCap(cap int)
 }
 
-// CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
-func (p *PeerImpl) CheckWhitelistExists() (size int) {
-	return len(p.whitelist.SortedKeys)
+// CheckWhitelistExists blocks until we have N validators in the whitelist
+func (p *PeerImpl) CheckWhitelistExists() {
+	<-p.whitelistCreated
 }
 
 // LoadWhitelist loads the validator's whitelist of validating peers from disk into memory
@@ -78,6 +78,8 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
 	if p.whitelist.Persisted || (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
+		peerLogger.Debug("Tried to save whitelist but conditions not right. len(vpMap): %v", len(vpMap))
+		peerLogger.Debug("current whitelist: %+v", p.whitelist)
 		return nil
 	}
 
@@ -105,8 +107,16 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 	}
 
 	// save to database
+	err = nil
 	db := db.GetDBHandle()
-	return db.Put(db.PersistCF, []byte(dbkey), data)
+	err = db.Put(db.PersistCF, []byte(dbkey), data)
+
+	//let the replica know we have a good whitelist
+	peerLogger.Debug("whitelist created and saved")
+	p.whitelistCreated <- true
+
+	return err
+
 }
 
 // GetWhitelist retrieves the map and sorted list of whitelisted peer keys

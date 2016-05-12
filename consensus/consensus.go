@@ -40,7 +40,7 @@ type Inquirer interface {
 
 // Gatekeeper is used to manage the validating peer's whitelist
 type Gatekeeper interface {
-	CheckWhitelistExists() (size int)
+	CheckWhitelistExists()
 	SetWhitelistCap(n int)
 }
 

@@ -212,8 +212,9 @@ type PeerImpl struct {
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 
-	whitelist      *pb.Whitelist
-	whitelistedMap map[string]int
+	whitelist        *pb.Whitelist
+	whitelistedMap   map[string]int
+	whitelistCreated chan bool
 
 	engine      Engine
 	isValidator bool
@@ -243,22 +244,6 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 
 	peer.secHelper = secHelperFunc()
 
-	// is this a peer that's restarting after a crash? if so, load the whitelist
-	peer.whitelist = &pb.Whitelist{Cap: -1,
-		Persisted:    false,
-		Security:     viper.GetBool("security.enabled"),
-		SortedKeys:   []string{},
-		SortedValues: []*pb.PeerID{}}
-	peer.whitelistedMap = make(map[string]int)
-	peer.LoadWhitelist()
-
-	// Install security object for peer
-	if SecurityEnabled() {
-		if peer.secHelper == nil {
-			return nil, fmt.Errorf("Security helper not provided")
-		}
-	}
-
 	ledgerPtr, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
@@ -268,7 +253,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	return peer, nil
 }
 
-// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+// NewPeerWithEngine returns a Peer which uses the supplied engine factory function for creating new handlers on new service invocations.
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
@@ -286,9 +271,27 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	// Initialize the ledger before the engine, as consensus may want to begin interrogating the ledger immediately
 	ledgerPtr, err := ledger.GetLedger()
 	if err != nil {
-		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
+		return nil, fmt.Errorf("Error constructing NewPeerWithEngine: %s", err)
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
+
+	// is this a peer that's restarting after a crash? if so, load the whitelist
+	peerLogger.Debug("loading whitelist")
+	peer.whitelistCreated = make(chan bool)
+	peer.whitelist = &pb.Whitelist{Cap: -1,
+		Persisted:    false,
+		Security:     viper.GetBool("security.enabled"),
+		SortedKeys:   []string{},
+		SortedValues: []*pb.PeerID{}}
+	peer.whitelistedMap = make(map[string]int)
+	peer.LoadWhitelist()
+
+	// Install security object for peer
+	if SecurityEnabled() {
+		if peer.secHelper == nil {
+			return nil, fmt.Errorf("Security helper not provided")
+		}
+	}
 
 	peer.engine, err = engFactory(peer)
 	if err != nil {

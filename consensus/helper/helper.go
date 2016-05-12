@@ -114,9 +114,9 @@ func (h *Helper) GetConnectedValidators() (handles []*pb.PeerID) {
 	return
 }
 
-// CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
-func (h *Helper) CheckWhitelistExists() (size int) {
-	return h.coordinator.CheckWhitelistExists()
+// CheckWhitelistExists waits until the peer has established connections with all the other validators
+func (h *Helper) CheckWhitelistExists() {
+	h.coordinator.CheckWhitelistExists()
 }
 
 // SetWhitelistCap sets the expected number of maximum validators on the network
