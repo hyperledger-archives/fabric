@@ -1,7 +1,6 @@
-NAME="hyperledger/fabric-baseimage"
+NAME=hyperledger/fabric-baseimage
 VERSION=0.0.9
 ARCH=$(shell uname -m)
-DOCKER_NAME ?= hyperledger/fabric-baseimage
 DOCKER_TAG ?= $(ARCH)-$(VERSION)
 VAGRANTIMAGE=packer_virtualbox-iso_virtualbox.box
 
@@ -30,7 +29,7 @@ docker: Dockerfile.in Makefile
 	@echo "Generating docker"
 	@cat Dockerfile.in | \
 	sed -e  "s|_DOCKER_BASE_|$(DOCKER_BASE)|" > Dockerfile
-	docker build -t $(DOCKER_NAME):$(DOCKER_TAG) .
+	docker build -t $(NAME):$(DOCKER_TAG) .
 
 
 vagrant: $(VAGRANTIMAGE) remove
