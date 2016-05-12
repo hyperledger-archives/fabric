@@ -17,6 +17,10 @@ import devops_pb2
 
 LAST_REQUESTED_TCERT="lastRequestedTCert"
 
+def getGRPCChannel(ipAddress):
+	channel = implementations.insecure_channel(ipAddress, 30303)
+	print("Returning GRPC for address: {0}".format(ipAddress))
+	return channel
 
 
 @when(u'user "{enrollId}" requests a new application TCert')
@@ -25,7 +29,11 @@ def step_impl(context, enrollId):
 	# Retrieve the userRegistration from the context
 	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
 
-	channel = implementations.insecure_channel('172.17.0.3', 30303)
+	# Get the IP address of the server that the user registered on
+	ipAddress = bdd_test_util.ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
+
+	channel = getGRPCChannel(ipAddress)
+
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	secret = userRegistration.getSecret()
@@ -60,7 +68,7 @@ def step_impl(context, enrollId, chaincodePath, ctor, composeService):
 	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
 
 	ipAddress = bdd_test_util.ipFromContainerNamePart(composeService, context.compose_containers)
-	channel = implementations.insecure_channel(ipAddress, 30303)
+	channel = getGRPCChannel(ipAddress)
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	args = []
@@ -93,11 +101,16 @@ def step_impl(context, enrollId, tagName, recipientEnrollId):
 @when(u'"{enrollId}" uses application TCert "{assignerAppTCert}" to assign role "{role}" to application TCert "{assigneeAppTCert}"')
 def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	assert 'users' in context, "users not found in context. Did you register a user?"
+	assert 'compose_containers' in context, "compose_containers not found in context"
+
 	# Retrieve the userRegistration from the context
 	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
 
+	# Get the IP address of the server that the user registered on
+	ipAddress = bdd_test_util.ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
+
 	# Get the stub
-	channel = implementations.insecure_channel('172.17.0.3', 30303)
+	channel = getGRPCChannel(ipAddress)
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	# First get binding with EXP_PrepareForTx
@@ -132,10 +145,10 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	executeWithBinding = devops_pb2.ExecuteWithBinding(chaincodeInvocationSpec = ccInvocationSpec, binding = binding)
 
 	response = stub.EXP_ExecuteWithBinding(executeWithBinding,60)
-	assert response.status == fabric_pb2.Response.SUCCESS, 'Failure getting Binding from {0}, for user "{1}":  {2}'.format(userRegistration.composeService,enrollId, response.msg)
-	binding = response.msg
+	assert response.status == fabric_pb2.Response.SUCCESS, 'Failure executeWithBinding from {0}, for user "{1}":  {2}'.format(userRegistration.composeService,enrollId, response.msg)
+	context.response = response
+	context.transactionID = response.msg
 
-	#print('ccInvSpec  = {0}'.format(ccInvocationSpec))
-	#recipientUserRegistration = bdd_test_util.getUserRegistration(context, recipientEnrollId)
-	raise NotImplementedError(u'STEP: When "binhn" assigns role "writer" to "alice"')
-
+@then(u'transaction should have failed with message "Permission denied"')
+def step_impl(context):
+    raise NotImplementedError(u'STEP: Then transaction should have failed with message "Permission denied"')

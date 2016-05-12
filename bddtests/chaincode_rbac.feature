@@ -35,7 +35,7 @@ Feature: Role Based Access Control (RBAC)
       # Binhn is assuming the application ROLE of Admin by using his own TCert
       And user "binhn" stores their last result as "TCERT_APP_ADMIN"
 
-      # Deploy
+      # Deploy, in this case Binh is assinging himself as the Admin for the RBAC chaincode.
       When user "binhn" sets metadata to their stored value "TCERT_APP_ADMIN"    
       And user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/rbac_tcerts_no_attrs" with ctor "init" to "vp0"
             ||
@@ -53,31 +53,35 @@ Feature: Role Based Access Control (RBAC)
       And user "alice" gives stored value "TCERT_APP_ALICE_1" to "binhn"
 
       
-      # This will actually refer to the TCert for Alice
+      # binhn is assigning the role of 'writer' to alice
       When "binhn" uses application TCert "TCERT_APP_ADMIN" to assign role "writer" to application TCert "TCERT_APP_ALICE_1"
-      Then invoke should succeed
-
-      When "Alice" assigns role "writer" to "alice"
-      Then invoke should fail with failure "Permissed denied"
-
-      When "Administrator" assigns role "writer" to "alice"
-      Then invoke should succeed
+      Then I should have received a transactionID
+      Then I wait up to "60" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
 
 
-      When "Bob" assigns role "reader" to "Bob"
-      Then invoke should fail with failure "Permissed denied"
+      # Alice attempts to assign a role to binh, but this will fail as she does NOT have permission.  The check is currently
+      # to make sure the TX does NOT appear on the chain.
+      When "alice" uses application TCert "TCERT_APP_ALICE_1" to assign role "writer" to application TCert "TCERT_APP_ALICE_1"
+      Then I wait up to "60" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
+      And transaction should have failed with message "Permission denied"
 
-      When "Administrator" assigns role "reader" to "Bob"
-      Then invoke should succeed
 
-      When "Alice" writes value "Alice's value"
-      Then invoke should succeed
+      #When "Administrator" assigns role "reader" to "Bob"
+      #Then invoke should succeed
 
-      When "Bob" reads value
-      Then the result should be "Alice's value"
+      #When "Bob" assigns role "reader" to "Bob"
+      #Then invoke should fail with failure "Permissed denied"
 
-      When "Alice" reads value
-      Then should fail with failure "Permissed denied"
+      #When "Alice" writes value "Alice's value"
+      #Then invoke should succeed
+
+      #When "Bob" reads value
+      #Then the result should be "Alice's value"
+
+      #When "Alice" reads value
+      #Then should fail with failure "Permissed denied"
 
 
       # TODO:  Must manage TCert expiration for all parties involved.
