@@ -30,8 +30,6 @@ import (
 
 type obcBatch struct {
 	obcGeneric
-	stack consensus.Stack
-	pbft  *pbftCore
 
 	batchSize        int
 	batchStore       []*Request
@@ -64,8 +62,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	var err error
 
 	op := &obcBatch{
-		obcGeneric: obcGeneric{stack},
-		stack:      stack,
+		obcGeneric: obcGeneric{stack: stack},
 	}
 
 	op.persistForward.persistor = stack
@@ -109,12 +106,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
-// StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcBatch) StateUpdate(seqNo uint64, id []byte) {
-	op.pbft.stateUpdate(seqNo, id)
-}
-
-// implements complaintHandler
+// Complain is necessary to implement complaintHandler
 func (op *obcBatch) Complain(hash string, req *Request, primaryFail bool) {
 	op.custodyTimerChan <- custodyInfo{hash, req, primaryFail}
 }
