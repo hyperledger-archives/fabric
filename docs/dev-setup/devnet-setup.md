@@ -7,7 +7,7 @@ See [Logging Control](logging-control.md) for information on controlling
 logging output from the `peer` and chaincodes.
 
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in openchain.yaml variables paddr of eca, tca and tlsca.
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca.
 
 ### Setting up Docker image
 To create a Docker image for the `hyperledger/fabric`,

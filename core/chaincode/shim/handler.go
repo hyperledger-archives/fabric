@@ -779,7 +779,18 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
 		// Success response
 		chaincodeLogger.Debug("[%s]Received %s. Successfully invoked chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
-		return responseMsg.Payload, nil
+		respMsg := &pb.ChaincodeMessage{}
+		if err := proto.Unmarshal(responseMsg.Payload, respMsg); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error unmarshaling called chaincode response: %s", shortuuid(responseMsg.Uuid), err))
+			return nil, err
+		}
+		if respMsg.Type == pb.ChaincodeMessage_COMPLETED {
+			// Success response
+			chaincodeLogger.Debug("[%s]Received %s. Successfully invoed chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
+			return respMsg.Payload, nil
+		}
+		chaincodeLogger.Error(fmt.Sprintf("[%s]Received %s. Error from chaincode", shortuuid(responseMsg.Uuid), respMsg.Type.String()))
+		return nil, errors.New(string(respMsg.Payload[:]))
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
@@ -827,9 +838,18 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 	}
 
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
-		// Success response
-		chaincodeLogger.Debug("[%s]Received %s. Successfully queried chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
-		return responseMsg.Payload, nil
+		respMsg := &pb.ChaincodeMessage{}
+		if err := proto.Unmarshal(responseMsg.Payload, respMsg); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error unmarshaling called chaincode responseP: %s", shortuuid(responseMsg.Uuid), err))
+			return nil, err
+		}
+		if respMsg.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
+			// Success response
+			chaincodeLogger.Debug("[%s]Received %s. Successfully queried chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
+			return respMsg.Payload, nil
+		}
+		chaincodeLogger.Error(fmt.Sprintf("[%s]Error from chaincode: %s", shortuuid(responseMsg.Uuid), string(respMsg.Payload[:])))
+		return nil, errors.New(string(respMsg.Payload[:]))
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response

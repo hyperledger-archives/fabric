@@ -4,15 +4,11 @@ Install the blockchain fabric by completing the following tasks:
 * [Building the fabric core](#building-the-fabric-core-)
 * [Building outside of Vagrant](#building-outside-of-vagrant-)
 * [Code contributions](#code-contributions-)
-* [Communication](#communication-)
-* [Coding Golang](#coding-golang-)
 * [Writing Chaincode](#writing-chaincode-)
 * [Setting Up a Network](#setting-up-a-network-)
 * [Working with CLI, REST, and Node.js](#working-with-cli-rest-and-nodejs-)
 * [Configuration](#configuration-)
 * [Logging](#logging-)
-* [Generating gRPC code](#generating-gRPC-code-)
-* [Adding or updating Go packages](#adding-or-updating-go-packages-)
 
 ## Building the fabric core <a name="build"></a>
 The following instructions assume that you have followed the [development environment getting started instructions](devenv.md).
@@ -132,25 +128,12 @@ up at the IP address currently assumed by the test environment
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.
 
-## Communication <a name="communication"></a>
-We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
-
-For general purpose questions, use [StackOverflow](http://stackoverflow.com/questions/tagged/hyperledger). Even if questions are answered through Hyperledger Slack, please post them to StackOverflow so answers don't have to be repeated continuously.
-
-## Coding Golang <a name="coding"></a>
-- We require a file [header](headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
-- We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
-and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
-	- [golint](https://github.com/golang/lint)
-	- [go vet](https://golang.org/cmd/vet/)
-
-## Writing Chaincode <a name="chaincode"></a>
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](../API/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
-
 ## Setting Up a Network <a name="devnet"></a>
 
 To set up an development network composed of several validating peers, follow the instructions on the [Devnet Setup](devnet-setup.md) page. This network leverages Docker to manage multiple peer instances on the same machine, allowing you to quickly test your chaincode.
 
+### Writing Chaincode <a name="chaincode"></a>
+Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](../API/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
 
 ## Working with CLI, REST, and Node.js <a name="cli"></a>
 
@@ -171,33 +154,3 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
 See [specific logging control](logging-control.md) instructions when running the peer process.
-
-## Generating gRPC code <a name="gRPC"></a>
-
-If you modify any `.proto` files, run the following command to generate/update the respective `.pb.go` files.
-
-```
-cd $GOPATH/src/github.com/hyperledger/fabric
-make protos
-```
-
-## Adding or updating Go packages <a name="vendoring"></a>
-
-The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the `vendor` folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the `vendor` folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
-
-```
-# Add external packages.
-govendor add +external
-
-# Add a specific package.
-govendor add github.com/kardianos/osext
-
-# Update vendor packages.
-govendor update +vendor
-
-# Revert back to normal GOPATH packages.
-govendor remove +vendor
-
-# List package.
-govendor list
-```

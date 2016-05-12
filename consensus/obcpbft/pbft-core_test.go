@@ -739,11 +739,11 @@ func TestNewViewTimeout(t *testing.T) {
 }
 
 func TestViewChangeUpdateSeqNo(t *testing.T) {
-	millisUntilTimeout := 100 * time.Millisecond
+	millisUntilTimeout := 400 * time.Millisecond
 
 	validatorCount := 4
 	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
+		pe.pbft.newViewTimeout = millisUntilTimeout
 		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
 		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
 		pe.pbft.lastExec = 99
