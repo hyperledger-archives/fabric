@@ -23,14 +23,14 @@ $(VAGRANTIMAGE): packer-local.json
 	BASEIMAGE_RELEASE=$(VERSION) \
 	packer build -only virtualbox-iso packer-local.json
 
-Dockerfile:
-
-docker: Dockerfile.in Makefile
-	@echo "Generating docker"
+Dockerfile: Dockerfile.in
+	@echo "# Generated from Dockerfile.in.  DO NOT EDIT!" > $@
 	@cat Dockerfile.in | \
-	sed -e  "s|_DOCKER_BASE_|$(DOCKER_BASE)|" > Dockerfile
-	docker build -t $(NAME):$(DOCKER_TAG) .
+	sed -e  "s|_DOCKER_BASE_|$(DOCKER_BASE)|" >> $@
 
+docker: Dockerfile Makefile
+	@echo "Generating docker"
+	@docker build -t $(NAME):$(DOCKER_TAG) .
 
 vagrant: $(VAGRANTIMAGE) remove
 	vagrant box add -name $(NAME) $(VAGRANTIMAGE)
