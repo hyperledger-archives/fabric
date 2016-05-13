@@ -309,12 +309,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 	
-	certificate, err := utils.DERToX509Certificate(tcertDER)
-	if err != nil {
-		t.Fatalf("Error creating certificate: [%s]", err)
-	}
-	
-	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), certificate)
+	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
