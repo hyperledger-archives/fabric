@@ -18,7 +18,6 @@ package buckettree
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	openchainUtil "github.com/hyperledger/fabric/core/util"
 )
 
@@ -51,7 +50,7 @@ func (c *bucketHashCalculator) computeCryptoHash() []byte {
 		c.dataNodes = nil
 	}
 	logger.Debug("Hashable content for bucket [%s]: length=%d, contentInStringForm=[%s]", c.bucketKey, len(c.hashingData), string(c.hashingData))
-	if util.IsNil(c.hashingData) {
+	if c.hashingData == nil {
 		return nil
 	}
 	return openchainUtil.ComputeCryptoHash(c.hashingData)

@@ -207,6 +207,9 @@ func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey str
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
+	if key == "" || value == nil {
+		return fmt.Errorf("A nil key or a nil value is not supported. key=%s, value=%#v", key, value)
+	}
 	return ledger.state.Set(chaincodeID, key, value)
 }
 

@@ -902,3 +902,24 @@ func TestCopyState(t *testing.T) {
 	values, _ := l.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2", "key3"}, true)
 	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")})
 }
+
+func TestLedgerEmptyArrayValue(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+	l.SetState("chaincodeID1", "key1", []byte{})
+	l.TxFinished("txUUID", true)
+	tx, _ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+
+	value, _ := l.GetState("chaincodeID1", "key1", true)
+	if value == nil || len(value) != 0 {
+		t.Fatal("An empty array expected in value. Found = %x", value)
+	}
+
+	value, _ = l.GetState("chaincodeID1", "non-existing-key", true)
+	if value != nil {
+		t.Fatal("A nil value expected. Found = %x", value)
+	}
+}
