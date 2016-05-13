@@ -32,8 +32,8 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	_ "github.com/mattn/go-sqlite3"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CA is the base certificate authority.
