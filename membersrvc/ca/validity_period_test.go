@@ -129,7 +129,6 @@ func TestValidityPeriod(t *testing.T) {
 	if err := os.RemoveAll(".ca"); err != nil {
 		t.Logf("Failed removing [%s] [%s]\n", ".ca", err)
 	}
-
 }
 
 func startServices(t *testing.T) {
