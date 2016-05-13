@@ -28,11 +28,11 @@ ACA will have a database to hold attributes for each user and affiliation. This 
 1. When the user needs TCerts to generate a transaction the user requests a batch of TCerts to the TCA, and provides the following: 
    * Batch size (i.e. how many TCerts the user is expecting)
    * ECert 
-   * List of attributes (e.g. Company:IBM, Position: Software Engineer)
+   * List of attributes (e.g. Company:MyCompany, Position: Software Engineer)
 2. TCA sends under TLS a request to ACA to get those attributes:
 a. RequestAttributes() this request contains:
      * ECert 
-     * Company: e.g., Hash(IBM)
+     * Company: e.g., Hash(MyCompany)
      * Position: e.g., Hash(Software Engineer)
      * Signed with TCA private key
 3. ACA performs a lookup in his internal DB and replies one of the following messages***:
