@@ -23,12 +23,12 @@ $(VAGRANTIMAGE): packer-local.json
 	BASEIMAGE_RELEASE=$(VERSION) \
 	packer build -only virtualbox-iso packer-local.json
 
-Dockerfile: Dockerfile.in
+Dockerfile: Dockerfile.in Makefile
 	@echo "# Generated from Dockerfile.in.  DO NOT EDIT!" > $@
 	@cat Dockerfile.in | \
 	sed -e  "s|_DOCKER_BASE_|$(DOCKER_BASE)|" >> $@
 
-docker: Dockerfile Makefile
+docker: Dockerfile
 	@echo "Generating docker"
 	@docker build -t $(NAME):$(DOCKER_TAG) .
 
