@@ -28,7 +28,13 @@ func fetchDataNodeFromDB(dataKey *dataKey) (*dataNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if util.IsNil(nodeBytes) {
+	if nodeBytes == nil {
+		logger.Debug("nodeBytes from db is nil")
+	} else if len(nodeBytes) == 0 {
+		logger.Debug("nodeBytes from db is an empty array")
+	}
+	// key does not exist
+	if nodeBytes == nil {
 		return nil, nil
 	}
 	return unmarshalDataNode(dataKey, nodeBytes), nil
@@ -40,7 +46,7 @@ func fetchBucketNodeFromDB(bucketKey *bucketKey) (*bucketNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if util.IsNil(nodeBytes) {
+	if util.NilOrEmpty(nodeBytes) {
 		return nil, nil
 	}
 	return unmarshalBucketNode(bucketKey, nodeBytes), nil

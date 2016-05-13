@@ -18,6 +18,7 @@ package trie
 
 import (
 	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/ledger/util"
 )
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
@@ -29,7 +30,7 @@ func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
 		return nil, err
 	}
 
-	if trieNodeBytes == nil {
+	if util.NilOrEmpty(trieNodeBytes) {
 		return nil, nil
 	}
 
