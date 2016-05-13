@@ -33,6 +33,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	_ "github.com/mattn/go-sqlite3"
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 )
 
 // CA is the base certificate authority.
@@ -442,15 +443,15 @@ func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 // 1: client, 2: peer, 4: validator, 8: auditor
 //
 
-func (ca *CA) requireAffiliation(role int) bool {
-	roleStr, _ := MemberRoleToString(int32(role))
+func (ca *CA) requireAffiliation(role pb.Role) bool {
+	roleStr, _ := MemberRoleToString(role)
 	Trace.Println("Assigned role is: " + roleStr + ".")
 
-	return role != 4 && role != 8
+	return role != pb.Role_VALIDATOR && role != pb.Role_AUDITOR
 }
 
-func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role int) (string, error) {
-	roleStr, _ := MemberRoleToString(int32(role))
+func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role string, role pb.Role) (string, error) {
+	roleStr, _ := MemberRoleToString(role)
 	Trace.Println("Validating and generating enrollId for user id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliation_role + ", role: " + roleStr + ".")
 
 	// Check whether the affiliation is required for the current user.
@@ -477,8 +478,8 @@ func (ca *CA) validateAndGenerateEnrollId(id, affiliation, affiliation_role stri
 //
 // This method registers a new member with the CA.
 //
-func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, opt ...string) (string, error) {
-	roleStr, _ := MemberRoleToString(int32(role))
+func (ca *CA) registerUser(id, affiliation, affiliation_role string, role pb.Role, opt ...string) (string, error) {
+	roleStr, _ := MemberRoleToString(role)
 	Trace.Println("Received request to register user with id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliation_role + ", role: " + roleStr + ".")
 
 	var tok string
@@ -496,8 +497,8 @@ func (ca *CA) registerUser(id, affiliation, affiliation_role string, role int, o
 	return tok, nil
 }
 
-func (ca *CA) registerUserWithErollId(id string, enrollId string, role int, opt ...string) (string, error) {
-	roleStr, _ := MemberRoleToString(int32(role))
+func (ca *CA) registerUserWithErollId(id string, enrollId string, role pb.Role, opt ...string) (string, error) {
+	roleStr, _ := MemberRoleToString(role)
 	Trace.Println("Registering user " + id + " as " + roleStr + ".")
 
 	var row int

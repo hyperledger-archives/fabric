@@ -48,7 +48,7 @@
 # ---------------------------------------------------------------------------
 
 NAME=hyperledger/fabric-baseimage
-RELEASE=`uname -p`-$1
+RELEASE=`uname -m`-$1
 FQN=$NAME:$RELEASE
 
 CURDIR=`dirname $0`
