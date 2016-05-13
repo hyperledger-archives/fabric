@@ -17,8 +17,9 @@ limitations under the License.
 package state
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestStateSnapshot(t *testing.T) {
