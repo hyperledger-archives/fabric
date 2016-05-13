@@ -25,6 +25,7 @@ import (
 	"errors"
 	"strings"
 	"strconv"
+	"bytes"
 		
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -121,8 +122,8 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey
 
 //Encrypts "attributeValue" using "attributeKey"
 func EncryptAttributeValue(attributeKey []byte, attributeValue []byte) ([]byte, error) { 
-	value := primitives.PKCS7Padding(attributeValue)
-	return primitives.CBCEncrypt(attributeKey, value)
+	value := append(attributeValue, Padding...)
+	return primitives.CBCPKCS7Encrypt(attributeKey, value)
 }
 
 //Returns the attributeKey derived from the preK0 to the attributeName.
@@ -138,16 +139,20 @@ func EncryptAttributeValuePK0(preK0 []byte, attributeName string, attributeValue
 
 //Decrypts "encryptedValue" using "attributeKey" and return the decrypted value.
 func DecryptAttributeValue(attributeKey []byte, encryptedValue []byte) ([]byte, error) {
-	value, err := primitives.CBCDecrypt(attributeKey, encryptedValue)
+	value, err := primitives.CBCPKCS7Decrypt(attributeKey, encryptedValue)
 	if err != nil {
 		return nil, err
 	}
-	
-	value, err = primitives.PKCS7UnPadding(value)
-	if err != nil {
-		return nil, err
+	lenPadding := len(Padding)
+	lenValue := len(value)
+	if lenValue < lenPadding { 
+		return nil, errors.New("Error invalid value. Decryption verification failed.")
 	}
-	
+	lenWithoutPadding := lenValue - lenPadding
+	if bytes.Compare(Padding[0:lenPadding], value[lenWithoutPadding:lenValue]) != 0 {
+		return nil, errors.New("Error generating decryption key for value. Decryption verification failed.")
+	}
+	value = value[0:lenWithoutPadding]
 	return value, nil
 }
 
@@ -167,15 +172,6 @@ func getKAndValueForAttribute(attributeName string, preK0 []byte, cert *x509.Cer
 		}	
 	}
 	return attributeKey, value, nil
-	
-/*	
-	lenPadding := len(Padding)
-	lenValue := len(value)
-	if bytes.Compare(Padding[0:lenPadding], value[lenValue - lenPadding:lenValue]) == 0 {
-		return attributeKey, nil
-	}
-
-	return nil, errors.New("Error generating decryption key for attribute "+ attributeName + ". Decryption verification failed.")*/
 }
 
 //Derives the K for the attribute "attributeName" and returns the key
