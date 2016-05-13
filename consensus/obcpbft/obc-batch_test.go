@@ -102,7 +102,11 @@ func TestBatchCustody(t *testing.T) {
 	time.Sleep(6 * time.Second)
 	net.stop()
 
-	for _, inst := range net.endpoints {
+	for i, inst := range net.endpoints {
+		// Don't care about byzantine node 0
+		if i == 0 {
+			continue
+		}
 		inst := inst.(*consumerEndpoint)
 		_, err := inst.consumer.(*obcBatch).stack.GetBlock(1)
 		if err != nil {
