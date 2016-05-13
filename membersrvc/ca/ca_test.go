@@ -17,16 +17,21 @@ limitations under the License.
 package ca
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
-
-var ca *CA
 
 const (
 	name = "TestCA"
+)
+
+var (
+	ca      *CA
+	caFiles = [4]string{name + ".cert", name + ".db", name + ".priv", name + ".pub"}
 )
 
 func TestNewCA(t *testing.T) {
@@ -45,18 +50,49 @@ func TestNewCA(t *testing.T) {
 		t.Error("could not create new CA")
 	}
 
+	missing := 0
+	//check to see that the expected files were created
+	for _, file := range caFiles {
+		if _, err := os.Stat(ca.path + "/" + file); err != nil {
+			missing++
+			t.Logf("failed to find file [%s]", file)
+		}
+	}
+
+	if missing > 0 {
+		t.FailNow()
+	}
+
+	//check CA certificate for correct properties
+	pem, err := ioutil.ReadFile(ca.path + "/" + name + ".cert")
+	if err != nil {
+		t.Fatalf("could not read CA X509 certificate [%s]", name+".cert")
+	}
+
+	cacert, err := primitives.PEMtoCertificate(pem)
+	if err != nil {
+		t.Fatalf("could not parse CA X509 certificate [%s]", name+".cert")
+	}
+
+	//check that commonname, organization and country match config
+	org := GetConfigString("pki.ca.subject.organization")
+	if cacert.Subject.Organization[0] != org {
+		t.Fatalf("ca cert subject organization [%s] did not match configuration [%s]",
+			cacert.Subject.Organization, org)
+	}
+
+	country := GetConfigString("pki.ca.subject.country")
+	if cacert.Subject.Country[0] != country {
+		t.Fatalf("ca cert subject country [%s] did not match configuration [%s]",
+			cacert.Subject.Country, country)
+	}
+
 	//cleanup
-	err := cleanupFiles(ca.path)
+	err = cleanupFiles(ca.path)
 	if err != nil {
 		t.Logf("Failed removing [%s] [%s]\n", ca.path, err)
 	}
 
-}
-
-//check for file which we were expecting to create on the file system
-func checkForFiles(path string, files []string) error {
-
-	return nil
 }
 
 //cleanup files between and after tests

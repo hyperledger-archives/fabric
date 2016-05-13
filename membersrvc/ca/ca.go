@@ -138,11 +138,11 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 }
 
 func (spec *CertificateSpec) GetOrganization() string {
-	return "IBM"
+	return GetConfigString("pki.ca.subject.organization")
 }
 
 func (spec *CertificateSpec) GetCountry() string {
-	return "US"
+	return GetConfigString("pki.ca.subject.country")
 }
 
 func (spec *CertificateSpec) GetSubjectKeyId() *[]byte {
