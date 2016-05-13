@@ -123,10 +123,10 @@ func GetConfigInt(name string) int {
 // MemberRoleToString converts a member role representation from int32 to a string,
 // according to the Role enum defined in ca.proto.
 //
-func MemberRoleToString(roleInt int32) (string, error) {
+func MemberRoleToString(role pb.Role) (string, error) {
 	roleMap := pb.Role_name
 
-	roleStr := roleMap[roleInt]
+	roleStr := roleMap[int32(role)]
 	if roleStr == "" {
 		return "", errors.New("Undefined user role passed.")
 	}
