@@ -32,6 +32,8 @@ def after_scenario(context, scenario):
                         print("Cannot get logs for {0}. Docker rc = {1}".format(namepart,sys_rc))
     if 'doNotDecompose' in scenario.tags:
         print("Not going to decompose after scenario {0}, with yaml '{1}'".format(scenario.name, context.compose_yaml))
+    elif scenario.status =="failed":
+        print("Test failed")
     else:
         if 'compose_yaml' in context:
             fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)

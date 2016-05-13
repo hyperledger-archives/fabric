@@ -68,9 +68,6 @@ type Client interface {
 
 	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 	GetTCertificateHandlerFromDER(tCertDER []byte) (CertificateHandler, error)
-	
-	// ReadAttribute reads the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
 
 	// GetNextTCert gets next available (not yet used) transaction certificate.
 	GetNextTCert(attributes map[string]string) (tCert, error)

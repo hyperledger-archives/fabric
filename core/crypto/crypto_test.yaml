@@ -112,6 +112,8 @@ security:
       attributes:
         company: IBM
         position: "Software Engineer"
+      abac:
+        enabled: true
 
 ###############################################################################
 #

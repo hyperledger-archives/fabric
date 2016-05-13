@@ -31,6 +31,7 @@ import (
 	"crypto/rand"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/op/go-logging"
@@ -307,8 +308,13 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	if len(tcertDER) == 0 {
 		t.Fatalf("Cert should have length > 0")
 	}
-
-	attributeBytes, err := deployer.ReadAttribute("company", tcertDER)
+	
+	certificate, err := utils.DERToX509Certificate(tcertDER)
+	if err != nil {
+		t.Fatalf("Error creating certificate: [%s]", err)
+	}
+	
+	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), certificate)
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
