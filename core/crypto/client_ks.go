@@ -177,7 +177,7 @@ func (ks *keyStore) loadUnusedTCerts() ([]*TCertDBBlock, error) {
 			var tCertDER []byte
 			var attributeHash string
 			var prek0 [] byte
-			if err := rows.Scan(&attributeHash, &tCertDER, prek0); err != nil {
+			if err := rows.Scan(&attributeHash, &tCertDER, &prek0); err != nil {
 				ks.node.error("Error during scan [%s].", err)
 
 				continue

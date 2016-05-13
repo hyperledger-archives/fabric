@@ -28,7 +28,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/abac"
 
 	"golang.org/x/net/context"
 	"google/protobuf"
@@ -519,16 +518,4 @@ func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[st
 	}
 
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
-}
-
-// Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-	value, _ , err := abac.ReadTCertAttribute(tcert, attributeName, nil)
-	return value, err
 }
