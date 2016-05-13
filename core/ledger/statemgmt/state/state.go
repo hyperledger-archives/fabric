@@ -194,7 +194,7 @@ func (state *State) CopyState(sourceChaincodeID string, destChaincodeID string) 
 	for itr.Next() {
 		k, v := itr.GetKeyValue()
 		err := state.Set(destChaincodeID, k, v)
-		if err != nil{
+		if err != nil {
 			return err
 		}
 	}
@@ -204,9 +204,9 @@ func (state *State) CopyState(sourceChaincodeID string, destChaincodeID string) 
 // GetMultipleKeys returns the values for the multiple keys.
 func (state *State) GetMultipleKeys(chaincodeID string, keys []string, committed bool) ([][]byte, error) {
 	var values [][]byte
-	for _,k := range keys{
+	for _, k := range keys {
 		v, err := state.Get(chaincodeID, k, committed)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		values = append(values, v)
@@ -216,9 +216,9 @@ func (state *State) GetMultipleKeys(chaincodeID string, keys []string, committed
 
 // SetMultipleKeys sets the values for the multiple keys.
 func (state *State) SetMultipleKeys(chaincodeID string, kvs map[string][]byte) error {
-	for k,v := range kvs{
+	for k, v := range kvs {
 		err := state.Set(chaincodeID, k, v)
-		if err != nil{
+		if err != nil {
 			return err
 		}
 	}

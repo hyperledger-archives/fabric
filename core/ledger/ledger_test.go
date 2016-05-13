@@ -915,11 +915,11 @@ func TestLedgerEmptyArrayValue(t *testing.T) {
 
 	value, _ := l.GetState("chaincodeID1", "key1", true)
 	if value == nil || len(value) != 0 {
-		t.Fatal("An empty array expected in value. Found = %x", value)
+		t.Fatal("An empty array expected in value. Found = %#v", value)
 	}
 
 	value, _ = l.GetState("chaincodeID1", "non-existing-key", true)
 	if value != nil {
-		t.Fatal("A nil value expected. Found = %x", value)
+		t.Fatal("A nil value expected. Found = %#v", value)
 	}
 }
