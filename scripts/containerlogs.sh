@@ -19,5 +19,5 @@ echo "$file"
 cat $file | curl -sT - chunk.io
 
 done
-
+echo " >>>>> testsummary log file <<<< "
 cat testsummary.log | curl -sT - chunk.io
