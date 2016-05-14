@@ -17,15 +17,15 @@ limitations under the License.
 package consensus
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
-	StateUpdate(tag uint64, id []byte)
+	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error // Called serially with incoming messages from gRPC
+	StateUpdated(tag uint64, id []byte)                     // Called when state transfer completes, serial with StateUpdating
+	StateUpdating(tag uint64, id []byte)                    // Called when SkipTo causes state transfer to start serial with StateUpdated
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -55,32 +55,9 @@ type SecurityUtils interface {
 // ReadOnlyLedger is used for interrogating the blockchain
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() (uint64, error)
+	GetBlockchainSize() uint64
 	GetBlockchainInfoBlob() []byte
 	GetBlockHeadMetadata() ([]byte, error)
-}
-
-// UtilLedger contains additional useful utility functions for interrogating the blockchain
-type UtilLedger interface {
-	HashBlock(block *pb.Block) ([]byte, error)
-	VerifyBlockchain(start, finish uint64) (uint64, error)
-}
-
-// WritableLedger is useful for updating the blockchain during state transfer
-type WritableLedger interface {
-	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
-	CommitStateDelta(id interface{}) error
-	RollbackStateDelta(id interface{}) error
-	EmptyState() error
-}
-
-// Ledger is an unrestricted union of reads, utilities, and updates
-type Ledger interface {
-	ReadOnlyLedger
-	UtilLedger
-	WritableLedger
 }
 
 // Executor is used to invoke transactions, potentially modifying the backing ledger
@@ -94,13 +71,7 @@ type Executor interface {
 	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
-// RemoteLedgers is used to interrogate the blockchain of other replicas
-type RemoteLedgers interface {
-	GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
-}
-
+// StatePersistor is used to store consensus state which should survive a process crash
 type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
@@ -113,7 +84,6 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	Executor
-	Ledger
-	RemoteLedgers
+	ReadOnlyLedger
 	StatePersistor
 }

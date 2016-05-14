@@ -263,18 +263,30 @@ func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 	return nil
 }
 
+// This structure contain transaction data that we send to the chaincode
+// container shim and allow the chaincode to access through the shim interface.
+// TODO: Consider remove this message and just pass the transaction object
+// to the shim and/or allow the chaincode to query transactions.
 type ChaincodeSecurityContext struct {
-	CallerCert     []byte `protobuf:"bytes,1,opt,name=callerCert,proto3" json:"callerCert,omitempty"`
-	CallerSign     []byte `protobuf:"bytes,2,opt,name=callerSign,proto3" json:"callerSign,omitempty"`
-	Payload        []byte `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Binding        []byte `protobuf:"bytes,4,opt,name=binding,proto3" json:"binding,omitempty"`
-	Metadata       []byte `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	ParentMetadata []byte `protobuf:"bytes,6,opt,name=parentMetadata,proto3" json:"parentMetadata,omitempty"`
+	CallerCert     []byte                     `protobuf:"bytes,1,opt,name=callerCert,proto3" json:"callerCert,omitempty"`
+	CallerSign     []byte                     `protobuf:"bytes,2,opt,name=callerSign,proto3" json:"callerSign,omitempty"`
+	Payload        []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Binding        []byte                     `protobuf:"bytes,4,opt,name=binding,proto3" json:"binding,omitempty"`
+	Metadata       []byte                     `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	ParentMetadata []byte                     `protobuf:"bytes,6,opt,name=parentMetadata,proto3" json:"parentMetadata,omitempty"`
+	TxTimestamp    *google_protobuf.Timestamp `protobuf:"bytes,7,opt,name=txTimestamp" json:"txTimestamp,omitempty"`
 }
 
 func (m *ChaincodeSecurityContext) Reset()         { *m = ChaincodeSecurityContext{} }
 func (m *ChaincodeSecurityContext) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeSecurityContext) ProtoMessage()    {}
+
+func (m *ChaincodeSecurityContext) GetTxTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.TxTimestamp
+	}
+	return nil
+}
 
 type ChaincodeMessage struct {
 	Type            ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`

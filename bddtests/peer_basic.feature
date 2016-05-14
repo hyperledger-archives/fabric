@@ -10,7 +10,7 @@
 #@chaincodeImagesUpToDate
 Feature: lanching 3 peers
     As a HyperLedger developer
-    I want to be able to launch a 3 peers
+    I want to be able to launch 3 peers
 
 #    @wip
   Scenario: Peers list test, single peer issue #827

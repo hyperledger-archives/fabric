@@ -18,6 +18,7 @@ package obcpbft
 
 import (
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 
@@ -66,9 +67,51 @@ func TestNetworkBatch(t *testing.T) {
 		if nil != err {
 			t.Fatalf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
 		}
-		if numTrans := len(block.Transactions); numTrans != batchSize {
+		numTrans := len(block.Transactions)
+		if numTrans != batchSize {
 			t.Fatalf("Replica %d executed %d requests, expected %d",
 				ce.id, numTrans, batchSize)
+		}
+		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 /*numTrans*/ {
+			t.Fatalf("Replica %d has %d txResults, expected %d", ce.id, numTxResults, numTrans)
+		}
+	}
+}
+
+func TestBatchCustody(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+		config.Set("general.batchsize", "2")
+		config.Set("general.timeout.batch", "500ms")
+		config.Set("general.timeout.request", "800ms")
+		config.Set("general.timeout.viewchange", "1600ms")
+		return newObcBatch(id, config, stack)
+	})
+	net.filterFn = func(src int, dst int, payload []byte) []byte {
+		logger.Info("msg from %d to %d", src, dst)
+		if src == 0 {
+			return nil
+		}
+		return payload
+	}
+
+	go net.processContinually()
+	r2 := net.endpoints[2].(*consumerEndpoint).consumer
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
+	r2.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[1].getHandle())
+	time.Sleep(6 * time.Second)
+	net.stop()
+
+	for i, inst := range net.endpoints {
+		// Don't care about byzantine node 0
+		if i == 0 {
+			continue
+		}
+		inst := inst.(*consumerEndpoint)
+		_, err := inst.consumer.(*obcBatch).stack.GetBlock(1)
+		if err != nil {
+			t.Errorf("Expected replica %d to have one block", inst.id)
+			continue
 		}
 	}
 }

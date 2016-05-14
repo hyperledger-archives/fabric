@@ -105,7 +105,7 @@ func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
 	handler.Lock()
 	defer handler.Unlock()
 	if err := handler.ChatStream.Send(msg); err != nil {
-		chaincodeLog.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
+		chaincodeLogger.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
 	}
 	return nil
@@ -265,7 +265,7 @@ func (handler *Handler) processStream() error {
 				chaincodeLogger.Debug("Received EOF, ending chaincode support stream, %s", err)
 				return err
 			} else if err != nil {
-				chaincodeLog.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
+				chaincodeLogger.Error(fmt.Sprintf("Error handling chaincode support stream: %s", err))
 				return err
 			} else if in == nil {
 				err = fmt.Errorf("Received nil message, ending chaincode support stream")
@@ -290,7 +290,7 @@ func (handler *Handler) processStream() error {
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
-			chaincodeLog.Error(fmt.Sprintf("[%s]Error handling message, ending stream: %s", shortuuid(in.Uuid), err))
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error handling message, ending stream: %s", shortuuid(in.Uuid), err))
 			return fmt.Errorf("Error handling message, ending stream: %s", err)
 		}
 		if nsInfo != nil && nsInfo.sendToCC {
@@ -1012,14 +1012,21 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			// Execute the chaincode
 			//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
 			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
-			err = execErr
-			res = response.Payload
+
+			//payload is marshalled and send to the calling chaincode's shim which unmarshals and
+			//sends it to chaincode
+			res = nil
+			if execErr != nil {
+				err = execErr
+			} else {
+				res, err = proto.Marshal(response)
+			}
 		}
 
 		if err != nil {
 			// Send error msg back to chaincode and trigger event
 			payload := []byte(err.Error())
-			chaincodeLogger.Debug("[%s]Failed to handle %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Failed to handle %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_ERROR))
 			triggerNextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -1164,7 +1171,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 
 			msg.SecurityContext.Payload = ctorMsgRaw
 		}
-
+		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}
 	return nil
 }
@@ -1278,8 +1285,17 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		}
 
 		// Send response msg back to chaincode.
-		chaincodeLogger.Debug("[%s]Completed %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
-		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: response.Payload, Uuid: msg.Uuid}
+
+		//this is need to send the payload directly to calling chaincode without
+		//interpreting (in particular, don't look for errors)
+		if respBytes, err := proto.Marshal(response); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error marshaling response. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR))
+			payload := []byte(execErr.Error())
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		} else {
+			chaincodeLogger.Debug("[%s]Completed %s. Sending %s", shortuuid(msg.Uuid), msg.Type.String(), pb.ChaincodeMessage_RESPONSE)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: respBytes, Uuid: msg.Uuid}
+		}
 	}()
 }
 

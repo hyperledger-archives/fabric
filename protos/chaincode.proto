@@ -97,6 +97,10 @@ message ChaincodeInvocationSpec {
 
 }
 
+// This structure contain transaction data that we send to the chaincode
+// container shim and allow the chaincode to access through the shim interface.
+// TODO: Consider remove this message and just pass the transaction object
+// to the shim and/or allow the chaincode to query transactions.
 message ChaincodeSecurityContext {
     bytes callerCert = 1;
     bytes callerSign = 2;
@@ -104,6 +108,7 @@ message ChaincodeSecurityContext {
     bytes binding = 4;
     bytes metadata = 5;
     bytes parentMetadata = 6;
+    google.protobuf.Timestamp txTimestamp = 7; // transaction timestamp
 }
 
 message ChaincodeMessage {

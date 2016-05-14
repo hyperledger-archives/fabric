@@ -425,6 +425,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {
+		logger.Debug("Replica %d is now primary, attempting to resubmit requests", instance.id)
 		instance.resubmitRequests()
 	}
 

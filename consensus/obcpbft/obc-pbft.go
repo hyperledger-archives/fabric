@@ -18,10 +18,10 @@ package obcpbft
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
@@ -81,8 +81,8 @@ func loadConfig() (config *viper.Viper) {
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-	    obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
-	    config.AddConfigPath(obcpbftpath)
+		obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
+		config.AddConfigPath(obcpbftpath)
 	}
 
 	err := config.ReadInConfig()
@@ -127,6 +127,7 @@ func getValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
 
 type obcGeneric struct {
 	stack consensus.Stack
+	pbft  *pbftCore
 }
 
 func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
@@ -145,4 +146,14 @@ func (op *obcGeneric) getLastSeqNo() (uint64, error) {
 	meta := &Metadata{}
 	proto.Unmarshal(raw, meta)
 	return meta.SeqNo, nil
+}
+
+// StateUpdated is a signal from the stack that it has fast-forwarded its state
+func (op *obcGeneric) StateUpdated(seqNo uint64, id []byte) {
+	op.pbft.stateUpdated(seqNo, id)
+}
+
+// StateUpdating is a signal from the stack that state transfer has started
+func (op *obcGeneric) StateUpdating(seqNo uint64, id []byte) {
+	op.pbft.stateUpdating(seqNo, id)
 }

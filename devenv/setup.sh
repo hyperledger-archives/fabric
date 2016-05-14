@@ -70,7 +70,7 @@ esac
 apt-get install -y linux-image-extra-$(uname -r) apparmor docker-engine
 
 # Configure docker
-echo "DOCKER_OPTS=\"-s=${DOCKER_STORAGE_BACKEND_STRING} -r=true --api-cors-header='*' -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock ${DOCKER_OPTS}\"" > /etc/default/docker
+echo "DOCKER_OPTS=\"-s=${DOCKER_STORAGE_BACKEND_STRING} -r=true --api-cors-header='*' -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock ${DOCKER_OPTS}\"" > /etc/default/docker
 
 curl -L https://github.com/docker/compose/releases/download/1.5.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
@@ -79,8 +79,6 @@ usermod -a -G docker vagrant # Add vagrant user to the docker group
 
 # Test docker
 docker run --rm busybox echo All good
-
-/hyperledger/scripts/provision/docker.sh $BASEIMAGE_RELEASE
 
 # Run our common setup
 /hyperledger/scripts/provision/common.sh
@@ -111,10 +109,6 @@ PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 #install golang deps
 ./installGolang.sh
 
-# Run go install - CGO flags for RocksDB
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install
-
 # Copy protobuf dir so we can build the protoc-gen-go binary. Then delete the directory.
 mkdir -p $GOPATH/src/github.com/golang/protobuf/
 cp -r $GOPATH/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $GOPATH/src/github.com/golang/
@@ -143,3 +137,7 @@ cat <<EOF >/etc/profile.d/vagrant-devenv.sh
 export PATH=\$PATH:/hyperledger/devenv/tools
 export VAGRANT=1
 EOF
+
+# Build the actual hyperledger peer
+cd $GOPATH/src/github.com/hyperledger/fabric
+make clean peer

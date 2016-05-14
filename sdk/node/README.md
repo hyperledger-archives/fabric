@@ -43,7 +43,7 @@ To run the unit tests follow the instructions below.
     ```
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     go build
-    ./peer peer  
+    ./peer node start
     ```
 
 3. Switch to the HCL directory and install the necessary Node.js module dependencies.

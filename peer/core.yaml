@@ -41,7 +41,7 @@ logging:
     # defined at runtime and are not checked for validity during option
     # processing.
 
-    # Default logging levels are specified here for each of the obc-peer
+    # Default logging levels are specified here for each of the peer
     # commands. For commands that have subcommands, the defaults also apply to
     # all subcommands of the command. These logging levels can be overridden
     # on the command line using the --logging-level command-line option, or by
@@ -91,7 +91,7 @@ peer:
     networkId: dev
 
     Dockerfile:  |
-        from openblockchain/baseimage:latest
+        from hyperledger/fabric-baseimage:latest
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/hyperledger/db
@@ -222,7 +222,7 @@ peer:
         enabled:    true
 
         # number of workers that
-        # tastes the peers for being
+        # test the peers for being
         # online [1..10]
         workers: 8
 
@@ -252,8 +252,8 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
-    # tcp://localhost:2376
+    # http://localhost:2375
+    # https://localhost:2376
     endpoint: unix:///var/run/docker.sock
 
     # settings for docker vms
@@ -289,7 +289,7 @@ chaincode:
         # This is the basis for the Golang Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from openblockchain/baseimage
+            from hyperledger/fabric-baseimage
             #from utxo:0.1.0
             COPY src $GOPATH/src
             WORKDIR $GOPATH
@@ -299,7 +299,7 @@ chaincode:
         # This is the basis for the CAR Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            FROM openblockchain/baseimage
+            FROM hyperledger/fabric-baseimage
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
