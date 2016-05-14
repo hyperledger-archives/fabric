@@ -36,7 +36,7 @@ check whether logging modules actually do or will exist.
 The logging level of the `peer` command can be controlled from the command
 line for each invocation using the `--logging-level` flag, for example
 
-    peer peer --logging-level=debug
+    peer node start --logging-level=debug
 	
 The default logging level for each individual `peer` subcommand can also
 be set in the **openchain.yaml** file. For example the key `logging.peer` sets

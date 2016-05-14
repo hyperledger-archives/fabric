@@ -82,12 +82,13 @@ type checkpointMessage struct {
 
 type pbftCore struct {
 	// internal data
-	internalLock     sync.Mutex
-	executing        bool                    // signals that application is executing
-	closed           chan struct{}           // informs the main thread to exit (never written to, only closed)
-	incomingChan     chan *pbftMessage       // informs the main thread of new messages
-	stateUpdateChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
-	execCompleteChan chan struct{}           // informs the main thread an execution has finished
+	internalLock      sync.Mutex
+	executing         bool                    // signals that application is executing
+	closed            chan struct{}           // informs the main thread to exit (never written to, only closed)
+	incomingChan      chan *pbftMessage       // informs the main thread of new messages
+	stateUpdatedChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
+	stateUpdatingChan chan *checkpointMessage // informs the main thread the state update has started (via state transfer)
+	execCompleteChan  chan struct{}           // informs the main thread an execution has finished
 
 	idleChan   chan struct{} // Used to detect idleness for testing
 	injectChan chan func()   // Used as a hack to inject work onto the PBFT thread, to be removed eventually
@@ -185,7 +186,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.consumer = consumer
 	instance.closed = make(chan struct{})
 	instance.incomingChan = make(chan *pbftMessage)
-	instance.stateUpdateChan = make(chan *checkpointMessage)
+	instance.stateUpdatedChan = make(chan *checkpointMessage)
+	instance.stateUpdatingChan = make(chan *checkpointMessage)
 	instance.execCompleteChan = make(chan struct{})
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
@@ -281,12 +283,16 @@ func (instance *pbftCore) main() {
 		case msg := <-instance.incomingChan:
 			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 			instance.recvMsg(msg.msg, msg.sender)
-		case update := <-instance.stateUpdateChan:
+		case update := <-instance.stateUpdatingChan:
+			instance.skipInProgress = true
+			instance.lastExec = update.seqNo
+			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+		case update := <-instance.stateUpdatedChan:
 			seqNo := update.seqNo
 			logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
 			// XXX create checkpoint
 			instance.lastExec = seqNo
-			instance.moveWatermarks(instance.lastExec) // XXX should be checkpoint, not lastExec
+			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 			instance.skipInProgress = false
 			instance.executeOutstanding()
 		case <-instance.execCompleteChan:
@@ -460,9 +466,18 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 }
 
 // stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
+func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.stateUpdateChan <- &checkpointMessage{
+	instance.stateUpdatedChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
+}
+
+// stateUpdate is an event telling us that the application fast-forwarded its state
+func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
+	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
+	instance.stateUpdatingChan <- &checkpointMessage{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -1013,10 +1028,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	if instance.skipInProgress {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		instance.moveWatermarks(chkpt.SequenceNumber)
-		instance.lastExec = chkpt.SequenceNumber
-		instance.activeView = true // TODO, verify this with experts
-		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+		// The view should not be set to active, this should be handled by the yet unimplimented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
+		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
 	}
 }
 

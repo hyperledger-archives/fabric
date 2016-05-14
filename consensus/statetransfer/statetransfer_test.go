@@ -52,7 +52,7 @@ func newTestStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *S
 }
 
 func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
-	return ThreadlessNewStateTransferState(newPartialStack(ml, rld))
+	return threadlessNewStateTransferState(newPartialStack(ml, rld))
 }
 
 type MockRemoteHashLedgerDirectory struct {
@@ -83,7 +83,6 @@ func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, 
 		mrls.GetMockRemoteLedgerByPeerID(&peerID).blockHeight = blockNumber + 1
 	}
 
-	sts.Initiate(nil)
 	result := sts.CompletionChannel()
 
 	blockHash := SimpleGetBlockHash(blockNumber)
@@ -173,7 +172,6 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 	// Test from blockheight of 1, with valid genesis block
 	ml := NewMockLedger(mrls, func(request mockRequest, peerID *protos.PeerID) mockResponse {
 		if request == SyncDeltas {
-			fmt.Println("ASDF")
 			deltasTransferred = true
 		}
 
@@ -272,8 +270,6 @@ func TestCatchupSyncBlocksAllErrors(t *testing.T) {
 
 		sts.RegisterListener(protoListener)
 
-		sts.Initiate(nil)
-
 		blockHash := SimpleGetBlockHash(blockNumber)
 		sts.AddTarget(blockNumber, blockHash, nil, nil)
 
@@ -284,7 +280,7 @@ func TestCatchupSyncBlocksAllErrors(t *testing.T) {
 		}
 
 		succeeding.triggered = true
-		sts.AddTarget(blockNumber, blockHash, nil, nil)
+		go sts.AddTarget(blockNumber, blockHash, nil, nil)
 
 		<-failChannel // Unblock state transfer
 
@@ -380,7 +376,6 @@ func TestCatchupSimpleSynchronous(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 	sts := newTestStateTransfer(ml, mrls)
 	defer sts.Stop()
-	sts.Initiate(nil)
 	if err := sts.BlockingAddTarget(7, SimpleGetBlockHash(7), nil); nil != err {
 		t.Fatalf("SimpleSynchronous state transfer failed : %s", err)
 	}
@@ -402,7 +397,6 @@ func TestCatchupSimpleSynchronousSuccess(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		sts.Initiate(nil)
 		sts.BlockingUntilSuccessAddTarget(7, SimpleGetBlockHash(7), nil)
 		done <- struct{}{}
 	}()
@@ -423,7 +417,7 @@ func executeBlockRecovery(ml *MockLedger, millisTimeout int, mrls *MockRemoteHas
 	w := make(chan struct{})
 
 	go func() {
-		for !sts.VerifyAndRecoverBlockchain() {
+		for !sts.verifyAndRecoverBlockchain() {
 		}
 		w <- struct{}{}
 	}()
@@ -455,7 +449,7 @@ func executeBlockRecoveryWithPanic(ml *MockLedger, millisTimeout int, mrls *Mock
 			recover()
 			w <- true
 		}()
-		for !sts.VerifyAndRecoverBlockchain() {
+		for !sts.verifyAndRecoverBlockchain() {
 		}
 		w <- false
 	}()
@@ -543,16 +537,14 @@ func TestCatchupCorruptChains(t *testing.T) {
 
 type listenerHelper struct {
 	resultChannel chan struct{}
+	ProtoListener
 }
 
-func (lh *listenerHelper) Initiated() {}
 func (lh *listenerHelper) Errored(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
 	select {
 	case lh.resultChannel <- struct{}{}:
 	default:
 	}
-}
-func (lh *listenerHelper) Completed(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
 }
 
 func TestRegisterUnregisterListener(t *testing.T) {
@@ -564,15 +556,15 @@ func TestRegisterUnregisterListener(t *testing.T) {
 	defer sts.Stop()
 	sts.DiscoveryThrottleTime = 1 * time.Millisecond
 
-	l1 := &listenerHelper{make(chan struct{})}
-	l2 := &listenerHelper{make(chan struct{})}
+	l1 := &listenerHelper{resultChannel: make(chan struct{})}
+	l2 := &listenerHelper{resultChannel: make(chan struct{})}
 
 	sts.RegisterListener(l1)
 	sts.RegisterListener(l2)
 
 	// Will cause an immediate error loop of errors on state sync, as there are no peerIDs
 	sts.InvalidateState()
-	sts.Initiate(nil)
+	sts.AddTarget(10, []byte("DUMMY"), nil, nil)
 
 	select {
 	case <-l1.resultChannel:
@@ -607,7 +599,7 @@ func TestIdle(t *testing.T) {
 
 	idle := make(chan struct{})
 	go func() {
-		sts.BlockUntilIdle()
+		sts.blockUntilIdle()
 		idle <- struct{}{}
 	}()
 
@@ -617,7 +609,7 @@ func TestIdle(t *testing.T) {
 		t.Fatalf("Timed out waiting for state transfer to become idle")
 	}
 
-	if !sts.IsIdle() {
+	if !sts.isIdle() {
 		t.Fatalf("State transfer unblocked from idle but did not remain that way")
 	}
 }

@@ -17,6 +17,9 @@ limitations under the License.
 package obcpbft
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -35,8 +38,9 @@ func (ce *consumerEndpoint) stop() {
 }
 
 func (ce *consumerEndpoint) isBusy() bool {
-	if ce.consumer.getPBFTCore().timerActive || ce.consumer.getPBFTCore().currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or currentExec\n")
+	pbft := ce.consumer.getPBFTCore()
+	if pbft.timerActive || pbft.skipInProgress || pbft.currentExec != nil {
+		ce.net.debugMsg("Reporting busy because of timer or skipInProgress or currentExec\n")
 		return true
 	}
 
@@ -67,15 +71,28 @@ type completeStack struct {
 	*noopSecurity
 	*MockLedger
 	mockPersist
+	skipTarget chan struct{}
 }
 
+const MaxStateTransferTime int = 200
+
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
-	go func() {
-		meta := &Metadata{tag}
-		metaRaw, _ := proto.Marshal(meta)
-		cs.simulateStateTransfer(metaRaw, id, peers)
-		cs.consumer.StateUpdate(tag, id)
-	}()
+	select {
+	// This guarantees the first SkipTo call is the one that's queued, whereas a mutex can be raced for
+	case cs.skipTarget <- struct{}{}:
+		go func() {
+			cs.consumer.StateUpdating(tag, id)
+			// State transfer takes time, not simulating this hides bugs
+			time.Sleep(time.Duration((MaxStateTransferTime/2)+rand.Intn(MaxStateTransferTime/2)) * time.Millisecond)
+			meta := &Metadata{tag}
+			metaRaw, _ := proto.Marshal(meta)
+			cs.simulateStateTransfer(metaRaw, id, peers)
+			cs.consumer.StateUpdated(tag, id)
+			<-cs.skipTarget // Basically like releasing a mutex
+		}()
+	default:
+		cs.net.debugMsg("Ignoring skipTo because one is already in progress\n")
+	}
 }
 
 type pbftConsumer interface {
@@ -115,6 +132,7 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 			consumerEndpoint: ce,
 			noopSecurity:     &noopSecurity{},
 			MockLedger:       ml,
+			skipTarget:       make(chan struct{}, 1),
 		}
 
 		ce.consumer = makeConsumer(id, loadConfig(), cs)

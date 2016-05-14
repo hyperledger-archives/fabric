@@ -32,8 +32,6 @@ import (
 
 type obcSieve struct {
 	obcGeneric
-	stack consensus.Stack
-	pbft  *pbftCore
 
 	id             uint64
 	epoch          uint64
@@ -56,11 +54,12 @@ type obcSieve struct {
 
 	persistForward
 
-	executeChan      chan *pbftExecute       // Written to by a go routine from PBFT execute method
-	incomingChan     chan *msgWithSender     // Written to by RecvMsg
-	custodyTimerChan chan custodyInfo        // Written to by Complaint
-	stateUpdateChan  chan *checkpointMessage // Written to by StateUpdate
-	idleChan         chan struct{}           // Used for detecting thread idleness for testing
+	executeChan       chan *pbftExecute       // Written to by a go routine from PBFT execute method
+	incomingChan      chan *msgWithSender     // Written to by RecvMsg
+	custodyTimerChan  chan custodyInfo        // Written to by Complaint
+	stateUpdatedChan  chan *checkpointMessage // Written to by StateUpdate
+	stateUpdatingChan chan *checkpointMessage // Written to by StateUpdate
+	idleChan          chan struct{}           // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -75,8 +74,7 @@ type msgWithSender struct {
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
-		obcGeneric: obcGeneric{stack},
-		stack:      stack,
+		obcGeneric: obcGeneric{stack: stack},
 		id:         id,
 	}
 	op.queuedExec = make(map[uint64]*Execute)
@@ -91,7 +89,8 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.executeChan = make(chan *pbftExecute)
 	op.incomingChan = make(chan *msgWithSender)
 	op.custodyTimerChan = make(chan custodyInfo)
-	op.stateUpdateChan = make(chan *checkpointMessage)
+	op.stateUpdatedChan = make(chan *checkpointMessage)
+	op.stateUpdatingChan = make(chan *checkpointMessage)
 
 	op.idleChan = make(chan struct{})
 
@@ -617,12 +616,14 @@ func (op *obcSieve) main() {
 			logger.Debug("Sieve replica %d requested to stop", op.id)
 			close(op.idleChan)
 			return
-		case update := <-op.stateUpdateChan:
+		case update := <-op.stateUpdatingChan:
+			op.pbft.stateUpdating(update.seqNo, update.id)
+		case update := <-op.stateUpdatedChan:
 			op.restoreBlockNumber()
 
 			op.lastExecPbftSeqNo = update.seqNo
 
-			op.pbft.stateUpdate(update.seqNo, update.id)
+			op.pbft.stateUpdated(update.seqNo, update.id)
 
 			if op.execOutstanding {
 				op.pbft.execDone()
@@ -800,9 +801,17 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.sync(seqNo, id, replicas)
 }
 
-// StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
-	op.stateUpdateChan <- &checkpointMessage{
+// StateUpdated is a signal from the stack that it has fast-forwarded its state
+func (op *obcSieve) StateUpdated(seqNo uint64, id []byte) {
+	op.stateUpdatedChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
+}
+
+// StateUpdating is a signal from the stack that state transfer has started
+func (op *obcSieve) StateUpdating(seqNo uint64, id []byte) {
+	op.stateUpdatingChan <- &checkpointMessage{
 		seqNo: seqNo,
 		id:    id,
 	}
