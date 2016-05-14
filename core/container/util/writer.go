@@ -20,12 +20,13 @@ import (
 	"archive/tar"
 	"bufio"
 	"fmt"
-	"github.com/op/go-logging"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 var vmLogger = logging.MustGetLogger("container")
