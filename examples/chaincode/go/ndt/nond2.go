@@ -52,7 +52,7 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 	//seed random once
 	rand.Seed(time.Now().UnixNano())
 	B := rand.Int63()
-
+	fmt.Printf("Seed Number = ", B)
 
 	Bval, err = strconv.Atoi(args[3])
 	if err != nil {
