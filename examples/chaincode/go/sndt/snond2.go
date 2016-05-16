@@ -59,7 +59,7 @@ func (t *SimpleChaincode) init(stub *shim.ChaincodeStub, args []string) ([]byte,
 	} else {
 		B = 2001
 	}
-	fmt.Println(B)
+	fmt.Println("Seed Number =", B)
 
 	Bval, err = strconv.Atoi(args[3])
 	if err != nil {
