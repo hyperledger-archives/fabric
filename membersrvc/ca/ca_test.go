@@ -38,7 +38,7 @@ func TestNewCA(t *testing.T) {
 
 	//init the crypto layer
 	if err := crypto.Init(); err != nil {
-		t.Errorf("Failed initializing the crypto layer [%s]%", err)
+		t.Errorf("Failed initializing the crypto layer [%s]", err)
 	}
 
 	//initialize logging to avoid panics in the current code
