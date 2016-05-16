@@ -20,12 +20,13 @@ import (
 	"archive/tar"
 	"bufio"
 	"fmt"
-	"github.com/op/go-logging"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 var vmLogger = logging.MustGetLogger("container")
@@ -69,7 +70,6 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
 		//newPath := path[len(rootDirectory):]
 
-		vmLogger.Debug("writing file %s to %s", path, newPath)
 		err = WriteFileToPackage(path, newPath, tw)
 		if err != nil {
 			return fmt.Errorf("Error writing file to package: %s", err)
