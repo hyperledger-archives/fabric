@@ -2,4 +2,4 @@ vp:
   build: .
   environment:
     - CORE_PEER_ADDRESSAUTODETECT=true
-  command: peer peer
+  command: peer node start

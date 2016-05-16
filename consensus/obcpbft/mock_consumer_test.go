@@ -1,25 +1,25 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -38,8 +38,9 @@ func (ce *consumerEndpoint) stop() {
 }
 
 func (ce *consumerEndpoint) isBusy() bool {
-	if ce.consumer.getPBFTCore().timerActive || ce.consumer.getPBFTCore().currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or currentExec\n")
+	pbft := ce.consumer.getPBFTCore()
+	if pbft.timerActive || pbft.skipInProgress || pbft.currentExec != nil {
+		ce.net.debugMsg("Reporting busy because of timer or skipInProgress or currentExec\n")
 		return true
 	}
 
@@ -70,15 +71,28 @@ type completeStack struct {
 	*noopSecurity
 	*MockLedger
 	mockPersist
+	skipTarget chan struct{}
 }
 
+const MaxStateTransferTime int = 200
+
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
-	go func() {
-		meta := &Metadata{tag}
-		metaRaw, _ := proto.Marshal(meta)
-		cs.simulateStateTransfer(metaRaw, id, peers)
-		cs.consumer.StateUpdate(tag, id)
-	}()
+	select {
+	// This guarantees the first SkipTo call is the one that's queued, whereas a mutex can be raced for
+	case cs.skipTarget <- struct{}{}:
+		go func() {
+			cs.consumer.StateUpdating(tag, id)
+			// State transfer takes time, not simulating this hides bugs
+			time.Sleep(time.Duration((MaxStateTransferTime/2)+rand.Intn(MaxStateTransferTime/2)) * time.Millisecond)
+			meta := &Metadata{tag}
+			metaRaw, _ := proto.Marshal(meta)
+			cs.simulateStateTransfer(metaRaw, id, peers)
+			cs.consumer.StateUpdated(tag, id)
+			<-cs.skipTarget // Basically like releasing a mutex
+		}()
+	default:
+		cs.net.debugMsg("Ignoring skipTo because one is already in progress\n")
+	}
 }
 
 type pbftConsumer interface {
@@ -111,14 +125,14 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 			testEndpoint: tep,
 		}
 
-		ml := NewMockLedger(&twl, nil)
-		ml.PutBlock(0, SimpleGetBlock(0)) // Initialize a genesis block
+		ml := NewMockLedger(&twl)
 		twl.mockLedgers[id] = ml
 
 		cs := &completeStack{
 			consumerEndpoint: ce,
 			noopSecurity:     &noopSecurity{},
 			MockLedger:       ml,
+			skipTarget:       make(chan struct{}, 1),
 		}
 
 		ce.consumer = makeConsumer(id, loadConfig(), cs)
