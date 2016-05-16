@@ -341,12 +341,14 @@ func startOpenchain(t *testing.T) error {
 		return secHelper
 	}
 
+	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
+
 	if viper.GetBool("peer.validator.enabled") {
 		t.Logf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, _ = peer.NewPeerWithHandler(secHelperFunc, helper.NewConsensusHandler)
+		peerServer, _ = peer.NewPeerWithHandler(secHelperFunc, helper.NewConsensusHandler, discInstance)
 	} else {
 		t.Log("Running as non-validating peer")
-		peerServer, _ = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
+		peerServer, _ = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
 	}
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
@@ -373,12 +375,12 @@ func startOpenchain(t *testing.T) error {
 	// Create and register the REST service
 	go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 
-	rootNode, err := core.GetRootNode()
+	rootNode := discInstance.GetRootNodes()
 	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
+		grpclog.Fatalf("Failed to get peer.discovery.rootnode value: %s", err)
 	}
 
-	t.Logf("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+	t.Logf("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%v, validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
 

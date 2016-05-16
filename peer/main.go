@@ -399,6 +399,7 @@ func serve(args []string) error {
 		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 		viper.Set("validator.validity-period.verification", "false")
 	}
+
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
@@ -456,6 +457,8 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
+	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
+
 	//create the peerServer....
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
@@ -464,10 +467,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
 	}
 
 	if err != nil {
@@ -501,14 +504,11 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := core.GetRootNode()
-	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
-	}
+	rootNodes := discInstance.GetRootNodes()
 
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNode, peer.ValidatorEnabled())
+		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
