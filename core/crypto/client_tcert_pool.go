@@ -27,6 +27,4 @@ type tCertPool interface {
 	
 	AddTCert(tCertBlock *TCertBlock) (err error) 
 	
-	CalculateAttributesHash(attributes map[string]string) (attrHash string)
-
 }

@@ -60,7 +60,7 @@ logging:
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
     peer:      debug
-    crypto:    info
+    crypto:    debug
     status:    warning
     stop:      warning
     login:     warning
@@ -420,6 +420,9 @@ security:
         size:  200
     abac:
       enabled: false
+    multithreading:
+      enabled: false
+    
 
 
 ################################################################################
