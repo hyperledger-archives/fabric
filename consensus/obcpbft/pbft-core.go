@@ -43,7 +43,7 @@ func init() {
 }
 
 const (
-	// An ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
+	// UnreasonableTimeout is an ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
 	UnreasonableTimeout = 100 * time.Hour
 )
 
@@ -611,9 +611,9 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}})
 			return instance.maybeSendCommit(digest, instance.view, n)
-		} else {
-			logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		}
+
+		logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 	} else {
 		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
 	}
