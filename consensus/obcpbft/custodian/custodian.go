@@ -22,7 +22,15 @@ package custodian
 import (
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
 )
+
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/obcpbft/custodian")
+}
 
 type custody struct {
 	id       string
@@ -65,7 +73,6 @@ func New(timeout time.Duration, notifyCb CustodyNotify) *Custodian {
 	c.timer = time.NewTimer(time.Hour)
 	c.timer.Stop()
 	c.stopCh = make(chan struct{})
-	go c.notifyRoutine()
 	return c
 }
 
@@ -82,6 +89,7 @@ func (c *Custodian) Register(id string, data interface{}) {
 		data:     data,
 		deadline: time.Now().Add(c.timeout),
 	}
+	logger.Debug("Registering %s into custody with timeout %v", id, obj.deadline)
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.requests[obj.id] = obj
@@ -148,34 +156,39 @@ func (c *Custodian) resetTimer() {
 		diff = 0
 	}
 	c.timer.Reset(diff)
+	logger.Debug("Resetting timer to %v", diff)
+	go c.notifyRoutine()
 }
 
 func (c *Custodian) notifyRoutine() {
-	for {
-		select {
-		case <-c.timer.C:
-			break
-		case <-c.stopCh:
-			c.stopCh = nil
-			return
+	select {
+	case <-c.timer.C:
+		logger.Debug("Custodian timer expired")
+		break
+	case <-c.stopCh:
+		c.stopCh = nil
+		return
+	}
+	c.lock.Lock()
+	var expired *CustodyPair
+	for i, obj := range c.seq {
+		if obj.deadline.After(time.Now()) {
+			continue
 		}
-		c.lock.Lock()
-		var expired []CustodyPair
-		for _, obj := range c.seq {
-			if obj.deadline.After(time.Now()) {
-				break
-			}
-			if !obj.canceled {
-				expired = append(expired, CustodyPair{obj.id, obj.data})
-			}
-			delete(c.requests, obj.id)
-			c.seq = c.seq[1:]
+		if !obj.canceled {
+			expired = &CustodyPair{obj.id, obj.data}
 		}
-		c.resetTimer()
-		c.lock.Unlock()
+		delete(c.requests, obj.id)
+		c.seq[i] = c.seq[0]
+		c.seq = c.seq[1:]
+		break
+	}
+	c.lock.Unlock()
 
-		for _, data := range expired {
-			c.notifyCb(data.ID, data.Data)
-		}
+	if expired != nil {
+		// re-Register the expired request so that it remains in the store until manually removed
+		c.Register(expired.ID, expired.Data)
+
+		c.notifyCb(expired.ID, expired.Data)
 	}
 }

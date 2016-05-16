@@ -691,7 +691,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		instance.reqStore[digest] = preprep.Request
-		logger.Debug("Replica %d storing request %s in oustanding request store", instance.id, digest)
+		logger.Debug("Replica %d storing request %s in outstanding request store", instance.id, digest)
 		instance.outstandingReqs[digest] = preprep.Request
 		instance.persistRequest(digest)
 	}
@@ -812,8 +812,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
+		logger.Debug("Replica %d not attempting to executeOutstanding because a it is currently executing", instance.id)
 		return
 	}
+	logger.Debug("Replica %d attempting to executeOutstanding", instance.id)
 
 	for idx := range instance.certStore {
 		if instance.executeOne(idx) {
@@ -821,7 +823,7 @@ func (instance *pbftCore) executeOutstanding() {
 		}
 	}
 
-	logger.Debug("replica %d certstore %+v", instance.id, instance.certStore)
+	logger.Debug("Replica %d certstore %+v", instance.id, instance.certStore)
 
 	return
 }

@@ -40,6 +40,7 @@ type obcBatch struct {
 	incomingChan     chan *batchMessage // Queues messages for processing by main thread
 	custodyTimerChan chan custodyInfo   // Queues complaints
 	execChan         chan *execInfo     // Signals an execution event
+	viewChanged      chan struct{}      // Signals that a view change has occurred
 	idleChan         chan struct{}      // Used in unit testing to check for idleness
 
 	complainer   *complainer
@@ -96,6 +97,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.batchTimer.Stop()
 
 	op.idleChan = make(chan struct{})
+	op.viewChanged = make(chan struct{})
 
 	go op.main()
 	return op
@@ -115,6 +117,7 @@ func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 
 // Complain is necessary to implement complaintHandler
 func (op *obcBatch) Complain(hash string, req *Request, primaryFail bool) {
+	logger.Debug("Replica %d processing complaint from custodian", op.pbft.id)
 	op.custodyTimerChan <- custodyInfo{hash, req, primaryFail}
 }
 
@@ -211,6 +214,8 @@ func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 		return
 	}
 
+	logger.Debug("Batch replica %d received exec for seqNo %d", op.pbft.id, seqNo)
+
 	var txs []*pb.Transaction
 
 	for _, req := range reqs.Requests {
@@ -242,19 +247,18 @@ func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 	op.pbft.execDone()
 }
 
-// signal when a view-change happened
+// signal when a view-change happened, this is the PBFT thread, don't modify internal state and give it back!
 func (op *obcBatch) viewChange(curView uint64) {
-	if op.batchTimerActive {
-		op.stopBatchTimer()
-	}
 
-	reqs := op.complainer.Restart()
-	if op.pbft.primary(op.pbft.view) == op.pbft.id {
-		for hash, req := range reqs {
-			logger.Info("Replica %d queueing request under custody: %s", op.pbft.id, hash)
-			op.leaderProcReq(req)
-		}
-	}
+	// Outstanding reqs doesn't make sense for batch, as all the requests in a batch may be processed
+	// in a different batch, but PBFT core can't see through the opaque structure to see this
+	// so, on view change, we rely on the fact that the complaint service will resubmit requests
+	// and instead zero the outstandingReqs map ourselves
+	op.pbft.outstandingReqs = make(map[string]*Request)
+
+	logger.Debug("Replica %d PBFT view change thread attempting to signal batch thread", op.pbft.id)
+
+	go func() { op.viewChanged <- struct{}{} }()
 }
 
 // =============================================================================
@@ -384,6 +388,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) main() {
 	for {
+		logger.Debug("Replica %d batch main thread looping", op.pbft.id)
 		select {
 		case <-op.pbft.closed:
 			close(op.idleChan)
@@ -397,6 +402,22 @@ func (op *obcBatch) main() {
 			if op.pbft.activeView && (len(op.batchStore) > 0) {
 				op.sendBatch()
 			}
+		case <-op.viewChanged:
+			logger.Debug("Replica %d batch thread recognizing new view", op.pbft.id)
+			if op.batchTimerActive {
+				op.stopBatchTimer()
+			}
+
+			reqs := op.complainer.Restart()
+			if op.pbft.primary(op.pbft.view) == op.pbft.id {
+				logger.Debug("Replica %d is primary, processing outstanding complaints", op.pbft.id)
+				for hash, req := range reqs {
+					logger.Info("Replica %d queueing request under custody: %s", op.pbft.id, hash)
+					op.leaderProcReq(req)
+				}
+			} else {
+				logger.Debug("Replica %d is not primary, so waiting for complaints to expire again", op.pbft.id)
+			}
 		case c := <-op.custodyTimerChan:
 			// XXX filter out complaints that are about old requests
 
@@ -406,7 +427,9 @@ func (op *obcBatch) main() {
 			} else {
 				if op.pbft.activeView {
 					logger.Debug("Batch replica %d complaint timeout expired for %s", op.pbft.id, c.hash)
-					op.pbft.sendViewChange()
+					op.pbft.injectChan <- func() { op.pbft.sendViewChange() }
+				} else {
+					logger.Debug("Batch replica %d complaint timeout expired for %s while in view change", op.pbft.id, c.hash)
 				}
 			}
 		case execInfo := <-op.execChan:
