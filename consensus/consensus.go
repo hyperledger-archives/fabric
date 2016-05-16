@@ -1,34 +1,31 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package consensus
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
-	StateUpdate(tag uint64, id []byte)
+	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error // Called serially with incoming messages from gRPC
+	StateUpdated(tag uint64, id []byte)                     // Called when state transfer completes, serial with StateUpdating
+	StateUpdating(tag uint64, id []byte)                    // Called when SkipTo causes state transfer to start serial with StateUpdated
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -58,32 +55,9 @@ type SecurityUtils interface {
 // ReadOnlyLedger is used for interrogating the blockchain
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() (uint64, error)
+	GetBlockchainSize() uint64
 	GetBlockchainInfoBlob() []byte
 	GetBlockHeadMetadata() ([]byte, error)
-}
-
-// UtilLedger contains additional useful utility functions for interrogating the blockchain
-type UtilLedger interface {
-	HashBlock(block *pb.Block) ([]byte, error)
-	VerifyBlockchain(start, finish uint64) (uint64, error)
-}
-
-// WritableLedger is useful for updating the blockchain during state transfer
-type WritableLedger interface {
-	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
-	CommitStateDelta(id interface{}) error
-	RollbackStateDelta(id interface{}) error
-	EmptyState() error
-}
-
-// Ledger is an unrestricted union of reads, utilities, and updates
-type Ledger interface {
-	ReadOnlyLedger
-	UtilLedger
-	WritableLedger
 }
 
 // Executor is used to invoke transactions, potentially modifying the backing ledger
@@ -97,13 +71,7 @@ type Executor interface {
 	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
 }
 
-// RemoteLedgers is used to interrogate the blockchain of other replicas
-type RemoteLedgers interface {
-	GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
-}
-
+// StatePersistor is used to store consensus state which should survive a process crash
 type StatePersistor interface {
 	StoreState(key string, value []byte) error
 	ReadState(key string) ([]byte, error)
@@ -116,7 +84,6 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	Executor
-	Ledger
-	RemoteLedgers
+	ReadOnlyLedger
 	StatePersistor
 }

@@ -17,3 +17,5 @@ membersrvc/membersrvc
 .#*
 # bddtest log files
 *.log
+# Makefile dummy artifacts
+.*-dummy

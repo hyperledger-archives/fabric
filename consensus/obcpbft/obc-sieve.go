@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -23,26 +20,26 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
+	google_protobuf "google/protobuf"
 
 	"github.com/spf13/viper"
 )
 
 type obcSieve struct {
 	obcGeneric
-	stack consensus.Stack
-	pbft  *pbftCore
 
-	id            uint64
-	epoch         uint64
-	imminentEpoch uint64
-	blockNumber   uint64
-	currentReq    string
-	currentResult []byte
+	id             uint64
+	epoch          uint64
+	imminentEpoch  uint64
+	blockNumber    uint64
+	currentReqFull *Request
+	currentReq     string
+	currentResult  []byte
 
 	lastExecPbftSeqNo uint64
 	execOutstanding   bool
@@ -50,14 +47,19 @@ type obcSieve struct {
 	verifyStore []*Verify
 
 	queuedExec map[uint64]*Execute
-	queuedTx   [][]byte
+	queuedTx   []*Request
+
+	complainer   *complainer
+	deduplicator *deduplicator
 
 	persistForward
 
-	executeChan     chan *pbftExecute       // Written to by a go routine from PBFT execute method
-	incomingChan    chan *msgWithSender     // Written to by RecvMsg
-	stateUpdateChan chan *checkpointMessage // Written to by StateUpdate
-	idleChan        chan struct{}           // Used for detecting thread idleness for testing
+	executeChan       chan *pbftExecute       // Written to by a go routine from PBFT execute method
+	incomingChan      chan *msgWithSender     // Written to by RecvMsg
+	custodyTimerChan  chan custodyInfo        // Written to by Complaint
+	stateUpdatedChan  chan *checkpointMessage // Written to by StateUpdate
+	stateUpdatingChan chan *checkpointMessage // Written to by StateUpdate
+	idleChan          chan struct{}           // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -72,8 +74,7 @@ type msgWithSender struct {
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
-		obcGeneric: obcGeneric{stack},
-		stack:      stack,
+		obcGeneric: obcGeneric{stack: stack},
 		id:         id,
 	}
 	op.queuedExec = make(map[uint64]*Execute)
@@ -82,10 +83,14 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.restoreBlockNumber()
 
 	op.pbft = newPbftCore(id, config, op)
+	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
+	op.deduplicator = newDeduplicator()
 
 	op.executeChan = make(chan *pbftExecute)
 	op.incomingChan = make(chan *msgWithSender)
-	op.stateUpdateChan = make(chan *checkpointMessage)
+	op.custodyTimerChan = make(chan custodyInfo)
+	op.stateUpdatedChan = make(chan *checkpointMessage)
+	op.stateUpdatingChan = make(chan *checkpointMessage)
 
 	op.idleChan = make(chan struct{})
 
@@ -103,36 +108,73 @@ func (op *obcSieve) moreCorrectThanByzantineQuorum() int {
 
 // recvMsg is the internal handler for messages which come in through RecvMsg
 func (op *obcSieve) recvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
-		logger.Info("New consensus request received")
-		op.broadcastMsg(&SieveMessage{&SieveMessage_Request{ocMsg.Payload}})
-		op.recvRequest(ocMsg.Payload)
-		return nil
+		return op.request(ocMsg.Payload)
 	}
 
-	if ocMsg.Type != pb.Message_CONSENSUS {
-		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
+	if ocMsg.Type == pb.Message_CONSENSUS {
+		senderID, err := getValidatorID(senderHandle)
+		if err != nil {
+			panic("Cannot map sender's PeerID to a valid replica ID")
+		}
+
+		svMsg := &SieveMessage{}
+		err = proto.Unmarshal(ocMsg.Payload, svMsg)
+		if err != nil {
+			err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
+			logger.Error(err.Error())
+			return err
+		}
+
+		return op.receive(svMsg, senderID)
 	}
 
-	senderID, err := getValidatorID(senderHandle)
-	if err != nil {
-		panic("Cannot map sender's PeerID to a valid replica ID")
-	}
+	return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
+}
 
-	svMsg := &SieveMessage{}
-	err = proto.Unmarshal(ocMsg.Payload, svMsg)
-	if err != nil {
-		err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
-		logger.Error(err.Error())
-		return err
+func (op *obcSieve) request(tx []byte) error {
+	now := time.Now()
+	req := &Request{
+		Timestamp: &google_protobuf.Timestamp{
+			Seconds: now.Unix(),
+			Nanos:   int32(now.UnixNano() % 1000000000),
+		},
+		Payload:   tx,
+		ReplicaId: op.id,
 	}
+	// XXX sign req
+	hash := hashReq(req)
 
+	logger.Info("Sieve replica %d: New consensus request received: %s", op.id, hash)
+
+	op.complainer.Custody(req)
+
+	op.submitToLeader(req)
+	return nil
+}
+
+func (op *obcSieve) Complain(hash string, req *Request, primaryFail bool) {
+	op.custodyTimerChan <- custodyInfo{hash, req, primaryFail}
+}
+
+func (op *obcSieve) submitToLeader(req *Request) {
+	// submit to current leader
+	leader := op.pbft.primary(op.pbft.view)
+	if leader == op.pbft.id && op.pbft.activeView {
+		op.recvRequest(req)
+	} else {
+		op.unicastMsg(&SieveMessage{&SieveMessage_Request{req}}, leader)
+	}
+}
+
+func (op *obcSieve) receive(svMsg *SieveMessage, senderID uint64) error {
 	if req := svMsg.GetRequest(); req != nil {
 		op.recvRequest(req)
+	} else if complaint := svMsg.GetComplaint(); complaint != nil {
+		op.recvComplaint(complaint, senderID)
 	} else if exec := svMsg.GetExecute(); exec != nil {
 		if senderID != exec.ReplicaId {
-			err = fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
+			err := fmt.Errorf("Sender ID included in message (%v) doesn't match ID corresponding to the receiving stream (%v)", exec.ReplicaId, senderID)
 			return err
 		}
 		op.recvExecute(exec)
@@ -163,6 +205,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 
 // Close tells us to release resources we are holding
 func (op *obcSieve) Close() {
+	op.complainer.Stop()
 	op.pbft.close()
 }
 
@@ -174,15 +217,9 @@ func (op *obcSieve) broadcast(msgPayload []byte) {
 
 // send a message to a specific replica
 func (op *obcSieve) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	ocMsg := &pb.Message{
-		Type:    pb.Message_CONSENSUS,
-		Payload: msgPayload,
-	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
-	return op.stack.Unicast(ocMsg, receiverHandle)
+	svMsg := &SieveMessage{&SieveMessage_PbftMessage{msgPayload}}
+	op.unicastMsg(svMsg, receiverID)
+	return nil
 }
 
 func (op *obcSieve) sign(msg []byte) ([]byte, error) {
@@ -203,11 +240,11 @@ func (op *obcSieve) viewChange(newView uint64) {
 	op.queuedTx = nil
 	op.imminentEpoch = newView
 
-	// Note, this is safe because this call is made from the pbft thread
 	for idx := range op.pbft.outstandingReqs {
 		delete(op.pbft.outstandingReqs, idx)
 	}
 	op.pbft.stopTimer()
+	op.complainer.Restart()
 
 	if op.pbft.primary(newView) == op.id {
 		flush := &Flush{View: newView}
@@ -227,23 +264,66 @@ func (op *obcSieve) broadcastMsg(svMsg *SieveMessage) {
 	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
 }
 
+// send a message to a specific replica
+func (op *obcSieve) unicastMsg(svMsg *SieveMessage, receiverID uint64) {
+	msgPayload, _ := proto.Marshal(svMsg)
+	ocMsg := &pb.Message{
+		Type:    pb.Message_CONSENSUS,
+		Payload: msgPayload,
+	}
+	receiverHandle, err := getValidatorHandle(receiverID)
+	if err != nil {
+		return
+
+	}
+	op.stack.Unicast(ocMsg, receiverHandle)
+}
+
 func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 	raw, _ := proto.Marshal(msg)
 	op.pbft.request(raw, op.id)
 }
 
-func (op *obcSieve) recvRequest(txRaw []byte) {
+func (op *obcSieve) recvRequest(req *Request) {
 	if op.pbft.primary(op.epoch) != op.id || !op.pbft.activeView {
 		logger.Debug("Sieve backup %d ignoring request", op.id)
 		return
 	}
 
-	logger.Debug("Sieve primary %d received request", op.id)
-	op.queuedTx = append(op.queuedTx, txRaw)
+	// XXX check req sig
+
+	if !op.deduplicator.Request(req) {
+		logger.Debug("Sieve replica %d received stale request from %d",
+			op.id, req.ReplicaId)
+		return
+	}
+
+	logger.Debug("Sieve primary %d received request %s", op.id, hashReq(req))
+	op.queuedTx = append(op.queuedTx, req)
 
 	if op.currentReq == "" {
 		op.processRequest()
 	}
+}
+
+func (op *obcSieve) recvComplaint(req *Request, senderID uint64) {
+	if op.pbft.primary(op.epoch) == op.id {
+		op.recvRequest(req)
+		return
+	}
+
+	// XXX check req sig
+
+	if !op.deduplicator.IsNew(req) {
+		logger.Debug("Sieve replica %d received stale complaint from %d via %d",
+			op.id, req.ReplicaId, senderID)
+		return
+	}
+
+	hash := op.complainer.Complaint(req)
+	logger.Debug("Sieve replica %d received complaint %s", op.id, hash)
+
+	op.submitToLeader(req)
 }
 
 func (op *obcSieve) processRequest() {
@@ -251,14 +331,14 @@ func (op *obcSieve) processRequest() {
 		return
 	}
 
-	txRaw := op.queuedTx[0]
+	req := op.queuedTx[0]
 	op.queuedTx = op.queuedTx[1:]
 	op.verifyStore = nil
 
 	exec := &Execute{
 		View:        op.epoch,
 		BlockNumber: op.blockNumber + 1,
-		Request:     txRaw,
+		Request:     req,
 		ReplicaId:   op.id,
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
@@ -270,6 +350,14 @@ func (op *obcSieve) processRequest() {
 func (op *obcSieve) recvExecute(exec *Execute) {
 	if !(exec.View >= op.epoch && exec.BlockNumber > op.blockNumber && op.pbft.primary(exec.View) == exec.ReplicaId) {
 		logger.Debug("Invalid execute from %d", exec.ReplicaId)
+		return
+	}
+
+	// XXX check req sig
+
+	if !op.deduplicator.IsNew(exec.Request) {
+		logger.Debug("Sieve replica %d received exec of stale request from %d via %d",
+			op.id, exec.Request.ReplicaId, exec.ReplicaId)
 		return
 	}
 
@@ -303,9 +391,10 @@ func (op *obcSieve) processExecute() {
 		return
 	}
 
-	op.currentReq = base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(exec.Request))
+	op.currentReqFull = exec.Request
+	op.currentReq = hashReq(op.currentReqFull)
 
-	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d from request=%s",
+	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d, request=%s",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber, op.currentReq)
 
 	// With the execution decoupled from the ordering, this sanity check is challenging and introduces a race
@@ -321,7 +410,7 @@ func (op *obcSieve) processExecute() {
 	op.blockNumber = exec.BlockNumber
 
 	tx := &pb.Transaction{}
-	proto.Unmarshal(exec.Request, tx)
+	proto.Unmarshal(exec.Request.Payload, tx)
 
 	op.stack.BeginTxBatch(op.currentReq)
 	results, err := op.stack.ExecTxs(op.currentReq, []*pb.Transaction{tx})
@@ -527,16 +616,28 @@ func (op *obcSieve) main() {
 			logger.Debug("Sieve replica %d requested to stop", op.id)
 			close(op.idleChan)
 			return
-		case update := <-op.stateUpdateChan:
+		case update := <-op.stateUpdatingChan:
+			op.pbft.stateUpdating(update.seqNo, update.id)
+		case update := <-op.stateUpdatedChan:
 			op.restoreBlockNumber()
 
 			op.lastExecPbftSeqNo = update.seqNo
 
-			op.pbft.stateUpdate(update.seqNo, update.id)
+			op.pbft.stateUpdated(update.seqNo, update.id)
 
 			if op.execOutstanding {
 				op.pbft.execDone()
 				op.execDone()
+			}
+		case c := <-op.custodyTimerChan:
+			if !c.complaint {
+				logger.Warning("Sieve replica %d custody expired, complaining: %s", op.id, c.hash)
+				op.broadcastMsg(&SieveMessage{&SieveMessage_Complaint{c.req.(*Request)}})
+			} else {
+				if op.pbft.activeView {
+					logger.Debug("Sieve replica %d complaint timeout expired for %s", op.id, c.hash)
+					op.pbft.sendViewChange()
+				}
 			}
 		case op.idleChan <- struct{}{}:
 			// Only used for detecting idleness in unit tests
@@ -565,7 +666,7 @@ func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
 		op.executeVerifySet(vset, seqNo)
 	} else if flush := req.GetFlush(); flush != nil {
 		op.executeFlush(flush)
-		op.pbft.execDoneSync()
+		op.pbft.execDone()
 	} else {
 		logger.Warning("Invalid pbft request")
 	}
@@ -599,6 +700,12 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 		logger.Debug("Replica %d received verify-set without pending execute",
 			op.id)
 		sync = true
+	}
+
+	op.complainer.Success(op.currentReqFull)
+
+	if !op.deduplicator.Execute(op.currentReqFull) {
+		logger.Error("Replica %d executing stale request %s, this indicates a bug", op.id, op.currentReq)
 	}
 
 	if vset.BlockNumber != op.blockNumber {
@@ -650,7 +757,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 			return
 		}
 	}
-	op.pbft.execDoneSync()
+	op.pbft.execDone()
 	op.execDone()
 }
 
@@ -680,15 +787,31 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 		logger.Info("Replica %d rolling back speculative execution", op.id)
 		op.rollback()
 	}
+
+	reqs := op.complainer.Restart()
+	if op.pbft.primary(op.pbft.view) == op.id {
+		for hash, req := range reqs {
+			logger.Info("Replica %d queueing request under custody: %s", op.id, hash)
+			op.queuedTx = append(op.queuedTx, req)
+		}
+	}
 }
 
 func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.sync(seqNo, id, replicas)
 }
 
-// StateUpdate is a signal from the stack that it has fast-forwarded its state
-func (op *obcSieve) StateUpdate(seqNo uint64, id []byte) {
-	op.stateUpdateChan <- &checkpointMessage{
+// StateUpdated is a signal from the stack that it has fast-forwarded its state
+func (op *obcSieve) StateUpdated(seqNo uint64, id []byte) {
+	op.stateUpdatedChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
+}
+
+// StateUpdating is a signal from the stack that state transfer has started
+func (op *obcSieve) StateUpdating(seqNo uint64, id []byte) {
+	op.stateUpdatingChan <- &checkpointMessage{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -717,8 +840,7 @@ func (op *obcSieve) commit() {
 
 func (op *obcSieve) restoreBlockNumber() {
 	var err error
-	op.blockNumber, err = op.stack.GetBlockchainSize()
-	op.blockNumber-- // The highest block number is one less than the size
+	op.blockNumber = op.stack.GetBlockchainSize() - 1 // The highest block number is one less than the size
 	if err != nil {
 		logger.Error("Sieve replica %d could not update its blockNumber", op.id)
 		return

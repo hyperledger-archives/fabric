@@ -20,6 +20,7 @@ It has these top-level messages:
 	PQset
 	NewView
 	FetchRequest
+	RequestBlock
 	BatchMessage
 	SieveMessage
 	Execute
@@ -326,6 +327,7 @@ type Request struct {
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
 	Payload   []byte                     `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	ReplicaId uint64                     `protobuf:"varint,3,opt,name=replica_id" json:"replica_id,omitempty"`
+	Signature []byte                     `protobuf:"bytes,4,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Request) Reset()         { *m = Request{} }
@@ -503,10 +505,26 @@ func (m *FetchRequest) Reset()         { *m = FetchRequest{} }
 func (m *FetchRequest) String() string { return proto.CompactTextString(m) }
 func (*FetchRequest) ProtoMessage()    {}
 
+type RequestBlock struct {
+	Requests []*Request `protobuf:"bytes,1,rep,name=requests" json:"requests,omitempty"`
+}
+
+func (m *RequestBlock) Reset()         { *m = RequestBlock{} }
+func (m *RequestBlock) String() string { return proto.CompactTextString(m) }
+func (*RequestBlock) ProtoMessage()    {}
+
+func (m *RequestBlock) GetRequests() []*Request {
+	if m != nil {
+		return m.Requests
+	}
+	return nil
+}
+
 type BatchMessage struct {
 	// Types that are valid to be assigned to Payload:
 	//	*BatchMessage_Request
 	//	*BatchMessage_PbftMessage
+	//	*BatchMessage_Complaint
 	Payload isBatchMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -519,14 +537,18 @@ type isBatchMessage_Payload interface {
 }
 
 type BatchMessage_Request struct {
-	Request []byte `protobuf:"bytes,1,opt,name=request,proto3,oneof"`
+	Request *Request `protobuf:"bytes,1,opt,name=request,oneof"`
 }
 type BatchMessage_PbftMessage struct {
 	PbftMessage []byte `protobuf:"bytes,4,opt,name=pbft_message,proto3,oneof"`
 }
+type BatchMessage_Complaint struct {
+	Complaint *Request `protobuf:"bytes,5,opt,name=complaint,oneof"`
+}
 
 func (*BatchMessage_Request) isBatchMessage_Payload()     {}
 func (*BatchMessage_PbftMessage) isBatchMessage_Payload() {}
+func (*BatchMessage_Complaint) isBatchMessage_Payload()   {}
 
 func (m *BatchMessage) GetPayload() isBatchMessage_Payload {
 	if m != nil {
@@ -535,7 +557,7 @@ func (m *BatchMessage) GetPayload() isBatchMessage_Payload {
 	return nil
 }
 
-func (m *BatchMessage) GetRequest() []byte {
+func (m *BatchMessage) GetRequest() *Request {
 	if x, ok := m.GetPayload().(*BatchMessage_Request); ok {
 		return x.Request
 	}
@@ -549,11 +571,19 @@ func (m *BatchMessage) GetPbftMessage() []byte {
 	return nil
 }
 
+func (m *BatchMessage) GetComplaint() *Request {
+	if x, ok := m.GetPayload().(*BatchMessage_Complaint); ok {
+		return x.Complaint
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*BatchMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _BatchMessage_OneofMarshaler, _BatchMessage_OneofUnmarshaler, []interface{}{
 		(*BatchMessage_Request)(nil),
 		(*BatchMessage_PbftMessage)(nil),
+		(*BatchMessage_Complaint)(nil),
 	}
 }
 
@@ -563,10 +593,17 @@ func _BatchMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	switch x := m.Payload.(type) {
 	case *BatchMessage_Request:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeRawBytes(x.Request)
+		if err := b.EncodeMessage(x.Request); err != nil {
+			return err
+		}
 	case *BatchMessage_PbftMessage:
 		b.EncodeVarint(4<<3 | proto.WireBytes)
 		b.EncodeRawBytes(x.PbftMessage)
+	case *BatchMessage_Complaint:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Complaint); err != nil {
+			return err
+		}
 	case nil:
 	default:
 		return fmt.Errorf("BatchMessage.Payload has unexpected type %T", x)
@@ -581,8 +618,9 @@ func _BatchMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		x, err := b.DecodeRawBytes(true)
-		m.Payload = &BatchMessage_Request{x}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &BatchMessage_Request{msg}
 		return true, err
 	case 4: // payload.pbft_message
 		if wire != proto.WireBytes {
@@ -590,6 +628,14 @@ func _BatchMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		}
 		x, err := b.DecodeRawBytes(true)
 		m.Payload = &BatchMessage_PbftMessage{x}
+		return true, err
+	case 5: // payload.complaint
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &BatchMessage_Complaint{msg}
 		return true, err
 	default:
 		return false, nil
@@ -602,6 +648,7 @@ type SieveMessage struct {
 	//	*SieveMessage_Execute
 	//	*SieveMessage_Verify
 	//	*SieveMessage_PbftMessage
+	//	*SieveMessage_Complaint
 	Payload isSieveMessage_Payload `protobuf_oneof:"payload"`
 }
 
@@ -614,7 +661,7 @@ type isSieveMessage_Payload interface {
 }
 
 type SieveMessage_Request struct {
-	Request []byte `protobuf:"bytes,1,opt,name=request,proto3,oneof"`
+	Request *Request `protobuf:"bytes,1,opt,name=request,oneof"`
 }
 type SieveMessage_Execute struct {
 	Execute *Execute `protobuf:"bytes,2,opt,name=execute,oneof"`
@@ -625,11 +672,15 @@ type SieveMessage_Verify struct {
 type SieveMessage_PbftMessage struct {
 	PbftMessage []byte `protobuf:"bytes,4,opt,name=pbft_message,proto3,oneof"`
 }
+type SieveMessage_Complaint struct {
+	Complaint *Request `protobuf:"bytes,5,opt,name=complaint,oneof"`
+}
 
 func (*SieveMessage_Request) isSieveMessage_Payload()     {}
 func (*SieveMessage_Execute) isSieveMessage_Payload()     {}
 func (*SieveMessage_Verify) isSieveMessage_Payload()      {}
 func (*SieveMessage_PbftMessage) isSieveMessage_Payload() {}
+func (*SieveMessage_Complaint) isSieveMessage_Payload()   {}
 
 func (m *SieveMessage) GetPayload() isSieveMessage_Payload {
 	if m != nil {
@@ -638,7 +689,7 @@ func (m *SieveMessage) GetPayload() isSieveMessage_Payload {
 	return nil
 }
 
-func (m *SieveMessage) GetRequest() []byte {
+func (m *SieveMessage) GetRequest() *Request {
 	if x, ok := m.GetPayload().(*SieveMessage_Request); ok {
 		return x.Request
 	}
@@ -666,6 +717,13 @@ func (m *SieveMessage) GetPbftMessage() []byte {
 	return nil
 }
 
+func (m *SieveMessage) GetComplaint() *Request {
+	if x, ok := m.GetPayload().(*SieveMessage_Complaint); ok {
+		return x.Complaint
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*SieveMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _SieveMessage_OneofMarshaler, _SieveMessage_OneofUnmarshaler, []interface{}{
@@ -673,6 +731,7 @@ func (*SieveMessage) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) 
 		(*SieveMessage_Execute)(nil),
 		(*SieveMessage_Verify)(nil),
 		(*SieveMessage_PbftMessage)(nil),
+		(*SieveMessage_Complaint)(nil),
 	}
 }
 
@@ -682,7 +741,9 @@ func _SieveMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	switch x := m.Payload.(type) {
 	case *SieveMessage_Request:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeRawBytes(x.Request)
+		if err := b.EncodeMessage(x.Request); err != nil {
+			return err
+		}
 	case *SieveMessage_Execute:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Execute); err != nil {
@@ -696,6 +757,11 @@ func _SieveMessage_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *SieveMessage_PbftMessage:
 		b.EncodeVarint(4<<3 | proto.WireBytes)
 		b.EncodeRawBytes(x.PbftMessage)
+	case *SieveMessage_Complaint:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Complaint); err != nil {
+			return err
+		}
 	case nil:
 	default:
 		return fmt.Errorf("SieveMessage.Payload has unexpected type %T", x)
@@ -710,8 +776,9 @@ func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		x, err := b.DecodeRawBytes(true)
-		m.Payload = &SieveMessage_Request{x}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SieveMessage_Request{msg}
 		return true, err
 	case 2: // payload.execute
 		if wire != proto.WireBytes {
@@ -736,21 +803,36 @@ func _SieveMessage_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		x, err := b.DecodeRawBytes(true)
 		m.Payload = &SieveMessage_PbftMessage{x}
 		return true, err
+	case 5: // payload.complaint
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Request)
+		err := b.DecodeMessage(msg)
+		m.Payload = &SieveMessage_Complaint{msg}
+		return true, err
 	default:
 		return false, nil
 	}
 }
 
 type Execute struct {
-	View        uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
-	BlockNumber uint64 `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
-	Request     []byte `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
-	ReplicaId   uint64 `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
+	View        uint64   `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`
+	BlockNumber uint64   `protobuf:"varint,2,opt,name=block_number" json:"block_number,omitempty"`
+	Request     *Request `protobuf:"bytes,3,opt,name=request" json:"request,omitempty"`
+	ReplicaId   uint64   `protobuf:"varint,4,opt,name=replica_id" json:"replica_id,omitempty"`
 }
 
 func (m *Execute) Reset()         { *m = Execute{} }
 func (m *Execute) String() string { return proto.CompactTextString(m) }
 func (*Execute) ProtoMessage()    {}
+
+func (m *Execute) GetRequest() *Request {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
 
 type Verify struct {
 	View          uint64 `protobuf:"varint,1,opt,name=view" json:"view,omitempty"`

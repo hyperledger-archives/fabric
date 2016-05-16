@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -23,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/op/go-logging"
 )
 
 var myLogger = logging.MustGetLogger("asset_mgm")
@@ -32,11 +29,12 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 // AssetManagementChaincode example simple Asset Management Chaincode implementation
 // with access control enforcement at chaincode level.
 // Look here for more information on how to implement access control at chaincode level:
-// https://github.com/openblockchain/obc-docs/blob/master/tech/application-ACL.md
+// https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md
 // An asset is represented by a string
 type AssetManagementChaincode struct {
 }
 
+// Init initialization
 func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Info("[AssetManagementChaincode] Init")
 	if len(args) != 0 {
@@ -74,7 +72,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 
 	asset := args[0]
 	owner := []byte(args[1])
-	
+
 	// Recover the role that is allowed to make assignments
 	assignerRole, err := stub.GetState("assignerRole")
 	if err != nil {
@@ -87,7 +85,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	if err != nil {
 		return nil, errors.New("Failed fetching caller role")
 	}
-	
+
 	if string(callerRole[:]) != string(assignerRole[:]) {
 		return nil, errors.New("The caller does not have the rights to invoke assign")
 	}
@@ -124,7 +122,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
-		return nil, fmt.Errorf("Failed retrieveing asset [%s]: [%s]", asset, err)
+		return nil, fmt.Errorf("Failed retrieving asset [%s]: [%s]", asset, err)
 	}
 
 	prvOwner := row.Columns[1].GetBytes()
@@ -201,7 +199,7 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 	)
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke runs callback representing the invocation of a chaincode
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions
@@ -237,7 +235,7 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed retrieveing asset " + asset + ". Error " + err.Error() + ". \"}"
+		jsonResp := "{\"Error\":\"Failed retrieving asset " + asset + ". Error " + err.Error() + ". \"}"
 		return nil, errors.New(jsonResp)
 	}
 
