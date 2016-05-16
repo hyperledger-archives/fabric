@@ -121,12 +121,14 @@ func (c *complainer) SuccessHash(hash string) {
 // The custody queue timeouts are reset.  Restart returns all requests
 // that are maintained in custody.
 func (c *complainer) Restart() map[string]*Request {
-	c.complaints.RemoveAll()
+	complaints := c.complaints.RemoveAll()
 	custody := c.custody.RemoveAll()
 	reqs := make(map[string]*Request)
-	for _, pair := range custody {
-		c.custody.Register(pair.ID, pair.Data)
-		reqs[pair.ID] = pair.Data.(*Request)
+	for _, custodian := range [][]custodian.CustodyPair{complaints, custody} {
+		for _, pair := range custodian {
+			c.custody.Register(pair.ID, pair.Data)
+			reqs[pair.ID] = pair.Data.(*Request)
+		}
 	}
 	return reqs
 }
