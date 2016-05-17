@@ -43,15 +43,12 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 		return nil, utils.ErrNotInitialized
 	}
 
-	client.debug("Before TCert created %v.", tCert)
-
 	// Get next available (not yet used) transaction certificate
 	tCert, err := client.tCertPool.GetNextTCert(attributes)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
-	client.debug("TCert created %v.", tCert)
 
    keys := make([]string, len(attributes))
     for k := range attributes {
