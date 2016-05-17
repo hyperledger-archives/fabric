@@ -32,8 +32,8 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	_ "github.com/mattn/go-sqlite3"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CA is the base certificate authority.
@@ -139,11 +139,11 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 }
 
 func (spec *CertificateSpec) GetOrganization() string {
-	return "IBM"
+	return GetConfigString("pki.ca.subject.organization")
 }
 
 func (spec *CertificateSpec) GetCountry() string {
-	return "US"
+	return GetConfigString("pki.ca.subject.country")
 }
 
 func (spec *CertificateSpec) GetSubjectKeyId() *[]byte {

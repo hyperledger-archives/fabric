@@ -19,9 +19,9 @@ package trie
 import (
 	"fmt"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
+	"github.com/op/go-logging"
 	"github.com/tecbot/gorocksdb"
 )
 
