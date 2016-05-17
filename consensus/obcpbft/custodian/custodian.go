@@ -22,7 +22,15 @@ package custodian
 import (
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
 )
+
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/obcpbft/custodian")
+}
 
 type custody struct {
 	id       string
@@ -33,6 +41,8 @@ type custody struct {
 
 // Custodian provides a timeout service for objects.  The timeout is
 // the same for all enqueued objects.  Order is retained.
+// When a timeout expires, the object is re-registered automatically
+// so that the timeout fires once every timeout duration until removed
 type Custodian struct {
 	lock     sync.Mutex
 	timeout  time.Duration
@@ -65,7 +75,6 @@ func New(timeout time.Duration, notifyCb CustodyNotify) *Custodian {
 	c.timer = time.NewTimer(time.Hour)
 	c.timer.Stop()
 	c.stopCh = make(chan struct{})
-	go c.notifyRoutine()
 	return c
 }
 
@@ -82,6 +91,7 @@ func (c *Custodian) Register(id string, data interface{}) {
 		data:     data,
 		deadline: time.Now().Add(c.timeout),
 	}
+	logger.Debug("Registering %s into custody with timeout %v", id, obj.deadline)
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.requests[obj.id] = obj
@@ -96,9 +106,11 @@ func (c *Custodian) Register(id string, data interface{}) {
 func (c *Custodian) Remove(id string) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	logger.Debug("Removing %s from custody", id)
 	obj, ok := c.requests[id]
 	if ok {
 		delete(c.requests, id)
+		logger.Debug("Canceling %s", id)
 		obj.canceled = true
 		obj.data = nil
 	}
@@ -148,34 +160,56 @@ func (c *Custodian) resetTimer() {
 		diff = 0
 	}
 	c.timer.Reset(diff)
+	logger.Debug("Resetting timer to %v for req %s", diff, next.id)
+	go c.notifyRoutine()
 }
 
 func (c *Custodian) notifyRoutine() {
-	for {
-		select {
-		case <-c.timer.C:
-			break
-		case <-c.stopCh:
-			c.stopCh = nil
-			return
-		}
-		c.lock.Lock()
-		var expired []CustodyPair
-		for _, obj := range c.seq {
-			if obj.deadline.After(time.Now()) {
-				break
-			}
-			if !obj.canceled {
-				expired = append(expired, CustodyPair{obj.id, obj.data})
-			}
-			delete(c.requests, obj.id)
-			c.seq = c.seq[1:]
-		}
-		c.resetTimer()
-		c.lock.Unlock()
+	select {
+	case <-c.timer.C:
+		logger.Debug("Custodian timer expired")
+		break
+	case <-c.stopCh:
+		c.stopCh = nil
+		return
+	}
+	c.lock.Lock()
 
-		for _, data := range expired {
-			c.notifyCb(data.ID, data.Data)
-		}
+	var expired *CustodyPair
+
+	if len(c.seq) == 0 {
+		return
+	}
+
+	obj := c.seq[0]
+
+	if obj.deadline.After(time.Now()) {
+		// Timers are always in order in seq
+		logger.Debug("Timer expired, but first timer in the future")
+		return
+	}
+
+	delete(c.requests, obj.id)
+	c.seq = c.seq[1:]
+
+	if !obj.canceled {
+		logger.Debug("Found %s was not expired", obj.id)
+		expired = &CustodyPair{obj.id, obj.data}
+	} else {
+		c.resetTimer()
+		logger.Debug("Found %s was already expired", obj.id)
+	}
+
+	c.lock.Unlock()
+
+	if expired != nil {
+		logger.Debug("Determined timer expiration was for %s", expired.ID)
+
+		// re-Register the expired request so that it remains in the store until manually removed
+		c.Register(expired.ID, expired.Data)
+
+		c.notifyCb(expired.ID, expired.Data)
+	} else {
+		logger.Debug("Timer expired, but first timer had already been canceled")
 	}
 }
