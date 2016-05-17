@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	cutil "github.com/hyperledger/fabric/core/container/util"
@@ -35,10 +35,12 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+var logger = logging.MustGetLogger("golang/hash")
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
+	logger.Debug("hashFiles %s/%s", rootDir, dir)
 	//ReadDir returns sorted list of files in dir
 	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
 	if err != nil {
@@ -97,7 +99,7 @@ func isCodeExist(tmppath string) error {
 func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
-
+	logger.Debug("getCodeFromHTTP %s", path)
 	env := os.Environ()
 	var newgopath string
 	var origgopath string
@@ -139,6 +141,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
+	logger.Debug("go get %s", path)
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
@@ -170,6 +173,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 }
 
 func getCodeFromFS(path string) (codegopath string, err error) {
+	logger.Debug("getCodeFromFS %s", path)
 	env := os.Environ()
 	var gopath string
 	for _, v := range env {
