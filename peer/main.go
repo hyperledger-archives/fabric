@@ -430,7 +430,15 @@ func serve(args []string) error {
 	}
 
 	logger.Info("Security enabled status: %t", core.SecurityEnabled())
-	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
+	if viper.GetBool("security.privacy") {
+		if core.SecurityEnabled() {
+			logger.Info("Privacy enabled status: true")
+		} else {
+			logger.Error("Privacy cannot be enabled as requested because security is disabled")
+		}
+	} else {
+		logger.Info("Privacy enabled status: false")
+	}
 
 	var opts []grpc.ServerOption
 	if peer.TlsEnabled() {
@@ -829,6 +837,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			logger.Error("Privacy cannot be enabled as requested because security is disabled")
+		}
 	}
 
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
@@ -918,6 +933,13 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			}
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			logger.Error("Privacy cannot be enabled as requested because security is disabled")
 		}
 	}
 
