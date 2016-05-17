@@ -31,7 +31,7 @@ type TCertBlock struct {
 }
 
 type TCertDBBlock struct {
-	 tCertDER []byte
+	tCertDER []byte
 	attributesHash string
 	preK0 []byte
 }
@@ -104,7 +104,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 
 
 
-func (tCertPool *tCertPoolSingleThreadImpl) CalculateAttributesHash(attributes map[string]string) (attrHash string) {
+func CalculateAttributesHash(attributes map[string]string) (attrHash string) {
 	
 	keys := make([]string, len(attributes))
 	 
@@ -145,7 +145,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes map[string]s
 	defer tCertPool.m.Unlock()
 
 	
-	attributesHash := tCertPool.CalculateAttributesHash(attributes)
+	attributesHash := CalculateAttributesHash(attributes)
 	
 	poolLen := tCertPool.length[attributesHash]
 	

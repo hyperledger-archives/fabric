@@ -46,8 +46,7 @@ func (client *clientImpl) initTCertEngine() (err error) {
 	client.debug("TCert batch size [%d]", client.conf.getTCertBatchSize())
 
 	if client.conf.IsMultithreadingEnabled() {
-		//client.tCertPool = new(tCertPoolMultithreadingImpl) //TODO Fix MT Pool
-		client.tCertPool = new(tCertPoolSingleThreadImpl)
+		client.tCertPool = new(tCertPoolMultithreadingImpl) 
 	} else {
 		client.tCertPool = new(tCertPoolSingleThreadImpl)
 	}
