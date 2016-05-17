@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/hyperledger/fabric/core/crypto"
@@ -36,9 +37,15 @@ func main() {
 	viper.SetConfigName("membersrvc")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./")
+	// Path to look for the config file based on GOPATH
+	gopath := os.Getenv("GOPATH")
+	for _, p := range filepath.SplitList(gopath) {
+		cfgpath := filepath.Join(p, "src/github.com/hyperledger/fabric/membersrvc")
+		viper.AddConfigPath(cfgpath)
+	}
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", "membersrvc", err))
 	}
 
 	var iotrace, ioinfo, iowarning, ioerror, iopanic io.Writer

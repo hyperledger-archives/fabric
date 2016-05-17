@@ -19,7 +19,6 @@ package trie
 import (
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -52,7 +51,7 @@ func (itr *RangeScanIterator) Next() bool {
 		trieKeyBytes := statemgmt.Copy(itr.dbItr.Key().Data())
 		trieNodeBytes := statemgmt.Copy(itr.dbItr.Value().Data())
 		value := unmarshalTrieNodeValue(trieNodeBytes)
-		if util.IsNil(value) {
+		if value == nil {
 			continue
 		}
 

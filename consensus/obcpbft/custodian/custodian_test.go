@@ -35,6 +35,7 @@ func TestCustody(t *testing.T) {
 		func(req string, data interface{}) {
 			notify <- info{req, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "bar")
 	select {
@@ -53,6 +54,7 @@ func TestRemove(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	time.Sleep(10 * time.Millisecond)
@@ -80,6 +82,7 @@ func TestRemoveAll(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	time.Sleep(10 * time.Millisecond)
@@ -97,6 +100,7 @@ func TestElements(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	c.Register("baz", "3")
@@ -119,8 +123,8 @@ func TestElements(t *testing.T) {
 	}
 
 	l = c.RemoveAll()
-	if len(l) != 1 {
-		t.Fatal("expected 1 element")
+	if len(l) != 2 {
+		t.Fatal("expected 2 elements")
 	}
 	if l[0].ID != "bar" || l[0].Data.(string) != "2" {
 		t.Error("invalid element")
@@ -135,12 +139,13 @@ func TestReCustody(t *testing.T) {
 			c.Register(req, data)
 			notify <- true
 		})
+	defer c.Stop()
 
 	c.Register("foo", "bar")
 	select {
 	case <-notify:
 		reqs := c.Elements()
-		if len(reqs) != 1 || reqs[0].ID != "foo" || reqs[0].Data != "bar" {
+		if len(reqs) != 2 || reqs[0].ID != "foo" || reqs[0].Data != "bar" {
 			t.Error("invalid datasheet")
 		}
 	case <-time.After(200 * time.Millisecond):

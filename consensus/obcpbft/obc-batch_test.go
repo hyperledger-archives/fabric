@@ -81,12 +81,18 @@ func TestNetworkBatch(t *testing.T) {
 func TestBatchCustody(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
-		config.Set("general.batchsize", "2")
-		config.Set("general.timeout.batch", "500ms")
-		config.Set("general.timeout.request", "800ms")
-		config.Set("general.timeout.viewchange", "1600ms")
+		config.Set("general.batchsize", "1")
+		config.Set("general.timeout.batch", "250ms")
+		if id == 0 {
+			// Keep replica 0 from unnecessarilly advancing its view
+			config.Set("general.timeout.request", "1500ms")
+		} else {
+			config.Set("general.timeout.request", "250ms")
+		}
+		config.Set("general.timeout.viewchange", "800ms")
 		return newObcBatch(id, config, stack)
 	})
+	defer net.stop()
 	net.filterFn = func(src int, dst int, payload []byte) []byte {
 		logger.Info("msg from %d to %d", src, dst)
 		if src == 0 {
@@ -95,23 +101,44 @@ func TestBatchCustody(t *testing.T) {
 		return payload
 	}
 
-	go net.processContinually()
+	// Submit two requests to replica 2, because vp0 is byzantine, they will not be processed until complaints triggers a view change
+	// Once the complaints work, we should end up in view 1, with 2 blocks
 	r2 := net.endpoints[2].(*consumerEndpoint).consumer
 	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
 	r2.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[1].getHandle())
-	time.Sleep(6 * time.Second)
-	net.stop()
 
-	for i, inst := range net.endpoints {
-		// Don't care about byzantine node 0
-		if i == 0 {
-			continue
-		}
-		inst := inst.(*consumerEndpoint)
-		_, err := inst.consumer.(*obcBatch).stack.GetBlock(1)
-		if err != nil {
-			t.Errorf("Expected replica %d to have one block", inst.id)
-			continue
+	//net.debug = true
+	net.debugMsg("Stage 1\n")
+	// Get the requests into the custody store, will return once vp2 complaints
+	net.process()
+	net.debugMsg("Stage 2\n")
+
+	// Let the complaint timer expire for vp1/vp3
+	time.Sleep(500 * time.Millisecond)
+
+	// Process the new view and execute the requests
+	net.process()
+	net.debugMsg("Stage 3\n")
+
+	// Let the complaint timer expire for the other request
+	time.Sleep(500 * time.Millisecond)
+
+	// Process the complaint, this time without view change
+	net.process()
+	net.debugMsg("Stage 4\n")
+
+	for i, ep := range net.endpoints {
+
+		b := ep.(*consumerEndpoint).consumer.(*obcBatch)
+
+		if _, err := b.stack.GetBlock(2); nil != err {
+			t.Errorf("Expected replica %d to have two blocks", i)
+		} else {
+			expectedView := uint64(1)
+			if b.pbft.view != expectedView {
+				t.Errorf("Expected replica %d to have two blocks and be in view %d", b.pbft.id, expectedView)
+			}
 		}
 	}
+
 }
