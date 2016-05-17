@@ -30,6 +30,8 @@ import (
 	"github.com/hyperledger/fabric/protos"
 )
 
+var AllFailures = [...]mockResponse{Timeout, Corrupt, OutOfOrder}
+
 type testPartialStack struct {
 	*MockRemoteHashLedgerDirectory
 	*MockLedger
@@ -194,7 +196,7 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 }
 
 func TestCatchupSyncBlocksErrors(t *testing.T) {
-	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+	for _, failureType := range AllFailures {
 		mrls := createRemoteLedgers(1, 3)
 
 		// Test from blockheight of 1 with valid genesis block
@@ -219,7 +221,7 @@ func TestCatchupSyncBlocksErrors(t *testing.T) {
 func TestCatchupSyncBlocksAllErrors(t *testing.T) {
 	blockNumber := uint64(10)
 
-	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+	for _, failureType := range AllFailures {
 		mrls := createRemoteLedgers(1, 3)
 
 		// Test from blockheight of 1 with valid genesis block
@@ -321,7 +323,7 @@ func TestCatchupMissingEarlyChain(t *testing.T) {
 }
 
 func TestCatchupSyncSnapshotError(t *testing.T) {
-	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+	for _, failureType := range AllFailures {
 		mrls := createRemoteLedgers(1, 3)
 
 		// Test from blockheight of 5 (with missing blocks 0-3)
@@ -342,7 +344,7 @@ func TestCatchupSyncSnapshotError(t *testing.T) {
 }
 
 func TestCatchupSyncDeltasError(t *testing.T) {
-	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+	for _, failureType := range AllFailures {
 		mrls := createRemoteLedgers(1, 3)
 
 		// Test from blockheight of 5 (with missing blocks 0-3)
@@ -489,7 +491,7 @@ func TestCatchupLaggingChains(t *testing.T) {
 }
 
 func TestCatchupLaggingChainsErrors(t *testing.T) {
-	for _, failureType := range []mockResponse{Timeout, Corrupt} {
+	for _, failureType := range AllFailures {
 		mrls := createRemoteLedgers(0, 3)
 
 		for peerID := range mrls.remoteLedgers {
