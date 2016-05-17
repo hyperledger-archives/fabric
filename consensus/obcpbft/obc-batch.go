@@ -39,6 +39,7 @@ type obcBatch struct {
 
 	incomingChan     chan *batchMessage // Queues messages for processing by main thread
 	custodyTimerChan chan custodyInfo   // Queues complaints
+	execChan         chan *execInfo     // Signals an execution event
 	idleChan         chan struct{}      // Used in unit testing to check for idleness
 
 	complainer   *complainer
@@ -56,6 +57,11 @@ type custodyInfo struct {
 type batchMessage struct {
 	msg    *pb.Message
 	sender *pb.PeerID
+}
+
+type execInfo struct {
+	seqNo uint64
+	raw   []byte
 }
 
 func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
@@ -80,6 +86,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 
 	op.incomingChan = make(chan *batchMessage)
 	op.custodyTimerChan = make(chan custodyInfo)
+	op.execChan = make(chan *execInfo)
 
 	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
 	op.deduplicator = newDeduplicator()
@@ -191,6 +198,13 @@ func (op *obcBatch) validate(txRaw []byte) error {
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcBatch) execute(seqNo uint64, raw []byte) {
+	op.execChan <- &execInfo{
+		seqNo: seqNo,
+		raw:   raw,
+	}
+}
+
+func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 	reqs := &RequestBlock{}
 	if err := proto.Unmarshal(raw, reqs); err != nil {
 		logger.Warning("Batch replica %d could not unmarshal request block: %s", op.pbft.id, err)
@@ -395,6 +409,8 @@ func (op *obcBatch) main() {
 					op.pbft.sendViewChange()
 				}
 			}
+		case execInfo := <-op.execChan:
+			op.executeImpl(execInfo.seqNo, execInfo.raw)
 		case op.idleChan <- struct{}{}:
 			// Only used to detect thread idleness during unit tests
 		}

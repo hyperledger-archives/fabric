@@ -118,3 +118,8 @@ pki:
                          # The server name use to verify the hostname returned by TLS handshake
                          serverhostoverride:
                  devops-address: 0.0.0.0:30303
+
+          ca:
+                 subject:
+                         organization: Hyperledger
+                         country: US
