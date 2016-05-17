@@ -439,8 +439,9 @@ func (m *BlockState) GetBlock() *Block {
 // example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
 // If start=5 and end=3, the order will be 5, 4, 3.
 type SyncBlockRange struct {
-	Start uint64 `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	End   uint64 `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
+	CorrelationId uint64 `protobuf:"varint,1,opt,name=correlationId" json:"correlationId,omitempty"`
+	Start         uint64 `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
+	End           uint64 `protobuf:"varint,3,opt,name=end" json:"end,omitempty"`
 }
 
 func (m *SyncBlockRange) Reset()         { *m = SyncBlockRange{} }
