@@ -18,9 +18,10 @@ package statemgmt
 
 import (
 	"flag"
+	"testing"
+
 	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"github.com/hyperledger/fabric/core/util"
-	"testing"
 )
 
 func BenchmarkCryptoHash(b *testing.B) {

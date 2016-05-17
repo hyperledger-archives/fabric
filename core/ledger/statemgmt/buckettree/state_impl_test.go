@@ -380,3 +380,21 @@ func TestStateImpl_DB_Changes(t *testing.T) {
 	bucketNodeFromDB, _ = fetchBucketNodeFromDB(newBucketKey(2, 3))
 	testutil.AssertNil(t, bucketNodeFromDB)
 }
+
+func TestStateImpl_DB_EmptyArrayValues(t *testing.T) {
+	testDBWrapper.CreateFreshDB(t)
+	stateImplTestWrapper := newStateImplTestWrapper(t)
+	stateImpl := stateImplTestWrapper.stateImpl
+	stateDelta := statemgmt.NewStateDelta()
+	stateDelta.Set("chaincode1", "key1", []byte{}, nil)
+	stateImpl.PrepareWorkingSet(stateDelta)
+	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+	emptyBytes := stateImplTestWrapper.get("chaincode1", "key1")
+	if emptyBytes == nil || len(emptyBytes) != 0 {
+		t.Fatalf("Expected an empty byte array. found = %#v", emptyBytes)
+	}
+	nilVal := stateImplTestWrapper.get("chaincodeID3", "non-existing-key")
+	if nilVal != nil {
+		t.Fatalf("Expected a nil. found = %#v", nilVal)
+	}
+}
