@@ -31,6 +31,7 @@ import (
 	"crypto/rand"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/op/go-logging"
@@ -50,6 +51,7 @@ var (
 	invoker  Client
 
 	server *grpc.Server
+	aca    *ca.ACA
 	eca    *ca.ECA
 	tca    *ca.TCA
 	tlsca  *ca.TLSCA
@@ -59,6 +61,9 @@ var (
 	queryTxCreators   []createTxFunc
 
 	ksPwd = []byte("This is a very very very long pw")
+	
+	attributes = map[string]string{"company":"IBM", "position":"Software Engineer"}
+	attributeNames = []string{"company", "position"}
 )
 
 func TestMain(m *testing.M) {
@@ -131,7 +136,7 @@ func TestParallelInitClose(t *testing.T) {
 				}
 				for i := 0; i < 20; i++ {
 					uuid := util.GenerateUUID()
-					client.NewChaincodeExecute(cis, uuid)
+					client.NewChaincodeExecute(cis, attributes, uuid)
 				}
 
 				err = CloseClient(client)
@@ -286,7 +291,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 }
 
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	tcert, err := deployer.GetNextTCert()
+	tcert, err := deployer.GetNextTCert(attributes)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
@@ -303,8 +308,8 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	if len(tcertDER) == 0 {
 		t.Fatalf("Cert should have length > 0")
 	}
-
-	attributeBytes, err := deployer.ReadAttribute("company", tcertDER)
+	
+	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -317,7 +322,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext(attributes)
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -337,7 +342,7 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerFromDER(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext(attributes)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -363,7 +368,7 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 }
 
 func TestClientTCertHandlerSign(t *testing.T) {
-	handlerDeployer, err := deployer.GetTCertificateHandlerNext()
+	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attributes)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -979,12 +984,12 @@ func BenchmarkTransactionCreation(b *testing.B) {
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
-	invoker.GetTCertificateHandlerNext()
+	invoker.GetTCertificateHandlerNext(attributes)
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
 		b.StartTimer()
-		invoker.NewChaincodeExecute(cis, uuid)
+		invoker.NewChaincodeExecute(cis, attributes, uuid)
 		b.StopTimer()
 	}
 }
@@ -1085,7 +1090,7 @@ func setup() {
 
 func initPKI() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
 	tlsca = ca.NewTLSCA(eca)
@@ -1113,7 +1118,7 @@ func startPKI() {
 	fmt.Printf("open socket...done\n")
 
 	server = grpc.NewServer(opts...)
-
+    aca.Start(server)
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
@@ -1221,7 +1226,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1241,7 +1246,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1261,7 +1266,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1283,7 +1288,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetTCertificateHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext(attributes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1291,7 +1296,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1328,7 +1333,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext(attributes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1336,7 +1341,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1373,7 +1378,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext(attributes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1381,7 +1386,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1428,7 +1433,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1473,7 +1478,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1518,7 +1523,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attributeNames)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1557,7 +1562,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1577,7 +1582,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1597,7 +1602,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, attributes, uuid)
 	return otx, tx, err
 }
 
@@ -1628,6 +1633,7 @@ func cleanup() {
 }
 
 func stopPKI() {
+	aca.Close()
 	eca.Close()
 	tca.Close()
 	tlsca.Close()

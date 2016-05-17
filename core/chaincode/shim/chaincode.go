@@ -20,7 +20,6 @@ package shim
 
 import (
 	"bytes"
-	"encoding/asn1"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,8 +31,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -302,92 +301,31 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
-func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
-// CertAttributes returns all the attributes stored in the transaction tCert.
-func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
-	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
-		return nil, err
-	}
-
-	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		return nil, err
-	}
-
-	headerStr := string(headerRaw)
-	var header map[string]int
-	header, err = stub.parseHeader(headerStr)
-
-	if err != nil {
-		return nil, err
-	}
-
-	attributes := make([]string, len(header))
-	count := 0
-	for k := range header {
-		attributes[count] = k
-		count++
-	}
-	return attributes, nil
-}
-
 // ReadCertAttribute returns the value specified by `attributeName` from the transaction tCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
-	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
 	if err != nil {
 		return nil, err
 	}
+	return abacHandler.GetValue(attributeName)
+}
 
-	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		return nil, err
-	}
-
-	headerStr := string(headerRaw)
-	var header map[string]int
-	header, err = stub.parseHeader(headerStr)
-
+// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
+func (stub *ChaincodeStub) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
+	return abacHandler.VerifyAttribute(attributeName, attributeValue)
+}
 
-	position := header[attributeName]
-
-	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
+//Verifies all the attributes included in attrs.
+func (stub *ChaincodeStub) VerifyAttributes(attrs...*ac.Attribute)  (bool, error) {
+	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		return false, err
 	}
-
-	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-
-	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		return nil, err
-	}
-	return value, nil
+	return abacHandler.VerifyAttributes(attrs...)
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of

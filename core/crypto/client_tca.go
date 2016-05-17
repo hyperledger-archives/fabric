@@ -22,18 +22,16 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/hmac"
-	"encoding/asn1"
 
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -48,7 +46,7 @@ func (client *clientImpl) initTCertEngine() (err error) {
 	client.debug("TCert batch size [%d]", client.conf.getTCertBatchSize())
 
 	if client.conf.IsMultithreadingEnabled() {
-		client.tCertPool = new(tCertPoolMultithreadingImpl)
+		client.tCertPool = new(tCertPoolMultithreadingImpl) 
 	} else {
 		client.tCertPool = new(tCertPoolSingleThreadImpl)
 	}
@@ -140,10 +138,11 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		return nil, err
 	}
 
-	return &tCertImpl{client, x509Cert, nil}, nil
+	//TODO pass prek0 as last parameter instead of empty array    
+	return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 }
 
-func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
+func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCertBlock, err error) {
 	if client.tCertOwnerKDFKey == nil {
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
@@ -152,9 +151,9 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
-	x509Cert, err := utils.DERToX509Certificate(der)
+	x509Cert, err := utils.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", der, err)
+		client.debug("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
 		return
 	}
@@ -272,16 +271,16 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return
 	}
 
-	tCert = &tCertImpl{client, x509Cert, tempSK}
+	certBlock = &TCertBlock{&tCertImpl{client, x509Cert, tempSK, certBlk.preK0}, certBlk.attributesHash}
 
 	return
 }
 
-func (client *clientImpl) getTCertsFromTCA(num int) error {
+func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[string]string, num int) error {
 	client.debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
-	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num)
+	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num, attributes)
 	if err != nil {
 		client.debug("Failed contacting TCA [%s].", err.Error())
 
@@ -317,6 +316,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	for i := 0; i < num; i++ {
 		// DER to x509
 		x509Cert, err := utils.DERToX509Certificate(certDERs[i].Cert)
+		prek0 := certDERs[i].Prek0
+		
 		if err != nil {
 			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
@@ -440,7 +441,15 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		j++
 		client.debug("Certificate [%d] validated.", i)
 
-		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK})
+		prek0Cp := make([]byte, len(prek0))
+		copy(prek0Cp,  prek0)
+		
+		tcertBlk := new(TCertBlock)
+		
+		tcertBlk.tCert = &tCertImpl{client, x509Cert, tempSK, prek0Cp}
+		tcertBlk.attributesHash=attrhash
+		
+		client.tCertPool.AddTCert(tcertBlk)
 	}
 
 	if j == 0 {
@@ -452,20 +461,32 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	return nil
 }
 
-func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membersrvc.TCert, error) {
+func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[string]string) ([]byte, []*membersrvc.TCert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
+	
+	
+	attributesList :=  make([]*membersrvc.TCertAttribute, 0)
+
+	 for k, value := range attributes {
+	 	tcertAttr := new(membersrvc.TCertAttribute)
+	 	tcertAttr.AttributeName = k 
+	 	tcertAttr.AttributeValue = value
+	 	
+	 	attributesList = append(attributesList, tcertAttr)
+	 	//attributesList = append(attributesList, &membersrvc.TCertAttribute{k, attributes[k]})
+    }
 
 	// Execute the protocol
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 	req := &membersrvc.TCertCreateSetReq{
-		Ts:         &timestamp,
-		Id:         &membersrvc.Identity{Id: client.enrollID},
-		Num:        uint32(num),
-		Attributes: client.conf.getTCertAttributes(),
-		Sig:        nil,
+		Ts:  &timestamp,
+		Id:  &membersrvc.Identity{Id: client.enrollID},
+		Num: uint32(num),
+		Attributes: attributesList,
+		Sig: nil,
 	}
 
 	rawReq, err := proto.Marshal(req)
@@ -496,67 +517,4 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	}
 
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
-}
-
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
-// Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-
-	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-
-	headerStr := string(headerRaw)
-	var header map[string]int
-	header, err = client.parseHeader(headerStr)
-
-	if err != nil {
-		return nil, err
-	}
-
-	position := header[attributeName]
-
-	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
-	}
-
-	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-
-	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
-		return nil, err
-	}
-
-	return value, nil
 }

@@ -18,26 +18,39 @@ package crypto
 
 import (
 	"crypto/x509"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+
+
 )
 
 type tCert interface {
 	GetCertificate() *x509.Certificate
-
+	
+	GetPreK0() ([]byte)
+	
 	Sign(msg []byte) ([]byte, error)
 
 	Verify(signature, msg []byte) error
+
+	GetKForAttribute(attributeName string) ([]byte, error)
 }
 
 type tCertImpl struct {
 	client *clientImpl
 	cert   *x509.Certificate
 	sk     interface{}
+	preK0  []byte
 }
 
 func (tCert *tCertImpl) GetCertificate() *x509.Certificate {
 	return tCert.cert
 }
+
+func (tCert *tCertImpl) GetPreK0() []byte {
+	return tCert.preK0
+}
+
 
 func (tCert *tCertImpl) Sign(msg []byte) ([]byte, error) {
 	if tCert.sk == nil {
@@ -56,4 +69,12 @@ func (tCert *tCertImpl) Verify(signature, msg []byte) (err error) {
 		return utils.ErrInvalidSignature
 	}
 	return
+}
+
+func (tCert *tCertImpl) GetKForAttribute(attributeName string) ([]byte, error) {
+	if tCert.preK0 == nil {
+		return nil, utils.ErrNilArgument
+	}
+	
+	return abac.GetKForAttribute(attributeName, tCert.preK0 , tCert.GetCertificate())
 }

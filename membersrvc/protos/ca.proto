@@ -70,6 +70,18 @@ service TLSCAA { // admin service
     rpc RevokeCertificate(TLSCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
 }
 
+// Attribute Certificate Authority (ACA).
+//
+service ACAP { // public service
+	rpc ReadCACertificate(Empty) returns (Cert);
+    rpc RequestAttributes(ACAAttrReq) returns (ACAAttrResp);
+    rpc FetchAttributes(ACAFetchAttrReq) returns (ACAFetchAttrResp);
+}
+
+//service ACAA { // admin service
+//    rpc RegisterAttributes(RegisterAttrReq) returns (RegisterAttrResp);
+//}
+
 // Status codes shared by both CAs.
 //
 message CAStatus {
@@ -178,8 +190,9 @@ message ECertCreateReq {
 message ECertCreateResp {
     CertPair certs = 1;
     Token chain = 2;
-    bytes pkchain = 4;
+    bytes pkchain = 5;
     Token tok = 3;
+    FetchAttrsResult fetchResult = 4;
 }
 
 message ECertReadReq {
@@ -298,7 +311,7 @@ message Cert {
 //
 message TCert {
 	bytes cert = 1; // DER / ASN.1 encoded
-	map<string, bytes> keys = 2; // map with the keys used to encrypt the TCert extensions (EnrollmentID, TCertIndex and attributes)
+	bytes prek0 = 2; // PreK0 used to derive the keys to encrypt the TCert extensions (EnrollmentID, TCertIndex and attributes)
 }
 
 message CertSet {
@@ -315,4 +328,59 @@ message CertSets {
 message CertPair {
     bytes sign = 1; // signature certificate, DER / ASN.1 encoded
     bytes enc = 2; // encryption certificate, DER / ASN.1 encoded
+}
+
+message TCertAttributeHash {
+    string attributeName = 1;
+    bytes  attributeValueHash = 2;
+}
+
+message ACAAttrReq {
+    google.protobuf.Timestamp ts = 1;
+    Identity id = 2;
+    Cert eCert = 3;
+    repeated TCertAttributeHash attributes = 4; // array with the pairs key/value-hash of each attribute.
+    Signature signature = 5; 
+}
+
+message ACAAttrResp {
+	enum StatusCode {
+    	FULL_SUCCESSFUL     = 000;
+    	PARTIAL_SUCCESSFUL  = 001;
+    	NO_ATTRIBUTES_FOUND = 010;
+    	FAILURE				= 100;
+	}
+    StatusCode status = 1;
+    Cert cert = 2;
+    Signature signature = 3; 
+}
+
+message ACAFetchAttrReq {
+    google.protobuf.Timestamp ts = 1;
+    Cert eCert = 2;
+    Signature signature = 3; 
+}
+
+message ACAFetchAttrResp {
+	enum StatusCode {
+    	SUCCESS = 000;
+    	FAILURE = 100;
+	}
+    StatusCode status = 1;
+}
+
+message FetchAttrsResult {
+	enum StatusCode {
+    	SUCCESS = 000;
+    	FAILURE = 100;
+	}
+    StatusCode status = 1;
+	string Msg = 2;
+}
+
+message ACAAttribute {
+    string attributeName = 1;
+    bytes attributeValue = 2;
+	google.protobuf.Timestamp validFrom = 3;
+	google.protobuf.Timestamp validTo = 4;
 }

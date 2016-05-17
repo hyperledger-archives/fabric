@@ -19,13 +19,33 @@ package crypto
 import (
 	"fmt"
 	"sync"
+	"sort"
+	"encoding/hex"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
+
+
+type TCertBlock struct {
+	tCert tCert
+	attributesHash string
+}
+
+type TCertDBBlock struct {
+	tCertDER []byte
+	attributesHash string
+	preK0 []byte
+}
+
 
 type tCertPoolSingleThreadImpl struct {
 	client *clientImpl
+	
+	empty bool
 
-	len    int
-	tCerts []tCert
+	length    map[string]int
+	
+	tCerts map[string][]*TCertBlock
+	
 	m      sync.Mutex
 }
 
@@ -35,30 +55,30 @@ func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
 
 	tCertPool.client.debug("Starting TCert Pool...")
 
+    
 	// Load unused TCerts if any
-	tCertDERs, err := tCertPool.client.ks.loadUnusedTCerts()
+	tCertDBBlocks, err := tCertPool.client.ks.loadUnusedTCerts()
 	if err != nil {
 		tCertPool.client.error("Failed loading TCerts from cache: [%s]", err)
 
 		return
 	}
-	if len(tCertDERs) == 0 {
-		tCertPool.client.debug("No more TCerts in cache! Load new from TCA.")
 
-		tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBatchSize())
-	} else {
+
+	if len(tCertDBBlocks) > 0 {
+		
 		tCertPool.client.debug("TCerts in cache found! Loading them...")
 
-		for _, tCertDER := range tCertDERs {
-			tCert, err := tCertPool.client.getTCertFromDER(tCertDER)
+		for _, tCertDBBlock := range tCertDBBlocks {
+			tCertBlock, err := tCertPool.client.getTCertFromDER(tCertDBBlock)
 			if err != nil {
-				tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDER, err)
+				tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDBBlock.tCertDER, err)
 
 				continue
 			}
-			tCertPool.AddTCert(tCert)
+			tCertPool.AddTCert(tCertBlock)
 		}
-	}
+	}  //END-IF
 
 	return
 }
@@ -67,49 +87,119 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	tCertPool.client.debug("Found %d unused TCerts...", tCertPool.len)
+	//tCertPool.client.debug("Found %d unused TCerts...", tCertPool.len)
 
-	tCertPool.client.ks.storeUnusedTCerts(tCertPool.tCerts[:tCertPool.len])
+
+	for k := range tCertPool.tCerts {
+		certList := tCertPool.tCerts[k]
+		certListLen := tCertPool.length[k]
+		tCertPool.client.ks.storeUnusedTCerts(certList[:certListLen])
+    }
+
 
 	tCertPool.client.debug("Store unused TCerts...done!")
 
 	return
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err error) {
+
+
+func CalculateAttributesHash(attributes map[string]string) (attrHash string) {
+	
+	keys := make([]string, len(attributes))
+	 
+	 for k := range attributes {
+        keys = append(keys, k)
+    }
+	 
+	  sort.Strings(keys)
+	 
+	  
+	  values := make([]byte, len(keys))
+	  
+	 for _,k := range keys {
+	 	
+	 	vb := []byte(k)
+	 	for _,bval := range vb {
+	 		 values = append(values, bval)
+	 	}
+	 	
+	 	vb = []byte(attributes[k])
+	 	for _,bval := range vb {
+	 		 values = append(values, bval)
+	 	}
+    }
+	
+	
+	attributesHash := primitives.Hash(values)
+	
+	return  hex.EncodeToString(attributesHash)
+	
+	
+}
+
+
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes map[string]string) (tCert *TCertBlock, err error) {
+	
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	if tCertPool.len <= 0 {
+	
+	attributesHash := CalculateAttributesHash(attributes)
+	
+	poolLen := tCertPool.length[attributesHash]
+	
+	if  poolLen <= 0 {
 		// Reload
-		if err := tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBatchSize()); err != nil {
+		if err := tCertPool.client.getTCertsFromTCA(attributesHash, attributes, tCertPool.client.conf.getTCertBatchSize()); err != nil {
 
 			return nil, fmt.Errorf("Failed loading TCerts from TCA")
 		}
 	}
 
-	tCert = tCertPool.tCerts[tCertPool.len-1]
-	tCertPool.len--
+
+   tCert = tCertPool.tCerts[attributesHash][tCertPool.length[attributesHash]  -1]
+   
+
+	tCertPool.length[attributesHash] = tCertPool.length[attributesHash]  -1
 
 	return
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
-	tCertPool.client.debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
 
-	tCertPool.len++
-	tCertPool.tCerts[tCertPool.len-1] = tCert
+
+func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCertBlock *TCertBlock) (err error) {
+	
+	
+	tCertPool.client.debug("Adding new Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
+	
+	if tCertPool.length[tCertBlock.attributesHash] <= 0 {
+		tCertPool.length[tCertBlock.attributesHash]  = 0
+	}
+
+	tCertPool.length[tCertBlock.attributesHash] = tCertPool.length[tCertBlock.attributesHash] + 1
+	
+	if tCertPool.tCerts[tCertBlock.attributesHash] == nil {
+		
+		tCertPool.tCerts[tCertBlock.attributesHash]= make([]*TCertBlock, tCertPool.client.conf.getTCertBatchSize())
+	
+	} 
+	
+	tCertPool.tCerts[tCertBlock.attributesHash][tCertPool.length[tCertBlock.attributesHash]  -1] =  tCertBlock
+
 
 	return nil
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
+	
 	tCertPool.client = client
 
 	tCertPool.client.debug("Init TCert Pool...")
 
-	tCertPool.tCerts = make([]tCert, tCertPool.client.conf.getTCertBatchSize())
-	tCertPool.len = 0
+   tCertPool.tCerts = make(map[string][]*TCertBlock)
 
+	tCertPool.length = make(map[string]int)
+	
 	return
 }
