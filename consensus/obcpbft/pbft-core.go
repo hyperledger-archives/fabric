@@ -43,7 +43,7 @@ func init() {
 }
 
 const (
-	// An ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
+	// UnreasonableTimeout is an ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
 	UnreasonableTimeout = 100 * time.Hour
 )
 
@@ -611,9 +611,9 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}})
 			return instance.maybeSendCommit(digest, instance.view, n)
-		} else {
-			logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		}
+
+		logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 	} else {
 		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
 	}
@@ -691,7 +691,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		instance.reqStore[digest] = preprep.Request
-		logger.Debug("Replica %d storing request %s in oustanding request store", instance.id, digest)
+		logger.Debug("Replica %d storing request %s in outstanding request store", instance.id, digest)
 		instance.outstandingReqs[digest] = preprep.Request
 		instance.persistRequest(digest)
 	}
@@ -812,8 +812,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
+		logger.Debug("Replica %d not attempting to executeOutstanding because a it is currently executing", instance.id)
 		return
 	}
+	logger.Debug("Replica %d attempting to executeOutstanding", instance.id)
 
 	for idx := range instance.certStore {
 		if instance.executeOne(idx) {
@@ -821,7 +823,7 @@ func (instance *pbftCore) executeOutstanding() {
 		}
 	}
 
-	logger.Debug("replica %d certstore %+v", instance.id, instance.certStore)
+	logger.Debug("Replica %d certstore %+v", instance.id, instance.certStore)
 
 	return
 }

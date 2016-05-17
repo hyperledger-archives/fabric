@@ -20,24 +20,30 @@ import (
 	"github.com/hyperledger/fabric/core/db"
 )
 
-type PersistHelper struct{}
+// Helper provides an abstraction to access the Persist column family
+// in the database.
+type Helper struct{}
 
-func (h *PersistHelper) StoreState(key string, value []byte) error {
+// StoreState stores a key,value pair
+func (h *Helper) StoreState(key string, value []byte) error {
 	db := db.GetDBHandle()
 	return db.Put(db.PersistCF, []byte("consensus."+key), value)
 }
 
-func (h *PersistHelper) DelState(key string) {
+// DelState removes a key,value pair
+func (h *Helper) DelState(key string) {
 	db := db.GetDBHandle()
 	db.Delete(db.PersistCF, []byte("consensus."+key))
 }
 
-func (h *PersistHelper) ReadState(key string) ([]byte, error) {
+// ReadState retrieves a value to a key
+func (h *Helper) ReadState(key string) ([]byte, error) {
 	db := db.GetDBHandle()
 	return db.Get(db.PersistCF, []byte("consensus."+key))
 }
 
-func (h *PersistHelper) ReadStateSet(prefix string) (map[string][]byte, error) {
+// ReadStateSet retrieves all key,value pairs where the key starts with prefix
+func (h *Helper) ReadStateSet(prefix string) (map[string][]byte, error) {
 	db := db.GetDBHandle()
 	prefixRaw := []byte("consensus." + prefix)
 
@@ -46,10 +52,9 @@ func (h *PersistHelper) ReadStateSet(prefix string) (map[string][]byte, error) {
 	defer it.Close()
 	for it.Seek(prefixRaw); it.ValidForPrefix(prefixRaw); it.Next() {
 		key := string(it.Key().Data())
-		key = key[len("consensus."):len(key)]
+		key = key[len("consensus."):]
 		// copy data from the slice!
 		ret[key] = append([]byte(nil), it.Value().Data()...)
-
 	}
 	return ret, nil
 }
