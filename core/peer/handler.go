@@ -43,6 +43,7 @@ type Handler struct {
 	syncBlocks                    chan *pb.SyncBlocks
 	snapshotRequestHandler        *syncStateSnapshotRequestHandler
 	syncStateDeltasRequestHandler *syncStateDeltasHandler
+	syncBlocksRequestHandler      *syncBlocksRequestHandler
 }
 
 // NewPeerHandler returns a new Peer handler
@@ -58,6 +59,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 
 	d.snapshotRequestHandler = newSyncStateSnapshotRequestHandler()
 	d.syncStateDeltasRequestHandler = newSyncStateDeltasHandler()
+	d.syncBlocksRequestHandler = newSyncBlocksRequestHandler()
 	d.FSM = fsm.NewFSM(
 		"created",
 		fsm.Events{
@@ -73,7 +75,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			{Name: pb.Message_SYNC_STATE_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
-			"enter_state":                                                    func(e *fsm.Event) { d.enterState(e) },
+			"enter_state":                                           func(e *fsm.Event) { d.enterState(e) },
 			"before_" + pb.Message_DISC_HELLO.String():              func(e *fsm.Event) { d.beforeHello(e) },
 			"before_" + pb.Message_DISC_GET_PEERS.String():          func(e *fsm.Event) { d.beforeGetPeers(e) },
 			"before_" + pb.Message_DISC_PEERS.String():              func(e *fsm.Event) { d.beforePeers(e) },
@@ -354,11 +356,7 @@ func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.S
 	d.syncBlocksMutex.Lock()
 	defer d.syncBlocksMutex.Unlock()
 
-	if d.syncBlocks != nil {
-		// close the previous one
-		close(d.syncBlocks)
-	}
-	d.syncBlocks = make(chan *pb.SyncBlocks, viper.GetInt("peer.sync.blocks.channelSize"))
+	d.syncBlocksRequestHandler.reset()
 
 	// Marshal the SyncBlockRange as the payload
 	syncBlockRangeBytes, err := proto.Marshal(syncBlockRange)
@@ -369,7 +367,7 @@ func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.S
 	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
 		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.Message_SYNC_GET_BLOCKS, err)
 	}
-	return d.syncBlocks, nil
+	return d.syncBlocksRequestHandler.channel, nil
 }
 
 func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
@@ -413,11 +411,15 @@ func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 			peerLogger.Error(fmt.Sprintf("Error sending syncBlocks to channel: %v", x))
 		}
 	}()
+
+	d.syncStateDeltasRequestHandler.Lock()
+	defer d.syncStateDeltasRequestHandler.Unlock()
 	// Use non-blocking send, will WARN if missed message.
 	select {
-	case d.syncBlocks <- syncBlocks:
+	case d.syncBlocksRequestHandler.channel <- syncBlocks:
 	default:
 		peerLogger.Warning("Did NOT send SyncBlocks message to channel for range: %d - %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+		d.syncBlocksRequestHandler.reset()
 	}
 }
 
