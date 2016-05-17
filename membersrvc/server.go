@@ -45,7 +45,7 @@ func main() {
 	}
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", "membersrvc", err))
 	}
 
 	var iotrace, ioinfo, iowarning, ioerror, iopanic io.Writer
