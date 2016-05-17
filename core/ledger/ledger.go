@@ -18,7 +18,6 @@ package ledger
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -37,12 +36,43 @@ import (
 
 var ledgerLogger = logging.MustGetLogger("ledger")
 
+//ErrorType represents the type of a ledger error
+type ErrorType string
+
+const (
+	//ErrorTypeWrongInput used to indicate the wrong input to ledger method
+	ErrorTypeWrongInput = ErrorType("WrongInput")
+	//ErrorTypeOutOfBounds used to indicate that a request is out of bounds
+	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
+	//ErrorTypeResourceNotFound used to indicate if a resource is not found
+	ErrorTypeResourceNotFound = ErrorType("ResourceNotFound")
+)
+
+//Error can be used for throwing an error from ledger code.
+type Error struct {
+	errType ErrorType
+	msg     string
+}
+
+func (ledgerError *Error) Error() string {
+	return fmt.Sprintf("LedgerError - %s: %s", ledgerError.errType, ledgerError.msg)
+}
+
+//Type returns the type of the error
+func (ledgerError *Error) Type() ErrorType {
+	return ledgerError.errType
+}
+
+func newLedgerError(errType ErrorType, msg string) *Error {
+	return &Error{errType, msg}
+}
+
 var (
 	// ErrOutOfBounds is returned if a request is out of bounds
-	ErrOutOfBounds = errors.New("ledger: out of bounds")
+	ErrOutOfBounds = newLedgerError(ErrorTypeOutOfBounds, "ledger: out of bounds")
 
 	// ErrResourceNotFound is returned if a resource is not found
-	ErrResourceNotFound = errors.New("ledger: resource not found")
+	ErrResourceNotFound = newLedgerError(ErrorTypeResourceNotFound, "ledger: resource not found")
 )
 
 // Ledger - the struct for openchain ledger
@@ -208,7 +238,8 @@ func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey str
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
 	if key == "" || value == nil {
-		return fmt.Errorf("A nil key or a nil value is not supported. key=%s, value=%#v", key, value)
+		return newLedgerError(ErrorTypeWrongInput,
+			fmt.Sprintf("An empty string key or a nil value is not supported. Method invoked with key='%s', value='%#v'", key, value))
 	}
 	return ledger.state.Set(chaincodeID, key, value)
 }

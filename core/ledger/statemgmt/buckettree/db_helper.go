@@ -19,7 +19,6 @@ package buckettree
 import (
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
-	"github.com/hyperledger/fabric/core/ledger/util"
 )
 
 func fetchDataNodeFromDB(dataKey *dataKey) (*dataNode, error) {
@@ -46,7 +45,7 @@ func fetchBucketNodeFromDB(bucketKey *bucketKey) (*bucketNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	if util.NilOrEmpty(nodeBytes) {
+	if nodeBytes == nil {
 		return nil, nil
 	}
 	return unmarshalBucketNode(bucketKey, nodeBytes), nil
