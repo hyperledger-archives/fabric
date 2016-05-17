@@ -924,7 +924,7 @@ func TestLedgerEmptyArrayValue(t *testing.T) {
 	}
 }
 
-func TestLedgerWrongInput(t *testing.T) {
+func TestLedgerInvalidInput(t *testing.T) {
 	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
 	l := ledgerTestWrapper.ledger
 	l.BeginTxBatch(1)
@@ -933,8 +933,8 @@ func TestLedgerWrongInput(t *testing.T) {
 	// nil value input
 	err := l.SetState("chaincodeID1", "key1", nil)
 	ledgerErr, ok := err.(*Error)
-	if !(ok && ledgerErr.Type() == ErrorTypeWrongInput) {
-		t.Fatal("A 'LedgerError' of type 'ErrorTypeWrongInput' should have been thrown")
+	if !(ok && ledgerErr.Type() == ErrorTypeInvalidArgument) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeInvalidArgument' should have been thrown")
 	} else {
 		t.Logf("An expected error [%s] is received", err)
 	}
@@ -942,8 +942,8 @@ func TestLedgerWrongInput(t *testing.T) {
 	// empty string key
 	err = l.SetState("chaincodeID1", "", []byte("value1"))
 	ledgerErr, ok = err.(*Error)
-	if !(ok && ledgerErr.Type() == ErrorTypeWrongInput) {
-		t.Fatal("A 'LedgerError' of type 'ErrorTypeWrongInput' should have been thrown")
+	if !(ok && ledgerErr.Type() == ErrorTypeInvalidArgument) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeInvalidArgument' should have been thrown")
 	}
 
 	l.SetState("chaincodeID1", "key1", []byte("value1"))

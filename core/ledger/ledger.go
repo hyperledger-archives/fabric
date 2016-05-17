@@ -40,8 +40,8 @@ var ledgerLogger = logging.MustGetLogger("ledger")
 type ErrorType string
 
 const (
-	//ErrorTypeWrongInput used to indicate the wrong input to ledger method
-	ErrorTypeWrongInput = ErrorType("WrongInput")
+	//ErrorTypeInvalidArgument used to indicate the invalid input to ledger method
+	ErrorTypeInvalidArgument = ErrorType("InvalidArgument")
 	//ErrorTypeOutOfBounds used to indicate that a request is out of bounds
 	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
 	//ErrorTypeResourceNotFound used to indicate if a resource is not found
@@ -238,7 +238,7 @@ func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey str
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
 	if key == "" || value == nil {
-		return newLedgerError(ErrorTypeWrongInput,
+		return newLedgerError(ErrorTypeInvalidArgument,
 			fmt.Sprintf("An empty string key or a nil value is not supported. Method invoked with key='%s', value='%#v'", key, value))
 	}
 	return ledger.state.Set(chaincodeID, key, value)
