@@ -36,7 +36,7 @@ type testPartialStack struct {
 }
 
 func TestMain(m *testing.M) {
-	configSetup.SetupTestConfig("./../../peer")
+	configSetup.SetupTestConfig("./../../../peer")
 	os.Exit(m.Run())
 }
 
