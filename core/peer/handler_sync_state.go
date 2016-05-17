@@ -33,6 +33,10 @@ type syncHandler struct {
 	correlationID uint64
 }
 
+func (sh *syncHandler) shouldHandle(correlationID uint64) bool {
+	return correlationID == sh.correlationID
+}
+
 //-----------------------------------------------------------------------------
 //
 // Sync Blocks Handler
@@ -50,10 +54,6 @@ func (sbh *syncBlocksRequestHandler) reset() {
 	}
 	sbh.channel = make(chan *pb.SyncBlocks, SyncBlocksChannelSize())
 	sbh.correlationID++
-}
-
-func (sbh *syncBlocksRequestHandler) shouldHandle(syncBlocks *pb.SyncBlocks) bool {
-	return syncBlocks.Range.CorrelationId == sbh.correlationID
 }
 
 func newSyncBlocksRequestHandler() *syncBlocksRequestHandler {
@@ -79,10 +79,6 @@ func (srh *syncStateSnapshotRequestHandler) reset() {
 	}
 	srh.channel = make(chan *pb.SyncStateSnapshot, SyncStateSnapshotChannelSize())
 	srh.correlationID++
-}
-
-func (srh *syncStateSnapshotRequestHandler) shouldHandle(syncStateSnapshot *pb.SyncStateSnapshot) bool {
-	return syncStateSnapshot.Request.CorrelationId == srh.correlationID
 }
 
 func (srh *syncStateSnapshotRequestHandler) createRequest() *pb.SyncStateSnapshotRequest {
