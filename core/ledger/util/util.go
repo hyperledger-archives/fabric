@@ -23,16 +23,6 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-//IsNilOrEmpty returns true if b is either nil or zero-length array
-func NilOrEmpty(b []byte) bool {
-	return b == nil || len(b) == 0
-}
-
-//NotNilOrEmpty returns true if b is a non-zero length array
-func NotNilOrEmpty(b []byte) bool {
-	return !NilOrEmpty(b)
-}
-
 // EncodeOrderPreservingVarUint64 returns a byte-representation for a uint64 number such that
 // all zero-bits starting bytes are trimmed in order to reduce the length of the array
 // For preserving the order in a default bytes-comparision, first byte contains the number of remaining bytes.

@@ -915,11 +915,41 @@ func TestLedgerEmptyArrayValue(t *testing.T) {
 
 	value, _ := l.GetState("chaincodeID1", "key1", true)
 	if value == nil || len(value) != 0 {
-		t.Fatal("An empty array expected in value. Found = %#v", value)
+		t.Fatalf("An empty array expected in value. Found = %#v", value)
 	}
 
 	value, _ = l.GetState("chaincodeID1", "non-existing-key", true)
 	if value != nil {
-		t.Fatal("A nil value expected. Found = %#v", value)
+		t.Fatalf("A nil value expected. Found = %#v", value)
 	}
+}
+
+func TestLedgerWrongInput(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+
+	// nil value input
+	err := l.SetState("chaincodeID1", "key1", nil)
+	ledgerErr, ok := err.(*Error)
+	if !(ok && ledgerErr.Type() == ErrorTypeWrongInput) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeWrongInput' should have been thrown")
+	} else {
+		t.Logf("An expected error [%s] is received", err)
+	}
+
+	// empty string key
+	err = l.SetState("chaincodeID1", "", []byte("value1"))
+	ledgerErr, ok = err.(*Error)
+	if !(ok && ledgerErr.Type() == ErrorTypeWrongInput) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeWrongInput' should have been thrown")
+	}
+
+	l.SetState("chaincodeID1", "key1", []byte("value1"))
+	l.TxFinished("txUUID", true)
+	tx, _ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+	value, _ := l.GetState("chaincodeID1", "key1", true)
+	testutil.AssertEquals(t, value, []byte("value1"))
 }

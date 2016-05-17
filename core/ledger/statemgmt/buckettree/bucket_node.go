@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	openchainUtil "github.com/hyperledger/fabric/core/util"
 )
 
@@ -44,8 +43,8 @@ func unmarshalBucketNode(bucketKey *bucketKey, serializedBytes []byte) *bucketNo
 		if err != nil {
 			panic(fmt.Errorf("this error should not occur: %s", err))
 		}
-		// both rocksdb and protobuf convert a nil into a zero length byte-array so nil check would not work
-		if util.NotNilOrEmpty(childCryptoHash) {
+		//protobuf's buffer.EncodeRawBytes/buffer.DecodeRawBytes convert a nil into a zero length byte-array, so nil check would not work
+		if len(childCryptoHash) != 0 {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
 		}
 	}

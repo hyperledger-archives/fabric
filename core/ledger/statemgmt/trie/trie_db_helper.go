@@ -16,10 +16,7 @@ limitations under the License.
 
 package trie
 
-import (
-	"github.com/hyperledger/fabric/core/db"
-	"github.com/hyperledger/fabric/core/ledger/util"
-)
+import "github.com/hyperledger/fabric/core/db"
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
 	stateTrieLogger.Debug("Enter fetchTrieNodeFromDB() for trieKey [%s]", key)
@@ -30,7 +27,7 @@ func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
 		return nil, err
 	}
 
-	if util.NilOrEmpty(trieNodeBytes) {
+	if trieNodeBytes == nil {
 		return nil, nil
 	}
 
