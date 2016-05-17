@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -30,30 +31,30 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub,  function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	err := stub.PutState("counter", []byte("0"))
 	return nil, err
 }
 
-// Transaction makes increment counter
-func (t *SimpleChaincode)Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	isOk, _ := stub.VerifyAttribute("position",[]byte("Software Engineer"))
-	if isOk { 
+//Invoke Transaction makes increment counter
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer"))
+	if isOk {
 		counter, err := stub.GetState("counter")
-		if err != nil { 
+		if err != nil {
 			return nil, err
 		}
 		var cInt int
 		cInt, err = strconv.Atoi(string(counter))
-		if err != nil { 
+		if err != nil {
 			return nil, err
 		}
 		cInt = cInt + 1
 		counter = []byte(strconv.Itoa(cInt))
-		stub.PutState("counter", counter) 
+		stub.PutState("counter", counter)
 	}
 	return nil, nil
-	
+
 }
 
 // Deletes an entity from state
@@ -61,7 +62,6 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3")
 	}
-
 
 	// Delete the key from the state in ledger
 	err := stub.DelState("counter")
