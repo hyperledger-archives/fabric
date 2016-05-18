@@ -71,6 +71,10 @@ With security enabled, modify the command to include the -u parameter passing th
 
 `./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
+In addition, when security is enabled TCert's attributes can be specified using the -a parameter and passing the list of *"attribute"*:*"value"* pairs
+
+`./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -a '{"position":"Software Engineer", "company":"ACompany"}' -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`  
+
 ### Verify Results
 
 To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validating or a non-validating node. In the example below, 172.17.0.2 is the IP address of a validating or a non-validating node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml).
@@ -225,6 +229,8 @@ message ChaincodeSpec {
     int32 timeout = 4;
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
+    []byte Metadata = 7;
+    map[string]string Attributes = 8;  
 }
 ```
 
@@ -294,6 +300,28 @@ With security enabled, modify each of the above payloads to include the secureCo
           "args":["a", "b", "10"]
       },
   	  "secureContext": "jim"
+  }
+}
+```
+
+Additionaly when security is enabled TCert's attributes can be specified for deploy or invoke payloads as shown below:
+
+```
+{
+  "chaincodeSpec":{
+      "type": "GOLANG",
+      "chaincodeID":{
+          "name":"mycc"
+      },
+      "ctorMsg":{
+          "function":"invoke",
+          "args":["a", "b", "10"]
+      },
+  	  "secureContext": "jim",
+  	  "Attributes": {
+    	"position":"Software Engineer"
+    	"company":"ACompany"
+    }  
   }
 }
 ```
@@ -516,6 +544,31 @@ Chaincode Query Response:
         "message": "-400"
     },
     "id": 5
+}
+```
+##### Using  TCert's attributes for chaincode deploy, invocation or query
+Additionaly when security is enabled TCert's attributes can be specified for deploy, invoke or query Requests as shown below:
+
+```
+{
+  "jsonrpc": "2.0",
+  "method": "invoke",
+  "params": {
+      "type": 1,
+      "chaincodeID":{
+          "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
+      },
+      "ctorMsg": {
+         "function":"invoke",
+         "args":["a", "b", "100"]
+      },
+      "secureContext": "lukas",
+      "Attributes": {
+    	 "position":"Software Engineer"
+    	 "company":"ACompany"
+    }  
+  },
+  "id": 3
 }
 ```
 
