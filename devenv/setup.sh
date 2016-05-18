@@ -101,6 +101,9 @@ pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couc
 #apt-get install --yes ruby ruby-dev gcc
 #gem install apiaryio
 
+# Install Tcl prerequisites for busywork
+apt-get install --yes tcl tclx tcllib
+
 # Set Go environment variables needed by other scripts
 export GOPATH="/opt/gopath"
 export GOROOT="/opt/go/"

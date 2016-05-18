@@ -33,7 +33,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // TODO: justify this blank import or remove
 )
 
 // CA is the base certificate authority.
@@ -47,7 +47,7 @@ type CA struct {
 	raw  []byte
 }
 
-//CertificateSpec is the certificate spec defines the parameter used to create a new certificate.
+// CertificateSpec defines the parameter used to create a new certificate.
 type CertificateSpec struct {
 	id           string
 	commonName   string
@@ -67,7 +67,7 @@ type AffiliationGroup struct {
 	preKey   []byte
 }
 
-//NewCertificateSpec creates a new certificate spec
+// NewCertificateSpec creates a new certificate spec
 func NewCertificateSpec(id string, commonName string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time, opt ...pkix.Extension) *CertificateSpec {
 	spec := new(CertificateSpec)
 	spec.id = id
@@ -81,86 +81,102 @@ func NewCertificateSpec(id string, commonName string, serialNumber *big.Int, pub
 	return spec
 }
 
-//NewDefaultPeriodCertificateSpec creates a new certificate spec with notBefore a minute ago and not after 90 days from notBefore.
+// NewDefaultPeriodCertificateSpec creates a new certificate spec with notBefore a minute ago and not after 90 days from notBefore.
+//
 func NewDefaultPeriodCertificateSpec(id string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	return NewDefaultPeriodCertificateSpecWithCommonName(id, id, serialNumber, pub, usage, opt...)
 }
 
-//NewDefaultPeriodCertificateSpecWithCommonName creates a new certificate spec with notBefore a minute ago and not after 90 days from notBefore and a specifc commonName.
+// NewDefaultPeriodCertificateSpecWithCommonName creates a new certificate spec with notBefore a minute ago and not after 90 days from notBefore and a specifc commonName.
+//
 func NewDefaultPeriodCertificateSpecWithCommonName(id string, commonName string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	notBefore := time.Now().Add(-1 * time.Minute)
 	notAfter := notBefore.Add(time.Hour * 24 * 90)
 	return NewCertificateSpec(id, commonName, serialNumber, pub, usage, &notBefore, &notAfter, opt...)
 }
 
-//NewDefaultCertificateSpec creates a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore.
+// NewDefaultCertificateSpec creates a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore.
+//
 func NewDefaultCertificateSpec(id string, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	serialNumber := big.NewInt(1)
 	return NewDefaultPeriodCertificateSpec(id, serialNumber, pub, usage, opt...)
 }
 
-//NewDefaultCertificateSpecWithCommonName creates a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore and a specific commonName.
+// NewDefaultCertificateSpecWithCommonName creates a new certificate spec with serialNumber = 1, notBefore a minute ago and not after 90 days from notBefore and a specific commonName.
+//
 func NewDefaultCertificateSpecWithCommonName(id string, commonName string, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	serialNumber := big.NewInt(1)
 	return NewDefaultPeriodCertificateSpecWithCommonName(id, commonName, serialNumber, pub, usage, opt...)
 }
 
-//GetID Returns the id of the certificate spec.
+// GetID returns the spec's ID field/value
+//
 func (spec *CertificateSpec) GetID() string {
 	return spec.id
 }
 
-//GetCommonName returns the common name of the certificate.
+// GetCommonName returns the spec's Common Name field/value
+//
 func (spec *CertificateSpec) GetCommonName() string {
 	return spec.commonName
 }
 
-//GetSerialNumber returns the serial number of the certificate.
+// GetSerialNumber returns the spec's Serial Number field/value
+//
 func (spec *CertificateSpec) GetSerialNumber() *big.Int {
 	return spec.serialNumber
 }
 
-//GetPublicKey returns the public key of the certificate.
+// GetPublicKey returns the spec's Public Key field/value
+//
 func (spec *CertificateSpec) GetPublicKey() interface{} {
 	return spec.pub
 }
 
-//GetUsage returns the usage of the certificate.
+// GetUsage returns the spec's usage (which is the x509.KeyUsage) field/value
+//
 func (spec *CertificateSpec) GetUsage() x509.KeyUsage {
 	return spec.usage
 }
 
-//GetNotBefore returns the date which the certificate is valid from.
+// GetNotBefore returns the spec NotBefore (time.Time) field/value
+//
 func (spec *CertificateSpec) GetNotBefore() *time.Time {
 	return spec.NotBefore
 }
 
-//GetNotAfter returns the date which the certificate is valid to.
+// GetNotAfter returns the spec NotAfter (time.Time) field/value
+//
 func (spec *CertificateSpec) GetNotAfter() *time.Time {
 	return spec.NotAfter
 }
 
-//GetOrganization returns the organization of the certificate.
+// GetOrganization returns the spec's Organization field/value
+//
 func (spec *CertificateSpec) GetOrganization() string {
 	return GetConfigString("pki.ca.subject.organization")
 }
 
-//GetCountry returns the country of the certificate.
+// GetCountry returns the spec's Country field/value
+//
 func (spec *CertificateSpec) GetCountry() string {
 	return GetConfigString("pki.ca.subject.country")
 }
 
-//GetSubjectKeyId returns the subject key id of the certificate.
-func (spec *CertificateSpec) GetSubjectKeyId() *[]byte {
+// GetSubjectKeyID returns the spec's subject KeyID
+//
+func (spec *CertificateSpec) GetSubjectKeyID() *[]byte {
 	return &[]byte{1, 2, 3, 4}
 }
 
-//GetSignatureAlgorithm returns the signature algorithm used in the certificate.
+// GetSignatureAlgorithm returns the X509.SignatureAlgorithm field/value
+//
 func (spec *CertificateSpec) GetSignatureAlgorithm() x509.SignatureAlgorithm {
 	return x509.ECDSAWithSHA384
 }
 
-//GetExtensions returns the certificate extensions.
+// GetExtensions returns the sepc's extensions
+//
 func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
@@ -362,7 +378,7 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 		NotBefore: *notBefore,
 		NotAfter:  *notAfter,
 
-		SubjectKeyId:       *spec.GetSubjectKeyId(),
+		SubjectKeyId:       *spec.GetSubjectKeyID(),
 		SignatureAlgorithm: spec.GetSignatureAlgorithm(),
 		KeyUsage:           spec.GetUsage(),
 
@@ -467,9 +483,10 @@ func (ca *CA) requireAffiliation(role pb.Role) bool {
 	return role != pb.Role_VALIDATOR && role != pb.Role_AUDITOR
 }
 
+// validateAndGenerateEnrollID validates the affiliation subject
 func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole string, role pb.Role) (string, error) {
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Println("Validating and generating enrollId for user id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliationRole + ", role: " + roleStr + ".")
+	Trace.Println("Validating and generating enrollID for user id: " + id + ", affiliation: " + affiliation + ", affiliationRole: " + affiliationRole + ", role: " + roleStr + ".")
 
 	// Check whether the affiliation is required for the current user.
 	//
@@ -492,12 +509,11 @@ func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole strin
 	return "", nil
 }
 
-//
-// This method registers a new member with the CA.
+// registerUser registers a new member with the CA
 //
 func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role, opt ...string) (string, error) {
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Println("Received request to register user with id: " + id + ", affiliation: " + affiliation + ", affiliation_role: " + affiliationRole + ", role: " + roleStr + ".")
+	Trace.Println("Received request to register user with id: " + id + ", affiliation: " + affiliation + ", affiliationRole: " + affiliationRole + ", role: " + roleStr + ".")
 
 	var tok string
 	var err error
@@ -514,6 +530,8 @@ func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role
 	return tok, nil
 }
 
+// registerUserWithEnrollID registers a new user and its enrollmentID, role and state
+//
 func (ca *CA) registerUserWithErollID(id string, enrollID string, role pb.Role, opt ...string) (string, error) {
 	roleStr, _ := MemberRoleToString(role)
 	Trace.Println("Registering user " + id + " as " + roleStr + ".")
@@ -541,6 +559,8 @@ func (ca *CA) registerUserWithErollID(id string, enrollID string, role pb.Role, 
 
 }
 
+// registerAffiliationGroup registers a new affiliation group
+//
 func (ca *CA) registerAffiliationGroup(name string, parentName string) error {
 	Trace.Println("Registering affiliation group " + name + " parent " + parentName + ".")
 
@@ -572,6 +592,8 @@ func (ca *CA) registerAffiliationGroup(name string, parentName string) error {
 
 }
 
+// deleteUser deletes a user given a name
+//
 func (ca *CA) deleteUser(id string) error {
 	Trace.Println("Deleting user " + id + ".")
 
@@ -592,18 +614,24 @@ func (ca *CA) deleteUser(id string) error {
 	return err
 }
 
+// readUser reads a token given an id
+//
 func (ca *CA) readUser(id string) *sql.Row {
 	Trace.Println("Reading token for " + id + ".")
 
 	return ca.db.QueryRow("SELECT role, token, state, key, enrollmentId FROM Users WHERE id=?", id)
 }
 
+// readUsers reads users of a given Role
+//
 func (ca *CA) readUsers(role int) (*sql.Rows, error) {
 	Trace.Println("Reading users matching role " + strconv.FormatInt(int64(role), 2) + ".")
 
 	return ca.db.Query("SELECT id, role FROM Users WHERE role&?!=0", role)
 }
 
+// readRole returns the user Role given a user id
+//
 func (ca *CA) readRole(id string) int {
 	Trace.Println("Reading role for " + id + ".")
 
@@ -661,15 +689,15 @@ func (ca *CA) parseEnrollID(enrollID string) (id string, role string, affiliatio
 		return "", "", "", errors.New("Input parameter missing")
 	}
 
-	enrollIdSections := strings.Split(enrollID, "\\")
+	enrollIDSections := strings.Split(enrollID, "\\")
 
-	if len(enrollIdSections) != 3 {
+	if len(enrollIDSections) != 3 {
 		return "", "", "", errors.New("Either the userId, Role or affiliation is missing from the enrollmentID")
 	}
 
-	id = enrollIdSections[0]
-	role = enrollIdSections[2]
-	affiliation = enrollIdSections[1]
+	id = enrollIDSections[0]
+	role = enrollIDSections[2]
+	affiliation = enrollIDSections[1]
 	err = nil
 	return
 }
