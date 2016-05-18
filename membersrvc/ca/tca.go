@@ -157,7 +157,7 @@ func (tca *TCA) initializePreKeyNonRootGroup(group *AffiliationGroup) error {
 }
 
 func (tca *TCA) initializePreKeyGroup(group *AffiliationGroup) error {
-	if group.parentId == 0 {
+	if group.parentID == 0 {
 		//This group is root
 		group.preKey = tca.rootPreKey
 		return nil
@@ -188,7 +188,7 @@ func (tca *TCA) initializePreKeyTree() error {
 }
 
 func (tca *TCA) getPreKFrom(enrollmentCertificate *x509.Certificate) ([]byte, error) {
-	_, _, affiliation, err := tca.eca.parseEnrollId(enrollmentCertificate.Subject.CommonName)
+	_, _, affiliation, err := tca.eca.parseEnrollID(enrollmentCertificate.Subject.CommonName)
 	if err != nil {
 		return nil, err
 	}
