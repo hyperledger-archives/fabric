@@ -23,6 +23,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"database/sql"
 )
 
 const (
@@ -45,7 +46,7 @@ func TestNewCA(t *testing.T) {
 	LogInit(os.Stdout, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
 	//Create new CA
-	ca := NewCA(name)
+	ca := NewCA(name, initializeTables)
 	if ca == nil {
 		t.Error("could not create new CA")
 	}
@@ -98,4 +99,9 @@ func TestNewCA(t *testing.T) {
 //cleanup files between and after tests
 func cleanupFiles(path string) error {
 	return os.RemoveAll(path)
+}
+
+// Empty initializer for CA
+func initializeTables(db *sql.DB) error {
+	return nil
 }
