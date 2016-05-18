@@ -166,7 +166,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = fmt.Errorf("process done with error = %v", err)
+			err = fmt.Errorf(" 'go get' command failed in getCodeFromHTTP.  This may be an issue with the network or compilation. error = %v", err)
 		}
 	}
 	return
