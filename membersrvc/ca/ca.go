@@ -33,7 +33,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	_ "github.com/mattn/go-sqlite3" // TODO: not use a blank import!
+	_ "github.com/mattn/go-sqlite3" // TODO: justify this blank import or remove
 )
 
 // CA is the base certificate authority.
