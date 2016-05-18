@@ -143,7 +143,10 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf //capture Stderr and print it on error
 	err = cmd.Start()
+
 
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
@@ -163,7 +166,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = fmt.Errorf(" 'go get' command failed in getCodeFromHTTP.  This may be an issue with the network or compilation. error = %v", err)
+			 err = fmt.Errorf("'go get' failed with error\n\"%s\"\n", err, string(errBuf.Bytes()))
 		}
 	}
 	return
