@@ -310,18 +310,23 @@ func (op *obcBatch) sendBatch() error {
 	return nil
 }
 
+func (op *obcBatch) txToReq(tx []byte) *Request {
+	now := time.Now()
+	req := &Request{
+		Timestamp: &google_protobuf.Timestamp{
+			Seconds: now.Unix(),
+			Nanos:   int32(now.UnixNano() % 1000000000),
+		},
+		Payload:   tx,
+		ReplicaId: op.pbft.id,
+	}
+	// XXX sign req
+	return req
+}
+
 func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
-		now := time.Now()
-		req := &Request{
-			Timestamp: &google_protobuf.Timestamp{
-				Seconds: now.Unix(),
-				Nanos:   int32(now.UnixNano() % 1000000000),
-			},
-			Payload:   ocMsg.Payload,
-			ReplicaId: op.pbft.id,
-		}
-		// XXX sign req
+		req := op.txToReq(ocMsg.Payload)
 		hash := op.complainer.Custody(req)
 
 		logger.Info("New consensus request received: %s", hash)
@@ -377,6 +382,29 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	return nil
 }
 
+// resubmitStaleRequest deals with requests that became stale.  If the
+// request has indeed been executed, we don't have to do anything.  If
+// this request raced with a later one and lost, then we need to
+// repackage this request's payload into a new request and resubmit
+// it.
+func (op *obcBatch) resubmitStaleRequest(c custodyInfo) {
+	oldReq := c.req.(*Request)
+
+	if !op.complainer.InCustody(oldReq) {
+		logger.Debug("Batch replica %d custody expired for stale request: %s",
+			op.pbft.id, c.hash)
+		return
+	}
+
+	newReq := op.txToReq(oldReq.Payload)
+
+	logger.Info("Batch replica %d custody expired for skipped request %s, resubmitting as %s",
+		op.pbft.id, hashReq(oldReq), hashReq(newReq))
+	op.complainer.Success(oldReq)
+	op.complainer.Custody(newReq)
+	op.submitToLeader(newReq)
+}
+
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) main() {
 	for {
@@ -411,7 +439,10 @@ func (op *obcBatch) main() {
 				logger.Debug("Replica %d is not primary, so waiting for complaints to expire again", op.pbft.id)
 			}
 		case c := <-op.custodyTimerChan:
-			// XXX filter out complaints that are about old requests
+			if !op.deduplicator.IsNew(c.req.(*Request)) {
+				op.resubmitStaleRequest(c)
+				continue
+			}
 
 			if !c.complaint {
 				logger.Warning("Batch replica %d custody expired, complaining: %s", op.pbft.id, c.hash)
