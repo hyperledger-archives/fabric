@@ -32,8 +32,8 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	_ "github.com/mattn/go-sqlite3" // TODO: not use a blank import!
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
+	_ "github.com/mattn/go-sqlite3" // TODO: not use a blank import!
 )
 
 // CA is the base certificate authority.
@@ -155,13 +155,13 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 // GetOrganization returns the spec's Organization field/value
 //
 func (spec *CertificateSpec) GetOrganization() string {
-       return GetConfigString("pki.ca.subject.organization")
+	return GetConfigString("pki.ca.subject.organization")
 }
 
 // GetCountry returns the spec's Country field/value
 //
 func (spec *CertificateSpec) GetCountry() string {
-       return GetConfigString("pki.ca.subject.country")
+	return GetConfigString("pki.ca.subject.country")
 }
 
 // GetSubjectKeyID returns the spec's subject KeyID
@@ -631,7 +631,6 @@ func (ca *CA) readRole(id string) int {
 
 	return role
 }
-
 
 func (ca *CA) readAffiliationGroups() ([]*AffiliationGroup, error) {
 	Trace.Println("Reading affilition groups.")
