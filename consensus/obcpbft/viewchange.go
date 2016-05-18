@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -46,12 +43,12 @@ func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	return true
 }
 
-func (instance *pbftCore) sendViewChange() error {
-	instance.stopTimer()
+func (instance *pbftCore) calcPSet() map[uint64]*ViewChange_PQ {
+	pset := make(map[uint64]*ViewChange_PQ)
 
-	delete(instance.newViewStore, instance.view)
-	instance.view++
-	instance.activeView = false
+	for n, p := range instance.pset {
+		pset[n] = p
+	}
 
 	// P set: requests that have prepared here
 	//
@@ -63,20 +60,30 @@ func (instance *pbftCore) sendViewChange() error {
 			continue
 		}
 
-		digest := cert.prePrepare.RequestDigest
+		digest := cert.digest
 		if !instance.prepared(digest, idx.v, idx.n) {
 			continue
 		}
 
-		if p, ok := instance.pset[idx.n]; ok && p.View > idx.v {
+		if p, ok := pset[idx.n]; ok && p.View > idx.v {
 			continue
 		}
 
-		instance.pset[idx.n] = &ViewChange_PQ{
+		pset[idx.n] = &ViewChange_PQ{
 			SequenceNumber: idx.n,
 			Digest:         digest,
 			View:           idx.v,
 		}
+	}
+
+	return pset
+}
+
+func (instance *pbftCore) calcQSet() map[qidx]*ViewChange_PQ {
+	qset := make(map[qidx]*ViewChange_PQ)
+
+	for n, q := range instance.qset {
+		qset[n] = q
 	}
 
 	// Q set: requests that have pre-prepared here (pre-prepare or
@@ -90,22 +97,35 @@ func (instance *pbftCore) sendViewChange() error {
 			continue
 		}
 
-		digest := cert.prePrepare.RequestDigest
+		digest := cert.digest
 		if !instance.prePrepared(digest, idx.v, idx.n) {
 			continue
 		}
 
 		qi := qidx{digest, idx.n}
-		if q, ok := instance.qset[qi]; ok && q.View > idx.v {
+		if q, ok := qset[qi]; ok && q.View > idx.v {
 			continue
 		}
 
-		instance.qset[qi] = &ViewChange_PQ{
+		qset[qi] = &ViewChange_PQ{
 			SequenceNumber: idx.n,
 			Digest:         digest,
 			View:           idx.v,
 		}
 	}
+
+	return qset
+}
+
+func (instance *pbftCore) sendViewChange() error {
+	instance.stopTimer()
+
+	delete(instance.newViewStore, instance.view)
+	instance.view++
+	instance.activeView = false
+
+	instance.pset = instance.calcPSet()
+	instance.qset = instance.calcQSet()
 
 	// clear old messages
 	for idx := range instance.certStore {
@@ -145,7 +165,8 @@ func (instance *pbftCore) sendViewChange() error {
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}}, true)
+	instance.recvViewChange(vc)
+	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
 }
 
 func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
@@ -157,8 +178,18 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 		return nil
 	}
 
-	if !(vc.View >= instance.view && instance.correctViewChange(vc) && instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}] == nil) {
+	if vc.View < instance.view {
+		logger.Warning("Replica %d found view-change message for old view", instance.id)
+		return nil
+	}
+
+	if !instance.correctViewChange(vc) {
 		logger.Warning("Replica %d found view-change message incorrect", instance.id)
+		return nil
+	}
+
+	if _, ok := instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}]; ok {
+		logger.Warning("Replica %d already has a view change message for view %d from replica %d", instance.id, vc.View, vc.ReplicaId)
 		return nil
 	}
 
@@ -197,9 +228,11 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
-	if vc.View == instance.view && quorum == instance.allCorrectReplicasQuorum() {
-		instance.startTimer(instance.lastNewViewTimeout)
-		instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
+		if quorum == instance.allCorrectReplicasQuorum() {
+			instance.startTimer(instance.lastNewViewTimeout, "new view change")
+			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+		}
 
 		if instance.primary(instance.view) == instance.id {
 			return instance.sendNewView()
@@ -207,10 +240,13 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 	}
 
 	return instance.processNewView()
+
 }
 
 func (instance *pbftCore) sendNewView() (err error) {
+
 	if _, ok := instance.newViewStore[instance.view]; ok {
+		logger.Debug("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
 		return
 	}
 
@@ -218,11 +254,13 @@ func (instance *pbftCore) sendNewView() (err error) {
 
 	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
+		logger.Info("Replica %d could not find consistent checkpoint: %+v", instance.id, instance.viewChangeStore)
 		return
 	}
 
 	msgList := instance.assignSequenceNumbers(vset, cp.SequenceNumber)
 	if msgList == nil {
+		logger.Info("Replica %d could not assign sequence numbers for new view", instance.id)
 		return
 	}
 
@@ -236,7 +274,7 @@ func (instance *pbftCore) sendNewView() (err error) {
 	logger.Info("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	err = instance.innerBroadcast(&Message{&Message_NewView{nv}}, false)
+	err = instance.innerBroadcast(&Message{&Message_NewView{nv}})
 	if err != nil {
 		return err
 	}
@@ -313,7 +351,7 @@ func (instance *pbftCore) processNewView() error {
 			return nil
 		}
 
-		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas, &ExecutionInfo{Checkpoint: true})
+		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
 		instance.lastExec = cp.SequenceNumber
 	}
 
@@ -353,6 +391,7 @@ func (instance *pbftCore) processNewView() error {
 func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
+	instance.stopTimer()
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
@@ -365,9 +404,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		}
 		cert := instance.getCert(instance.view, n)
 		cert.prePrepare = preprep
+		cert.digest = d
 		if n > instance.seqNo {
 			instance.seqNo = n
 		}
+		instance.persistQSet()
 	}
 
 	if instance.primary(instance.view) != instance.id {
@@ -379,13 +420,16 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 				ReplicaId:      instance.id,
 			}
 			cert := instance.getCert(instance.view, n)
-			cert.prepare = append(cert.prepare, prep)
 			cert.sentPrepare = true
-			instance.innerBroadcast(&Message{&Message_Prepare{prep}}, true)
+			instance.recvPrepare(prep)
+			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {
+		logger.Debug("Replica %d is now primary, attempting to resubmit requests", instance.id)
 		instance.resubmitRequests()
 	}
+
+	instance.startTimerIfOutstandingRequests()
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
@@ -529,6 +573,7 @@ nLoop:
 			continue nLoop
 		}
 
+		logger.Warning("Replica %d could not assign value to contents of seqNo %d, found only %d missing P entries", instance.id, n, quorum)
 		return nil
 	}
 

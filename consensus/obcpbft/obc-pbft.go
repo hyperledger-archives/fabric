@@ -1,34 +1,32 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -83,8 +81,8 @@ func loadConfig() (config *viper.Viper) {
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-	    obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
-	    config.AddConfigPath(obcpbftpath)
+		obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
+		config.AddConfigPath(obcpbftpath)
 	}
 
 	err := config.ReadInConfig()
@@ -125,4 +123,37 @@ func getValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
 		handles[i], _ = getValidatorHandle(id)
 	}
 	return
+}
+
+type obcGeneric struct {
+	stack consensus.Stack
+	pbft  *pbftCore
+}
+
+func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
+	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
+}
+
+func (op *obcGeneric) getState() []byte {
+	return op.stack.GetBlockchainInfoBlob()
+}
+
+func (op *obcGeneric) getLastSeqNo() (uint64, error) {
+	raw, err := op.stack.GetBlockHeadMetadata()
+	if err != nil {
+		return 0, err
+	}
+	meta := &Metadata{}
+	proto.Unmarshal(raw, meta)
+	return meta.SeqNo, nil
+}
+
+// StateUpdated is a signal from the stack that it has fast-forwarded its state
+func (op *obcGeneric) StateUpdated(seqNo uint64, id []byte) {
+	op.pbft.stateUpdated(seqNo, id)
+}
+
+// StateUpdating is a signal from the stack that state transfer has started
+func (op *obcGeneric) StateUpdating(seqNo uint64, id []byte) {
+	op.pbft.stateUpdating(seqNo, id)
 }

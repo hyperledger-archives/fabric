@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package buckettree
@@ -26,6 +23,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/perfstat"
+	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 )
 
 var defaultBucketCacheMaxSize = 100 // MBs
@@ -71,8 +69,8 @@ func (cache *bucketCache) loadAllBucketNodesFromDB() {
 			itr.Value().Free()
 			break
 		}
-		bKey := decodeBucketKey(itr.Key().Data())
-		nodeBytes := itr.Value().Data()
+		bKey := decodeBucketKey(statemgmt.Copy(itr.Key().Data()))
+		nodeBytes := statemgmt.Copy(itr.Value().Data())
 		bucketNode := unmarshalBucketNode(&bKey, nodeBytes)
 		size := bKey.size() + bucketNode.size()
 		cache.size += size

@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package shim
@@ -782,7 +779,18 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
 		// Success response
 		chaincodeLogger.Debug("[%s]Received %s. Successfully invoked chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
-		return responseMsg.Payload, nil
+		respMsg := &pb.ChaincodeMessage{}
+		if err := proto.Unmarshal(responseMsg.Payload, respMsg); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error unmarshaling called chaincode response: %s", shortuuid(responseMsg.Uuid), err))
+			return nil, err
+		}
+		if respMsg.Type == pb.ChaincodeMessage_COMPLETED {
+			// Success response
+			chaincodeLogger.Debug("[%s]Received %s. Successfully invoed chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
+			return respMsg.Payload, nil
+		}
+		chaincodeLogger.Error(fmt.Sprintf("[%s]Received %s. Error from chaincode", shortuuid(responseMsg.Uuid), respMsg.Type.String()))
+		return nil, errors.New(string(respMsg.Payload[:]))
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response
@@ -830,9 +838,18 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 	}
 
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
-		// Success response
-		chaincodeLogger.Debug("[%s]Received %s. Successfully queried chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
-		return responseMsg.Payload, nil
+		respMsg := &pb.ChaincodeMessage{}
+		if err := proto.Unmarshal(responseMsg.Payload, respMsg); err != nil {
+			chaincodeLogger.Error(fmt.Sprintf("[%s]Error unmarshaling called chaincode responseP: %s", shortuuid(responseMsg.Uuid), err))
+			return nil, err
+		}
+		if respMsg.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
+			// Success response
+			chaincodeLogger.Debug("[%s]Received %s. Successfully queried chaincode", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
+			return respMsg.Payload, nil
+		}
+		chaincodeLogger.Error(fmt.Sprintf("[%s]Error from chaincode: %s", shortuuid(responseMsg.Uuid), string(respMsg.Payload[:])))
+		return nil, errors.New(string(respMsg.Payload[:]))
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response

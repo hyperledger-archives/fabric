@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
@@ -23,7 +20,7 @@ import (
 	"encoding/asn1"
 	"errors"
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/ecies"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -73,7 +70,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	// client.enrollChainKey is an AES key represented as byte array
 	enrollChainKey := validator.enrollChainKey.([]byte)
 
-	key := utils.HMAC(enrollChainKey, clone.Nonce)
+	key := primitives.HMAC(enrollChainKey, clone.Nonce)
 
 	//	validator.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
 	//	validator.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
@@ -82,8 +79,8 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	//	validator.log.Info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
 
 	// Decrypt Payload
-	payloadKey := utils.HMACTruncated(key, []byte{1}, utils.AESKeyLength)
-	payload, err := utils.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
+	payloadKey := primitives.HMACAESTruncated(key, []byte{1})
+	payload, err := primitives.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
 	if err != nil {
 		validator.error("Failed decrypting payload [%s].", err.Error())
 		return nil, err
@@ -91,8 +88,8 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	clone.Payload = payload
 
 	// Decrypt ChaincodeID
-	chaincodeIDKey := utils.HMACTruncated(key, []byte{2}, utils.AESKeyLength)
-	chaincodeID, err := utils.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
+	chaincodeIDKey := primitives.HMACAESTruncated(key, []byte{2})
+	chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
 	if err != nil {
 		validator.error("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
@@ -101,8 +98,8 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 
 	// Decrypt metadata
 	if len(clone.Metadata) != 0 {
-		metadataKey := utils.HMACTruncated(key, []byte{3}, utils.AESKeyLength)
-		metadata, err := utils.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
+		metadataKey := primitives.HMACAESTruncated(key, []byte{3})
+		metadata, err := primitives.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
 		if err != nil {
 			validator.error("Failed decrypting metadata [%s].", err.Error())
 			return nil, err
@@ -125,7 +122,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 		return nil, err
 	}
 
-	var ccPrivateKey ecies.PrivateKey
+	var ccPrivateKey primitives.PrivateKey
 
 	validator.debug("Transaction type [%s].", tx.Type.String())
 

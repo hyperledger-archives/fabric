@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package chaincode
@@ -24,6 +21,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -183,14 +181,14 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
 	if err != nil {
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 		closeListenerAndSleep(lis)
 		t.Fail()
 		t.Logf("Error deploying <%s>: %s", chaincodeID, err)
 		return
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 	closeListenerAndSleep(lis)
 }
 
@@ -320,7 +318,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 		t.Logf("Invoke test passed")
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt,  &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID: chaincodeID}})
+	GetChain(DefaultChain).Stop(ctxt,  &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID: chaincodeID}})
 
 	closeListenerAndSleep(lis)
 }
@@ -418,7 +416,7 @@ func TestExecuteQuery(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -449,7 +447,7 @@ func TestExecuteQuery(t *testing.T) {
 	//end := getNowMillis()
 	//fmt.Fprintf(os.Stderr, "Ending: %d\n", end)
 	//fmt.Fprintf(os.Stderr, "Elapsed : %d millis\n", end-start)
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 	closeListenerAndSleep(lis)
 }
 
@@ -500,7 +498,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 		errStr := err.Error()
 		t.Logf("Got error %s\n", errStr)
 		t.Logf("InvalidInvoke test passed")
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID:chaincodeID}})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID:chaincodeID}})
 
 		closeListenerAndSleep(lis)
 		return
@@ -509,7 +507,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	t.Fail()
 	t.Logf("Error invoking transaction %s", err)
 
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID:chaincodeID}})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:&pb.ChaincodeSpec{ChaincodeID:chaincodeID}})
 
 	closeListenerAndSleep(lis)
 }
@@ -562,7 +560,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -581,7 +579,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 		t.Logf("This query should not have succeeded as it attempts to put state")
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 	closeListenerAndSleep(lis)
 }
 
@@ -634,7 +632,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -655,8 +653,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -675,8 +673,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -686,14 +684,124 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+	closeListenerAndSleep(lis)
+}
+
+// Test the execution of a chaincode that invokes another chaincode with wrong parameters. Should receive error from
+// from the called chaincode
+func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	// Deploy first chaincode
+	url1 := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+
+	cID1 := &pb.ChaincodeID{Path: url1}
+	f := "init"
+	args := []string{"a", "100", "b", "200"}
+
+	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec1)
+	chaincodeID1 := spec1.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Deploy second chaincode
+	url2 := "github.com/hyperledger/fabric/examples/chaincode/go/passthru"
+
+	cID2 := &pb.ChaincodeID{Path: url2}
+	f = "init"
+	args = []string{""}
+
+	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec2)
+	chaincodeID2 := spec2.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Invoke second chaincode, which will inturn invoke the first chaincode but pass bad params
+	f = chaincodeID1
+	args = []string{"invoke", "a"} //expect {"invoke", "a","b","10"}
+
+	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	// Invoke chaincode
+	_, _, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_INVOKE)
+
+	if err == nil {
+		t.Fail()
+		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if strings.Index(err.Error(), "Incorrect number of arguments. Expecting 3") < 0 {
+		t.Fail()
+		t.Logf("Unexpected error %s", err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 	closeListenerAndSleep(lis)
 }
 
@@ -746,7 +854,7 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -767,8 +875,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -788,8 +896,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -799,8 +907,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil || result != 300 {
 		t.Fail()
 		t.Logf("Incorrect final state after transaction for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -817,8 +925,8 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 		t.Logf("Error querying <%s>: %s", chaincodeID2, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
@@ -828,14 +936,124 @@ func TestChaincodeQueryChaincode(t *testing.T) {
 	if err != nil || result != 300 {
 		t.Fail()
 		t.Logf("Incorrect final value after query for <%s>: %s", chaincodeID1, err)
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-		GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 		closeListenerAndSleep(lis)
 		return
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
-	GetChain(DefaultChain).StopChaincode(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+	closeListenerAndSleep(lis)
+}
+
+// Test the execution of a chaincode that queries another chaincode with invalid parameter. Should receive error from
+// from the called chaincode
+func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	// Deploy first chaincode
+	url1 := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
+
+	cID1 := &pb.ChaincodeID{Path: url1}
+	f := "init"
+	args := []string{"a", "100", "b", "200"}
+
+	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec1)
+	chaincodeID1 := spec1.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID1, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Deploy second chaincode
+	url2 := "github.com/hyperledger/fabric/examples/chaincode/go/passthru"
+
+	cID2 := &pb.ChaincodeID{Path: url2}
+	f = "init"
+	args = []string{""}
+
+	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec2)
+	chaincodeID2 := spec2.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID2, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	time.Sleep(time.Second)
+
+	// Invoke second chaincode, which will inturn invoke the first chaincode but pass bad params
+	f = chaincodeID1
+	args = []string{"query", "c"} //expect {"query", "a"}
+
+	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	// Invoke chaincode
+	_, _, err = invoke(ctxt, spec2, pb.Transaction_CHAINCODE_QUERY)
+
+	if err == nil {
+		t.Fail()
+		t.Logf("Error invoking <%s>: %s", chaincodeID2, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if strings.Index(err.Error(), "Nil amount for c") < 0 {
+		t.Fail()
+		t.Logf("Unexpected error %s", err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec1})
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec2})
 	closeListenerAndSleep(lis)
 }
 
@@ -884,14 +1102,14 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 	_, err = deploy2(ctxt, cds)
 	chaincodeID := cds.ChaincodeSpec.ChaincodeID.Name
 	if err != nil {
-		GetChain(DefaultChain).StopChaincode(ctxt, cds)
+		GetChain(DefaultChain).Stop(ctxt, cds)
 		closeListenerAndSleep(lis)
 		t.Fail()
 		t.Logf("Error deploying <%s>: %s", chaincodeID, err)
 		return
 	}
 
-	GetChain(DefaultChain).StopChaincode(ctxt, cds)
+	GetChain(DefaultChain).Stop(ctxt, cds)
 	closeListenerAndSleep(lis)
 }
 func TestMain(m *testing.M) {

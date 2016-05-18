@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package state
@@ -197,7 +194,7 @@ func (state *State) CopyState(sourceChaincodeID string, destChaincodeID string) 
 	for itr.Next() {
 		k, v := itr.GetKeyValue()
 		err := state.Set(destChaincodeID, k, v)
-		if err != nil{
+		if err != nil {
 			return err
 		}
 	}
@@ -207,9 +204,9 @@ func (state *State) CopyState(sourceChaincodeID string, destChaincodeID string) 
 // GetMultipleKeys returns the values for the multiple keys.
 func (state *State) GetMultipleKeys(chaincodeID string, keys []string, committed bool) ([][]byte, error) {
 	var values [][]byte
-	for _,k := range keys{
+	for _, k := range keys {
 		v, err := state.Get(chaincodeID, k, committed)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 		values = append(values, v)
@@ -219,9 +216,9 @@ func (state *State) GetMultipleKeys(chaincodeID string, keys []string, committed
 
 // SetMultipleKeys sets the values for the multiple keys.
 func (state *State) SetMultipleKeys(chaincodeID string, kvs map[string][]byte) error {
-	for k,v := range kvs{
+	for k, v := range kvs {
 		err := state.Set(chaincodeID, k, v)
-		if err != nil{
+		if err != nil {
 			return err
 		}
 	}

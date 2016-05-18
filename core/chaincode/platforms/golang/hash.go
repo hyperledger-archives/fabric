@@ -1,3 +1,19 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package golang
 
 import (
@@ -11,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	cutil "github.com/hyperledger/fabric/core/container/util"
@@ -19,10 +35,12 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+var logger = logging.MustGetLogger("golang/hash")
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
+	logger.Debug("hashFiles %s/%s", rootDir, dir)
 	//ReadDir returns sorted list of files in dir
 	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
 	if err != nil {
@@ -81,7 +99,7 @@ func isCodeExist(tmppath string) error {
 func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
-
+	logger.Debug("getCodeFromHTTP %s", path)
 	env := os.Environ()
 	var newgopath string
 	var origgopath string
@@ -123,6 +141,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
+	logger.Debug("go get %s", path)
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
@@ -154,6 +173,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 }
 
 func getCodeFromFS(path string) (codegopath string, err error) {
+	logger.Debug("getCodeFromFS %s", path)
 	env := os.Environ()
 	var gopath string
 	for _, v := range env {

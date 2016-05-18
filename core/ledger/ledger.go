@@ -1,27 +1,23 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -40,12 +36,43 @@ import (
 
 var ledgerLogger = logging.MustGetLogger("ledger")
 
+//ErrorType represents the type of a ledger error
+type ErrorType string
+
+const (
+	//ErrorTypeInvalidArgument used to indicate the invalid input to ledger method
+	ErrorTypeInvalidArgument = ErrorType("InvalidArgument")
+	//ErrorTypeOutOfBounds used to indicate that a request is out of bounds
+	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
+	//ErrorTypeResourceNotFound used to indicate if a resource is not found
+	ErrorTypeResourceNotFound = ErrorType("ResourceNotFound")
+)
+
+//Error can be used for throwing an error from ledger code.
+type Error struct {
+	errType ErrorType
+	msg     string
+}
+
+func (ledgerError *Error) Error() string {
+	return fmt.Sprintf("LedgerError - %s: %s", ledgerError.errType, ledgerError.msg)
+}
+
+//Type returns the type of the error
+func (ledgerError *Error) Type() ErrorType {
+	return ledgerError.errType
+}
+
+func newLedgerError(errType ErrorType, msg string) *Error {
+	return &Error{errType, msg}
+}
+
 var (
 	// ErrOutOfBounds is returned if a request is out of bounds
-	ErrOutOfBounds = errors.New("ledger: out of bounds")
+	ErrOutOfBounds = newLedgerError(ErrorTypeOutOfBounds, "ledger: out of bounds")
 
 	// ErrResourceNotFound is returned if a resource is not found
-	ErrResourceNotFound = errors.New("ledger: resource not found")
+	ErrResourceNotFound = newLedgerError(ErrorTypeResourceNotFound, "ledger: resource not found")
 )
 
 // Ledger - the struct for openchain ledger
@@ -90,13 +117,13 @@ func (ledger *Ledger) BeginTxBatch(id interface{}) error {
 	return nil
 }
 
-// GetTXBatchPreviewBlock returns a preview block that will have the same
-// block.GetHash() result as the block commited to the database if
-// ledger.CommitTxBatch is called with the same parameters. If the state is modified
-// by a transaction between these two calls, the hash will be different. The
-// preview block does not include non-hashed data such as the local timestamp.
-func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
-	transactions []*protos.Transaction, metadata []byte) (*protos.Block, error) {
+// GetTXBatchPreviewBlockInfo returns a preview block info that will
+// contain the same information as GetBlockchainInfo will return after
+// ledger.CommitTxBatch is called with the same parameters. If the
+// state is modified by a transaction between these two calls, the
+// contained hash will be different.
+func (ledger *Ledger) GetTXBatchPreviewBlockInfo(id interface{},
+	transactions []*protos.Transaction, metadata []byte) (*protos.BlockchainInfo, error) {
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return nil, err
@@ -105,7 +132,9 @@ func (ledger *Ledger) GetTXBatchPreviewBlock(id interface{},
 	if err != nil {
 		return nil, err
 	}
-	return ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash), nil
+	block := ledger.blockchain.buildBlock(protos.NewBlock(transactions, metadata), stateHash)
+	info := ledger.blockchain.getBlockchainInfoForBlock(ledger.blockchain.getSize()+1, block)
+	return info, nil
 }
 
 // CommitTxBatch - gets invoked when the current transaction-batch needs to be committed
@@ -208,6 +237,10 @@ func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey str
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
+	if key == "" || value == nil {
+		return newLedgerError(ErrorTypeInvalidArgument,
+			fmt.Sprintf("An empty string key or a nil value is not supported. Method invoked with key='%s', value='%#v'", key, value))
+	}
 	return ledger.state.Set(chaincodeID, key, value)
 }
 

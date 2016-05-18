@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package obcpbft
@@ -33,8 +30,12 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+func (op *obcSieve) getPBFTCore() *pbftCore {
+	return op.pbft
+}
+
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
-	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
+	// It's not entirely obvious why the compiler likes the parent function, but not newObcSieve directly
 	return newObcSieve(id, config, stack)
 }
 
@@ -60,6 +61,9 @@ func TestSieveNetwork(t *testing.T) {
 		if len(txs) != 1 {
 			t.Fatalf("Replica %d block %v contains %d transactions, expected 1", cep.id, blockNo, len(txs))
 		}
+		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 {
+			t.Fatalf("Replica %d block %v has %d txResults, expected 1", cep.id, blockNo, numTxResults)
+		}
 
 		msgTx := &pb.Transaction{}
 		proto.Unmarshal(msg.Payload, msgTx)
@@ -70,8 +74,7 @@ func TestSieveNetwork(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		blockchainSize, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize()
-		blockchainSize--
+		blockchainSize := cep.consumer.(*obcSieve).stack.GetBlockchainSize() - 1
 		if blockchainSize != 2 {
 			t.Errorf("Replica %d has incorrect blockchain size; is %d, should be 2", cep.id, blockchainSize)
 		}
@@ -85,12 +88,16 @@ func TestSieveNetwork(t *testing.T) {
 	}
 }
 
+// TestSieveNoDecision disables PFBT messages from replica 0 to
+// simulate the sieve leader being byzantine.  Execute and verify
+// replies will make it to replica 0, but the replicas will time out
+// waiting for the verifyset.
 func TestSieveNoDecision(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper, func(ce *consumerEndpoint) {
-		ce.consumer.(*obcSieve).pbft.requestTimeout = 200 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.newViewTimeout = 400 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 400 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.requestTimeout = 400 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.newViewTimeout = 800 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 800 * time.Millisecond
 	})
 	// net.debug = true // Enable for debug
 	net.testnet.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -113,17 +120,16 @@ func TestSieveNoDecision(t *testing.T) {
 
 	go net.processContinually()
 	time.Sleep(1 * time.Second)
-	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	time.Sleep(3 * time.Second)
 	net.stop()
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		newBlocks, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize() // Doesn't fail
-		newBlocks--
-		if newBlocks != 1 {
+		newBlocks := cep.consumer.(*obcSieve).stack.GetBlockchainSize() - 1
+		if newBlocks != 2 {
 			t.Errorf("replica %d executed %d requests, expected %d",
-				cep.id, newBlocks, 1)
+				cep.id, newBlocks, 2)
 		}
 
 		if cep.consumer.(*obcSieve).epoch != 1 {
@@ -168,7 +174,7 @@ func TestSieveReqBackToBack(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		newBlocks, _ := cep.consumer.(*obcSieve).stack.GetBlockchainSize() // Doesn't fail
+		newBlocks := cep.consumer.(*obcSieve).stack.GetBlockchainSize()
 		newBlocks--
 		if newBlocks != 2 {
 			t.Errorf("Replica %d executed %d requests, expected %d",
@@ -206,7 +212,6 @@ func TestSieveNonDeterministic(t *testing.T) {
 	results := make([][]byte, len(net.endpoints))
 	for _, ep := range net.endpoints {
 		cep := ep.(*consumerEndpoint)
-		<-cep.idleChan()
 		block, err := cep.consumer.(*obcSieve).stack.GetBlock(1)
 		if err != nil {
 			t.Fatalf("Expected replica %d to have one block", cep.id)
@@ -240,5 +245,36 @@ func TestSieveRequestHash(t *testing.T) {
 	txID := fmt.Sprintf("%v", net.mockLedgers[0].txID)
 	if len(txID) == 0 || len(txID) > 1000 {
 		t.Fatalf("invalid transaction id hash length %d", len(txID))
+	}
+}
+
+func TestSieveCustody(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+		config.Set("general.timeout.request", "800ms")
+		config.Set("general.timeout.viewchange", "1600ms")
+		return newObcSieve(id, config, stack)
+	})
+	net.filterFn = func(src int, dst int, payload []byte) []byte {
+		logger.Info("msg from %d to %d", src, dst)
+		if src == 0 {
+			return nil
+		}
+		return payload
+	}
+
+	go net.processContinually()
+	r2 := net.endpoints[2].(*consumerEndpoint).consumer
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
+	time.Sleep(6 * time.Second)
+	net.stop()
+
+	for _, inst := range net.endpoints {
+		inst := inst.(*consumerEndpoint)
+		_, err := inst.consumer.(*obcSieve).stack.GetBlock(1)
+		if err != nil {
+			t.Errorf("Expected replica %d to have one block", inst.id)
+			continue
+		}
 	}
 }
