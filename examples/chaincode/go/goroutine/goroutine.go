@@ -136,9 +136,8 @@ go func(a int) {
       currtime = time.Now()
       fmt.Println(currtime)
 
-			err = stub.PutState(A, []byte(strconv.Itoa(a)))
-			if err != nil {
-				return nil, err
+			stub.PutState(A, []byte(strconv.Itoa(a)))
+
 			}
   }(Aval)
 //barry end added code for a go routine
