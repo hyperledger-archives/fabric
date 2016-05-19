@@ -97,6 +97,8 @@ func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 
 	go op.waitForID(config)
 
+	go op.main()
+
 	return op
 }
 
@@ -106,14 +108,15 @@ func (op *obcSieve) waitForID(config *viper.Viper) {
 
 	op.stack.CheckWhitelistExists()
 	id = op.stack.GetOwnID()
+	logger.Debug("Replica ID = %v", id)
 
 	// instantiate pbft-core
 	op.id = id
 	op.pbft = newPbftCore(id, config, op)
 
-	go op.main()
-
 	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
 }
 
 // moreCorrectThanByzantineQuorum returns the number of replicas that
@@ -212,10 +215,6 @@ func (op *obcSieve) receive(svMsg *SieveMessage, senderID uint64) error {
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-	for !op.proceedWithConsensus {
-		op.proceedWithConsensus = <-op.isSufficientlyConnected
-	}
-
 	op.incomingChan <- &msgWithSender{
 		msg:    ocMsg,
 		sender: senderHandle,
@@ -625,6 +624,13 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // The main single loop which the sieve thread traverses
 func (op *obcSieve) main() {
+
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
+	logger.Debug("ready to receive")
+
 	for {
 		select {
 		case msgWithSender := <-op.incomingChan:

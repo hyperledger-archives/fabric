@@ -67,6 +67,8 @@ func (op *obcClassic) waitForID(config *viper.Viper) {
 	op.pbft = newPbftCore(id, config, op)
 
 	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
@@ -76,6 +78,8 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 	for !op.proceedWithConsensus {
 		op.proceedWithConsensus = <-op.isSufficientlyConnected
 	}
+
+	logger.Debug("ready to receive messages")
 
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")

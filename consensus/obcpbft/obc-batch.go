@@ -104,6 +104,8 @@ func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 
 	go op.waitForID(config)
 
+	go op.main()
+
 	return op
 }
 
@@ -112,6 +114,7 @@ func (op *obcBatch) waitForID(config *viper.Viper) {
 
 	op.stack.CheckWhitelistExists()
 	id = op.stack.GetOwnID()
+	logger.Debug("Replica ID = %v", id)
 
 	// instantiate pbft-core
 	op.pbft = newPbftCore(id, config, op)
@@ -119,18 +122,12 @@ func (op *obcBatch) waitForID(config *viper.Viper) {
 	op.isSufficientlyConnected <- true
 	logger.Debug("waitForID goroutine is done executing")
 
-	go op.main()
-
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-
-	for !op.proceedWithConsensus {
-		op.proceedWithConsensus = <-op.isSufficientlyConnected
-	}
 
 	op.incomingChan <- &batchMessage{
 		msg:    ocMsg,
@@ -408,6 +405,13 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) main() {
+
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
+	logger.Debug("ready to receive")
+
 	for {
 		logger.Debug("Replica %d batch main thread looping", op.pbft.id)
 		select {
