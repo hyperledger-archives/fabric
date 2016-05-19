@@ -117,6 +117,14 @@ func (c *Custodian) Remove(id string) bool {
 	return ok
 }
 
+// InCustody returns true if an object is in custody
+func (c *Custodian) InCustody(id string) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, ok := c.requests[id]
+	return ok
+}
+
 // Elements returns all objects that are currently under custody.
 func (c *Custodian) Elements() []CustodyPair {
 	c.lock.Lock()
