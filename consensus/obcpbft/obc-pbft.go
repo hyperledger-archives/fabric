@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -94,46 +93,13 @@ func loadConfig() (config *viper.Viper) {
 	return
 }
 
-// Returns the uint64 ID corresponding to a peer handle
-func getValidatorID(handle *pb.PeerID) (id uint64, err error) {
-	// as requested here: https://github.com/hyperledger/fabric/issues/462#issuecomment-170785410
-	if startsWith := strings.HasPrefix(handle.Name, "vp"); startsWith {
-		id, err = strconv.ParseUint(handle.Name[2:], 10, 64)
-		if err != nil {
-			return id, fmt.Errorf("Error extracting ID from \"%s\" handle: %v", handle.Name, err)
-		}
-		return
-	}
-
-	err = fmt.Errorf(`For MVP, set the VP's peer.id to vpX,
-		where X is a unique integer between 0 and N-1
-		(N being the maximum number of VPs in the network`)
-	return
-}
-
-// Returns the peer handle that corresponds to a validator ID (uint64 assigned to it for PBFT)
-func getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
-	// as requested here: https://github.com/hyperledger/fabric/issues/462#issuecomment-170785410
-	name := "vp" + strconv.FormatUint(id, 10)
-	return &pb.PeerID{Name: name}, nil
-}
-
-// Returns the peer handles corresponding to a list of replica ids
-func getValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
-	handles = make([]*pb.PeerID, len(ids))
-	for i, id := range ids {
-		handles[i], _ = getValidatorHandle(id)
-	}
-	return
-}
-
 type obcGeneric struct {
 	stack consensus.Stack
 	pbft  *pbftCore
 }
 
 func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
+	op.stack.SkipTo(seqNo, id, op.stack.GetValidatorHandles(replicas))
 }
 
 func (op *obcGeneric) getState() []byte {

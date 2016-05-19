@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
@@ -41,12 +42,11 @@ type Helper struct {
 	secHelper    crypto.Peer
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
-	whitelist   *pb.PeersMessage  // holds the whitelisted VPs
+	whitelist    *pb.PeersMessage        // holds the whitelisted VPs
 
 	persist.PersistHelper
 
 	sts *statetransfer.StateTransferState
-
 }
 
 // NewHelper constructs the consensus helper object
@@ -55,7 +55,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		coordinator: mhc,
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
-		whitelist:   &pb.PeersMessage{}
+		whitelist:   &pb.PeersMessage{},
 	}
 	h.sts = statetransfer.NewStateTransferState(mhc)
 	h.sts.RegisterListener(h)
@@ -164,13 +164,13 @@ func (h *Helper) Verify(handle *pb.PeerID, signature []byte, msg []byte) error {
 	peersMsg, _ := h.coordinator.GetPeers()
 	peers := peersMsg.GetPeers()
 
-   self, _ := h.coordinator.GetPeerEndpoint() // TODO Error should be taken of at the peer level
-   peers = append(peers, self)
+	self, _ := h.coordinator.GetPeerEndpoint() // TODO Error should be taken of at the peer level
+	peers = append(peers, self)
 
 	for _, ep := range peers {
 		if strings.Compare(ep.GetID().Name, handle.Name) == 0 {
 			// call crypto verify() with that endpoint's pkiID
-         logger.Debug("verify against peer %+v", ep)
+			logger.Debug("verify against peer %+v", ep)
 			return h.secHelper.Verify(ep.PkiID, signature, msg)
 		}
 	}

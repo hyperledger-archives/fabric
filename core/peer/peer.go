@@ -212,8 +212,8 @@ type PeerImpl struct {
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 
-	whitelist      *pb.whitelist
-	whitelistedMap map[pb.PeerID]int
+	whitelist      *pb.Whitelist
+	whitelistedMap map[string]int
 
 	engine      Engine
 	isValidator bool

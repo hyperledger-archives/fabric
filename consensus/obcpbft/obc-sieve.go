@@ -96,7 +96,7 @@ func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 
 	op.idleChan = make(chan struct{})
 
-	go op.waitForID(config, startupInfo)
+	go op.waitForID(config)
 
 	return op
 }
@@ -765,8 +765,7 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 	} else {
 		var peers []uint64
 		for _, n := range dSet {
-			peer := op.stack.GetValidatorHandle(n.ReplicaId)
-			peers = append(peers, peer)
+			peers = append(peers, n.ReplicaId)
 		}
 
 		decision := dSet[0].ResultDigest

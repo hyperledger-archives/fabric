@@ -388,10 +388,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 			}
 		}
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
-		senderID, err := getValidatorID(senderHandle) // who sent this?
-		if err != nil {
-			panic("Cannot map sender's PeerID to a valid replica ID")
-		}
+		senderID := op.stack.GetValidatorID(senderHandle) // who sent this?
 		op.pbft.receive(pbftMsg, senderID)
 	} else if complaint := batchMsg.GetComplaint(); complaint != nil {
 		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
@@ -509,28 +506,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-func (op *obcBatch) Checkpoint(seqNo uint64, id []byte) {
-	op.pbft.Checkpoint(seqNo, id)
-}
-
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	handles := op.stack.GetValidatorHandles(replicas)
-	op.executor.SkipTo(seqNo, id, handles, execInfo)
-}
-
-func (op *obcBatch) validState(seqNo uint64, id []byte, replicas []uint64, execInfo *ExecutionInfo) {
-	handles := op.stack.GetValidatorHandles(replicas)
-	op.executor.ValidState(seqNo, id, handles, execInfo)
-}
-
-func (op *obcBatch) Validate(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID) {
-	return
-}
-
-func (op *obcBatch) idleChan() <-chan struct{} {
-	return op.executor.IdleChan()
-}
-
-func (op *obcBatch) getPBFTCore() *pbftCore {
-	return op.pbft
+func (op *obcBatch) idleChannel() <-chan struct{} {
+	return op.idleChan
 }

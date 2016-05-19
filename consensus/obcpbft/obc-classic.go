@@ -56,12 +56,8 @@ func newObcClassic(config *viper.Viper, stack consensus.Stack) *obcClassic {
 	return op
 }
 
-func (op *obcClassic) Startup(seqNo uint64, id []byte) {
-	op.startup <- id
-}
-
 // this will give you the peer's PBFT ID
-func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []byte) {
+func (op *obcClassic) waitForID(config *viper.Viper) {
 	var id uint64
 	var size int
 
