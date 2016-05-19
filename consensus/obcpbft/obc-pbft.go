@@ -23,10 +23,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hyperledger/fabric/consensus"
-	pb "github.com/hyperledger/fabric/protos"
-
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/consensus"
+
 	"github.com/spf13/viper"
 )
 
@@ -50,18 +49,21 @@ func GetPlugin(c consensus.Stack) consensus.Consenter {
 // New creates a new Obc* instance that provides the Consenter interface.
 // Internally, it uses an opaque pbft-core instance.
 func New(stack consensus.Stack) consensus.Consenter {
-	handle, _, _ := stack.GetNetworkHandles()
-	id, _ := getValidatorID(handle)
+	// set the whitelist cap in the peer package
+	cap := config.GetInt("general.N")
+	stack.SetWhitelistCap(cap)
 
-	switch strings.ToLower(config.GetString("general.mode")) {
+	//instantiate
+	mode := strings.ToLower(config.GetString("general.mode"))
+	switch mode {
 	case "classic":
-		return newObcClassic(id, config, stack)
+		return newObcClassic(config, stack)
 	case "batch":
-		return newObcBatch(id, config, stack)
+		return newObcBatch(config, stack)
 	case "sieve":
-		return newObcSieve(id, config, stack)
+		return newObcSieve(config, stack)
 	default:
-		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("general.mode")))
+		panic(fmt.Errorf("Invalid PBFT mode: %s", mode))
 	}
 }
 

@@ -18,6 +18,7 @@ package obcpbft
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
@@ -29,32 +30,70 @@ import (
 type obcClassic struct {
 	obcGeneric
 
+	isSufficientlyConnected chan bool
+	proceedWithConsensus    bool
+
 	persistForward
 
 	idleChan chan struct{} // A channel that is created and then closed, simplifies unit testing, otherwise unused
 }
 
-func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
+func newObcClassic(config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
 		obcGeneric: obcGeneric{stack: stack},
 	}
+	op.isSufficientlyConnected = make(chan bool)
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = newPbftCore(id, config, op)
+	logger.Debug("Replica obtaining startup information")
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan)
 
+	go op.waitForID(config)
+
 	return op
+}
+
+// this will give you the peer's PBFT ID
+func (op *obcClassic) waitForID(config *viper.Viper) {
+	var id uint64
+	var size int
+	var err error
+
+	for { // wait until you have a whitelist
+		size, _ = op.stack.CheckWhitelistExists()
+		if size > 0 { // there is a waitlist so you know your ID
+			handle, _ := op.stack.GetOwnHandle()
+			if err != nil {
+				logger.Error(err.Error())
+				panic(err.Error())
+			}
+			id, err = op.stack.GetValidatorID(handle)
+			if err != nil {
+				logger.Error(err.Error())
+				panic(err.Error())
+			}
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	// instantiate pbft-core
+	op.pbft = newPbftCore(id, config, op)
+
+	op.isSufficientlyConnected <- true
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -71,7 +110,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	senderID, err := getValidatorID(senderHandle)
+	senderID, err := op.stack.GetValidatorID(senderHandle)
 	if err != nil {
 		panic("Cannot map sender's PeerID to a valid replica ID")
 	}
@@ -105,7 +144,7 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
+	receiverHandle, err := op.stack.GetValidatorHandle(receiverID)
 	if err != nil {
 		return
 	}
@@ -117,7 +156,7 @@ func (op *obcClassic) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
+	senderHandle, err := op.stack.GetValidatorHandle(senderID)
 	if err != nil {
 		return err
 	}
@@ -169,4 +208,8 @@ func (op *obcClassic) main() {
 // Retrieve the idle channel, only used for testing (and in this case, the channel is always closed)
 func (op *obcClassic) idleChannel() <-chan struct{} {
 	return op.idleChan
+}
+
+func (op *obcClassic) getPBFTCore() *pbftCore {
+	return op.pbft
 }

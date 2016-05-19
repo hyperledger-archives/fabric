@@ -69,7 +69,7 @@ type execInfo struct {
 	raw   []byte
 }
 
-func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
+func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 
 	op := &obcBatch{
@@ -107,13 +107,13 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	return op
 }
 
-// waitForID delays until all the peers in the whitelist are ready
 func (op *obcBatch) waitForID(config *viper.Viper) {
 	var id uint64
 	var size int
+	var err error
 
 	for { // wait until you have a whitelist
-		size = op.stack.CheckWhitelistExists()
+		size, _ = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
 			break
@@ -206,7 +206,7 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	receiverHandle, err := getValidatorHandle(receiverID)
+	receiverHandle, err := op.stack.GetValidatorHandle(receiverID)
 	if err != nil {
 		return
 	}
@@ -219,7 +219,7 @@ func (op *obcBatch) sign(msg []byte) ([]byte, error) {
 
 // verify message signature
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
+	senderHandle, err := op.stack.GetValidatorHandle(senderID)
 	if err != nil {
 		return err
 	}
@@ -292,6 +292,11 @@ func (op *obcBatch) viewChange(curView uint64) {
 	logger.Debug("Replica %d PBFT view change thread attempting to signal batch thread", op.pbft.id)
 
 	go func() { op.viewChanged <- struct{}{} }()
+}
+
+// retrieve a validator's PeerID given its PBFT ID
+func (op *obcBatch) getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+	return op.stack.GetValidatorHandle(id)
 }
 
 // =============================================================================

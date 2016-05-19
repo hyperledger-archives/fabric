@@ -18,9 +18,7 @@ package helper
 
 import (
 	"fmt"
-	"io/ioutil"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
@@ -50,9 +48,6 @@ type Helper struct {
 
 }
 
-// WhiteListFile carries the name of the whitelist file
-const WhiteListFile = "/tmp/whitelist.dat"
-
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 	h := &Helper{
@@ -70,108 +65,50 @@ func (h *Helper) setConsenter(c consensus.Consenter) {
 	h.consenter = c
 }
 
-// GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
-func (h *Helper) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
+// GetOwnHandle retrieve this peer's PeerID
+func (h *Helper) GetOwnHandle() (handle *pb.PeerID, err error) {
 	ep, err := h.coordinator.GetPeerEndpoint()
 	if err != nil {
-		return self, network, fmt.Errorf("Couldn't retrieve own endpoint: %v", err)
+		return nil, err
 	}
-	self = ep
+	return ep.ID, nil
+}
 
-	peersMsg, err := h.coordinator.GetPeers()
-	if err != nil {
-		return self, network, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
-	}
-	peers := peersMsg.GetPeers()
-	for _, endpoint := range peers {
-		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-			network = append(network, endpoint)
+// GetValidatorID retrieves a validating peer's PBFT ID
+func (h *Helper) GetValidatorID(handle *pb.PeerID) (id uint64, err error) {
+	_, order, _ := h.coordinator.GetWhitelistKeys()
+	for k, v := range order {
+		if *v == *handle {
+			id = uint64(k)
+			break
 		}
 	}
-	network = append(network, self)
-
+	err = fmt.Errorf("Validator's handle not found in the whitelist")
 	return
 }
 
-// GetNetworkHandles returns the PeerIDs of the current validator and the entire validating network
-func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
-	selfEP, networkEP, err := h.GetNetworkInfo()
-	if err != nil {
-		return self, network, fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
+// GetValidatorHandle retrieves a validating peer's PeerID
+func (h *Helper) GetValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+	_, order, _ := h.coordinator.GetWhitelistKeys()
+	if int(id) <= (len(order) - 1) {
+		return order[int(id)], nil
 	}
-
-	self = selfEP.ID
-
-	for _, endpoint := range networkEP {
-		network = append(network, endpoint.ID)
-	}
-	network = append(network, self)
-
+	err = fmt.Errorf(`Couldn't retrieve validator's handle.
+					  Requested validator index was %v,
+					  length of whitelist keys slice is %v`, id, len(order))
 	return
 }
 
-// GetConnectedVPs retrieves the list of validators connected to this peer
-func (h *Helper) GetConnectedVPs() (list *pb.PeersMessage, err error) {
-	peersMsg, err := h.coordinator.GetPeers()
-	if err != nil {
-		return list, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
-	}
-
-	peers := peersMsg.GetPeers()
-	vPeers := []*pb.PeerEndpoint{}
-	for _, endpoint := range peers {
-		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
-			vPeers = append(vPeers, endpoint)
-		}
-	}
-
-	list = &pb.PeersMessage{Peers: vPeers}
-	return
+// CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
+func (h *Helper) CheckWhitelistExists() (size int, err error) {
+	return h.coordinator.CheckWhitelistExists()
 }
 
-// GetWhitelist retrieves the validator's whitelist of validating peers
-func (h *Helper) GetWhitelist() (list *pb.PeersMessage, err error) {
-	// try reading from memory first
-	if len(h.whitelist.GetPeers()) != 0 {
-		logger.Debug("Whitelist (from memory) now reads: %+v", h.whitelist)
-		return h.whitelist, nil
-	}
-
-	// otherwise, attempt to read from file
-	packedList, err := ioutil.ReadFile(WhiteListFile)
-	if err != nil {
-		return list, fmt.Errorf("Unable to read whitelist from disk: %v", err)
-	}
-	logger.Debug("Size of whitelist file read from disk: %d bytes", len(packedList))
-
-	list = &pb.PeersMessage{}
-	err = proto.Unmarshal(packedList, list)
-	if err != nil {
-		return list, fmt.Errorf("Unable to unmarshal whitelist file contents: %v", err)
-	}
-	logger.Debug("Whitelist (from disk) now reads: %+v", list)
-
-	return
-}
-
-// SetWhitelist sets the list of validating peers this validator should connect to
-func (h *Helper) SetWhitelist(list *pb.PeersMessage) error {
-	// set the data structure
-	h.whitelist = list
-	logger.Debug("Whitelist now reads: %+v", h.whitelist)
-
-	// store to file
-	packedList, err := proto.Marshal(list)
-	if err != nil {
-		return fmt.Errorf("Unable to marshal whitelist: %v", err)
-	}
-
-	err = ioutil.WriteFile(WhiteListFile, packedList, 0600)
-	if err != nil {
-		return fmt.Errorf("Unable to create/write whitelist file: %v", err)
-	}
-
-	return err
+// SetWhitelistCap sets the expected number of maximum validators on the network
+// When this many VPs are visible on the network, the validator will record
+// their IDs to a whitelist and save it to disk.
+func (h *Helper) SetWhitelistCap(cap int) error {
+	return h.coordinator.SetWhitelistCap(cap)
 }
 
 // Broadcast sends a message to all validating peers
@@ -207,20 +144,21 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 	}
 
 	logger.Debug("Verify message from: %v", replicaID.Name)
-	_, network, err := h.GetNetworkInfo()
-	if err != nil {
-		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
-	}
 
-	// check that the sender is a valid replica
-	// if so, call crypto verify() with that endpoint's pkiID
-	for _, endpoint := range network {
+	// look for the sender among the list of peers
+	peersMsg, err := h.coordinator.GetPeers()
+	if err != nil {
+		return err
+	}
+	peers := peersMsg.GetPeers()
+	for _, endpoint := range peers {
 		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
-		if *replicaID == *endpoint.ID {
-			cryptoID := endpoint.PkiID
-			return h.secHelper.Verify(cryptoID, signature, message)
+		if *endpoint.ID == *replicaID {
+			// call crypto verify() with that endpoint's pkiID
+			return h.secHelper.Verify(endpoint.PkiID, signature, message)
 		}
 	}
+
 	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
 }
 

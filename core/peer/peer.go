@@ -112,6 +112,7 @@ type MessageHandlerCoordinator interface {
 	BlockChainModifier
 	BlockChainUtil
 	StateAccessor
+	Gatekeeper
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.Message, pb.PeerEndpoint_Type) []error
@@ -199,6 +200,7 @@ type handlerMap struct {
 	m map[pb.PeerID]MessageHandler
 }
 
+// HandlerFactory generates message handlers for the Peer
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
 type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
@@ -209,8 +211,11 @@ type PeerImpl struct {
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
-	engine         Engine
-	isValidator    bool
+
+	whitelist *pb.whitelist
+
+	engine      Engine
+	isValidator bool
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -236,6 +241,15 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
 	peer.secHelper = secHelperFunc()
+
+	// is this a peer that's restarting after a crash? if so, load the whitelist
+	peer.whitelist = &pb.Whitelist{Cap: -1,
+		Persisted:    false,
+		Security:     viper.GetBool("security.enabled"),
+		SortedKeys:   []string{},
+		SortedValues: []*pb.PeerID{}}
+	peer.whitelistedMap = make(map[string]int)
+	peer.LoadWhitelist()
 
 	// Install security object for peer
 	if SecurityEnabled() {
@@ -348,11 +362,12 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	p.handlerMap.RLock()
 	defer p.handlerMap.RUnlock()
 	for _, peerEndpoint := range peersMessage.Peers {
-		// Filter out THIS Peer's endpoint
 		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
-			// NOOP
+			// if this is THIS peer's endpoint do nothing
+		} else if _, ok := p.whitelist.handlerMap[getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false && (len(p.whitelist.handlerMap) > 0) { // prevent outgoing connections
+			// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT connect to it
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
-			// Start chat with Peer
+			// start chat with peer
 			go p.chatWithPeer(peerEndpoint.Address)
 		}
 	}
@@ -380,11 +395,21 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	if _, ok := p.handlerMap.m[*key]; ok == true {
-		// Duplicate, return error
+		// duplicate, return error
 		return newDuplicateHandlerError(messageHandler)
 	}
+	remotePeerEndpoint, _ := messageHandler.To()
+	if _, ok := p.whitelist.handlerMap[getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint)]; ok == false && (len(p.whitelist.handlerMap) > 0) { // prevent incoming (& outgoing...) connections
+		// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT accept connections from it
+		return fmt.Errorf("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
+	}
 	p.handlerMap.m[*key] = messageHandler
-	peerLogger.Debug("registered handler with key: %s", key)
+	peerLogger.Debug("Registered handler with key: %s", key)
+	err = p.SaveWhitelist()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

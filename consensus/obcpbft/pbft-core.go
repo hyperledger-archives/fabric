@@ -26,6 +26,7 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
+	"github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -62,6 +63,8 @@ type innerStack interface {
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
+
+	getValidatorHandle(id uint64) (handle *protos.PeerID)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
