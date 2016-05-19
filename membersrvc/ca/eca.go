@@ -142,8 +142,9 @@ func NewECA() *ECA {
 	return eca
 }
 
+// populateUsersTable populates the users table
+//
 func (eca *ECA) populateUsersTable() {
-	// populate user table
 	users := viper.GetStringMapString("eca.users")
 	for id, flds := range users {
 		vals := strings.Fields(flds)
@@ -161,8 +162,7 @@ func (eca *ECA) populateUsersTable() {
 	}
 }
 
-
-// populateAffiliationGroup populates the affiliation groups table
+// populateAffiliationGroup populates the affiliation groups table.
 //
 func (eca *ECA) populateAffiliationGroup(name, parent, key string) {
 	eca.registerAffiliationGroup(name, parent)
@@ -174,7 +174,7 @@ func (eca *ECA) populateAffiliationGroup(name, parent, key string) {
 
 }
 
-// populateAffiliationGroupsTable populates affiliation groups table
+// populateAffiliationGroupsTable populates affiliation groups table.
 //
 func (eca *ECA) populateAffiliationGroupsTable() {
 	key := "eca.affiliation_groups"
@@ -242,7 +242,6 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
-		//		out, err := rsa.EncryptPKCS1v15(rand.Reader, ekey.(*rsa.PublicKey), tok)
 		spi := ecies.NewSPI()
 		eciesKey, err := spi.NewPublicKey(nil, ekey.(*ecdsa.PublicKey))
 		if err != nil {
@@ -313,7 +312,6 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 		var obcECKey []byte
 		if role == int(pb.Role_VALIDATOR) {
-			//if role&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) != 0 {
 			obcECKey = ecap.eca.obcPriv
 		} else {
 			obcECKey = ecap.eca.obcPub
@@ -363,8 +361,7 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 	return nil, errors.New("ECAP:RevokeCertificatePair method not (yet) implemented")
 }
 
-// RegisterUser registers a new user with the ECA.  If the user had been registered before
-// an error is returned.
+// RegisterUser registers a new user with the ECA.  Returns error if the user is already registered.
 //
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("gRPC ECAA:RegisterUser")
