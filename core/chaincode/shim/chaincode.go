@@ -147,9 +147,7 @@ func getPeerAddress() string {
 	}
 
 	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
-		os.Exit(-1)
-		// Assume docker container, return well known docker host address
-		//peerAddress = "172.17.42.1:30303"
+		chaincodeLogger.Fatalf("Peer address not configured, can't connect to peer")
 	}
 
 	return peerAddress
