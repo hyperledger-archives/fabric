@@ -27,7 +27,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	cutil "github.com/hyperledger/fabric/core/container/util"
@@ -35,10 +35,12 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+var logger = logging.MustGetLogger("golang/hash")
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
+	logger.Debug("hashFiles %s/%s", rootDir, dir)
 	//ReadDir returns sorted list of files in dir
 	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
 	if err != nil {
@@ -97,7 +99,7 @@ func isCodeExist(tmppath string) error {
 func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
-
+	logger.Debug("getCodeFromHTTP %s", path)
 	env := os.Environ()
 	var newgopath string
 	var origgopath string
@@ -139,11 +141,15 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
+	logger.Debug("go get %s", path)
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf //capture Stderr and print it on error
 	err = cmd.Start()
+
 
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
@@ -163,13 +169,14 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = fmt.Errorf("process done with error = %v", err)
+			 err = fmt.Errorf("'go get' failed with error\n\"%s\"\n", err, string(errBuf.Bytes()))
 		}
 	}
 	return
 }
 
 func getCodeFromFS(path string) (codegopath string, err error) {
+	logger.Debug("getCodeFromFS %s", path)
 	env := os.Environ()
 	var gopath string
 	for _, v := range env {

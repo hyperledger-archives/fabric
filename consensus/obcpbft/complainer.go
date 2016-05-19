@@ -119,14 +119,20 @@ func (c *complainer) SuccessHash(hash string) {
 // Restart resets custody and complaint queues without calling into
 // the complaintHandler.  The complaint queue is drained completely.
 // The custody queue timeouts are reset.  Restart returns all requests
-// that are maintained in custody.
+// that are maintained in custody, or have been received from other replicas
 func (c *complainer) Restart() map[string]*Request {
-	c.complaints.RemoveAll()
-	custody := c.custody.RemoveAll()
 	reqs := make(map[string]*Request)
+
+	complaints := c.complaints.RemoveAll()
+	for _, pair := range complaints {
+		reqs[pair.ID] = pair.Data.(*Request)
+	}
+
+	custody := c.custody.RemoveAll()
 	for _, pair := range custody {
 		c.custody.Register(pair.ID, pair.Data)
 		reqs[pair.ID] = pair.Data.(*Request)
 	}
+
 	return reqs
 }

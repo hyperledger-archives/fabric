@@ -17,9 +17,10 @@ limitations under the License.
 package statemgmt
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"os"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 var testParams []string
