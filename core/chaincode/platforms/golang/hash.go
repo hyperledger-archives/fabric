@@ -180,23 +180,13 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 
 func getCodeFromFS(path string) (codegopath string, err error) {
 	logger.Debug("getCodeFromFS %s", path)
-	env := os.Environ()
-	var gopath string
-	for _, v := range env {
-		if strings.Index(v, "GOPATH=") == 0 {
-			p := strings.SplitAfter(v, "GOPATH=")
-			gopath = p[1]
-			// Only take the first element of GOPATH
-			gopath = filepath.SplitList(gopath)[0]
-			break
-		}
-	}
-
+	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
+		err = fmt.Errorf("GOPATH not defined")
 		return
 	}
-
-	codegopath = gopath
+	// Only take the first element of GOPATH
+	codegopath = filepath.SplitList(gopath)[0]
 
 	return
 }
