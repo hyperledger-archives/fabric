@@ -444,11 +444,12 @@ Synchronization protocol starts with discovery, described above in section 3.1.1
 
 The installed consensus plugin (e.g. pbft) dictates how synchronization protocol is being applied. Each message is designed for a specific situation:
 
-**SYNC_GET_BLOCKS** requests for a range of contiguous blocks expressed in the message `payload`, which is an object of `SyncBlockRange`.
+**SYNC_GET_BLOCKS** requests for a range of contiguous blocks expressed in the message `payload`, which is an object of `SyncBlockRange`.  The correlationId specified is included in the `SyncBlockRange` of any replies to this message.
 ```
 message SyncBlockRange {
-    uint64 start = 1;
-    uint64 end = 2;
+    uint64 correlationId = 1;
+    uint64 start = 2;
+    uint64 end = 3;
 }
 ```
 A receiving peer responds with a `SYNC_BLOCKS` message whose `payload` contains an object of `SyncBlocks`
