@@ -135,9 +135,7 @@ go func(a int) {
       time.Sleep(time.Millisecond * 30000)
       currtime = time.Now()
       fmt.Println(currtime)
-
 			stub.PutState(A, []byte(strconv.Itoa(a)))
-
 			}
   }(Aval)
 //barry end added code for a go routine
