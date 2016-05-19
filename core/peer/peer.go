@@ -27,8 +27,6 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -39,10 +37,9 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/comm"
 	pb "github.com/hyperledger/fabric/protos"
 )
-
-const defaultTimeout = time.Second * 3
 
 // Peer provides interface for a peer
 type Peer interface {
@@ -159,34 +156,11 @@ func GetLocalIP() string {
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	if TlsEnabled() {
-		var sn string
-		if viper.GetString("peer.tls.serverhostoverride") != "" {
-			sn = viper.GetString("peer.tls.serverhostoverride")
-		}
-		var creds credentials.TransportAuthenticator
-		if viper.GetString("peer.tls.cert.file") != "" {
-			var err error
-			creds, err = credentials.NewClientTLSFromFile(viper.GetString("peer.tls.cert.file"), sn)
-			if err != nil {
-				grpclog.Fatalf("Failed to create TLS credentials %v", err)
-			}
-		} else {
-			creds = credentials.NewClientTLSFromCert(nil, sn)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+	if comm.TlsEnabled() {
+		return comm.NewClientConnectionWithAddress(peerAddress, true, true, comm.InitTLSForPeer())
 	} else {
-		// No security, disable in grpc
-		opts = append(opts, grpc.WithInsecure())
+		return comm.NewClientConnectionWithAddress(peerAddress, true, false, nil)
 	}
-	opts = append(opts, grpc.WithTimeout(defaultTimeout))
-	opts = append(opts, grpc.WithBlock())
-	conn, err := grpc.Dial(peerAddress, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return conn, err
 }
 
 type ledgerWrapper struct {

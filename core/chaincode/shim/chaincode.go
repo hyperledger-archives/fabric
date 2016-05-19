@@ -28,18 +28,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/hyperledger/fabric/core/comm"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
 	gp "google/protobuf"
 )
 
@@ -148,40 +146,21 @@ func getPeerAddress() string {
 	}
 
 	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
+		os.Exit(-1)
 		// Assume docker container, return well known docker host address
-		peerAddress = "172.17.42.1:30303"
+		//peerAddress = "172.17.42.1:30303"
 	}
 
 	return peerAddress
 }
 
 func newPeerClientConnection() (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	if viper.GetBool("peer.tls.enabled") {
-		var sn string
-		if viper.GetString("peer.tls.serverhostoverride") != "" {
-			sn = viper.GetString("peer.tls.serverhostoverride")
-		}
-		var creds credentials.TransportAuthenticator
-		if viper.GetString("peer.tls.cert.file") != "" {
-			var err error
-			creds, err = credentials.NewClientTLSFromFile(viper.GetString("peer.tls.cert.file"), sn)
-			if err != nil {
-				grpclog.Fatalf("Failed to create TLS credentials %v", err)
-			}
-		} else {
-			creds = credentials.NewClientTLSFromCert(nil, sn)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+	var peerAddress = getPeerAddress()
+	if comm.TlsEnabled() {
+		return comm.NewClientConnectionWithAddress(peerAddress, true, true, comm.InitTLSForPeer())
+	} else {
+		return comm.NewClientConnectionWithAddress(peerAddress, true, false, nil)
 	}
-	opts = append(opts, grpc.WithTimeout(1*time.Second))
-	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(getPeerAddress(), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return conn, err
 }
 
 func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode) error {
