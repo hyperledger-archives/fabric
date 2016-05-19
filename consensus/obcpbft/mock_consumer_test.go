@@ -133,6 +133,9 @@ func makeConsumerNetwork(N int, makeConsumer func(config *viper.Viper, stack con
 		}
 
 		ce.consumer = makeConsumer(loadConfig(), cs)
+		for ce.consumer.getPBFTCore() == nil {
+			time.Sleep(500 * time.Millisecond)
+		}
 		ce.consumer.getPBFTCore().N = N
 		ce.consumer.getPBFTCore().f = (N - 1) / 3
 
