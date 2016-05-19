@@ -27,8 +27,9 @@ import (
 type endpoint interface {
 	stop()
 	deliver([]byte, *pb.PeerID)
-	getHandle() *pb.PeerID
-	getID() uint64
+	GetOwnHandle() *pb.PeerID
+	GetOwnID() uint64
+	GetValidatorID(handle *pb.PeerID) (id uint64)
 	isBusy() bool
 }
 
@@ -116,10 +117,8 @@ func (te *testEndpoint) GetConnectedValidators() (handles []*pb.PeerID) {
 	return
 }
 
-func (te *testEndpoint) CheckWhitelistExists() (size int) {
-	if te.net != nil {
-		size = len(te.net.endpoints)
-	}
+func (te *testEndpoint) CheckWhitelistExists() {
+	// no-op
 	return
 }
 

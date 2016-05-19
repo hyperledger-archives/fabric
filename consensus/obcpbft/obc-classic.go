@@ -192,7 +192,3 @@ func (op *obcClassic) main() {
 func (op *obcClassic) idleChannel() <-chan struct{} {
 	return op.idleChan
 }
-
-func (op *obcClassic) getPBFTCore() *pbftCore {
-	return op.pbft
-}

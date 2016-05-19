@@ -75,10 +75,7 @@ func (sc *simpleConsumer) broadcast(msgPayload []byte) {
 	sc.pe.Broadcast(&pb.Message{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
 }
 func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
-	handle, err := sc.getValidatorHandle(receiverID)
-	if nil != err {
-		return err
-	}
+	handle := sc.getValidatorHandle(receiverID)
 	sc.pe.Unicast(&pb.Message{Payload: msgPayload}, handle)
 	return nil
 }
