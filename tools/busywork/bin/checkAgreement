@@ -268,10 +268,3 @@ if {$errors} {
 }
 
 note {} "All peers agree; All log files have been $fileDisposition"
-
-
-
-
-
-
-

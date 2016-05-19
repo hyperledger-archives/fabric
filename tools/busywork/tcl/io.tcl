@@ -297,5 +297,3 @@ oo::class create NonblockingGets {
         return $d_line
     }
 }
-
-        

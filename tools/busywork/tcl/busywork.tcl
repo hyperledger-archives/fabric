@@ -562,4 +562,3 @@ oo::define ::busywork::Logger {
         }
     }
 }
-

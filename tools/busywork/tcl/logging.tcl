@@ -132,5 +132,3 @@ proc moduleLevelLogging {i_module i_sLevel i_nLevel i_args} {
         }
     }
 }
-
-

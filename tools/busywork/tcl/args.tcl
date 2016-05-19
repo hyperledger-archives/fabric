@@ -286,6 +286,3 @@ proc addPortToHosts {i_hosts i_defaultPort} {
         return $host
     }
 }
-
-
-    
