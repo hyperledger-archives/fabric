@@ -118,7 +118,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 	}
 
 	// Get the group to advance past seqNo 1, leaving Replica 3 behind
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	net.process()
 

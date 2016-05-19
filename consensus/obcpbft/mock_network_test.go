@@ -182,7 +182,7 @@ func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 
 func (net *testnet) deliverFilter(msg taggedMsg) {
 	net.debugMsg("TEST: deliver\n")
-	senderHandle := net.endpoints[senderID].GetOwnHandle()
+	senderHandle := net.endpoints[msg.src].GetOwnHandle()
 	if msg.dst == -1 {
 		net.debugMsg("TEST: Sending broadcast %v\n", net.endpoints)
 		wg := &sync.WaitGroup{}

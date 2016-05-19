@@ -256,10 +256,10 @@ func TestSieveRequestHash(t *testing.T) {
 
 func TestSieveCustody(t *testing.T) {
 	validatorCount := 4
-	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+	net := makeConsumerNetwork(validatorCount, func(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 		config.Set("general.timeout.request", "800ms")
 		config.Set("general.timeout.viewchange", "1600ms")
-		return newObcSieve(id, config, stack)
+		return newObcSieve(config, stack)
 	})
 	net.filterFn = func(src int, dst int, payload []byte) []byte {
 		logger.Info("msg from %d to %d", src, dst)
@@ -271,7 +271,7 @@ func TestSieveCustody(t *testing.T) {
 
 	go net.processContinually()
 	r2 := net.endpoints[2].(*consumerEndpoint).consumer
-	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].GetOwnHandle())
 	time.Sleep(6 * time.Second)
 	net.stop()
 

@@ -114,6 +114,9 @@ func (op *obcSieve) waitForID(config *viper.Viper) {
 	op.id = id
 	op.pbft = newPbftCore(id, config, op)
 
+	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
+	op.deduplicator = newDeduplicator()
+
 	op.isSufficientlyConnected <- true
 	logger.Debug("waitForID goroutine is done executing")
 

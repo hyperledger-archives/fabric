@@ -92,9 +92,6 @@ func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 	op.custodyTimerChan = make(chan custodyInfo)
 	op.execChan = make(chan *execInfo)
 
-	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
-	op.deduplicator = newDeduplicator()
-
 	// create non-running timer
 	op.batchTimer = time.NewTimer(100 * time.Hour) // XXX ugly
 	op.batchTimer.Stop()
@@ -118,6 +115,9 @@ func (op *obcBatch) waitForID(config *viper.Viper) {
 
 	// instantiate pbft-core
 	op.pbft = newPbftCore(id, config, op)
+
+	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
+	op.deduplicator = newDeduplicator()
 
 	op.isSufficientlyConnected <- true
 	logger.Debug("waitForID goroutine is done executing")
