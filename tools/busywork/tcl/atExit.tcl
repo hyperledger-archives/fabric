@@ -93,9 +93,3 @@ proc atExitKiller {signal pid} {
     note atExit "atExitKiller : Killing $pid"
     kill $signal $pid
 }
-
-    
-
-
-
-    

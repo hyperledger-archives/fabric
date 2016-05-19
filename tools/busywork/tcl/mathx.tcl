@@ -88,5 +88,3 @@ proc math::rand32 {i_limit} {
         return [expr {(wide($math::_rand32_seed) * $i_limit) >> 32}]
     }
 }
-    
-

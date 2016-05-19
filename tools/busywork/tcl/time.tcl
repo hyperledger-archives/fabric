@@ -99,7 +99,3 @@ proc waitFor {i_timeout i_script} {
         set timedOut [expr {($now - $start) >= $timeout}]
     }
 }
-        
-        
-        
-              
