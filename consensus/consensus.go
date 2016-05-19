@@ -30,15 +30,18 @@ type Consenter interface {
 
 // Inquirer is used to retrieve info about the validating network
 type Inquirer interface {
-	GetOwnHandle() (handle *pb.PeerID, err error)
-	GetValidatorID(handle *pb.PeerID) (id uint64, err error)
-	GetValidatorHandle(id uint64) (handle *pb.PeerID, err error)
+	GetOwnID() (id uint64)
+	GetOwnHandle() (handle *pb.PeerID)
+	GetValidatorID(handle *pb.PeerID) (id uint64)
+	GetValidatorHandle(id uint64) (handle *pb.PeerID)
+	GetValidatorHandles(ids []uint64) (handles []*pb.PeerID)
+	GetConnectedValidators() (handles []*pb.PeerID)
 }
 
 // Gatekeeper is used to manage the validating peer's whitelist
 type Gatekeeper interface {
-	CheckWhitelistExists() (size int, err error)
-	SetWhitelistCap(n int) error
+	CheckWhitelistExists() (size int)
+	SetWhitelistCap(n int)
 }
 
 // Communicator is used to send messages to other validators

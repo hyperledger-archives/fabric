@@ -544,8 +544,9 @@ func (m *SyncStateDeltas) GetRange() *SyncBlockRange {
 // Whitelist holds the PeerIDs of the whitelisted validating peers
 type Whitelist struct {
 	Cap          int32     `protobuf:"varint,1,opt,name=cap" json:"cap,omitempty"`
-	SortedKeys   []string  `protobuf:"bytes,2,rep,name=sortedKeys" json:"sortedKeys,omitempty"`
-	SortedValues []*PeerID `protobuf:"bytes,3,rep,name=sortedValues" json:"sortedValues,omitempty"`
+	Security     bool      `protobuf:"varint,2,opt,name=security" json:"security,omitempty"`
+	SortedKeys   []string  `protobuf:"bytes,3,rep,name=sortedKeys" json:"sortedKeys,omitempty"`
+	SortedValues []*PeerID `protobuf:"bytes,4,rep,name=sortedValues" json:"sortedValues,omitempty"`
 }
 
 func (m *Whitelist) Reset()         { *m = Whitelist{} }

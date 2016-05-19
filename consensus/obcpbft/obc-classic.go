@@ -57,24 +57,14 @@ func newObcClassic(config *viper.Viper, stack consensus.Stack) *obcClassic {
 }
 
 // this will give you the peer's PBFT ID
-func (op *obcClassic) waitForID(config *viper.Viper) {
+func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []bytes) {
 	var id uint64
 	var size int
-	var err error
 
 	for { // wait until you have a whitelist
-		size, _ = op.stack.CheckWhitelistExists()
+		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
-			handle, _ := op.stack.GetOwnHandle()
-			if err != nil {
-				logger.Error(err.Error())
-				panic(err.Error())
-			}
-			id, err = op.stack.GetValidatorID(handle)
-			if err != nil {
-				logger.Error(err.Error())
-				panic(err.Error())
-			}
+			id = op.stack.GetOwnID()
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -110,10 +100,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	senderID, err := op.stack.GetValidatorID(senderHandle)
-	if err != nil {
-		panic("Cannot map sender's PeerID to a valid replica ID")
-	}
+	senderID := op.stack.GetValidatorID(senderHandle)
 
 	op.pbft.receive(ocMsg.Payload, senderID)
 
@@ -144,10 +131,7 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := op.stack.GetValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 	return op.stack.Unicast(ocMsg, receiverHandle)
 }
 
@@ -156,10 +140,7 @@ func (op *obcClassic) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := op.stack.GetValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 

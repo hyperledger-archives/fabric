@@ -304,8 +304,7 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	sts.stateTransferListenersLock = &sync.Mutex{}
 
 	sts.stack = stack
-	ep, err := stack.GetPeerEndpoint()
-
+	sts.id = stack.GetPeerEndpoint()
 	if nil != err {
 		logger.Debug("Error resolving our own PeerID, this shouldn't happen")
 		sts.id = &protos.PeerID{"ERROR_RESOLVING_ID"}
@@ -432,21 +431,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 
 	if nil == passedPeerIDs {
 		logger.Debug("%v tryOverPeers, no peerIDs given, discovering", sts.id)
-
-		peersMsg, err := sts.stack.GetPeers()
-		if err != nil {
-			return fmt.Errorf("Couldn't retrieve list of peers: %v", err)
-		}
-		peers := peersMsg.GetPeers()
-		for _, endpoint := range peers {
-			if endpoint.Type == protos.PeerEndpoint_VALIDATOR {
-				if endpoint.ID.Name == sts.id.Name {
-					continue
-				}
-				peerIDs = append(peerIDs, endpoint.ID)
-			}
-		}
-
+		peerIDs = sts.stack.GetConnectedValidators()
 		logger.Debug("%v discovered %d peerIDs", sts.id, len(peerIDs))
 	}
 

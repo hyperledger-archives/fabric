@@ -42,7 +42,7 @@ func TestNetworkBatch(t *testing.T) {
 	})
 	defer net.stop()
 
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)

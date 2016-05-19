@@ -105,21 +105,11 @@ func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 func (op *obcSieve) waitForID(config *viper.Viper) {
 	var id uint64
 	var size int
-	var err error
 
 	for { // wait until you have a whitelist
-		size, _ = op.stack.CheckWhitelistExists()
+		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
-			handle, _ := op.stack.GetOwnHandle()
-			if err != nil {
-				logger.Error(err.Error())
-				panic(err.Error())
-			}
-			id, err = op.stack.GetValidatorID(handle)
-			if err != nil {
-				logger.Error(err.Error())
-				panic(err.Error())
-			}
+			id = op.stack.GetOwnID()
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -266,10 +256,7 @@ func (op *obcSieve) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := op.stack.GetValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 
@@ -295,7 +282,7 @@ func (op *obcSieve) viewChange(newView uint64) {
 }
 
 // retrieve a validator's PeerID given its PBFT ID
-func (op *obcSieve) getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+func (op *obcSieve) getValidatorHandle(id uint64) (handle *pb.PeerID) {
 	return op.stack.GetValidatorHandle(id)
 }
 
@@ -777,7 +764,8 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 	} else {
 		var peers []uint64
 		for _, n := range dSet {
-			peers = append(peers, n.ReplicaId)
+			peer := op.stack.GetValidatorHandle(n.ReplicaId)
+			peers = append(peers, peer)
 		}
 
 		decision := dSet[0].ResultDigest

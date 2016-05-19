@@ -99,12 +99,31 @@ func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, netw
 		},
 		Type: protos.PeerEndpoint_VALIDATOR,
 	}
-
-	self = network[i]
 	return
 }
 
-func (hd *HashLedgerDirectory) GetConnectedValidators() (handles []*protos.PeerID, err error) {
+func (hd *HashLedgerDirectory) GetOwnID() (id uint64) {
+	panic("Unimplemented")
+}
+
+func (hd *HashLedgerDirectory) GetOwnHandle() (handle *protos.PeerID) {
+	handle = &protos.PeerID{Name: "SelfID"}
+	return
+}
+
+func (hd *HashLedgerDirectory) GetValidatorID(handle *protos.PeerID) (id uint64) {
+	panic("Unimplemented")
+}
+
+func (hd *HashLedgerDirectory) GetValidatorHandle(id uint64) (handle *protos.PeerID) {
+	panic("Unimplemented")
+}
+
+func (hd *HashLedgerDirectory) GetValidatorHandles(ids []uint64) (handles []*protos.PeerID) {
+	panic("Unimplemented")
+}
+
+func (hd *HashLedgerDirectory) GetConnectedValidators() (handles []*protos.PeerID) {
 	handles = make([]*protos.PeerID, len(hd.remoteLedgers))
 	i := 0
 	for k := range hd.remoteLedgers {

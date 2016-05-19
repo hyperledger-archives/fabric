@@ -18,6 +18,7 @@ package helper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -65,49 +66,64 @@ func (h *Helper) setConsenter(c consensus.Consenter) {
 	h.consenter = c
 }
 
-// GetOwnHandle retrieve this peer's PeerID
-func (h *Helper) GetOwnHandle() (handle *pb.PeerID, err error) {
-	ep, err := h.coordinator.GetPeerEndpoint()
-	if err != nil {
-		return nil, err
-	}
-	return ep.ID, nil
+// GetOwnID retrieve this peer's PBFT ID
+func (h *Helper) GetOwnID() (id uint64) {
+	handle := h.GetOwnHandle()
+	return h.GetValidatorID(handle)
+}
+
+// GetOwnHandle retrieve this peer's key (name or enrollement certificate)
+func (h *Helper) GetOwnHandle() *pb.PeerID {
+	ep, _ := h.coordinator.GetPeerEndpoint() // TODO Error should be taken of at the peer level
+	return ep.ID
 }
 
 // GetValidatorID retrieves a validating peer's PBFT ID
-func (h *Helper) GetValidatorID(handle *pb.PeerID) (id uint64, err error) {
+func (h *Helper) GetValidatorID(handle *pb.PeerID) (id uint64) {
 	whitelistedMap, _, _ := h.coordinator.GetWhitelist()
-	if value, ok := whitelistedMap[*handle]; !ok {
-		err = fmt.Errorf("Validator's handle (%v) not found in the whitelist: %+v", *handle, whitelistedMap)
-	} else {
-		id = uint64(value)
-	}
-
+	val := whitelistedMap[handle.Name]
+	id = uint64(val)
 	return
 }
 
 // GetValidatorHandle retrieves a validating peer's PeerID
-func (h *Helper) GetValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+func (h *Helper) GetValidatorHandle(id uint64) (handle *pb.PeerID) {
 	_, _, sortedValues := h.coordinator.GetWhitelist()
-	if int(id) < len(sortedValues) {
-		return sortedValues[int(id)], nil
+	handle = sortedValues[int(id)]
+	return
+}
+
+// GetValidatorHandles returns the handles corresponding to a list of PBFT IDs
+func (h *Helper) GetValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
+	handles = make([]*pb.PeerID, len(ids))
+	for i, id := range ids {
+		handles[i] = h.GetValidatorHandle(id)
 	}
-	err = fmt.Errorf(`Couldn't retrieve validator's handle.
-					  Requested validator index was %v,
-					  length of whitelist keys slice is %v`, id, len(sortedValues))
+	return
+}
+
+// GetConnectedValidators retrieves the list of connected validators
+func (h *Helper) GetConnectedValidators() (handles []*pb.PeerID) {
+	peersMsg, _ := h.coordinator.GetPeers()
+	peers := peersMsg.GetPeers()
+	for _, ep := range peers {
+		if ep.Type == pb.PeerEndpoint_VALIDATOR {
+			handles = append(handles, ep.GetID())
+		}
+	}
 	return
 }
 
 // CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
-func (h *Helper) CheckWhitelistExists() (size int, err error) {
+func (h *Helper) CheckWhitelistExists() (size int) {
 	return h.coordinator.CheckWhitelistExists()
 }
 
 // SetWhitelistCap sets the expected number of maximum validators on the network
 // When this many VPs are visible on the network, the validator will record
 // their IDs to a whitelist and save it to disk.
-func (h *Helper) SetWhitelistCap(cap int) error {
-	return h.coordinator.SetWhitelistCap(cap)
+func (h *Helper) SetWhitelistCap(cap int) {
+	h.coordinator.SetWhitelistCap(cap)
 }
 
 // Broadcast sends a message to all validating peers
@@ -136,29 +152,25 @@ func (h *Helper) Sign(msg []byte) ([]byte, error) {
 // Verify that the given signature is valid under the given replicaID's verification key
 // If replicaID is nil, use this validator's verification key
 // If the signature is valid, the function should return nil
-func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) error {
+func (h *Helper) Verify(handle *pb.PeerID, signature []byte, msg []byte) error {
 	if !h.secOn {
 		logger.Debug("Security is disabled")
 		return nil
 	}
 
-	logger.Debug("Verify message from: %v", replicaID.Name)
+	logger.Debug("Verify message from: %v", handle.Name)
 
 	// look for the sender among the list of peers
-	peersMsg, err := h.coordinator.GetPeers()
-	if err != nil {
-		return err
-	}
+	peersMsg, _ := h.coordinator.GetPeers()
 	peers := peersMsg.GetPeers()
-	for _, endpoint := range peers {
-		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
-		if *endpoint.ID == *replicaID {
+	for _, ep := range peers {
+		if strings.Compare(ep.GetID().Name, handle.Name) == 0 {
 			// call crypto verify() with that endpoint's pkiID
-			return h.secHelper.Verify(endpoint.PkiID, signature, message)
+			return h.secHelper.Verify(ep.PkiID, signature, msg)
 		}
 	}
 
-	return fmt.Errorf("Could not verify message from %s (unknown peer)", replicaID.Name)
+	return fmt.Errorf("Could not verify message - unknown peer %s", handle.Name)
 }
 
 // BeginTxBatch gets invoked when the next round

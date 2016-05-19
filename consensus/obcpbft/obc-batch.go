@@ -108,12 +108,12 @@ func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 }
 
 func (op *obcBatch) waitForID(config *viper.Viper) {
+
 	var id uint64
 	var size int
-	var err error
 
 	for { // wait until you have a whitelist
-		size, _ = op.stack.CheckWhitelistExists()
+		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
 			break
@@ -206,10 +206,7 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	receiverHandle, err := op.stack.GetValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
 }
 
@@ -219,10 +216,7 @@ func (op *obcBatch) sign(msg []byte) ([]byte, error) {
 
 // verify message signature
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := op.stack.GetValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 
@@ -295,7 +289,7 @@ func (op *obcBatch) viewChange(curView uint64) {
 }
 
 // retrieve a validator's PeerID given its PBFT ID
-func (op *obcBatch) getValidatorHandle(id uint64) (handle *pb.PeerID, err error) {
+func (op *obcBatch) getValidatorHandle(id uint64) (handle *pb.PeerID) {
 	return op.stack.GetValidatorHandle(id)
 }
 
