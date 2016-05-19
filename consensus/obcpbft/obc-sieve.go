@@ -110,6 +110,7 @@ func (op *obcSieve) waitForID(config *viper.Viper) {
 		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
+			logger.Debug("replica ID = %v", id)
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -262,7 +263,7 @@ func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) er
 
 // called by pbft-core to signal when a view change happened
 func (op *obcSieve) viewChange(newView uint64) {
-	logger.Info("Replica %d observing pbft view change to %d", op.pbft.id, newView)
+	logger.Info("Replica %d observing pbft view change to %d", op.id, newView)
 	op.queuedTx = nil
 	op.imminentEpoch = newView
 
@@ -272,9 +273,9 @@ func (op *obcSieve) viewChange(newView uint64) {
 	op.pbft.stopTimer()
 	op.complainer.Restart()
 
-	if op.pbft.primary(newView) == op.pbft.id {
+	if op.pbft.primary(newView) == op.id {
 		flush := &Flush{View: newView}
-		flush.ReplicaId = op.pbft.id
+		flush.ReplicaId = op.id
 		op.pbft.sign(flush)
 		req := &SievePbftMessage{Payload: &SievePbftMessage_Flush{flush}}
 		go op.invokePbft(req)
@@ -373,7 +374,7 @@ func (op *obcSieve) processRequest() {
 		ReplicaId:   op.id,
 	}
 	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
-		op.pbft.id, exec.View, exec.BlockNumber)
+		op.id, exec.View, exec.BlockNumber)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
 	op.recvExecute(exec)
 }
@@ -480,7 +481,7 @@ func (op *obcSieve) processExecute() {
 }
 
 func (op *obcSieve) recvVerify(verify *Verify) {
-	if op.pbft.primary(op.epoch) != op.pbft.id || !op.pbft.activeView {
+	if op.pbft.primary(op.epoch) != op.id || !op.pbft.activeView {
 		return
 	}
 
@@ -508,7 +509,7 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 
 	for _, v := range op.verifyStore {
 		if v.ReplicaId == verify.ReplicaId {
-			logger.Info("Duplicate verify from %d", op.pbft.id)
+			logger.Info("Duplicate verify from %d", op.id)
 			return
 		}
 	}
@@ -523,7 +524,7 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 			RequestDigest: op.currentReq,
 			Dset:          dSet,
 		}
-		verifySet.ReplicaId = op.pbft.id
+		verifySet.ReplicaId = op.id
 		op.pbft.sign(verifySet)
 		req := &SievePbftMessage{Payload: &SievePbftMessage_VerifySet{verifySet}}
 		op.invokePbft(req)
@@ -707,29 +708,29 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 	sync := false
 
 	logger.Debug("Replica %d received verify-set from pbft, view %d, block %d",
-		op.pbft.id, vset.View, vset.BlockNumber)
+		op.id, vset.View, vset.BlockNumber)
 
 	if vset.View != op.epoch {
 		logger.Debug("Replica %d ignoring verify-set for wrong epoch: expected %d, got %d",
-			op.pbft.id, op.epoch, vset.View)
+			op.id, op.epoch, vset.View)
 		return
 	}
 
 	if vset.BlockNumber < op.blockNumber {
 		logger.Debug("Replica %d ignoring verify-set for old block: expected %d, got %d",
-			op.pbft.id, op.blockNumber, vset.BlockNumber)
+			op.id, op.blockNumber, vset.BlockNumber)
 		return
 	}
 
 	if vset.BlockNumber == op.blockNumber && op.currentReq == "" {
 		logger.Debug("Replica %d ignoring verify-set for already committed block",
-			op.pbft.id)
+			op.id)
 		return
 	}
 
 	if op.currentReq == "" {
 		logger.Debug("Replica %d received verify-set without pending execute",
-			op.pbft.id)
+			op.id)
 		sync = true
 	}
 
@@ -741,13 +742,13 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 
 	if vset.BlockNumber != op.blockNumber {
 		logger.Debug("Replica %d received verify-set for wrong block: expected %d, got %d",
-			op.pbft.id, op.blockNumber, vset.BlockNumber)
+			op.id, op.blockNumber, vset.BlockNumber)
 		sync = true
 	}
 
 	if vset.RequestDigest != op.currentReq {
 		logger.Debug("Replica %d received verify-set for different execute",
-			op.pbft.id)
+			op.id)
 		sync = true
 	}
 
@@ -806,14 +807,14 @@ func (op *obcSieve) execDone() {
 }
 
 func (op *obcSieve) executeFlush(flush *Flush) {
-	logger.Debug("Replica %d received flush from pbft", op.pbft.id)
+	logger.Debug("Replica %d received flush from pbft", op.id)
 	if flush.View < op.epoch {
 		logger.Warning("Replica %d ignoring old flush for epoch %d, we are in epoch %d",
-			op.pbft.id, flush.View, op.epoch)
+			op.id, flush.View, op.epoch)
 		return
 	}
 	op.epoch = flush.View
-	logger.Info("Replica %d advancing epoch to %d", op.pbft.id, op.epoch)
+	logger.Info("Replica %d advancing epoch to %d", op.id, op.epoch)
 	op.queuedTx = nil
 	if op.currentReq != "" {
 		logger.Info("Replica %d rolling back speculative execution", op.id)

@@ -113,7 +113,7 @@ func (cnet *consumerNetwork) GetLedgerByPeerID(handle *pb.PeerID) (consensus.Rea
 	return cnet.mockLedgers[id], true
 }
 
-func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer, initFNs ...func(*consumerEndpoint)) *consumerNetwork {
+func makeConsumerNetwork(N int, makeConsumer func(config *viper.Viper, stack consensus.Stack) pbftConsumer, initFNs ...func(*consumerEndpoint)) *consumerNetwork {
 	twl := consumerNetwork{mockLedgers: make([]*MockLedger, N)}
 
 	endpointFunc := func(id uint64, net *testnet) endpoint {
@@ -132,7 +132,7 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 			skipTarget:       make(chan struct{}, 1),
 		}
 
-		ce.consumer = makeConsumer(id, loadConfig(), cs)
+		ce.consumer = makeConsumer(loadConfig(), cs)
 		ce.consumer.getPBFTCore().N = N
 		ce.consumer.getPBFTCore().f = (N - 1) / 3
 

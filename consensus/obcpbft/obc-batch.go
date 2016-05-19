@@ -108,7 +108,6 @@ func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 }
 
 func (op *obcBatch) waitForID(config *viper.Viper) {
-
 	var id uint64
 	var size int
 
@@ -116,6 +115,7 @@ func (op *obcBatch) waitForID(config *viper.Viper) {
 		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
+			logger.Debug("replica ID = %v", id)
 			break
 		}
 		time.Sleep(1 * time.Second)

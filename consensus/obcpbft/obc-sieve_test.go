@@ -30,10 +30,6 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
-func (op *obcSieve) getPBFTCore() *pbftCore {
-	return op.pbft
-}
-
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcSieve directly
 	return newObcSieve(id, config, stack)

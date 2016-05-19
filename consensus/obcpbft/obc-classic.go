@@ -56,8 +56,12 @@ func newObcClassic(config *viper.Viper, stack consensus.Stack) *obcClassic {
 	return op
 }
 
+func (op *obcClassic) Startup(seqNo uint64, id []byte) {
+	op.startup <- id
+}
+
 // this will give you the peer's PBFT ID
-func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []bytes) {
+func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []byte) {
 	var id uint64
 	var size int
 
@@ -65,7 +69,7 @@ func (op *obcClassic) waitForID(config *viper.Viper, startupInfo []bytes) {
 		size = op.stack.CheckWhitelistExists()
 		if size > 0 { // there is a waitlist so you know your ID
 			id = op.stack.GetOwnID()
-			logger.Debug("******** got whitelist, replica ID = %v", id)
+			logger.Debug("replica ID = %v", id)
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -176,6 +180,11 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 // called when a view-change happened in the underlying PBFT
 // classic mode pbft does not use this information
 func (op *obcClassic) viewChange(curView uint64) {
+}
+
+// retrieve a validator's PeerID given its PBFT ID
+func (op *obcClassic) getValidatorHandle(id uint64) (handle *pb.PeerID) {
+	return op.stack.GetValidatorHandle(id)
 }
 
 // Unnecessary

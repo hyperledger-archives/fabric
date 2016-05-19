@@ -25,8 +25,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
-	gp "google/protobuf"
-
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -219,7 +217,7 @@ func (op *omniProto) SetWhitelistCap(cap int) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) Broadcast(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error {
+func (op *omniProto) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 	if nil != op.BroadcastImpl {
 		return op.BroadcastImpl(msg, peerType)
 	}

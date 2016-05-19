@@ -29,7 +29,7 @@ type pbftEndpoint struct {
 }
 
 func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
-	senderID, _ := pe.getValidatorID(senderHandle)
+	senderID := pe.GetValidatorID(senderHandle)
 	pe.pbft.receive(msg, senderID)
 }
 

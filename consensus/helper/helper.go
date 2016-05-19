@@ -163,9 +163,14 @@ func (h *Helper) Verify(handle *pb.PeerID, signature []byte, msg []byte) error {
 	// look for the sender among the list of peers
 	peersMsg, _ := h.coordinator.GetPeers()
 	peers := peersMsg.GetPeers()
+
+   self, _ := h.coordinator.GetPeerEndpoint() // TODO Error should be taken of at the peer level
+   peers = append(peers, self)
+
 	for _, ep := range peers {
 		if strings.Compare(ep.GetID().Name, handle.Name) == 0 {
 			// call crypto verify() with that endpoint's pkiID
+         logger.Debug("verify against peer %+v", ep)
 			return h.secHelper.Verify(ep.PkiID, signature, msg)
 		}
 	}

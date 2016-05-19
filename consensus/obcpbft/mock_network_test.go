@@ -142,7 +142,7 @@ func (te *testEndpoint) Unicast(msg *pb.Message, handle *pb.PeerID) error {
 	if err != nil {
 		return fmt.Errorf("Couldn't unicast message to %s: %v", handle.Name, err)
 	}
-	internalQueueMessage(ep.net.msgs, taggedMsg{int(ep.id), int(receiverID), msg.Payload})
+	internalQueueMessage(te.net.msgs, taggedMsg{int(te.id), int(receiverID), msg.Payload})
 	return nil
 }
 
