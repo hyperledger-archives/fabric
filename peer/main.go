@@ -50,6 +50,7 @@ import (
 	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
@@ -328,7 +329,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 
 		//TODO - do we need different SSL material for events ?
 		var opts []grpc.ServerOption
-		if peer.TlsEnabled() {
+		if comm.TLSEnabled() {
 			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to generate credentials %v", err)
@@ -433,7 +434,7 @@ func serve(args []string) error {
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
-	if peer.TlsEnabled() {
+	if comm.TLSEnabled() {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
 			grpclog.Fatalf("Failed to generate credentials %v", err)
@@ -537,7 +538,7 @@ func serve(args []string) error {
 			profileListenAddress := viper.GetString("peer.profile.listenAddress")
 			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
 			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
-				logger.Error("Error starting profiler: %s", profileErr)
+				logger.Error(fmt.Sprintf("Error starting profiler: %s", profileErr))
 			}
 		}()
 	}

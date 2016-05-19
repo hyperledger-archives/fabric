@@ -53,7 +53,6 @@ var peerEndpointError error
 var syncStateSnapshotChannelSize int
 var syncStateDeltasChannelSize int
 var validatorEnabled bool
-var tlsEnabled bool
 
 // Note: There is some kind of circular import issue that prevents us from
 // importing the "core" package into the "peer" package. The
@@ -61,7 +60,7 @@ var tlsEnabled bool
 // bit.
 var securityEnabled bool
 
-// CacheConfiguration() computes and caches commonly-used constants and
+// CacheConfiguration computes and caches commonly-used constants and
 // computed constants as package variables. Routines which were previously
 // global have been embedded here to preserve the original abstraction.
 func CacheConfiguration() (err error) {
@@ -117,7 +116,6 @@ func CacheConfiguration() (err error) {
 	syncStateSnapshotChannelSize = viper.GetInt("peer.sync.state.snapshot.channelSize")
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
 	validatorEnabled = viper.GetBool("peer.validator.enabled")
-	tlsEnabled = viper.GetBool("peer.tls.enabled")
 
 	securityEnabled = viper.GetBool("security.enabled")
 
@@ -180,13 +178,6 @@ func ValidatorEnabled() bool {
 		cacheConfiguration()
 	}
 	return validatorEnabled
-}
-
-func TlsEnabled() bool {
-	if !configurationCached {
-		cacheConfiguration()
-	}
-	return tlsEnabled
 }
 
 func SecurityEnabled() bool {
