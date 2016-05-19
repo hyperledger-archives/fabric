@@ -32,8 +32,8 @@ type Attribute struct {
 	Value []byte
 }
 
-// ChaincodeHolder is the struct that hold the certificate and the metadata. An implementation is ChaincodeStub
-type ChaincodeHolder interface {
+// chaincodeHolder is the struct that hold the certificate and the metadata. An implementation is ChaincodeStub
+type chaincodeHolder interface {
 	// GetCallerCertificate returns caller certificate
 	GetCallerCertificate() ([]byte, error)
 
@@ -42,7 +42,7 @@ type ChaincodeHolder interface {
 }
 
 //ABACHandler is an entity can be used to both verify and read attributes.
-//		The hanlder can retrieve the attributes, and the propertly keys to decrypt the values from the ChaincodeHolder
+//		The hanlder can retrieve the attributes, and the propertly keys to decrypt the values from the chaincodeHolder
 //		The functions declared can be used to access the attributes stored in the transaction certificates from the application layer. Can be used directly from the ChaincodeStub API but
 //		 if you need multiple access create a hanlder is better:
 // 	Multiple accesses
@@ -81,7 +81,7 @@ type ABACHandlerImpl struct {
 }
 
 //NewABACHandlerImpl creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
-func NewABACHandlerImpl(holder ChaincodeHolder) (*ABACHandlerImpl, error) {
+func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 	// Getting certificate
 	certRaw, err := holder.GetCallerCertificate()
 	if err != nil {

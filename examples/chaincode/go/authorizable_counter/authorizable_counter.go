@@ -24,19 +24,20 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
-// SimpleChaincode example simple Chaincode implementation
-type SimpleChaincode struct {
+// AuthorizableCounterChaincode is an example that use Attribute Based Access Control to control the access to a counter by users with an specific role.
+// In this case only users which TCerts contains the attribute position with the value "Software Engineer" will be able to increment the counter.
+type AuthorizableCounterChaincode struct {
 }
 
 //Init the chaincode asigned the value "0" to the counter in the state.
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AuthorizableCounterChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	err := stub.PutState("counter", []byte("0"))
 	return nil, err
 }
 
 //Invoke Transaction makes increment counter
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer"))
+func (t *AuthorizableCounterChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer")) // Here the ABAC API is called to verify the attribute, just if the value is verified the counter will be incremented.
 	if isOk {
 		counter, err := stub.GetState("counter")
 		if err != nil {
@@ -56,7 +57,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 }
 
 //Delete delete the counter from the state.
-func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *AuthorizableCounterChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3")
 	}
@@ -72,7 +73,7 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 
 // Run callback representing the invocation of a chaincode
 // This chaincode will increment the counter if the user has an attribute called "position" with the value "Software Engineer"
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AuthorizableCounterChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions
 	if function == "init" {
@@ -90,7 +91,7 @@ func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []
 }
 
 // Query callback representing the query of a chaincode
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AuthorizableCounterChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
@@ -114,7 +115,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 }
 
 func main() {
-	err := shim.Start(new(SimpleChaincode))
+	err := shim.Start(new(AuthorizableCounterChaincode))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
