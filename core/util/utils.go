@@ -18,9 +18,12 @@ package util
 
 import (
 	"crypto/rand"
+	"encoding/gob"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"time"
 
 	gp "google/protobuf"
@@ -87,4 +90,54 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 	copy(b, cbytes)
 	hash := ComputeCryptoHash(b)
 	return hash
+}
+
+// LoadFromDisk loads a file from disk
+func LoadFromDisk(filename string) (data []byte, err error) {
+	data, err = ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to load file %v: %v", filename, err)
+	}
+	return
+}
+
+// SaveToDisk saves a byte slice to disk
+func SaveToDisk(filename string, data []byte) error {
+	err := ioutil.WriteFile(filename, data, 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write to file %v: %v", filename, err)
+	}
+	return nil
+}
+
+// EncodeSaveToDisk encodes an object via the gob package and saves it to disk
+func EncodeSaveToDisk(filename string, object interface{}) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Unable to create file %v: %v", filename, err)
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(object)
+	if err != nil {
+		return fmt.Errorf("Unable to encode object before saving to file %v: %v", filename, err)
+	}
+	return nil
+}
+
+// LoadDecodeFromDisk loads a file from disk and decodes it via the gob package
+func LoadDecodeFromDisk(filename string, object interface{}) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("Unable to load file %v: %v", filename, err)
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(object)
+	if err != nil {
+		return fmt.Errorf("Unable to decode loaded file %v: %v", filename, err)
+	}
+	return nil
 }

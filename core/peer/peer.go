@@ -212,7 +212,8 @@ type PeerImpl struct {
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
 
-	whitelist *pb.whitelist
+	whitelist      *pb.whitelist
+	whitelistedMap map[pb.PeerID]int
 
 	engine      Engine
 	isValidator bool
@@ -364,8 +365,9 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	for _, peerEndpoint := range peersMessage.Peers {
 		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
 			// if this is THIS peer's endpoint do nothing
-		} else if _, ok := p.whitelist.handlerMap[getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false && (len(p.whitelist.handlerMap) > 0) { // prevent outgoing connections
+		} else if _, ok := p.whitelistedMap[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false && (len(p.whitelistedMap) > 0) { // prevent outgoing connections
 			// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT connect to it
+			peerLogger.Debug("Did not connect to non-whitelisted peer: %v", *getHandlerKeyFromPeerEndpoint(peerEndpoint))
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// start chat with peer
 			go p.chatWithPeer(peerEndpoint.Address)
@@ -399,9 +401,10 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 		return newDuplicateHandlerError(messageHandler)
 	}
 	remotePeerEndpoint, _ := messageHandler.To()
-	if _, ok := p.whitelist.handlerMap[getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint)]; ok == false && (len(p.whitelist.handlerMap) > 0) { // prevent incoming (& outgoing...) connections
+	if _, ok := p.whitelistedMap[*getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint)]; ok == false && (len(p.whitelistedMap) > 0) { // prevent incoming (& outgoing...) connections
 		// if we have a whitelist *and* this PeerEndpoint.ID is not in it, do NOT accept connections from it
-		return fmt.Errorf("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
+		peerLogger.Debug("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
+		return nil
 	}
 	p.handlerMap.m[*key] = messageHandler
 	peerLogger.Debug("Registered handler with key: %s", key)
