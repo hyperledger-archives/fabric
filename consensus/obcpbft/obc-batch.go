@@ -23,9 +23,10 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	google_protobuf "google/protobuf"
 )
 
 type obcBatch struct {
@@ -45,6 +46,9 @@ type obcBatch struct {
 
 	complainer   *complainer
 	deduplicator *deduplicator
+
+	isSufficientlyConnected chan bool
+	proceedWithConsensus    bool
 
 	persistForward
 }
@@ -71,12 +75,11 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op := &obcBatch{
 		obcGeneric: obcGeneric{stack: stack},
 	}
+	op.isSufficientlyConnected = make(chan bool)
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = newPbftCore(id, config, op)
+	logger.Debug("Replica obtaining startup information")
 
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
@@ -99,14 +102,44 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.idleChan = make(chan struct{})
 	op.viewChanged = make(chan struct{})
 
-	go op.main()
+	go op.waitForID(config)
+
 	return op
+}
+
+// waitForID delays until all the peers in the whitelist are ready
+func (op *obcBatch) waitForID(config *viper.Viper) {
+	var id uint64
+	var size int
+
+	for { // wait until you have a whitelist
+		size = op.stack.CheckWhitelistExists()
+		if size > 0 { // there is a waitlist so you know your ID
+			id = op.stack.GetOwnID()
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	// instantiate pbft-core
+	op.pbft = newPbftCore(id, config, op)
+
+	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
+	go op.main()
+
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
 	op.incomingChan <- &batchMessage{
 		msg:    ocMsg,
 		sender: senderHandle,
