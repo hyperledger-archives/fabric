@@ -101,26 +101,17 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
 	logger.Debug("getCodeFromHTTP %s", path)
-	env := os.Environ()
-	var newgopath string
-	var origgopath string
-	var gopathenvIndex int
-	for i, v := range env {
-		if strings.Index(v, "GOPATH=") == 0 {
-			p := strings.SplitAfter(v, "GOPATH=")
-			origgopath = p[1]
-			// Only take the first element of GOPATH
-			origgopath = filepath.SplitList(origgopath)[0]
-			newgopath = origgopath + "/_usercode_"
-			gopathenvIndex = i
-			break
-		}
-	}
 
-	if newgopath == "" {
+	origgopath := os.Getenv("GOPATH")
+	if origgopath == "" {
 		err = fmt.Errorf("GOPATH not defined")
 		return
 	}
+	// Only take the first element of GOPATH
+	gopath := filepath.SplitList(origgopath)[0]
+
+	// Define a new gopath in which to download the code
+	newgopath := gopath + "/_usercode_"
 
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
 	os.Mkdir(newgopath, 0755)
@@ -141,7 +132,11 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . more secure
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
-	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
+	os.Setenv("GOPATH", codegopath + ":" + origgopath)
+	// Get a copy of that new env for the go get command
+	env := os.Environ()
+	// and reset GOPATH to its original value
+	os.Setenv("GOPATH", origgopath)
 
 	// Use a 'go get' command to pull the chaincode from the given repo
 	logger.Debug("go get %s", path)
@@ -152,7 +147,6 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	var errBuf bytes.Buffer
 	cmd.Stderr = &errBuf //capture Stderr and print it on error
 	err = cmd.Start()
-
 
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
