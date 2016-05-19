@@ -5,5 +5,5 @@
 private.mk
 # Executables
 counters/counters
-crypto/crypto
+benchmarks/benchmarks
 
