@@ -48,8 +48,9 @@ to put this directory on your **PATH**.
 * The [busywork](busywork/README.md) directory defines a small Go package used
 by **busywork** applications.
 
-* The [crypto](crypto/README.md) directory contains the beginnings of a set of
-  microbenchmarks for cryptographic primitives used by the Hyperledger fabric.
+* The [benchmarks](benchmarks/README.md) directory contains the beginnings of
+  a set of microbenchmarks for cryptographic primitives used by the
+  Hyperledger fabric.
 
 * The [tcl](tcl/README.md) directory defines Tcl packages.
 
