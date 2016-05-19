@@ -33,6 +33,7 @@ func NewClientConnectionWithAddress(peerAddress string, block bool, tslEnabled b
 	}
 	return conn, err
 }
+
 // InitTLSForPeer returns TLS credentials for peer
 func InitTLSForPeer() credentials.TransportAuthenticator {
 	var sn string
