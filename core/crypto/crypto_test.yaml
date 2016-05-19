@@ -53,16 +53,16 @@ tca:
 
 aca:
           attributes:
-              attribute-entry-0: user1;bank_a;company;IBM;2015-01-01T00:00:00-03:00;;
+              attribute-entry-0: user1;bank_a;company;ACompany;2015-01-01T00:00:00-03:00;;
               attribute-entry-1: user1;bank_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
               attribute-entry-2: user1;bank_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
-              attribute-entry-3: user2,;bank_a;company;IBM;2001-02-02T00:00:00-03:00;;
+              attribute-entry-3: user2,;bank_a;company;ACompany;2001-02-02T00:00:00-03:00;;
               attribute-entry-4: user2;bank_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
-              attribute-entry-5: binhn,;bank_a;company;IBM;2015-01-01T00:00:00-03:00;;
-              attribute-entry-6: binhn;bank_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;             
+              attribute-entry-5: binhn,;bank_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+              attribute-entry-6: binhn;bank_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;
           address: localhost:50541
-          server-name: acap     
-          
+          server-name: acap
+
 pki:
     validity-period:
        # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
@@ -110,7 +110,7 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: IBM
+        company: ACompany
         position: "Software Engineer"
       abac:
         enabled: true
@@ -150,7 +150,7 @@ logging:
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
     peer:      debug
-    crypto:    debug
+    crypto:    info
     status:    warning
     stop:      warning
     login:     warning
@@ -188,4 +188,3 @@ tests:
             userthread:
                 enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
-

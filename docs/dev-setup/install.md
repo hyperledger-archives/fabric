@@ -41,7 +41,6 @@ You should see some output similar to below (**NOTE**: The root command below is
       peer [command]
 
     Available Commands:
-      peer        Runs the peer.
       node        node specific commands.
       network     network specific commands.
       chaincode   chaincode specific commands.

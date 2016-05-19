@@ -60,7 +60,7 @@ logging:
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
     peer:      debug
-    crypto:    debug
+    crypto:    info
     status:    warning
     stop:      warning
     login:     warning
@@ -355,7 +355,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.
@@ -422,7 +422,7 @@ security:
       enabled: false
     multithreading:
       enabled: false
-    
+
 
 
 ################################################################################
