@@ -31,7 +31,7 @@ documented in a *usage* string embedded at the top of the script.
   `wait-for-it` to sequence network startup correctly.
   
 <a name="userModeNetwork"></a>
-# User-Mode Networks
+## User-Mode Networks
 
 A *user-mode network* is a Hyperledger fabric peer network in which the peers
 in the network are simple user-mode processes. Running a user-mode network
@@ -79,7 +79,7 @@ the log file:
 
 
 <a name=busywork-home></a>
-# BUSYWORK_HOME
+## BUSYWORK_HOME
 
 If **BUSYWORK_HOME** is not defined in the environment, **busywork** scripts
 and applications create (if necessary) and use `~/.busywork` as the
@@ -88,8 +88,8 @@ in the **BUSYWORK_HOME** depending on which **busywork** tools are being
 used.
 
 * `fabricLog` The is a text representation of the blockchain created by the
-  **fabricLogger** process that driver scripts invoke to validate transaction
-  execution. 
+  [fabricLogger](fabricLogger) process that driver scripts invoke to validate
+  transaction execution.
   
 * `membersrvc/` This directory contains the **membersrvc** database (`/data` -
   TBD) and the `/stderr` and `/stdout` logs from the **membersrvc** server.
@@ -98,10 +98,13 @@ used.
 
 * `vp[0,...N]/` These directories contain the validating peer databases
   `/data` and their `/stderr` and `stdout` logs.
-
+  
+* `*.chain` These files are created by the [checkAgreement](checkAgreement)
+  script, and represent the blockchains as recorded on the different peers in
+  the network.
 
 <a name="network"></a>
-# *busywork* Network Configurations
+## *busywork* Network Configurations
 
 **busywork** scripts that create peer networks produce a description of the
   network for the benefit of other **busywork** tools. The network description
