@@ -152,30 +152,34 @@ func (eca *ECA) populateUsersTable() {
 			Panic.Panicln(err)
 		}
 
-		var affiliation, affiliation_role string
+		var affiliation, affiliationRole string
 		if len(vals) >= 4 {
 			affiliation = vals[2]
-			affiliation_role = vals[3]
+			affiliationRole = vals[3]
 		}
-		eca.registerUser(id, affiliation, affiliation_role, pb.Role(role), vals[1])
+		eca.registerUser(id, affiliation, affiliationRole, pb.Role(role), vals[1])
 	}
 }
 
+
+// populateAffiliationGroup populates the affiliation groups table
+//
 func (eca *ECA) populateAffiliationGroup(name, parent, key string) {
 	eca.registerAffiliationGroup(name, parent)
-	new_key := key + "." + name
-	affiliation_groups := viper.GetStringMapString(new_key)
-	for child_name, _ := range affiliation_groups {
-		eca.populateAffiliationGroup(child_name, name, new_key)
+	newKey := key + "." + name
+	affiliationGroups := viper.GetStringMapString(newKey)
+	for childName := range affiliationGroups {
+		eca.populateAffiliationGroup(childName, name, newKey)
 	}
 
 }
 
+// populateAffiliationGroupsTable populates affiliation groups table
+//
 func (eca *ECA) populateAffiliationGroupsTable() {
-	// populate affiliation groups
 	key := "eca.affiliation_groups"
-	affiliation_groups := viper.GetStringMapString(key)
-	for name, _ := range affiliation_groups {
+	affiliationGroups := viper.GetStringMapString(key)
+	for name := range affiliationGroups {
 		eca.populateAffiliationGroup(name, "", key)
 	}
 }
@@ -186,7 +190,7 @@ func (eca *ECA) Start(srv *grpc.Server) {
 	eca.startECAP(srv)
 	eca.startECAA(srv)
 
-	Info.Println("ECA started.")
+	Info.Println("ECA started")
 }
 
 func (eca *ECA) startECAP(srv *grpc.Server) {
@@ -208,18 +212,18 @@ func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 // CreateCertificatePair requests the creation of a new enrollment certificate pair by the ECA.
 //
 func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateReq) (*pb.ECertCreateResp, error) {
-	Trace.Println("grpc ECAP:CreateCertificate")
+	Trace.Println("gRPC ECAP:CreateCertificate")
 
 	// validate token
 	var tok, prev []byte
 	var role, state int
-	var enrollId string
+	var enrollID string
 
 	id := in.Id.Id
-	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollId)
+	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollID)
 
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
-		return nil, errors.New("identity or token does not match")
+		return nil, errors.New("Identity or token does not match")
 	}
 
 	ekey, err := x509.ParsePKIXPublicKey(in.Enc.Key)
@@ -256,7 +260,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 	case state == 1:
 		// ensure that the same encryption key is signed that has been used for the challenge
 		if subtle.ConstantTimeCompare(in.Enc.Key, prev) != 1 {
-			return nil, errors.New("encryption keys don't match")
+			return nil, errors.New("Encryption keys do not match")
 		}
 
 		// validate request signature
@@ -268,7 +272,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		s.UnmarshalText(sig.S)
 
 		if in.Sign.Type != pb.CryptoType_ECDSA {
-			return nil, errors.New("unsupported key type")
+			return nil, errors.New("Unsupported (signing) key type")
 		}
 		skey, err := x509.ParsePKIXPublicKey(in.Sign.Key)
 		if err != nil {
@@ -279,20 +283,20 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		raw, _ := proto.Marshal(in)
 		hash.Write(raw)
 		if ecdsa.Verify(skey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-			return nil, errors.New("signature does not verify")
+			return nil, errors.New("Signature verficiation failed")
 		}
 
 		// create new certificate pair
 		ts := time.Now().Add(-1 * time.Minute).UnixNano()
 
-		spec := NewDefaultCertificateSpecWithCommonName(id, enrollId, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		spec := NewDefaultCertificateSpecWithCommonName(id, enrollID, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		sraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
-		spec = NewDefaultCertificateSpecWithCommonName(id, enrollId, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
+		spec = NewDefaultCertificateSpecWithCommonName(id, enrollID, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		eraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
@@ -318,13 +322,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
 	}
 
-	return nil, errors.New("certificate creation token expired")
+	return nil, errors.New("Invalid (=expired) certificate creation token provided")
 }
 
 // ReadCertificatePair reads an enrollment certificate pair from the ECA.
 //
 func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) (*pb.CertPair, error) {
-	Trace.Println("grpc ECAP:ReadCertificate")
+	Trace.Println("gRPC ECAP:ReadCertificate")
 
 	rows, err := ecap.eca.readCertificates(in.Id.Id)
 	defer rows.Close()
@@ -345,7 +349,7 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 // ReadCertificateByHash reads a single enrollment certificate by hash from the ECA.
 //
 func (ecap *ECAP) ReadCertificateByHash(ctx context.Context, hash *pb.Hash) (*pb.Cert, error) {
-	Trace.Println("grpc ECAP:ReadCertificateByHash")
+	Trace.Println("gRPC ECAP:ReadCertificateByHash")
 
 	raw, err := ecap.eca.readCertificateByHash(hash.Hash)
 	return &pb.Cert{raw}, err
@@ -354,16 +358,16 @@ func (ecap *ECAP) ReadCertificateByHash(ctx context.Context, hash *pb.Hash) (*pb
 // RevokeCertificatePair revokes a certificate pair from the ECA.  Not yet implemented.
 //
 func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc ECAP:RevokeCertificate")
+	Trace.Println("gRPC ECAP:RevokeCertificate")
 
-	return nil, errors.New("not yet implemented")
+	return nil, errors.New("ECAP:RevokeCertificatePair method not (yet) implemented")
 }
 
 // RegisterUser registers a new user with the ECA.  If the user had been registered before
 // an error is returned.
 //
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
-	Trace.Println("grpc ECAA:RegisterUser")
+	Trace.Println("gRPC ECAA:RegisterUser")
 
 	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role)
 	return &pb.Token{[]byte(tok)}, err
@@ -372,11 +376,11 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 // ReadUserSet returns a list of users matching the parameters set in the read request.
 //
 func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.UserSet, error) {
-	Trace.Println("grpc ECAA:ReadUserSet")
+	Trace.Println("gRPC ECAA:ReadUserSet")
 
 	req := in.Req.Id
 	if ecaa.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
-		return nil, errors.New("access denied")
+		return nil, errors.New("Access denied")
 	}
 
 	raw, err := ecaa.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
@@ -399,7 +403,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		return nil, errors.New("signature does not verify")
+		return nil, errors.New("Signature verification failed")
 	}
 
 	rows, err := ecaa.eca.readUsers(int(in.Role))
@@ -426,15 +430,15 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.
 //
 func (ecaa *ECAA) RevokeCertificate(context.Context, *pb.ECertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc ECAA:RevokeCertificate")
+	Trace.Println("gRPC ECAA:RevokeCertificate")
 
-	return nil, errors.New("not yet implemented")
+	return nil, errors.New("ECAA:RevokeCertificate method not (yet) implemented")
 }
 
 // PublishCRL requests the creation of a certificate revocation list from the ECA.  Not yet implemented.
 //
 func (ecaa *ECAA) PublishCRL(context.Context, *pb.ECertCRLReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc ECAA:CreateCRL")
+	Trace.Println("gRPC ECAA:CreateCRL")
 
-	return nil, errors.New("not yet implemented")
+	return nil, errors.New("ECAA:PublishCRL method not (yet) implemented")
 }
