@@ -109,21 +109,13 @@ export GOPATH="/opt/gopath"
 export GOROOT="/opt/go/"
 PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
-#install golang deps
-./installGolang.sh
-
-# Copy protobuf dir so we can build the protoc-gen-go binary. Then delete the directory.
-mkdir -p $GOPATH/src/github.com/golang/protobuf/
-cp -r $GOPATH/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $GOPATH/src/github.com/golang/
-go install -a github.com/golang/protobuf/protoc-gen-go
-rm -rf $GOPATH/src/github.com/golang/protobuf
-
-# Compile proto files
-# /hyperledger/devenv/compile_protos.sh
-
 # Create directory for the DB
 sudo mkdir -p /var/hyperledger
 sudo chown -R vagrant:vagrant /var/hyperledger
+
+# Build the actual hyperledger peer (must be done before chown below)
+cd $GOPATH/src/github.com/hyperledger/fabric
+make clean peer gotools
 
 # Ensure permissions are set for GOPATH
 sudo chown -R vagrant:vagrant $GOPATH
@@ -139,8 +131,6 @@ cat <<EOF >/etc/profile.d/vagrant-devenv.sh
 # Expose the devenv/tools in the $PATH
 export PATH=\$PATH:/hyperledger/devenv/tools
 export VAGRANT=1
+export CGO_CFLAGS=" "
+export CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 EOF
-
-# Build the actual hyperledger peer
-cd $GOPATH/src/github.com/hyperledger/fabric
-make clean peer

@@ -25,6 +25,7 @@
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
 #   - behave-deps - ensures pre-requisites are availble for running behave manually
+#   - gotools - installs go tools like golint
 #   - linter - runs all code checks
 #   - images - ensures all docker images are available
 #   - peer-image - ensures the peer-image is available (for behave, etc)
@@ -40,6 +41,14 @@ CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
 EXECUTABLES = go docker
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
+
+GOTOOLS = golint govendor goimports protoc-gen-go
+GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
+
+# go tool->path mapping
+go.fqp.govendor  := github.com/kardianos/govendor
+go.fqp.golint    := github.com/golang/lint/golint
+go.fqp.goimports := golang.org/x/tools/cmd/goimports
 
 all: peer membersrvc checks
 
@@ -73,7 +82,9 @@ behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
 
-linter:
+gotools: $(GOTOOLS_BIN)
+
+linter: gotools
 	@echo "LINT: Running code checks.."
 	@echo "LINT: No errors found"
 
@@ -90,15 +101,32 @@ linter:
 	@./scripts/provision/docker.sh 0.0.9
 	@touch $@
 
+# Special override for protoc-gen-go since we want to use the version vendored with the project
+gotool.protoc-gen-go:
+	mkdir -p $(GOPATH)/src/github.com/golang/protobuf/
+	cp -r $(GOPATH)/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $(GOPATH)/src/github.com/golang/
+	go install github.com/golang/protobuf/protoc-gen-go
+	rm -rf $(GOPATH)/src/github.com/golang/protobuf
+
+# Default rule for gotools uses the name->path map for a generic 'go get' style build
+gotool.%:
+	$(eval TOOL = ${subst gotool.,,${@}})
+	go get ${go.fqp.${TOOL}}
+
+$(GOPATH)/bin/%:
+	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
+	$(MAKE) gotool.$(TOOL)
+
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
 
 .PHONY: clean
 clean:
-	-@rm .*image-dummy ||:
+	-@rm -f .*image-dummy ||:
 	-@rm -f ./peer/peer ||:
 	-@rm -f ./membersrvc/membersrvc ||:
+	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
 dist-clean: clean
