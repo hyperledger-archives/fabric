@@ -201,8 +201,9 @@ message BlockState {
 // example, if start=3 and end=5, the order of blocks will be 3, 4, 5.
 // If start=5 and end=3, the order will be 5, 4, 3.
 message SyncBlockRange {
-    uint64 start = 1;
-    uint64 end = 2;
+    uint64 correlationId = 1;
+    uint64 start = 2;
+    uint64 end = 3;
 }
 // SyncBlocks is the payload of Message.SYNC_BLOCKS, where the range
 // indicates the blocks responded to the request SYNC_GET_BLOCKS
