@@ -18,6 +18,7 @@ package helper
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
@@ -41,10 +42,16 @@ type Helper struct {
 	secHelper    crypto.Peer
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
-	persist.Helper
+	whitelist   *pb.PeersMessage  // holds the whitelisted VPs
+
+	persist.PersistHelper
 
 	sts *statetransfer.StateTransferState
+
 }
+
+// WhiteListFile carries the name of the whitelist file
+const WhiteListFile = "/tmp/whitelist.dat"
 
 // NewHelper constructs the consensus helper object
 func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
@@ -52,6 +59,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		coordinator: mhc,
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
+		whitelist:   &pb.PeersMessage{}
 	}
 	h.sts = statetransfer.NewStateTransferState(mhc)
 	h.sts.RegisterListener(h)
@@ -100,6 +108,70 @@ func (h *Helper) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err
 	network = append(network, self)
 
 	return
+}
+
+// GetConnectedVPs retrieves the list of validators connected to this peer
+func (h *Helper) GetConnectedVPs() (list *pb.PeersMessage, err error) {
+	peersMsg, err := h.coordinator.GetPeers()
+	if err != nil {
+		return list, fmt.Errorf("Couldn't retrieve list of peers: %v", err)
+	}
+
+	peers := peersMsg.GetPeers()
+	vPeers := []*pb.PeerEndpoint{}
+	for _, endpoint := range peers {
+		if endpoint.Type == pb.PeerEndpoint_VALIDATOR {
+			vPeers = append(vPeers, endpoint)
+		}
+	}
+
+	list = &pb.PeersMessage{Peers: vPeers}
+	return
+}
+
+// GetWhitelist retrieves the validator's whitelist of validating peers
+func (h *Helper) GetWhitelist() (list *pb.PeersMessage, err error) {
+	// try reading from memory first
+	if len(h.whitelist.GetPeers()) != 0 {
+		logger.Debug("Whitelist (from memory) now reads: %+v", h.whitelist)
+		return h.whitelist, nil
+	}
+
+	// otherwise, attempt to read from file
+	packedList, err := ioutil.ReadFile(WhiteListFile)
+	if err != nil {
+		return list, fmt.Errorf("Unable to read whitelist from disk: %v", err)
+	}
+	logger.Debug("Size of whitelist file read from disk: %d bytes", len(packedList))
+
+	list = &pb.PeersMessage{}
+	err = proto.Unmarshal(packedList, list)
+	if err != nil {
+		return list, fmt.Errorf("Unable to unmarshal whitelist file contents: %v", err)
+	}
+	logger.Debug("Whitelist (from disk) now reads: %+v", list)
+
+	return
+}
+
+// SetWhitelist sets the list of validating peers this validator should connect to
+func (h *Helper) SetWhitelist(list *pb.PeersMessage) error {
+	// set the data structure
+	h.whitelist = list
+	logger.Debug("Whitelist now reads: %+v", h.whitelist)
+
+	// store to file
+	packedList, err := proto.Marshal(list)
+	if err != nil {
+		return fmt.Errorf("Unable to marshal whitelist: %v", err)
+	}
+
+	err = ioutil.WriteFile(WhiteListFile, packedList, 0600)
+	if err != nil {
+		return fmt.Errorf("Unable to create/write whitelist file: %v", err)
+	}
+
+	return err
 }
 
 // Broadcast sends a message to all validating peers
