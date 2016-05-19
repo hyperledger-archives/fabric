@@ -28,6 +28,7 @@ import (
 type SimpleChaincode struct {
 }
 
+//Init the chaincode asigned the value "0" to the counter in the state.
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	err := stub.PutState("counter", []byte("0"))
 	return nil, err
@@ -54,7 +55,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 }
 
-// Deletes an entity from state
+//Delete delete the counter from the state.
 func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3")
@@ -70,7 +71,7 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 }
 
 // Run callback representing the invocation of a chaincode
-// This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
+// This chaincode will increment the counter if the user has an attribute called "position" with the value "Software Engineer"
 func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	// Handle different functions
