@@ -34,10 +34,12 @@ var vmLogger = logging.MustGetLogger("container")
 //WriteGopathSrc tars up files under gopath src
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
+	// Only take the first element of GOPATH
+	gopath = filepath.SplitList(gopath)[0]
 	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
 		gopath = gopath[:len(gopath)]
 	}
-	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
+	rootDirectory := fmt.Sprintf("%s%s%s", gopath, string(os.PathSeparator), "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary

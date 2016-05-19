@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 	"github.com/op/go-logging"
@@ -108,6 +109,8 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		if strings.Index(v, "GOPATH=") == 0 {
 			p := strings.SplitAfter(v, "GOPATH=")
 			origgopath = p[1]
+			// Only take the first element of GOPATH
+			origgopath = filepath.SplitList(origgopath)[0]
 			newgopath = origgopath + "/_usercode_"
 			gopathenvIndex = i
 			break
@@ -183,6 +186,8 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 		if strings.Index(v, "GOPATH=") == 0 {
 			p := strings.SplitAfter(v, "GOPATH=")
 			gopath = p[1]
+			// Only take the first element of GOPATH
+			gopath = filepath.SplitList(gopath)[0]
 			break
 		}
 	}

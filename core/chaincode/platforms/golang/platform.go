@@ -50,7 +50,10 @@ func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	//which we do later anyway. But we *can* - and *should* - test for existence of local paths.
 	//Treat empty scheme as a local filesystem path
 	if url.Scheme == "" {
-		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
+		gopath := os.Getenv("GOPATH")
+		// Only take the first element of GOPATH
+		gopath = filepath.SplitList(gopath)[0]
+		pathToCheck := filepath.Join(gopath, "src", spec.ChaincodeID.Path)
 		exists, err := pathExists(pathToCheck)
 		if err != nil {
 			return fmt.Errorf("Error validating chaincode path: %s", err)
