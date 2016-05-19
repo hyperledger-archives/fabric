@@ -152,8 +152,6 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 	pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
 
-	var signingKey interface{}
-	signingKey = nil
 	if err == nil {
 		// Compute ExpansionValue based on TCertIndex
 		TCertIndex := pt
@@ -200,54 +198,53 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Verify temporary public key is a valid point on the reference curve
 		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
 		if !isOn {
-			client.error("Failed temporary public key IsOnCurve check.")
+			client.warning("Failed temporary public key IsOnCurve check. This is an foreign certificate.")
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
 		// Check that the derived public key is the same as the one in the certificate
 		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
 
 		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
-			client.error("Derived public key is different on X")
+			client.warning("Derived public key is different on X. This is an foreign certificate.")
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
 		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
-			client.error("Derived public key is different on Y")
+			client.warning("Derived public key is different on Y. This is an foreign certificate.")
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
 		// Verify the signing capability of tempSK
 		err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
 		if err != nil {
-			client.error("Failed verifing signing capability [%s].", err.Error())
+			client.warning("Failed verifing signing capability [%s]. This is an foreign certificate.", err.Error())
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
 		// Marshall certificate and secret key to be stored in the database
 		if err != nil {
-			client.error("Failed marshalling private key [%s].", err.Error())
+			client.warning("Failed marshalling private key [%s]. This is an foreign certificate.", err.Error())
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
 		if err = utils.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
-			client.error("Failed checking TCA cert PK against private key [%s].", err.Error())
+			client.warning("Failed checking TCA cert PK against private key [%s]. This is an foreign certificate.", err.Error())
 
-			goto NO_SK
+			return &tCertImpl{client, x509Cert, nil}, nil
 		}
 
-		signingKey = tempSK
+		return &tCertImpl{client, x509Cert, tempSK}, nil
 	} else {
-		client.error("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+		client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	}
 
-NO_SK:
-	return &tCertImpl{client, x509Cert, signingKey}, nil
+	return &tCertImpl{client, x509Cert, nil}, nil
 }
 
 func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
