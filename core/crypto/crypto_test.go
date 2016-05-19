@@ -29,9 +29,10 @@ import (
 	"testing"
 
 	"crypto/rand"
+
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/op/go-logging"
@@ -61,8 +62,8 @@ var (
 	queryTxCreators   []createTxFunc
 
 	ksPwd = []byte("This is a very very very long pw")
-	
-	attributes = map[string]string{"company":"IBM", "position":"Software Engineer"}
+
+	attributes     = map[string]string{"company": "IBM", "position": "Software Engineer"}
 	attributeNames = []string{"company", "position"}
 )
 
@@ -308,7 +309,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	if len(tcertDER) == 0 {
 		t.Fatalf("Cert should have length > 0")
 	}
-	
+
 	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
@@ -316,8 +317,8 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:len(attributeBytes)])
 
-	if attributeValue != "IBM" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+	if attributeValue != "ACompany" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
 }
 
@@ -1118,7 +1119,7 @@ func startPKI() {
 	fmt.Printf("open socket...done\n")
 
 	server = grpc.NewServer(opts...)
-    aca.Start(server)
+	aca.Start(server)
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)

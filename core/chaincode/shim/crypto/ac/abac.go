@@ -1,143 +1,164 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ac
 
 import (
-	"errors"
-	"bytes" 
+	"bytes"
 	"crypto/x509"
+	"errors"
 
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	abacpb "github.com/hyperledger/fabric/core/crypto/abac/proto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/abac"
-	
 )
 
-type Attribute struct { 
-	Name 			string
-	Value    		[]byte
+//Attribute defines a key, value pair to be verified.
+type Attribute struct {
+	Name  string
+	Value []byte
 }
 
 // ChaincodeHolder is the struct that hold the certificate and the metadata. An implementation is ChaincodeStub
-type ChaincodeHolder interface { 
+type ChaincodeHolder interface {
 	// GetCallerCertificate returns caller certificate
 	GetCallerCertificate() ([]byte, error)
-	
+
 	// GetCallerMetadata returns caller metadata
 	GetCallerMetadata() ([]byte, error)
-	
 }
 
-// ABACHandler verifies attributes
+//ABACHandler is an entity can be used to both verify and read attributes.
+//		The hanlder can retrieve the attributes, and the propertly keys to decrypt the values from the ChaincodeHolder
+//		The functions declared can be used to access the attributes stored in the transaction certificates from the application layer. Can be used directly from the ChaincodeStub API but
+//		 if you need multiple access create a hanlder is better:
+// 	Multiple accesses
+// 		If multiple calls to the functions above are required, a best practice is to create an ABACHandler instead of calling the functions multiple times, this practice will avoid creating a new abacHandler for each of these calls thus eliminating an unnecessary overhead.
+//    Example:
+//
+//				abacHandler, err := ac.NewABACHandlerImpl(stub)
+//				if err != nil {
+//					return false, err
+//				}
+//				abacHandler.VerifyAttribute(attributeName, attributeValue)
+//				... you can make other verifications and/or read attribute values by using the abacHandler
 type ABACHandler interface {
 
-	// VerifyAttributes verifies passed attributes within the message..
-	VerifyAttributes(attrs...*Attribute) (bool, error)
-	
-	// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
+	//VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
+	// Example:
+	//    containsAttrs, error:= handler.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
+	VerifyAttributes(attrs ...*Attribute) (bool, error)
+
+	//VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
+	//Example:
+	//    containsAttr, error := handler.VerifyAttribute("position", "Software Engineer")
 	VerifyAttribute(attributeName string, attributeValue []byte) (bool, error)
-	
-	
-	//Returns the value on the certificate of the attribute with name "attributeName".	
-	GetValue(attributeName string) ([]byte, error) 
+
+	//GetValue is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
+	// Example:
+	//  attrValue,error:=handler.GetValue("position")
+	GetValue(attributeName string) ([]byte, error)
 }
 
+//ABACHandlerImpl is an implementation of ABACHandler interface.
 type ABACHandlerImpl struct {
-	cert        *x509.Certificate
-	cache   map[string][]byte
-	keys		map[string][]byte
+	cert  *x509.Certificate
+	cache map[string][]byte
+	keys  map[string][]byte
 }
 
-//Creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
-func NewABACHandlerImpl(holder ChaincodeHolder) (*ABACHandlerImpl, error) { 
+//NewABACHandlerImpl creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
+func NewABACHandlerImpl(holder ChaincodeHolder) (*ABACHandlerImpl, error) {
 	// Getting certificate
-	cert_raw, err := holder.GetCallerCertificate()
-	if err != nil { 
+	certRaw, err := holder.GetCallerCertificate()
+	if err != nil {
 		return nil, err
 	}
 	var tcert *x509.Certificate
-	tcert, err = utils.DERToX509Certificate(cert_raw)
+	tcert, err = utils.DERToX509Certificate(certRaw)
 	if err != nil {
 		return nil, err
 	}
 
 	//Getting ABAC Metadata from security context.
 	var abacMetadata *abacpb.ABACMetadata
-	var raw_metadata []byte
-	raw_metadata, err = holder.GetCallerMetadata()
+	var rawMetadata []byte
+	rawMetadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
 	}
-	abacMetadata, err = abac.GetABACMetadata(raw_metadata) 
-	if err != nil { 
+	abacMetadata, err = abac.GetABACMetadata(rawMetadata)
+	if err != nil {
 		return nil, err
 	}
-	
+
 	keys := make(map[string][]byte)
-	for _,entry := range(abacMetadata.Entries) { 
+	for _, entry := range abacMetadata.Entries {
 		keys[entry.AttributeName] = entry.AttributeKey
 	}
-	
-	cache := make(map[string][]byte)	
+
+	cache := make(map[string][]byte)
 	return &ABACHandlerImpl{tcert, cache, keys}, nil
 }
 
-//Returns the value on the certificate of the attribute with name "attributeName".
-func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, error) { 
-		if abacHandler.cache[attributeName] != nil { 
-			return abacHandler.cache[attributeName], nil
-		}
-		value, encrypted, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName, abacHandler.keys[abac.HeaderAttributeName])
-		if err != nil { 
+//GetValue is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
+// Example:
+//  attrValue,error:=handler.GetValue("position")
+func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, error) {
+	if abacHandler.cache[attributeName] != nil {
+		return abacHandler.cache[attributeName], nil
+	}
+	value, encrypted, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName, abacHandler.keys[abac.HeaderAttributeName])
+	if err != nil {
+		return nil, err
+	}
+	if abacHandler.keys[attributeName] == nil {
+		return nil, errors.New("There isn't a key")
+	}
+	if encrypted {
+		value, err = abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
+		if err != nil {
 			return nil, err
 		}
-		if abacHandler.keys[attributeName] == nil { 
-			return nil, errors.New("There isn't a key")
-		}
-		if encrypted { 
-			value, err = abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
-			if err != nil { 
-				return nil, err
-			}	
-		}
-		abacHandler.cache[attributeName] = value
-		return value, nil
+	}
+	abacHandler.cache[attributeName] = value
+	return value, nil
 }
 
-// VerifyAttribute verifies if the attribute with name "attributeName" has the value "attributeValue"
-func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error){
-	valueHash, err := abacHandler.GetValue(attributeName)	
-	if err != nil { 
+//VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
+//Example:
+//    containsAttr, error := handler.VerifyAttribute("position", "Software Engineer")
+func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
+	valueHash, err := abacHandler.GetValue(attributeName)
+	if err != nil {
 		return false, err
 	}
 	return bytes.Compare(valueHash, attributeValue) == 0, nil
 }
 
-//Verifies all the attributes included in attrs.
-func (abacHandler *ABACHandlerImpl) VerifyAttributes(attrs...*Attribute) (bool, error) { 
-	for _, attribute := range(attrs) { 
+//VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
+// Example:
+//    containsAttrs, error:= handler.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
+func (abacHandler *ABACHandlerImpl) VerifyAttributes(attrs ...*Attribute) (bool, error) {
+	for _, attribute := range attrs {
 		val, err := abacHandler.VerifyAttribute(attribute.Name, attribute.Value)
-		if err != nil { 
+		if err != nil {
 			return false, nil
 		}
-		if !val { 
+		if !val {
 			return val, nil
 		}
 	}
