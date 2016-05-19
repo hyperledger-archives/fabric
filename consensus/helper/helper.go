@@ -44,7 +44,7 @@ type Helper struct {
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	whitelist    *pb.PeersMessage        // holds the whitelisted VPs
 
-	persist.PersistHelper
+	persist.Helper
 
 	sts *statetransfer.StateTransferState
 }

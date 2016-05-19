@@ -176,11 +176,8 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 
-	}
 	op.stack.Unicast(ocMsg, receiverHandle)
 }
 

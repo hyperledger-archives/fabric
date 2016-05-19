@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"time"
 
 	google_protobuf "google/protobuf"
 
@@ -77,8 +78,7 @@ type msgWithSender struct {
 
 func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
-		obcGeneric: obcGeneric{stack},
-		stack:      stack,
+		obcGeneric: obcGeneric{stack: stack},
 	}
 	op.isSufficientlyConnected = make(chan bool)
 
@@ -133,13 +133,10 @@ func (op *obcSieve) recvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	}
 
 	if ocMsg.Type == pb.Message_CONSENSUS {
-		senderID, err := getValidatorID(senderHandle)
-		if err != nil {
-			panic("Cannot map sender's PeerID to a valid replica ID")
-		}
+		senderID := op.stack.GetValidatorID(senderHandle)
 
 		svMsg := &SieveMessage{}
-		err = proto.Unmarshal(ocMsg.Payload, svMsg)
+		err := proto.Unmarshal(ocMsg.Payload, svMsg)
 		if err != nil {
 			err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
 			logger.Error(err.Error())
@@ -293,11 +290,8 @@ func (op *obcSieve) unicastMsg(svMsg *SieveMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 
-	}
 	op.stack.Unicast(ocMsg, receiverHandle)
 }
 
