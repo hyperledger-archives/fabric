@@ -38,6 +38,12 @@ func TestCustody(t *testing.T) {
 	defer c.Stop()
 
 	c.Register("foo", "bar")
+	if !c.InCustody("foo") {
+		t.Error("should have request in custody")
+	}
+	if c.InCustody("bar") {
+		t.Error("should not have request in custody")
+	}
 	select {
 	case req := <-notify:
 		if req.id != "foo" || req.data != "bar" {
@@ -45,6 +51,9 @@ func TestCustody(t *testing.T) {
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Error("did not receive notification")
+	}
+	if c.InCustody("foo") {
+		t.Error("should not have request in custody")
 	}
 }
 

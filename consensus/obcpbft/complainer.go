@@ -116,6 +116,12 @@ func (c *complainer) SuccessHash(hash string) {
 	c.complaints.Remove(hash)
 }
 
+// InCustody returns true if a request is currently in custody
+func (c *complainer) InCustody(req *Request) bool {
+	hash := hashReq(req)
+	return c.custody.InCustody(hash)
+}
+
 // Restart resets custody and complaint queues without calling into
 // the complaintHandler.  The complaint queue is drained completely.
 // The custody queue timeouts are reset.  Restart returns all requests
