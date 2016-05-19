@@ -326,15 +326,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 
 		logger.Info("New consensus request received: %s", hash)
 
-		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
-			err := op.leaderProcReq(req)
-			if err != nil {
-				return err
-			}
-		} else { // backup
-			batchMsg := &BatchMessage{&BatchMessage_Request{req}}
-			op.broadcastMsg(batchMsg)
-		}
+		op.submitToLeader(req)
 		return nil
 	}
 
