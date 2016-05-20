@@ -2,7 +2,6 @@
 Install the blockchain fabric by completing the following tasks:
 
 * [Building the fabric core](#building-the-fabric-core-)
-* [Building outside of Vagrant](#building-outside-of-vagrant-)
 * [Code contributions](#code-contributions-)
 * [Writing Chaincode](#writing-chaincode-)
 * [Setting Up a Network](#setting-up-a-network-)
@@ -106,36 +105,6 @@ Note, in order to run behave directly, you must run 'make images' first to build
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
-
-## Building outside of Vagrant <a name="vagrant"></a>
-While not recommended, it is possible to build the project outside of Vagrant (e.g., for using an editor with built-in Go toolking). In such cases:
-
-- Follow all steps required to setup and run a Vagrant image:
-  - Make sure you you have [Go 1.6](https://golang.org/) installed
-  - Set the maximum number of open files to 10000 or greater for your OS
-  - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and its dependencies
-```
-apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
-cd /tmp
-git clone https://github.com/facebook/rocksdb.git
-cd rocksdb
-git checkout v4.1
-PORTABLE=1 make shared_lib
-INSTALL_PATH=/usr/local make install-shared
-```
-- Execute the following commands:
-```
-cd $GOPATH/src/github.com/hyperledger/fabric
-make
-```
-- Make sure that the Docker daemon initialization includes the options
-```
--H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock
-```
-- Be aware that the Docker bridge (the `CORE_VM_ENDPOINT`) may not come
-up at the IP address currently assumed by the test environment
-(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
-
 
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.

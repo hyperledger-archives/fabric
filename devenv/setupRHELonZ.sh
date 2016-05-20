@@ -12,7 +12,7 @@
 #       cd $HOME/git/src/github.com/hyperledger
 #       git clone https://github.com/vpaprots/fabric.git
 #       source fabric/devenv/setupRHELonZ.sh
-#       ~/build.sh
+#       make peer unit-test behave
 
 if [ xroot != x$(whoami) ]
 then
