@@ -258,7 +258,7 @@ func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec, t *testing.T) 
 func createChaincodeInvocationForQuery(arguments []string, chaincodeHash string, token string) *pb.ChaincodeInvocationSpec {
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
 		ChaincodeID: &pb.ChaincodeID{Name: chaincodeHash},
-		CtorMsg: &pb.ChaincodeInput{Function: "query",
+		Input: &pb.ChaincodeInput{Function: "query",
 			Args: arguments,
 		},
 	}

@@ -150,7 +150,7 @@ func MakeGenesis() error {
 							ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
 						}
 					}
-					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, CtorMsg: &protos.ChaincodeInput{Args: ctorArgsStringArray}}
+					spec = protos.ChaincodeSpec{Type: protos.ChaincodeSpec_Type(protos.ChaincodeSpec_Type_value[chaincodeType]), ChaincodeID: chaincodeID, Input: &protos.ChaincodeInput{Args: ctorArgsStringArray}}
 				}
 
 				transaction, _, deployErr := DeployLocal(context.Background(), &spec, genesisBlockExists)
@@ -246,7 +246,7 @@ func deployUpdateValidityPeriodChaincode(gbexists bool) (*protos.Transaction, er
 		ChaincodeID: &protos.ChaincodeID{Path: vpChaincodePath,
 			Name: "",
 		},
-		CtorMsg: &protos.ChaincodeInput{Function: vpFunction,
+		Input: &protos.ChaincodeInput{Function: vpFunction,
 			Args: vpCtorArgsStringArray,
 		},
 	}

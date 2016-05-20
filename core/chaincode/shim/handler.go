@@ -746,7 +746,7 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 
 	chaincodeID := &pb.ChaincodeID{Name: chaincodeName}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
-	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
+	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, Input: input}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
 		return nil, errors.New("Failed to process invoke chaincode request")
@@ -807,7 +807,7 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 func (handler *Handler) handleQueryChaincode(chaincodeName string, function string, args []string, uuid string) ([]byte, error) {
 	chaincodeID := &pb.ChaincodeID{Name: chaincodeName}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
-	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}
+	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, Input: input}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
 		return nil, errors.New("Failed to process query chaincode request")

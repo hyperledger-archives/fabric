@@ -371,7 +371,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 			return nil, nil, err
 		}
 		cID = cds.ChaincodeSpec.ChaincodeID
-		cMsg = cds.ChaincodeSpec.CtorMsg
+		cMsg = cds.ChaincodeSpec.Input
 		f = &cMsg.Function
 		initargs = cMsg.Args
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
@@ -381,7 +381,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 			return nil, nil, err
 		}
 		cID = ci.ChaincodeSpec.ChaincodeID
-		cMsg = ci.ChaincodeSpec.CtorMsg
+		cMsg = ci.ChaincodeSpec.Input
 	} else {
 		chaincodeSupport.runningChaincodes.Unlock()
 		return nil, nil, fmt.Errorf("invalid transaction type: %d", t.Type)

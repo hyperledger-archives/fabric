@@ -30,15 +30,15 @@ import (
 //NOTE: for dev mode, user builds and runs chaincode manually. The name provided
 //by the user is equivalent to the path. This method will treat the name
 //as codebytes and compute the hash from it. ie, user cannot run the chaincode
-//with the same (name, ctor, args)
+//with the same (name, input, args)
 func generateHashcode(spec *pb.ChaincodeSpec, path string) (string, error) {
 
-	ctor := spec.CtorMsg
-	if ctor == nil || ctor.Function == "" {
-		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
+	input := spec.Input
+	if input == nil || input.Function == "" {
+		return "", fmt.Errorf("Cannot generate hashcode from empty chaincode input")
 	}
 
-	hash := util.GenerateHashFromSignature(spec.ChaincodeID.Path, ctor.Function, ctor.Args)
+	hash := util.GenerateHashFromSignature(spec.ChaincodeID.Path, input.Function, input.Args)
 
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {

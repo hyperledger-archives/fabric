@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"crypto/rand"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
@@ -125,7 +126,7 @@ func TestParallelInitClose(t *testing.T) {
 					ChaincodeSpec: &obc.ChaincodeSpec{
 						Type:                 obc.ChaincodeSpec_GOLANG,
 						ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-						CtorMsg:              nil,
+						Input:                nil,
 						ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 					},
 				}
@@ -995,7 +996,7 @@ func BenchmarkTransactionCreation(b *testing.B) {
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1230,7 +1231,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 		EffectiveDate: nil,
@@ -1252,7 +1253,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1272,7 +1273,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1292,7 +1293,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 		EffectiveDate: nil,
@@ -1339,7 +1340,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1384,7 +1385,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1429,7 +1430,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 		EffectiveDate: nil,
@@ -1476,7 +1477,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1521,7 +1522,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
@@ -1566,7 +1567,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_PUBLIC,
 		},
 		EffectiveDate: nil,
@@ -1588,7 +1589,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_PUBLIC,
 		},
 	}
@@ -1608,7 +1609,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 		ChaincodeSpec: &obc.ChaincodeSpec{
 			Type:                 obc.ChaincodeSpec_GOLANG,
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-			CtorMsg:              nil,
+			Input:                nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_PUBLIC,
 		},
 	}

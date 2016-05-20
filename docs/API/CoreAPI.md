@@ -63,13 +63,13 @@ Command | **stdout** result in the event of success
 
 Deploy creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
 
-`./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
+`./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
 The response to the chaincode deploy command will contain the chaincode identifier (hash) which will be required on subsequent `chaincode invoke` and `chaincode query` commands in order to identify the deployed chaincode.
 
 With security enabled, modify the command to include the -u parameter passing the username of a logged in user as follows:
 
-`./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
+`./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -i '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
 ### Verify Results
 
@@ -221,7 +221,7 @@ message ChaincodeSpec {
 
     Type type = 1;
     ChaincodeID chaincodeID = 2;
-    ChaincodeInput ctorMsg = 3;
+    ChaincodeInput input = 3;
     int32 timeout = 4;
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
@@ -256,7 +256,7 @@ An example of a valid ChaincodeSpec message for a deployment transaction is show
     "chaincodeID":{
         "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "100", "b", "200"]
     }
@@ -272,7 +272,7 @@ An example of a valid ChaincodeInvocationSpec message for an invocation transact
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg":{
+      "input":{
           "function":"invoke",
           "args":["a", "b", "10"]
       }
@@ -289,7 +289,7 @@ With security enabled, modify each of the above payloads to include the secureCo
       "chaincodeID":{
           "name":"mycc"
       },
-      "ctorMsg":{
+      "input":{
           "function":"invoke",
           "args":["a", "b", "10"]
       },
@@ -350,7 +350,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "1000", "b", "2000"]
     }
@@ -374,7 +374,7 @@ POST host:port/chaincode
     "chaincodeID":{
         "path":"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
     },
-    "ctorMsg": {
+    "input": {
         "function":"init",
         "args":["a", "1000", "b", "2000"]
     },
@@ -412,7 +412,7 @@ Chaincode Invocation Request without security enabled:
       "chaincodeID":{
           "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
       },
-      "ctorMsg": {
+      "input": {
          "function":"invoke",
          "args":["a", "b", "100"]
       }
@@ -434,7 +434,7 @@ Chaincode Invocation Request with security enabled (add `secureContext` element)
       "chaincodeID":{
           "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
       },
-      "ctorMsg": {
+      "input": {
          "function":"invoke",
          "args":["a", "b", "100"]
       },
@@ -472,7 +472,7 @@ Chaincode Query Request without security enabled:
       "chaincodeID":{
           "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
       },
-      "ctorMsg": {
+      "input": {
          "function":"query",
          "args":["a"]
       }
@@ -494,7 +494,7 @@ Chaincode Query Request with security enabled (add `secureContext` element):
       "chaincodeID":{
           "name":"52b0d803fc395b5e34d8d4a7cd69fb6aa00099b8fabed83504ac1c5d61a425aca5b3ad3bf96643ea4fdaac132c417c37b00f88fa800de7ece387d008a76d3586"
       },
-      "ctorMsg": {
+      "input": {
          "function":"query",
          "args":["a"]
       },

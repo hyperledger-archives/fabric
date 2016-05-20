@@ -194,7 +194,7 @@ func (*ChaincodeInput) ProtoMessage()    {}
 type ChaincodeSpec struct {
 	Type                 ChaincodeSpec_Type   `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeSpec_Type" json:"type,omitempty"`
 	ChaincodeID          *ChaincodeID         `protobuf:"bytes,2,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	CtorMsg              *ChaincodeInput      `protobuf:"bytes,3,opt,name=ctorMsg" json:"ctorMsg,omitempty"`
+	Input                *ChaincodeInput      `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
 	Timeout              int32                `protobuf:"varint,4,opt,name=timeout" json:"timeout,omitempty"`
 	SecureContext        string               `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
 	ConfidentialityLevel ConfidentialityLevel `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
@@ -212,9 +212,9 @@ func (m *ChaincodeSpec) GetChaincodeID() *ChaincodeID {
 	return nil
 }
 
-func (m *ChaincodeSpec) GetCtorMsg() *ChaincodeInput {
+func (m *ChaincodeSpec) GetInput() *ChaincodeInput {
 	if m != nil {
-		return m.CtorMsg
+		return m.Input
 	}
 	return nil
 }

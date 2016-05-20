@@ -28,16 +28,6 @@ import (
 func Test_Block_CreateNew(t *testing.T) {
 
 	chaincodePath := "contract_001"
-	/*
-		input := &pb.ChaincodeInput{Function: "invoke", Args: {"arg1","arg2"}}
-		spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_GOLANG,
-			ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: input}
-
-		// Build the ChaincodeInvocationSpec message
-		chaincodeInvocationSpec := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-
-		data, err := proto.Marshal(chaincodeInvocationSpec)
-	*/
 	var data []byte
 	cidBytes, err := proto.Marshal(&ChaincodeID{Path: chaincodePath})
 	if err != nil {

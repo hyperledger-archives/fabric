@@ -564,7 +564,7 @@
                     "$ref": "#/definitions/ChaincodeID",
                     "description": "Unique Chaincode identifier."
                 },
-                "ctorMsg": {
+                "input": {
                     "$ref": "#/definitions/ChaincodeInput",
                     "description": "Specific function to execute within the Chaincode."
                 },

@@ -1163,13 +1163,13 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 				return err
 			}
 
-			ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
+			inputRaw, err := proto.Marshal(cis.ChaincodeSpec.GetInput())
 			if err != nil {
-				chaincodeLogger.Debug("Failed getting ctorMsgRaw [%s]", err)
+				chaincodeLogger.Debug("Failed getting input [%s]", err)
 				return err
 			}
 
-			msg.SecurityContext.Payload = ctorMsgRaw
+			msg.SecurityContext.Payload = inputRaw
 		}
 		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}

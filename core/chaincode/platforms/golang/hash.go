@@ -201,7 +201,7 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 //NOTE: for dev mode, user builds and runs chaincode manually. The name provided
 //by the user is equivalent to the path. This method will treat the name
 //as codebytes and compute the hash from it. ie, user cannot run the chaincode
-//with the same (name, ctor, args)
+//with the same (name, input, args)
 func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if spec == nil {
 		return "", fmt.Errorf("Cannot generate hashcode from nil spec")
@@ -212,9 +212,9 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("Cannot generate hashcode from empty chaincode path")
 	}
 
-	ctor := spec.CtorMsg
-	if ctor == nil || ctor.Function == "" {
-		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
+	input := spec.Input
+	if input == nil || input.Function == "" {
+		return "", fmt.Errorf("Cannot generate hashcode from empty chaincode input")
 	}
 
 	//code root will point to the directory where the code exists
@@ -255,7 +255,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
-	hash := util.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
+	hash := util.GenerateHashFromSignature(actualcodepath, input.Function, input.Args)
 
 	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
 	if err != nil {

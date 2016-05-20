@@ -20,7 +20,7 @@ Feature: utxo
       And I wait "1" seconds
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      When I deploy chaincode "github.com/openblockchain/obc-peer/examples/chaincode/go/utxo" with ctor "init" to "vp0"
+      When I deploy chaincode "github.com/openblockchain/obc-peer/examples/chaincode/go/utxo" with input "init" to "vp0"
       ||
       ||
 
