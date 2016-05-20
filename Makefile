@@ -35,6 +35,7 @@
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
 
+BASEIMAGE_RELEASE=$(shell cat ./images/base/release)
 PKGNAME = github.com/hyperledger/fabric
 CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
 
@@ -98,7 +99,7 @@ linter: gotools
 
 .baseimage-dummy:
 	@echo "Building docker base-image"
-	@./scripts/provision/docker.sh 0.0.9
+	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
 	@touch $@
 
 # Special override for protoc-gen-go since we want to use the version vendored with the project

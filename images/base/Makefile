@@ -1,3 +1,7 @@
+# We could set VERSION=$(shell cat ./release), but better to leave this version independent
+# of consumers so that updates to base image may be prepared/published before consumers
+# begin to access
+
 NAME=hyperledger/fabric-baseimage
 VERSION=0.0.9
 ARCH=$(shell uname -m)
