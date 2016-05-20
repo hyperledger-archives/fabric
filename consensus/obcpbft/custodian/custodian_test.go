@@ -132,8 +132,8 @@ func TestElements(t *testing.T) {
 	}
 
 	l = c.RemoveAll()
-	if len(l) != 2 {
-		t.Fatal("expected 2 elements")
+	if len(l) != 1 {
+		t.Fatal("expected 1 elements")
 	}
 	if l[0].ID != "bar" || l[0].Data.(string) != "2" {
 		t.Error("invalid element")
@@ -154,7 +154,33 @@ func TestReCustody(t *testing.T) {
 	select {
 	case <-notify:
 		reqs := c.Elements()
-		if len(reqs) != 2 || reqs[0].ID != "foo" || reqs[0].Data != "bar" {
+		if len(reqs) != 1 || reqs[0].ID != "foo" || reqs[0].Data != "bar" {
+			t.Error("invalid datasheet")
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Error("did not receive notification")
+	}
+}
+
+func TestBackToBack(t *testing.T) {
+	notify := make(chan bool)
+	var reqs []string
+
+	var c *Custodian
+	c = New(100*time.Millisecond,
+		func(req string, data interface{}) {
+			reqs = append(reqs, req)
+			if len(reqs) == 2 {
+				notify <- true
+			}
+		})
+	defer c.Stop()
+
+	c.Register("foo", "bar")
+	c.Register("foo2", "bar")
+	select {
+	case <-notify:
+		if len(reqs) != 2 || reqs[0] != "foo" || reqs[1] != "foo2" {
 			t.Error("invalid datasheet")
 		}
 	case <-time.After(200 * time.Millisecond):
