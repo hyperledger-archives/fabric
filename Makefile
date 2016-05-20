@@ -35,13 +35,16 @@
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
 
-BASEIMAGE_RELEASE=$(shell cat ./images/base/release)
 PKGNAME = github.com/hyperledger/fabric
 CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
 
-EXECUTABLES = go docker
+EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
+
+# Make our baseimage depend on any changes to images/base or scripts/provision
+BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
+BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
 
 GOTOOLS = golint govendor goimports protoc-gen-go
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
@@ -97,7 +100,7 @@ linter: gotools
 	go test $(PKGNAME)/core/container -run=BuildImage_Obcca
 	@touch $@
 
-.baseimage-dummy:
+.baseimage-dummy: $(BASEIMAGE_DEPS)
 	@echo "Building docker base-image"
 	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
 	@touch $@
