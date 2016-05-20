@@ -274,7 +274,7 @@ func (op *obcBatch) leaderProcReq(req *Request) error {
 		return nil
 	}
 
-	hash := op.complainer.Custody(req)
+	hash := hashReq(req)
 
 	logger.Debug("Batch primary %d queueing new request %s", op.pbft.id, hash)
 	op.batchStore = append(op.batchStore, req)
