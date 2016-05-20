@@ -428,15 +428,10 @@ func (op *obcBatch) main() {
 				op.stopBatchTimer()
 			}
 
-			reqs := op.complainer.Restart()
-			if op.pbft.primary(op.pbft.view) == op.pbft.id {
-				logger.Debug("Replica %d is primary, processing outstanding complaints", op.pbft.id)
-				for hash, req := range reqs {
-					logger.Info("Replica %d queueing request under custody: %s", op.pbft.id, hash)
-					op.leaderProcReq(req)
-				}
-			} else {
-				logger.Debug("Replica %d is not primary, so waiting for complaints to expire again", op.pbft.id)
+			op.complainer.Restart()
+			for _, pair := range op.complainer.CustodyElements() {
+				logger.Info("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
+				op.submitToLeader(pair.Request)
 			}
 		case c := <-op.custodyTimerChan:
 			if !op.deduplicator.IsNew(c.req.(*Request)) {
