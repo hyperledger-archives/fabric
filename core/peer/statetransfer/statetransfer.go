@@ -502,18 +502,14 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
 					// If the message is not replying with blocks backwards, we did not ask for it
-					// TODO, this should count against the timeout
-					logger.Debug("Received block potentially from a different request, start=%d, end=%d", syncBlockMessage.Range.Start, syncBlockMessage.Range.End)
-					continue
+					return fmt.Errorf("%v received a block with wrong (increasing) order from %v, aborting", sts.id, peerID)
 				}
 
 				var i int
 				for i, block = range syncBlockMessage.Blocks {
-					// It is possible to get duplication or out of range blocks due to an implementation detail, we must check for them
+					// It no longer correct to get duplication or out of range blocks, so we treat this as an error
 					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
-						// TODO, this should count against the timeout
-						logger.Debug("Received block potentially from a different request, start=%d, end=%d, wanted %d", syncBlockMessage.Range.Start, syncBlockMessage.Range.End, blockCursor)
-						continue
+						return fmt.Errorf("%v received a block out of order, indicating a buffer overflow or other corruption: start=%d, end=%d, wanted %d", sts.id, syncBlockMessage.Range.Start, syncBlockMessage.Range.End, blockCursor)
 					}
 
 					testHash, err := sts.stack.HashBlock(block)
@@ -1011,7 +1007,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 				}
 
 				if deltaMessage.Range.Start != currentBlock || deltaMessage.Range.End < deltaMessage.Range.Start || deltaMessage.Range.End > toBlockNumber {
-					continue // this is an unfortunately normal case, as we can get duplicates, just ignore it
+					return fmt.Errorf("%v received a state delta from %v either in the wrong order (backwards) or not next in sequence, aborting, start=%d, end=%d", sts.id, peerID, deltaMessage.Range.Start, deltaMessage.Range.End)
 				}
 
 				for _, delta := range deltaMessage.Deltas {
