@@ -90,7 +90,7 @@ func TestBatchCustody(t *testing.T) {
 			// Keep replica 0 from unnecessarilly advancing its view
 			config.Set("general.timeout.request", "1500ms")
 		} else {
-			config.Set("general.timeout.request", "250ms")
+			config.Set("general.timeout.request", "1000ms")
 		}
 		config.Set("general.timeout.viewchange", "800ms")
 		return newObcBatch(id, config, stack)
