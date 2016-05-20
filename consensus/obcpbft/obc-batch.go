@@ -329,7 +329,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		req := op.txToReq(ocMsg.Payload)
 		hash := op.complainer.Custody(req)
 
-		logger.Info("New consensus request received: %s", hash)
+		logger.Info("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
 
 		op.submitToLeader(req)
 		return nil
