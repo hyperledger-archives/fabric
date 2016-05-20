@@ -52,6 +52,7 @@ var peerEndpointError error
 // Cached values of commonly used configuration constants.
 var syncStateSnapshotChannelSize int
 var syncStateDeltasChannelSize int
+var syncBlocksChannelSize int
 var validatorEnabled bool
 var tlsEnabled bool
 
@@ -116,6 +117,7 @@ func CacheConfiguration() (err error) {
 
 	syncStateSnapshotChannelSize = viper.GetInt("peer.sync.state.snapshot.channelSize")
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
+	syncBlocksChannelSize = viper.GetInt("peer.sync.blocks.channelSize")
 	validatorEnabled = viper.GetBool("peer.validator.enabled")
 	tlsEnabled = viper.GetBool("peer.tls.enabled")
 
@@ -173,6 +175,13 @@ func SyncStateDeltasChannelSize() int {
 		cacheConfiguration()
 	}
 	return syncStateDeltasChannelSize
+}
+
+func SyncBlocksChannelSize() int {
+	if !configurationCached {
+		cacheConfiguration()
+	}
+	return syncBlocksChannelSize
 }
 
 func ValidatorEnabled() bool {

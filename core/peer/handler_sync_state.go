@@ -24,36 +24,71 @@ import (
 
 //-----------------------------------------------------------------------------
 //
+// Sync Handler
+//
+//-----------------------------------------------------------------------------
+
+type syncHandler struct {
+	sync.Mutex
+	correlationID uint64
+}
+
+func (sh *syncHandler) shouldHandle(correlationID uint64) bool {
+	return correlationID == sh.correlationID
+}
+
+//-----------------------------------------------------------------------------
+//
+// Sync Blocks Handler
+//
+//-----------------------------------------------------------------------------
+
+type syncBlocksRequestHandler struct {
+	syncHandler
+	channel chan *pb.SyncBlocks
+}
+
+func (sbh *syncBlocksRequestHandler) reset() {
+	if sbh.channel != nil {
+		close(sbh.channel)
+	}
+	sbh.channel = make(chan *pb.SyncBlocks, SyncBlocksChannelSize())
+	sbh.correlationID++
+}
+
+func newSyncBlocksRequestHandler() *syncBlocksRequestHandler {
+	sbh := &syncBlocksRequestHandler{}
+	sbh.reset()
+	return sbh
+}
+
+//-----------------------------------------------------------------------------
+//
 // Sync State Snapshot Handler
 //
 //-----------------------------------------------------------------------------
 
 type syncStateSnapshotRequestHandler struct {
-	sync.Mutex
-	correlationID uint64
-	channel       chan *pb.SyncStateSnapshot
+	syncHandler
+	channel chan *pb.SyncStateSnapshot
 }
 
 func (srh *syncStateSnapshotRequestHandler) reset() {
-	close(srh.channel)
-	srh.channel = makeStateSnapshotChannel()
+	if srh.channel != nil {
+		close(srh.channel)
+	}
+	srh.channel = make(chan *pb.SyncStateSnapshot, SyncStateSnapshotChannelSize())
 	srh.correlationID++
-}
-
-func (srh *syncStateSnapshotRequestHandler) shouldHandle(syncStateSnapshot *pb.SyncStateSnapshot) bool {
-	return syncStateSnapshot.Request.CorrelationId == srh.correlationID
 }
 
 func (srh *syncStateSnapshotRequestHandler) createRequest() *pb.SyncStateSnapshotRequest {
 	return &pb.SyncStateSnapshotRequest{CorrelationId: srh.correlationID}
 }
 
-func makeStateSnapshotChannel() chan *pb.SyncStateSnapshot {
-	return make(chan *pb.SyncStateSnapshot, SyncStateSnapshotChannelSize())
-}
-
 func newSyncStateSnapshotRequestHandler() *syncStateSnapshotRequestHandler {
-	return &syncStateSnapshotRequestHandler{channel: makeStateSnapshotChannel()}
+	srh := &syncStateSnapshotRequestHandler{}
+	srh.reset()
+	return srh
 }
 
 //-----------------------------------------------------------------------------
@@ -63,23 +98,24 @@ func newSyncStateSnapshotRequestHandler() *syncStateSnapshotRequestHandler {
 //-----------------------------------------------------------------------------
 
 type syncStateDeltasHandler struct {
-	sync.Mutex
+	syncHandler
 	channel chan *pb.SyncStateDeltas
 }
 
 func (ssdh *syncStateDeltasHandler) reset() {
-	close(ssdh.channel)
-	ssdh.channel = makeSyncStateDeltasChannel()
+	if ssdh.channel != nil {
+		close(ssdh.channel)
+	}
+	ssdh.channel = make(chan *pb.SyncStateDeltas, SyncStateDeltasChannelSize())
+	ssdh.correlationID++
 }
 
 func (ssdh *syncStateDeltasHandler) createRequest(syncBlockRange *pb.SyncBlockRange) *pb.SyncStateDeltasRequest {
 	return &pb.SyncStateDeltasRequest{Range: syncBlockRange}
 }
 
-func makeSyncStateDeltasChannel() chan *pb.SyncStateDeltas {
-	return make(chan *pb.SyncStateDeltas, SyncStateDeltasChannelSize())
-}
-
 func newSyncStateDeltasHandler() *syncStateDeltasHandler {
-	return &syncStateDeltasHandler{channel: makeSyncStateDeltasChannel()}
+	ssdh := &syncStateDeltasHandler{}
+	ssdh.reset()
+	return ssdh
 }

@@ -46,6 +46,7 @@ const (
 	Normal mockResponse = iota
 	Corrupt
 	Timeout
+	OutOfOrder
 )
 
 func (r mockResponse) String() string {
@@ -226,62 +227,83 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 
 	res := make(chan *protos.SyncBlocks, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncBlocks, peerID)
-	switch ft {
-	case Corrupt:
-		fallthrough
-	case Normal:
-		go func() {
-			current := start
-			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
+	if ft == Timeout {
+		return res, nil
+	}
 
-			for {
-				if ft != Corrupt || current != corruptBlock {
-					if block, err := rl.GetBlock(current); nil == err {
-						res <- &protos.SyncBlocks{
-							Range: &protos.SyncBlockRange{
-								Start: current,
-								End:   current,
-							},
-							Blocks: []*protos.Block{block},
-						}
+	go func() {
 
-					} else {
-						fmt.Printf("TEST LEDGER: %v could not retrieve block %d : %s\n", peerID, current, err)
-						break
-					}
-				} else {
+		current := start
+		corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
+
+		for {
+			switch {
+			case ft == Normal || (ft == Corrupt && current != corruptBlock):
+				if block, err := rl.GetBlock(current); nil == err {
 					res <- &protos.SyncBlocks{
 						Range: &protos.SyncBlockRange{
 							Start: current,
 							End:   current,
 						},
-						Blocks: []*protos.Block{&protos.Block{
-							PreviousBlockHash: []byte("GARBAGE_BLOCK_HASH"),
-							StateHash:         []byte("GARBAGE_STATE_HASH"),
-							Transactions: []*protos.Transaction{
-								&protos.Transaction{
-									Payload: []byte("GARBAGE_PAYLOAD"),
-								},
+						Blocks: []*protos.Block{block},
+					}
+
+				} else {
+					fmt.Printf("TEST LEDGER: %v could not retrieve block %d : %s\n", peerID, current, err)
+					break
+				}
+			case ft == Corrupt:
+				res <- &protos.SyncBlocks{
+					Range: &protos.SyncBlockRange{
+						Start: current,
+						End:   current,
+					},
+					Blocks: []*protos.Block{&protos.Block{
+						PreviousBlockHash: []byte("GARBAGE_BLOCK_HASH"),
+						StateHash:         []byte("GARBAGE_STATE_HASH"),
+						Transactions: []*protos.Transaction{
+							&protos.Transaction{
+								Payload: []byte("GARBAGE_PAYLOAD"),
 							},
-						}},
+						},
+					}},
+				}
+			case ft == OutOfOrder:
+				// Get an adjacent block, if available
+				outOfOrder := current + 1
+				block, err := rl.GetBlock(outOfOrder)
+				if err != nil {
+					outOfOrder = current - 1
+					block, err = rl.GetBlock(outOfOrder)
+					if err != nil {
+						block = &protos.Block{}
 					}
 				}
 
-				if current == finish {
-					break
-				}
+				fmt.Printf("ASDF: Request block %d but sending block %d", current, outOfOrder)
 
-				if start < finish {
-					current++
-				} else {
-					current--
+				res <- &protos.SyncBlocks{
+					Range: &protos.SyncBlockRange{
+						Start: outOfOrder,
+						End:   outOfOrder,
+					},
+					Blocks: []*protos.Block{block},
 				}
+			default:
+				panic(fmt.Sprintf("Unsupported filter result %d", ft))
 			}
-		}()
-	case Timeout:
-	default:
-		return nil, fmt.Errorf("Unsupported filter result %d", ft)
-	}
+
+			if current == finish {
+				break
+			}
+
+			if start < finish {
+				current++
+			} else {
+				current--
+			}
+		}
+	}()
 
 	return res, nil
 }
@@ -296,28 +318,32 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 	remoteBlockHeight := rl.GetBlockchainSize()
 	res := make(chan *protos.SyncStateSnapshot, remoteBlockHeight) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(SyncSnapshot, peerID)
-	switch ft {
-	case Corrupt:
-		fallthrough
-	case Normal:
 
-		if remoteBlockHeight < 1 {
-			break
-		}
-		rds, err := mock.getRemoteStateDeltas(peerID, 0, remoteBlockHeight-1, SyncSnapshot)
-		if nil != err {
-			return nil, err
-		}
-		go func() {
-			if Corrupt == ft {
-				res <- &protos.SyncStateSnapshot{
-					Delta:       []byte("GARBAGE_DELTA"),
-					Sequence:    0,
-					BlockNumber: ^uint64(0),
-					Request:     nil,
-				}
+	if ft == Timeout {
+		return res, nil
+	}
+
+	if remoteBlockHeight < 1 {
+		close(res)
+		return res, nil
+	}
+	rds, err := mock.getRemoteStateDeltas(peerID, 0, remoteBlockHeight-1, SyncSnapshot)
+	if nil != err {
+		return nil, err
+	}
+	go func() {
+		switch ft {
+		case OutOfOrder:
+			fallthrough // This is an equivalent case to corruption, as we cannot detect out of order
+		case Corrupt:
+			res <- &protos.SyncStateSnapshot{
+				Delta:       []byte("GARBAGE_DELTA"),
+				Sequence:    0,
+				BlockNumber: ^uint64(0),
+				Request:     nil,
 			}
-
+			fallthrough
+		case Normal:
 			i := uint64(0)
 			for deltas := range rds {
 				for _, delta := range deltas.Deltas {
@@ -339,11 +365,10 @@ func (mock *MockLedger) GetRemoteStateSnapshot(peerID *protos.PeerID) (<-chan *p
 				BlockNumber: ^uint64(0),
 				Request:     nil,
 			}
-		}()
-	case Timeout:
-	default:
-		return nil, fmt.Errorf("Unsupported filter result %d", ft)
-	}
+		default:
+			panic(fmt.Sprintf("Unsupported filter result %d", ft))
+		}
+	}()
 	return res, nil
 }
 
@@ -367,33 +392,19 @@ func (mock *MockLedger) getRemoteStateDeltas(peerID *protos.PeerID, start, finis
 
 	res := make(chan *protos.SyncStateDeltas, size) // Allows the thread to exit even if the consumer doesn't finish
 	ft := mock.filter(requestType, peerID)
-	switch ft {
-	case Corrupt:
-		fallthrough
-	case Normal:
-		go func() {
-			current := start
-			corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
-			for {
-				if ft != Corrupt || current != corruptBlock {
-					if remoteBlock, err := rl.GetBlock(current); nil == err {
-						deltas := make([][]byte, len(remoteBlock.Transactions))
-						for i, transaction := range remoteBlock.Transactions {
-							deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
-						}
-						res <- &protos.SyncStateDeltas{
-							Range: &protos.SyncBlockRange{
-								Start: current,
-								End:   current,
-							},
-							Deltas: deltas,
-						}
-					} else {
-						break
-					}
-				} else {
-					deltas := [][]byte{
-						[]byte("GARBAGE_DELTA"),
+	if ft == Timeout {
+		return res, nil
+	}
+	go func() {
+		current := start
+		corruptBlock := start + (finish - start/2) // Try to pick a block in the middle, if possible
+		for {
+			switch {
+			case ft == Normal || (ft == Corrupt && current != corruptBlock):
+				if remoteBlock, err := rl.GetBlock(current); nil == err {
+					deltas := make([][]byte, len(remoteBlock.Transactions))
+					for i, transaction := range remoteBlock.Transactions {
+						deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
 					}
 					res <- &protos.SyncStateDeltas{
 						Range: &protos.SyncBlockRange{
@@ -402,24 +413,62 @@ func (mock *MockLedger) getRemoteStateDeltas(peerID *protos.PeerID, start, finis
 						},
 						Deltas: deltas,
 					}
-
-				}
-
-				if current == finish {
+				} else {
 					break
 				}
-
-				if start < finish {
-					current++
-				} else {
-					current--
+			case ft == OutOfOrder:
+				// Get an adjacent block, if available
+				outOfOrder := current + 1
+				remoteBlock, err := rl.GetBlock(outOfOrder)
+				if err != nil {
+					outOfOrder = current - 1
+					remoteBlock, err = rl.GetBlock(outOfOrder)
+					if err != nil {
+						remoteBlock = &protos.Block{}
+					}
 				}
+
+				fmt.Printf("ASDF: Request block %d but sending block %d", current, outOfOrder)
+
+				deltas := make([][]byte, len(remoteBlock.Transactions))
+				for i, transaction := range remoteBlock.Transactions {
+					deltas[i] = SimpleBytesToStateDelta(transaction.Payload).Marshal()
+				}
+				res <- &protos.SyncStateDeltas{
+					Range: &protos.SyncBlockRange{
+						Start: outOfOrder,
+						End:   outOfOrder,
+					},
+					Deltas: deltas,
+				}
+
+			case ft == Corrupt:
+				deltas := [][]byte{
+					[]byte("GARBAGE_DELTA"),
+				}
+				res <- &protos.SyncStateDeltas{
+					Range: &protos.SyncBlockRange{
+						Start: current,
+						End:   current,
+					},
+					Deltas: deltas,
+				}
+			default:
+				panic(fmt.Sprintf("Unsupported filter result %d", ft))
+
 			}
-		}()
-	case Timeout:
-	default:
-		return nil, fmt.Errorf("Unsupported filter result %d", ft)
-	}
+
+			if current == finish {
+				break
+			}
+
+			if start < finish {
+				current++
+			} else {
+				current--
+			}
+		}
+	}()
 	return res, nil
 }
 
