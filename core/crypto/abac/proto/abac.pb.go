@@ -23,6 +23,7 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// ABACMetadataEntry is an entry within the metadata that store an attribute name with its respective key.
 type ABACMetadataEntry struct {
 	AttributeName string `protobuf:"bytes,1,opt,name=AttributeName" json:"AttributeName,omitempty"`
 	AttributeKey  []byte `protobuf:"bytes,2,opt,name=AttributeKey,proto3" json:"AttributeKey,omitempty"`

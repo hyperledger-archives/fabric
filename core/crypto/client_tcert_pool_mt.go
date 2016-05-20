@@ -41,12 +41,14 @@ func NewTCertPoolEntry(client *clientImpl, attributes map[string]string) *tCertP
 	return &tCertPoolEntry{attributes, tCertChannel, tCertChannelFeedback, done, client, nil}
 }
 
+//Start starts the pool entry filler loop.
 func (tCertPoolEntry *tCertPoolEntry) Start() (err error) {
 	// Start the filler
 	go tCertPoolEntry.filler()
 	return
 }
 
+//Stop stops the pool entry filler loop.
 func (tCertPoolEntry *tCertPoolEntry) Stop() (err error) {
 	// Stop the filler
 	tCertPoolEntry.done <- struct{}{}
@@ -226,6 +228,7 @@ type tCertPoolMultithreadingImpl struct {
 	entriesMutex *sync.Mutex
 }
 
+//Start starts the pool processing.
 func (tCertPool *tCertPoolMultithreadingImpl) Start() (err error) {
 	// Start the filler, initializes a poolEntry without attributes.
 	var attributes map[string]string
@@ -245,6 +248,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) releaseEntries() {
 	runtime.Gosched()
 }
 
+//Stop stops the pool.
 func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	// Stop the filler
 	tCertPool.lockEntries()
@@ -288,6 +292,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntry(attributes map[string
 	return poolEntry, nil
 }
 
+//GetNextTCert returns a TCert from the pool valid to the passed attributes. If no TCert is available TCA is invoked to generate it.
 func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes map[string]string) (tCertBlock *TCertBlock, err error) {
 	poolEntry, err := tCertPool.getPoolEntry(attributes)
 	if err != nil {
@@ -297,6 +302,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes map[string
 	return poolEntry.GetNextTCert(attributes)
 }
 
+//AddTCert adds a TCert into the pool is invoked by the client after TCA is called.
 func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCertBlock *TCertBlock) (err error) {
 	poolEntry := tCertPool.getPoolEntryFromHash(tCertBlock.attributesHash)
 	if poolEntry == nil {

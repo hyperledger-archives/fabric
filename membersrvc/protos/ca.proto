@@ -330,57 +330,91 @@ message CertPair {
     bytes enc = 2; // encryption certificate, DER / ASN.1 encoded
 }
 
+// TCertAttributeHash this entity includes attributeName and the hash of the attribute value. Is used within the attribute certificate authority request ACAAttrReq, ACA uses
+// this entity to check if the value sent by the client is the same or not that the attribute stored in the authority. Hash value is sent to avoid send the attribute value.
 message TCertAttributeHash {
     string attributeName = 1;
     bytes  attributeValueHash = 2;
 }
 
+//ACAAttrReq is sent to request an ACert (attributes certificate) to the Attribute Certificate Authority (ACA).
 message ACAAttrReq {
+	// Request time
     google.protobuf.Timestamp ts = 1;
+	// User identity
     Identity id = 2;
+	// Enrollment certificate
     Cert eCert = 3;
+	// Collection of requested attributes including the attribute name and its respective value hash.
     repeated TCertAttributeHash attributes = 4; // array with the pairs key/value-hash of each attribute.
-    Signature signature = 5; 
+	// The request is signed by the TCA.
+    Signature signature = 5;
 }
 
+//ACAAttrResp is the response of Attribute Certificate Authority (ACA) to the attribute request. Is composed by the following fields:
 message ACAAttrResp {
 	enum StatusCode {
+		// Processed OK and all attributes included.
     	FULL_SUCCESSFUL     = 000;
+		// Processed OK  but some attributes included.
     	PARTIAL_SUCCESSFUL  = 001;
+		// Processed OK  but no attributes included.
     	NO_ATTRIBUTES_FOUND = 010;
+		// Processed with errors.
     	FAILURE				= 100;
 	}
+	// Indicates the request process status.
     StatusCode status = 1;
+	// Attribute certificate. Include all the attributes certificated.
     Cert cert = 2;
-    Signature signature = 3; 
+	// The response is signed by the ACA.
+    Signature signature = 3;
 }
 
+//ACAFetchAttrReq is a request to the Attribute Certificate Authority (ACA) to refresh attributes values from the sources.
 message ACAFetchAttrReq {
+    // Request timestamp
     google.protobuf.Timestamp ts = 1;
-    Cert eCert = 2;
-    Signature signature = 3; 
+    // Enrollment certificate.
+	Cert eCert = 2;
+	// The request is signed by the ECA.
+    Signature signature = 3;
 }
 
+//ACAFetchAttrReq is the answer of the Attribute Certificate Authority (ACA) to the refresh request.
 message ACAFetchAttrResp {
 	enum StatusCode {
+	    // Processed OK
     	SUCCESS = 000;
+		// Processed with errors.
     	FAILURE = 100;
 	}
+	// Status of the fetch process.
     StatusCode status = 1;
 }
 
+//FetchAttrsResult is returned within the ECertCreateResp indicating the results of the fetch attributes invoked during enroll.
 message FetchAttrsResult {
 	enum StatusCode {
+		// Processed OK
     	SUCCESS = 000;
+		// Processed with errors
     	FAILURE = 100;
 	}
+	// Status of the fetch process.
     StatusCode status = 1;
+	// Error message.
 	string Msg = 2;
 }
 
+//ACAAttribute is an instance of an attribute with the time constraints. Is used to marshal attributes to be stored within the certificate extensions.
 message ACAAttribute {
+	// Name of the attribute.
     string attributeName = 1;
+	// Value of the attribute.
     bytes attributeValue = 2;
+	// The timestamp which attribute is valid from.
 	google.protobuf.Timestamp validFrom = 3;
+	// The timestamp which attribute is valid to.
 	google.protobuf.Timestamp validTo = 4;
 }

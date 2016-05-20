@@ -1615,7 +1615,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 		// Trigger the chaincode query through the devops service
 		//
-		
+
 		resp, err := s.devops.Query(context.Background(), spec)
 
 		//
