@@ -264,20 +264,19 @@ func (aca *ACA) fetchAttributes(id, affiliation string) ([]*AttributePair, error
 				val = val + " " + eachVal
 			}
 			var attrOwner *AttributeOwner
-			attribute_vals := strings.Split(val, ";")
-			if len(attribute_vals) >= 6 {
-				attrPair, err := NewAttributePair(attribute_vals, attrOwner)
+			attributeVals := strings.Split(val, ";")
+			if len(attributeVals) >= 6 {
+				attrPair, err := NewAttributePair(attributeVals, attrOwner)
 				if err != nil {
 					return nil, errors.New("Invalid attribute entry " + val + " " + err.Error())
-				} else {
-					if attrPair.GetID() != id || attrPair.GetAffiliation() != affiliation {
-						continue
-					}
-					if attrOwner == nil {
-						attrOwner = attrPair.GetOwner()
-					}
-					attributes = append(attributes, attrPair)
 				}
+				if attrPair.GetID() != id || attrPair.GetAffiliation() != affiliation {
+					continue
+				}
+				if attrOwner == nil {
+					attrOwner = attrPair.GetOwner()
+				}
+				attributes = append(attributes, attrPair)
 			} else {
 				Error.Printf("Invalid attribute entry '%v'", vals[0])
 			}
@@ -313,7 +312,7 @@ func (aca *ACA) populateAttribute(attr *AttributePair) error {
 		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeKey()).Scan(&count)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if count > 0 {

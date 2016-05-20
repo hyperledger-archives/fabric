@@ -37,6 +37,9 @@ func (t *AuthorizableCounterChaincode) Init(stub *shim.ChaincodeStub, function s
 
 //Invoke Transaction makes increment counter
 func (t *AuthorizableCounterChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if function != "increment" {
+		return nil, errors.New("Invalid invoke function name. Expecting \"increment\"")
+	}
 	isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer")) // Here the ABAC API is called to verify the attribute, just if the value is verified the counter will be incremented.
 	if isOk {
 		counter, err := stub.GetState("counter")
@@ -56,44 +59,10 @@ func (t *AuthorizableCounterChaincode) Invoke(stub *shim.ChaincodeStub, function
 
 }
 
-//Delete delete the counter from the state.
-func (t *AuthorizableCounterChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 3")
-	}
-
-	// Delete the key from the state in ledger
-	err := stub.DelState("counter")
-	if err != nil {
-		return nil, errors.New("Failed to delete state")
-	}
-
-	return nil, nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode will increment the counter if the user has an attribute called "position" with the value "Software Engineer"
-func (t *AuthorizableCounterChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize the entities and their asset holdings
-		return t.Init(stub, function, args)
-	} else if function == "invoke" {
-		// Transaction makes payment of X units from A to B
-		return t.Invoke(stub, function, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
-	}
-
-	return nil, errors.New("Received unknown function invocation")
-}
-
 // Query callback representing the query of a chaincode
 func (t *AuthorizableCounterChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	if function != "query" {
-		return nil, errors.New("Invalid query function name. Expecting \"query\"")
+	if function != "read" {
+		return nil, errors.New("Invalid query function name. Expecting \"read\"")
 	}
 	var err error
 

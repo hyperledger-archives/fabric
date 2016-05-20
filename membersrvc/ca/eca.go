@@ -204,10 +204,6 @@ func (eca *ECA) startECAA(srv *grpc.Server) {
 	pb.RegisterECAAServer(srv, &ECAA{eca})
 }
 
-func (eca *ECA) ivokeACAFetchAttributes(id, affiliation string) {
-	//eca.aca.
-}
-
 // ReadCACertificate reads the certificate of the ECA.
 //
 func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
@@ -369,7 +365,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		} else {
 			obcECKey = ecap.eca.obcPub
 		}
-		if role == 1 {
+		if role == int(pb.Role_CLIENT) {
 			//Only client have to fetch attributes.
 			err = ecap.fetchAttributes(&pb.Cert{sraw})
 			if err != nil {

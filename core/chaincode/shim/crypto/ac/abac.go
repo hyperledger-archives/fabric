@@ -49,12 +49,12 @@ type chaincodeHolder interface {
 // 		If multiple calls to the functions above are required, a best practice is to create an ABACHandler instead of calling the functions multiple times, this practice will avoid creating a new abacHandler for each of these calls thus eliminating an unnecessary overhead.
 //    Example:
 //
-//				abacHandler, err := ac.NewABACHandlerImpl(stub)
-//				if err != nil {
-//					return false, err
-//				}
-//				abacHandler.VerifyAttribute(attributeName, attributeValue)
-//				... you can make other verifications and/or read attribute values by using the abacHandler
+//		abacHandler, err := ac.NewABACHandlerImpl(stub)
+//		if err != nil {
+//			return false, err
+//		}
+//		abacHandler.VerifyAttribute(attributeName, attributeValue)
+//		... you can make other verifications and/or read attribute values by using the abacHandler
 type ABACHandler interface {
 
 	//VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
@@ -115,8 +115,8 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 }
 
 //GetValue is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
-// Example:
-//  attrValue,error:=handler.GetValue("position")
+//	Example:
+//  	attrValue,error:=handler.GetValue("position")
 func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, error) {
 	if abacHandler.cache[attributeName] != nil {
 		return abacHandler.cache[attributeName], nil
@@ -139,8 +139,8 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 }
 
 //VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
-//Example:
-//    containsAttr, error := handler.VerifyAttribute("position", "Software Engineer")
+//	Example:
+//  	containsAttr, error := handler.VerifyAttribute("position", "Software Engineer")
 func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
 	valueHash, err := abacHandler.GetValue(attributeName)
 	if err != nil {
@@ -150,8 +150,8 @@ func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attrib
 }
 
 //VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
-// Example:
-//    containsAttrs, error:= handler.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
+//	Example:
+//  	containsAttrs, error:= handler.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
 func (abacHandler *ABACHandlerImpl) VerifyAttributes(attrs ...*Attribute) (bool, error) {
 	for _, attribute := range attrs {
 		val, err := abacHandler.VerifyAttribute(attribute.Name, attribute.Value)

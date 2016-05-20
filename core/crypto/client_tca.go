@@ -578,7 +578,6 @@ func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[st
 		tcertAttr.AttributeValue = value
 
 		attributesList = append(attributesList, tcertAttr)
-		//attributesList = append(attributesList, &membersrvc.TCertAttribute{k, attributes[k]})
 	}
 
 	// Execute the protocol

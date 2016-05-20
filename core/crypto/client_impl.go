@@ -50,11 +50,11 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 		return nil, err
 	}
 
-   keys := make([]string, len(attributes))
-    for k := range attributes {
-        keys = append(keys, k)
-    } 
-    
+	keys := make([]string, len(attributes))
+	for k := range attributes {
+		keys = append(keys, k)
+	}
+
 	// Create Transaction
 	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, keys, tCert.tCert, nil)
 }
@@ -90,18 +90,17 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 		return nil, err
 	}
 
-	
-    keys := make([]string, len(attributes))
-    for k := range attributes {
-        keys = append(keys, k)
-    } 
-    
+	keys := make([]string, len(attributes))
+	for k := range attributes {
+		keys = append(keys, k)
+	}
+
 	// Create Transaction
 	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, keys, tCertHandler.tCert, nil)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
-func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec,  attributes map[string]string, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, attributes map[string]string, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
@@ -114,14 +113,13 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 		return nil, err
 	}
 
-      keys := make([]string, len(attributes))
-    for k := range attributes {
-        keys = append(keys, k)
-    } 
-    
-    
+	keys := make([]string, len(attributes))
+	for k := range attributes {
+		keys = append(keys, k)
+	}
+
 	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, keys,  tCertHandler.tCert, nil)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, keys, tCertHandler.tCert, nil)
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
