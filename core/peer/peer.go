@@ -214,7 +214,7 @@ type PeerImpl struct {
 
 	whitelist        *pb.Whitelist
 	whitelistedMap   map[string]int
-	whitelistCreated chan bool
+	whitelistCreated chan struct{}
 
 	engine      Engine
 	isValidator bool
@@ -275,15 +275,7 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 
-	// is this a peer that's restarting after a crash? if so, load the whitelist
-	peerLogger.Debug("loading whitelist")
-	peer.whitelistCreated = make(chan bool)
-	peer.whitelist = &pb.Whitelist{Cap: -1,
-		Persisted:    false,
-		Security:     viper.GetBool("security.enabled"),
-		SortedKeys:   []string{},
-		SortedValues: []*pb.PeerID{}}
-	peer.whitelistedMap = make(map[string]int)
+	// on peer start or restart, load white list of validating peers
 	peer.LoadWhitelist()
 
 	// Install security object for peer
@@ -303,6 +295,7 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	}
 
 	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
+
 	return peer, nil
 }
 

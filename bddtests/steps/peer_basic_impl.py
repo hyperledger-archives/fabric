@@ -139,7 +139,7 @@ def step_impl(context, path, containerName):
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, path)
     print("Requesting path = {0}".format(request_url))
-    resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
+    resp = requests.get(request_url, headers={'Accept': 'application/json'}, timeout=30, verify=False)
     assert resp.status_code == 200, "Failed to GET url %s:  %s" % (request_url,resp.text)
     context.response = resp
     print("")

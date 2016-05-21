@@ -21,12 +21,13 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 
 	"fmt"
+	"sync"
+
 	"github.com/hyperledger/fabric/consensus/controller"
 	"github.com/hyperledger/fabric/consensus/util"
 	"github.com/hyperledger/fabric/core/chaincode"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
-	"sync"
 )
 
 // EngineImpl implements a struct to hold consensus.Consenter, PeerEndpoint and MessageFan
@@ -43,6 +44,7 @@ func (eng *EngineImpl) GetHandlerFactory() peer.HandlerFactory {
 
 // ProcessTransactionMsg processes a Message in context of a Transaction
 func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response) {
+
 	//TODO: Do we always verify security, or can we supply a flag on the invoke ot this functions so to bypass check for locally generated transactions?
 	if tx.Type == pb.Transaction_CHAINCODE_QUERY {
 		// The secHelper is set during creat ChaincodeSupport, so we don't need this step

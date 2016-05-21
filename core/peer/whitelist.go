@@ -26,6 +26,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/db"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -52,19 +53,38 @@ func (p *PeerImpl) CheckWhitelistExists() {
 // Sets p.whitelist and p.whitelistedMap
 func (p *PeerImpl) LoadWhitelist() (err error) {
 
+	if !p.isValidator {
+		return nil
+	} // if I'm an NVP, I don't care
+
+	// pbft plugin waits on this channel for whitelist to complete
+	p.whitelistCreated = make(chan struct{}, 3) // make non-blocking. We only need to wake up the receiver once
+
+	// initialize
+	p.whitelist = &pb.Whitelist{Cap: -1,
+		Persisted:    false,
+		Security:     viper.GetBool("security.enabled"),
+		SortedKeys:   []string{},
+		SortedValues: []*pb.PeerID{}}
+	p.whitelistedMap = make(map[string]int)
+
 	db := db.GetDBHandle()
 	data, err := db.Get(db.PersistCF, []byte(dbkey))
-	if err != nil {
-		return err
+	if err == nil {
+		if data != nil {
+			err = proto.Unmarshal(data, p.whitelist)
+			if err == nil {
+				p.whitelist.Persisted = false // SaveWhitelist() will set after we re-registered the other peers
+				p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
+			} else {
+				err = fmt.Errorf("Unable to unmarshal whitelist: %v", err)
+			}
+		}
+	} else {
+		// if we run into any error, we start fresh with a blank whitelist
+		err = fmt.Errorf("Unable to read whitelist from db: %v", err)
 	}
-
-	err = proto.Unmarshal(data, p.whitelist)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal whitelist: %v", err)
-	}
-
 	peerLogger.Debug("Whitelist now reads: %+v", p.whitelist)
-	p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
 
 	return err
 }
@@ -72,8 +92,15 @@ func (p *PeerImpl) LoadWhitelist() (err error) {
 // SaveWhitelist stores to disk the list of validating peers this validator should connect to
 // Is called when the handlerMap is locked by RegisterHandler
 func (p *PeerImpl) SaveWhitelist() (err error) {
+
+	if !p.isValidator {
+		return nil
+	} // if I'm an NVP, I don't care
+
 	// filter the handlerMap structure for connected VPs
 	vpMap := filterHandlers(p.handlerMap.m)
+
+	peerLogger.Debug("in savewhitelist, cap : %v", p.whitelist.Cap)
 
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
@@ -112,8 +139,8 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 	err = db.Put(db.PersistCF, []byte(dbkey), data)
 
 	//let the replica know we have a good whitelist
+	p.whitelistCreated <- struct{}{}
 	peerLogger.Debug("whitelist created and saved")
-	p.whitelistCreated <- true
 
 	return err
 
