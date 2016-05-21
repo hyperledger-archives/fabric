@@ -99,6 +99,8 @@ func (hd *HashLedgerDirectory) GetNetworkInfo() (self *protos.PeerEndpoint, netw
 		},
 		Type: protos.PeerEndpoint_VALIDATOR,
 	}
+
+	self = network[i]
 	return
 }
 
