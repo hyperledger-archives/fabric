@@ -30,8 +30,18 @@ type Consenter interface {
 
 // Inquirer is used to retrieve info about the validating network
 type Inquirer interface {
-	GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error)
-	GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
+	GetOwnID() (id uint64)
+	GetOwnHandle() (handle *pb.PeerID)
+	GetValidatorID(handle *pb.PeerID) (id uint64)
+	GetValidatorHandle(id uint64) (handle *pb.PeerID)
+	GetValidatorHandles(ids []uint64) (handles []*pb.PeerID)
+	GetConnectedValidators() (handles []*pb.PeerID)
+}
+
+// Gatekeeper is used to manage the validating peer's whitelist
+type Gatekeeper interface {
+	CheckWhitelistExists()
+	SetWhitelistCap(n int)
 }
 
 // Communicator is used to send messages to other validators
@@ -44,6 +54,7 @@ type Communicator interface {
 type NetworkStack interface {
 	Communicator
 	Inquirer
+	Gatekeeper
 }
 
 // SecurityUtils is used to access the sign/verify methods from the crypto package

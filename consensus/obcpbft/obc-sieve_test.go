@@ -34,9 +34,9 @@ func (op *obcSieve) getPBFTCore() *pbftCore {
 	return op.pbft
 }
 
-func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+func obcSieveHelper(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcSieve directly
-	return newObcSieve(id, config, stack)
+	return newObcSieve(config, stack)
 }
 
 func TestSieveNetwork(t *testing.T) {
@@ -45,10 +45,12 @@ func TestSieveNetwork(t *testing.T) {
 	defer net.stop()
 
 	req1 := createOcMsgWithChainTx(1)
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(req1, net.endpoints[generateBroadcaster(validatorCount)].getHandle())
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(req1, broadcaster)
 	net.process()
 	req0 := createOcMsgWithChainTx(2)
-	net.endpoints[0].(*consumerEndpoint).consumer.RecvMsg(req0, net.endpoints[generateBroadcaster(validatorCount)].getHandle())
+	broadcaster = net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
+	net.endpoints[0].(*consumerEndpoint).consumer.RecvMsg(req0, broadcaster)
 	net.process()
 
 	testblock := func(ep endpoint, blockNo uint64, msg *pb.Message) {
@@ -115,7 +117,7 @@ func TestSieveNoDecision(t *testing.T) {
 
 	fmt.Printf("DEBUG: filterFn is %p and net is %p\n", net.testnet.filterFn, net.testnet)
 
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 
 	go net.processContinually()
@@ -167,8 +169,9 @@ func TestSieveReqBackToBack(t *testing.T) {
 		return payload
 	}
 
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[generateBroadcaster(validatorCount)].getHandle())
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[generateBroadcaster(validatorCount)].getHandle())
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 
 	net.process()
 
@@ -201,11 +204,13 @@ func TestSieveNonDeterministic(t *testing.T) {
 	defer net.stop()
 
 	instResults = []int{1, 2, 3, 4}
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[generateBroadcaster(validatorCount)].getHandle())
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	net.process()
 
 	instResults = []int{5, 5, 6, 6}
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[generateBroadcaster(validatorCount)].getHandle())
+	broadcaster = net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 
 	net.process()
 
@@ -239,7 +244,8 @@ func TestSieveRequestHash(t *testing.T) {
 	}
 
 	r0 := net.endpoints[0].(*consumerEndpoint)
-	r0.consumer.RecvMsg(msg, r0.getHandle())
+	r0Handle := r0.GetOwnHandle()
+	r0.consumer.RecvMsg(msg, r0Handle)
 
 	// This used to be enormous, verify that it is short
 	txID := fmt.Sprintf("%v", net.mockLedgers[0].txID)
@@ -250,10 +256,10 @@ func TestSieveRequestHash(t *testing.T) {
 
 func TestSieveCustody(t *testing.T) {
 	validatorCount := 4
-	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+	net := makeConsumerNetwork(validatorCount, func(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 		config.Set("general.timeout.request", "800ms")
 		config.Set("general.timeout.viewchange", "1600ms")
-		return newObcSieve(id, config, stack)
+		return newObcSieve(config, stack)
 	})
 	net.filterFn = func(src int, dst int, payload []byte) []byte {
 		logger.Info("msg from %d to %d", src, dst)
@@ -265,7 +271,7 @@ func TestSieveCustody(t *testing.T) {
 
 	go net.processContinually()
 	r2 := net.endpoints[2].(*consumerEndpoint).consumer
-	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].GetOwnHandle())
 	time.Sleep(6 * time.Second)
 	net.stop()
 

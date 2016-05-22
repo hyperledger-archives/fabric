@@ -13,7 +13,7 @@ Feature: lanching 3 peers
     I want to be able to launch 3 peers
 
 #    @wip
-  Scenario: Peers list test, single peer issue #827
+  Scenario: Peers list test, single peer issue #827 fdsdf
     Given we compose "docker-compose-1.yml"
       When requesting "/network/peers" from "vp0"
       Then I should get a JSON response with array "peers" contains "1" elements
@@ -427,10 +427,10 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
-        |   docker-compose-4-consensus-noops.yml   |      60      |
-        |   docker-compose-4-consensus-classic.yml |      60      |
-        |   docker-compose-4-consensus-batch.yml   |      60      |
-        |   docker-compose-4-consensus-sieve.yml   |      60      |
+        |   docker-compose-4-consensus-noops.yml   |      120     |
+        |   docker-compose-4-consensus-classic.yml |      120     |
+        |   docker-compose-4-consensus-batch.yml   |      120     |
+        |   docker-compose-4-consensus-sieve.yml   |      120     |
 
 
     #@doNotDecompose
@@ -512,9 +512,9 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-        |   docker-compose-4-consensus-classic.yml   |      60      |
-        |   docker-compose-4-consensus-batch.yml     |      60      |
-        |   docker-compose-4-consensus-sieve.yml     |      60      |
+        |   docker-compose-4-consensus-classic.yml   |     120      |
+        |   docker-compose-4-consensus-batch.yml     |     120      |
+        |   docker-compose-4-consensus-sieve.yml     |     120      |
 
 
 #    @doNotDecompose
@@ -562,7 +562,7 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
-        |   docker-compose-4-consensus-noops.yml   |      60      |
+        |   docker-compose-4-consensus-noops.yml   |      120     |
 
 
 #   @doNotDecompose
@@ -576,6 +576,7 @@ Feature: lanching 3 peers
 #	@doNotDecompose
 	Scenario: basic startup of 2 validating peers using TLS
 	    Given we compose "docker-compose-2-tls-basic.yml"
+
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"
 
@@ -629,7 +630,7 @@ Feature: lanching 3 peers
          |arg1|arg2|arg3|
          | a  | b  | 1 |
        Then I should have received a transactionID
-       Then I wait up to "10" seconds for transaction to be committed to peers:
+       Then I wait up to "60" seconds for transaction to be committed to peers:
            | vp0  | vp1 | vp3 |
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
@@ -639,9 +640,9 @@ Feature: lanching 3 peers
 
    Examples: Consensus Options
        |          ComposeFile                       |   WaitTime   |
-       |   docker-compose-4-consensus-classic.yml   |      60      |
-       |   docker-compose-4-consensus-batch.yml     |      60      |
-       |   docker-compose-4-consensus-sieve.yml     |      60      |
+       |   docker-compose-4-consensus-classic.yml   |     120      |
+       |   docker-compose-4-consensus-batch.yml     |     120      |
+       |   docker-compose-4-consensus-sieve.yml     |     120      |
 
 #@doNotDecompose
 #@wip
@@ -691,7 +692,7 @@ Feature: lanching 3 peers
     When I invoke chaincode "example2" function name "invoke" on "vp0" "5" times
        |arg1|arg2|arg3|
        | a  | b  | 1 |
-     And I wait "5" seconds
+     And I wait "60" seconds
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
       | vp0 | vp3 |
@@ -700,9 +701,9 @@ Feature: lanching 3 peers
 
  Examples: Consensus Options
      |          ComposeFile                       |   WaitTime   |
-     |   docker-compose-4-consensus-classic.yml   |      60      |
-     |   docker-compose-4-consensus-batch.yml     |      60      |
-     |   docker-compose-4-consensus-sieve.yml     |      60      |
+     |   docker-compose-4-consensus-classic.yml   |      120     |
+     |   docker-compose-4-consensus-batch.yml     |      120     |
+     |   docker-compose-4-consensus-sieve.yml     |      120     |
 
      #@doNotDecompose
      #@wip

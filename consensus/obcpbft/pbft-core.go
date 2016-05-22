@@ -26,6 +26,7 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
+	"github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -62,6 +63,8 @@ type innerStack interface {
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
 	viewChange(curView uint64)
+
+	getValidatorHandle(id uint64) (handle *protos.PeerID)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -220,15 +223,15 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.activeView = true
 	instance.replicaCount = instance.N
 
-	logger.Info("PBFT type = %T", instance.consumer)
-	logger.Info("PBFT Max number of validating peers (N) = %v", instance.N)
-	logger.Info("PBFT Max number of failing peers (f) = %v", instance.f)
-	logger.Info("PBFT byzantine flag = %v", instance.byzantine)
-	logger.Info("PBFT request timeout = %v", instance.requestTimeout)
-	logger.Info("PBFT view change timeout = %v", instance.newViewTimeout)
-	logger.Info("PBFT Checkpoint period (K) = %v", instance.K)
-	logger.Info("PBFT Log multiplier = %v", instance.logMultiplier)
-	logger.Info("PBFT log size (L) = %v", instance.L)
+	logger.Info("PBFT type: %T", instance.consumer)
+	logger.Info("PBFT max number of validating peers (N): %v", instance.N)
+	logger.Info("PBFT max number of failing peers (f): %v", instance.f)
+	logger.Info("PBFT byzantine flag: %v", instance.byzantine)
+	logger.Info("PBFT request timeout: %v", instance.requestTimeout)
+	logger.Info("PBFT view change timeout: %v", instance.newViewTimeout)
+	logger.Info("PBFT checkpoint period (K): %v", instance.K)
+	logger.Info("PBFT log multiplier: %v", instance.logMultiplier)
+	logger.Info("PBFT log size (L): %v", instance.L)
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)

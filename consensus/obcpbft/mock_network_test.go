@@ -27,8 +27,9 @@ import (
 type endpoint interface {
 	stop()
 	deliver([]byte, *pb.PeerID)
-	getHandle() *pb.PeerID
-	getID() uint64
+	GetOwnHandle() *pb.PeerID
+	GetOwnID() uint64
+	GetValidatorID(handle *pb.PeerID) (id uint64)
 	isBusy() bool
 }
 
@@ -59,62 +60,88 @@ func makeTestEndpoint(id uint64, net *testnet) *testEndpoint {
 	return ep
 }
 
-func (ep *testEndpoint) getID() uint64 {
-	return ep.id
+func (te *testEndpoint) GetOwnID() (id uint64) {
+	return te.id
 }
 
-func (ep *testEndpoint) getHandle() *pb.PeerID {
-	return &pb.PeerID{fmt.Sprintf("vp%d", ep.id)}
+func (te *testEndpoint) GetOwnHandle() (handle *pb.PeerID) {
+	return &pb.PeerID{Name: fmt.Sprintf("vp%d", te.id)}
 }
 
-func (ep *testEndpoint) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
-	oSelf, oNetwork, _ := ep.GetNetworkHandles()
-	self = &pb.PeerEndpoint{
-		ID:   oSelf,
-		Type: pb.PeerEndpoint_VALIDATOR,
+func (te *testEndpoint) GetValidatorID(handle *pb.PeerID) (id uint64) {
+	if te.net == nil {
+		err := fmt.Errorf("Network not initialized")
+		panic(err.Error())
 	}
 
-	network = make([]*pb.PeerEndpoint, len(oNetwork))
-	for i, id := range oNetwork {
-		network[i] = &pb.PeerEndpoint{
-			ID:   id,
-			Type: pb.PeerEndpoint_VALIDATOR,
+	for _, v := range te.net.endpoints {
+		epHandle := v.GetOwnHandle()
+		if *handle == *epHandle {
+			id = v.GetOwnID()
+			return
 		}
+	}
+
+	return
+}
+
+func (te *testEndpoint) GetValidatorHandle(id uint64) (handle *pb.PeerID) {
+	if te.net == nil {
+		err := fmt.Errorf("Network not initialized")
+		panic(err.Error())
+	}
+
+	handle = te.net.endpoints[id].GetOwnHandle()
+	return
+}
+
+func (te *testEndpoint) GetValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
+	handles = make([]*pb.PeerID, len(ids))
+	for i, id := range ids {
+		handles[i] = te.GetValidatorHandle(id)
 	}
 	return
 }
 
-func (ep *testEndpoint) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
-	if nil == ep.net {
-		err = fmt.Errorf("Network not initialized")
-		return
+func (te *testEndpoint) GetConnectedValidators() (handles []*pb.PeerID) {
+	if te.net == nil {
+		err := fmt.Errorf("Network not initialized")
+		panic(err.Error())
 	}
-	self = ep.getHandle()
-	network = make([]*pb.PeerID, len(ep.net.endpoints))
-	for i, oep := range ep.net.endpoints {
-		if nil != oep {
-			// In case this is invoked before all endpoints are initialized, this emulates a real network as well
-			network[i] = oep.getHandle()
-		}
+
+	handles = make([]*pb.PeerID, len(te.net.endpoints))
+	for i, v := range te.net.endpoints {
+		handles[i] = v.GetOwnHandle()
 	}
+
 	return
+}
+
+func (te *testEndpoint) CheckWhitelistExists() {
+	// no-op
+	return
+}
+
+func (te *testEndpoint) SetWhitelistCap(cap int) {
+	// no-op
 }
 
 // Broadcast delivers to all endpoints.  In contrast to the stack
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (ep *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
-	ep.net.broadcastFilter(ep, msg.Payload)
+func (te *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+	te.net.broadcastFilter(te, msg.Payload)
 	return nil
 }
 
-func (ep *testEndpoint) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
-	receiverID, err := getValidatorID(receiverHandle)
+func (te *testEndpoint) Unicast(msg *pb.Message, handle *pb.PeerID) error {
+	var err error
+	receiverID := te.GetValidatorID(handle)
 	if err != nil {
-		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
+		return fmt.Errorf("Couldn't unicast message to %s: %v", handle.Name, err)
 	}
-	internalQueueMessage(ep.net.msgs, taggedMsg{int(ep.id), int(receiverID), msg.Payload})
+	internalQueueMessage(te.net.msgs, taggedMsg{int(te.id), int(receiverID), msg.Payload})
 	return nil
 }
 
@@ -155,14 +182,15 @@ func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 
 func (net *testnet) deliverFilter(msg taggedMsg) {
 	net.debugMsg("TEST: deliver\n")
-	senderHandle := net.endpoints[msg.src].getHandle()
+	senderHandle := net.endpoints[msg.src].GetOwnHandle()
 	if msg.dst == -1 {
 		net.debugMsg("TEST: Sending broadcast %v\n", net.endpoints)
 		wg := &sync.WaitGroup{}
 		wg.Add(len(net.endpoints))
-		for id, ep := range net.endpoints {
-			net.debugMsg("TEST: Looping broadcast %d\n", ep.getID())
-			lid := id
+		for i, ep := range net.endpoints {
+			id := ep.GetOwnID()
+			net.debugMsg("TEST: Looping broadcast %d\n", id)
+			lid := i
 			lep := ep
 			go func() {
 				defer wg.Done()

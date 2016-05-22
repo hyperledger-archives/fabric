@@ -25,6 +25,7 @@ import sys, requests, json
 import bdd_test_util
 
 CORE_REST_PORT = 5000
+DOCKER_WAIT = 10
 
 class ContainerData:
     def __init__(self, containerName, ipAddress, envFromInspect, composeService):
@@ -131,14 +132,14 @@ def step_impl(context, composeYamlFile):
         bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
-    time.sleep(10)              # Should be replaced with a definitive interlock guaranteeing that all peers/membersrvc are ready
+    time.sleep(float(DOCKER_WAIT))              # Should be replaced with a definitive interlock guaranteeing that all peers/membersrvc are ready
 
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, path)
     print("Requesting path = {0}".format(request_url))
-    resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
+    resp = requests.get(request_url, headers={'Accept': 'application/json'}, timeout=30, verify=False)
     assert resp.status_code == 200, "Failed to GET url %s:  %s" % (request_url,resp.text)
     context.response = resp
     print("")
@@ -436,8 +437,8 @@ def step_impl(context, chaincodeName, functionName, value):
         chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
         print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
         request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
-        print("{0} POSTing path = {1}".format(currentTime(), request_url))
-        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=30, verify=False)
+        print("POSTing path = {0}".format(request_url))
+        resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))

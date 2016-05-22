@@ -23,9 +23,10 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	google_protobuf "google/protobuf"
 )
 
 type obcBatch struct {
@@ -46,6 +47,9 @@ type obcBatch struct {
 	complainer   *complainer
 	deduplicator *deduplicator
 
+	isSufficientlyConnected chan bool
+	proceedWithConsensus    bool
+
 	persistForward
 }
 
@@ -65,18 +69,17 @@ type execInfo struct {
 	raw   []byte
 }
 
-func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatch {
+func newObcBatch(config *viper.Viper, stack consensus.Stack) *obcBatch {
 	var err error
 
 	op := &obcBatch{
 		obcGeneric: obcGeneric{stack: stack},
 	}
+	op.isSufficientlyConnected = make(chan bool)
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = newPbftCore(id, config, op)
+	logger.Debug("Replica obtaining startup information")
 
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
@@ -89,9 +92,6 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.custodyTimerChan = make(chan custodyInfo)
 	op.execChan = make(chan *execInfo)
 
-	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
-	op.deduplicator = newDeduplicator()
-
 	// create non-running timer
 	op.batchTimer = time.NewTimer(100 * time.Hour) // XXX ugly
 	op.batchTimer.Stop()
@@ -99,14 +99,36 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.idleChan = make(chan struct{})
 	op.viewChanged = make(chan struct{})
 
+	go op.waitForID(config)
+
 	go op.main()
+
 	return op
+}
+
+func (op *obcBatch) waitForID(config *viper.Viper) {
+	var id uint64
+
+	op.stack.CheckWhitelistExists()
+	id = op.stack.GetOwnID()
+	logger.Debug("Replica ID = %v", id)
+
+	// instantiate pbft-core
+	op.pbft = newPbftCore(id, config, op)
+
+	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
+	op.deduplicator = newDeduplicator()
+
+	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+
 	op.incomingChan <- &batchMessage{
 		msg:    ocMsg,
 		sender: senderHandle,
@@ -154,11 +176,8 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 
-	}
 	op.stack.Unicast(ocMsg, receiverHandle)
 }
 
@@ -173,10 +192,7 @@ func (op *obcBatch) broadcast(msgPayload []byte) {
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
 }
 
@@ -186,10 +202,7 @@ func (op *obcBatch) sign(msg []byte) ([]byte, error) {
 
 // verify message signature
 func (op *obcBatch) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 
@@ -259,6 +272,11 @@ func (op *obcBatch) viewChange(curView uint64) {
 	logger.Debug("Replica %d PBFT view change thread attempting to signal batch thread", op.pbft.id)
 
 	go func() { op.viewChanged <- struct{}{} }()
+}
+
+// retrieve a validator's PeerID given its PBFT ID
+func (op *obcBatch) getValidatorHandle(id uint64) (handle *pb.PeerID) {
+	return op.stack.GetValidatorHandle(id)
 }
 
 // =============================================================================
@@ -356,10 +374,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 			}
 		}
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
-		senderID, err := getValidatorID(senderHandle) // who sent this?
-		if err != nil {
-			panic("Cannot map sender's PeerID to a valid replica ID")
-		}
+		senderID := op.stack.GetValidatorID(senderHandle) // who sent this?
 		op.pbft.receive(pbftMsg, senderID)
 	} else if complaint := batchMsg.GetComplaint(); complaint != nil {
 		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
@@ -387,6 +402,13 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) main() {
+
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
+	logger.Debug("ready to receive")
+
 	for {
 		logger.Debug("Replica %d batch main thread looping", op.pbft.id)
 		select {
@@ -477,7 +499,6 @@ func (op *obcBatch) wrapMessage(msgPayload []byte) *pb.Message {
 	return ocMsg
 }
 
-// Retrieve the idle channel, only used for testing
 func (op *obcBatch) idleChannel() <-chan struct{} {
 	return op.idleChan
 }

@@ -17,9 +17,10 @@ limitations under the License.
 package controller
 
 import (
+	"strings"
+
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
-	"strings"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/noops"
