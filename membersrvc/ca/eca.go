@@ -281,7 +281,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		return nil, err
 	}
 
-	var fetchResult pb.FetchAttrsResult
+	fetchResult := pb.FetchAttrsResult{pb.FetchAttrsResult_SUCCESS, ""}
 	switch {
 	case state == 0:
 		// initial request, create encryption challenge
@@ -369,12 +369,12 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 		if role == int(pb.Role_CLIENT) {
 			//Only client have to fetch attributes.
-			err = ecap.fetchAttributes(&pb.Cert{sraw})
-			if err != nil {
-				fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_FAILURE, err.Error()}
+			if viper.GetBool("aca.enabled") {
+				err = ecap.fetchAttributes(&pb.Cert{sraw})
+				if err != nil {
+					fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_FAILURE, err.Error()}
 
-			} else {
-				fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_SUCCESS, ""}
+				}
 			}
 		}
 		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil, &fetchResult}, nil
