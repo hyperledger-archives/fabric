@@ -134,18 +134,22 @@ type omniProto struct {
 	ReadStateSetImpl           func(prefix string) (map[string][]byte, error)
 	StoreStateImpl             func(key string, value []byte) error
 	DelStateImpl               func(key string)
+	ValidateStateImpl          func()
+	InvalidateStateImpl        func()
 
 	// Inner Stack methods
-	broadcastImpl    func(msgPayload []byte)
-	unicastImpl      func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl      func(seqNo uint64, txRaw []byte)
-	getStateImpl     func() []byte
-	skipToImpl       func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validateImpl     func(txRaw []byte) error
-	viewChangeImpl   func(curView uint64)
-	signImpl         func(msg []byte) ([]byte, error)
-	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
-	getLastSeqNoImpl func() (uint64, error)
+	broadcastImpl       func(msgPayload []byte)
+	unicastImpl         func(msgPayload []byte, receiverID uint64) (err error)
+	executeImpl         func(seqNo uint64, txRaw []byte)
+	getStateImpl        func() []byte
+	skipToImpl          func(seqNo uint64, snapshotID []byte, peers []uint64)
+	validateImpl        func(txRaw []byte) error
+	viewChangeImpl      func(curView uint64)
+	signImpl            func(msg []byte) ([]byte, error)
+	verifyImpl          func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl    func() (uint64, error)
+	validateStateImpl   func()
+	invalidateStateImpl func()
 
 	// Closable Consenter methods
 	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
@@ -485,6 +489,38 @@ func (op *omniProto) StoreState(key string, value []byte) error {
 		return op.StoreStateImpl(key, value)
 	}
 	return fmt.Errorf("unimplemented")
+}
+
+func (op *omniProto) ValidateState() {
+	if nil != op.ValidateStateImpl {
+		op.ValidateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) InvalidateState() {
+	if nil != op.InvalidateStateImpl {
+		op.InvalidateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) validateState() {
+	if nil != op.validateStateImpl {
+		op.validateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) invalidateState() {
+	if nil != op.invalidateStateImpl {
+		op.invalidateStateImpl()
+		return
+	}
+	panic("unimplemented")
 }
 
 /*

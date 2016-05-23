@@ -102,6 +102,9 @@ func (sc *simpleConsumer) verify(senderID uint64, signature []byte, message []by
 func (sc *simpleConsumer) viewChange(curView uint64) {
 }
 
+func (sc *simpleConsumer) invalidateState() {}
+func (sc *simpleConsumer) validateState()   {}
+
 func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
 	sc.executions = seqNo

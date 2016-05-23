@@ -134,6 +134,14 @@ func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
 }
 
+func (op *obcGeneric) invalidateState() {
+	op.stack.InvalidateState()
+}
+
+func (op *obcGeneric) validateState() {
+	op.stack.ValidateState()
+}
+
 func (op *obcGeneric) getState() []byte {
 	return op.stack.GetBlockchainInfoBlob()
 }

@@ -76,6 +76,9 @@ type completeStack struct {
 
 const MaxStateTransferTime int = 200
 
+func (cs *completeStack) ValidateState()   {}
+func (cs *completeStack) InvalidateState() {}
+
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	select {
 	// This guarantees the first SkipTo call is the one that's queued, whereas a mutex can be raced for
