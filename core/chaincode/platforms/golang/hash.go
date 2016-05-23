@@ -42,14 +42,15 @@ var logger = logging.MustGetLogger("golang/hash")
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
-	logger.Debug("hashFiles %s/%s", rootDir, dir)
+	subdir := filepath.Join(rootDir, dir)
+	logger.Debug("hashFiles %s", subdir)
 	//ReadDir returns sorted list of files in dir
-	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
+	fis, err := ioutil.ReadDir(subdir)
 	if err != nil {
 		return hash, fmt.Errorf("ReadDir failed %s\n", err)
 	}
 	for _, fi := range fis {
-		name := fmt.Sprintf("%s/%s", dir, fi.Name())
+		name := filepath.Join(dir, fi.Name())
 		if fi.IsDir() {
 			var err error
 			hash, err = hashFilesInDir(rootDir, name, hash, tw)
@@ -58,7 +59,7 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			}
 			continue
 		}
-		fqp := rootDir + "/" + name
+		fqp := filepath.Join(rootDir, name)
 		buf, err := ioutil.ReadFile(fqp)
 		if err != nil {
 			fmt.Printf("Error reading %s\n", err)
@@ -72,7 +73,7 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 
 		if tw != nil {
 			is := bytes.NewReader(buf)
-			if err = cutil.WriteStreamToPackage(is, fqp, "src/"+name, tw); err != nil {
+			if err = cutil.WriteStreamToPackage(is, fqp, filepath.Join("src", name), tw); err != nil {
 				return hash, fmt.Errorf("Error adding file to tar %s", err)
 			}
 		}
@@ -83,16 +84,16 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 func isCodeExist(tmppath string) error {
 	file, err := os.Open(tmppath)
 	if err != nil {
-		return fmt.Errorf("Download failer %s", err)
+		return fmt.Errorf("Download failed %s", err)
 	}
 
 	fi, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("could not stat file %s", err)
+		return fmt.Errorf("Could not stat file %s", err)
 	}
 
 	if !fi.IsDir() {
-		return fmt.Errorf("file %s is not dir\n", file.Name())
+		return fmt.Errorf("File %s is not dir\n", file.Name())
 	}
 
 	return nil
@@ -112,7 +113,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	gopath := filepath.SplitList(origgopath)[0]
 
 	// Define a new gopath in which to download the code
-	newgopath := gopath + "/_usercode_"
+	newgopath := filepath.Join(gopath, "_usercode_")
 
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
 	os.Mkdir(newgopath, 0755)
@@ -181,7 +182,7 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 		return
 	}
 	// Only take the first element of GOPATH
-	codegopath = filepath.SplitList(gopath)[0]
+	gopath = filepath.SplitList(gopath)[0]
 
 	return
 }
@@ -240,14 +241,14 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("Error getting code %s", err)
 	}
 
-	tmppath := codegopath + "/src/" + actualcodepath
+	tmppath := filepath.Join(codegopath, "src", actualcodepath)
 	if err = isCodeExist(tmppath); err != nil {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
 	hash := util.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
-	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
+	hash, err = hashFilesInDir(filepath.Join(codegopath, "src"), actualcodepath, hash, tw)
 	if err != nil {
 		return "", fmt.Errorf("Could not get hashcode for %s - %s\n", path, err)
 	}

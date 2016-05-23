@@ -36,10 +36,8 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
 	// Only take the first element of GOPATH
 	gopath = filepath.SplitList(gopath)[0]
-	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
-		gopath = gopath[:len(gopath)]
-	}
-	rootDirectory := fmt.Sprintf("%s%s%s", gopath, string(os.PathSeparator), "src")
+
+	rootDirectory := filepath.Join(gopath, "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary
