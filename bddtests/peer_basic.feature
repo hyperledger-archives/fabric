@@ -495,7 +495,7 @@ Feature: lanching 3 peers
             | vp3  |
         And I wait "15" seconds
 
-        # Invoke 6 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
+        # Invoke 10 more txs, this will trigger a state transfer, set a target, and execute new outstanding transactions
         When I invoke chaincode "example2" function name "invoke" on "vp0" "10" times
 			|arg1|arg2|arg3|
 			| a  | b  | 10 |
@@ -845,3 +845,76 @@ Feature: lanching 3 peers
         |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
         #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
+
+
+
+  @issue_1091
+	Scenario Outline: chaincode example02 with 4 peers and 1 membersrvc, issue #1019 (out of date peer)
+
+	    Given we compose "<ComposeFile>"
+	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+                     | vp0  |
+            And I use the following credentials for querying peers:
+		     | peer |   username  |    secret    |
+		     | vp0  |  test_user0 | MS9qrN8hFjlE |
+		     | vp1  |  test_user1 | jGlNl6ImkuDo |
+		     | vp2  |  test_user2 | zMflqOKezFiA |
+		     | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+	    When requesting "/chain" from "vp0"
+	        Then I should get a JSON response with "height" = "1"
+
+
+            # Deploy
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
+                    | arg1 |  arg2 | arg3 | arg4 |
+                    |  a   |  100  |  b   |  200 |
+	        Then I should have received a chaincode name
+	        Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                     | vp0  | vp1 | vp2 |
+
+        # STOPPING vp3!!!!!!!!!!!!!!!!!!!!!!!!!!
+        Given I stop peers:
+            | vp3  |
+
+            # Execute one request to get vp3 out of sync
+            When I invoke chaincode "example2" function name "invoke" on "vp0"
+                    |arg1|arg2|arg3|
+                    | b  | a  | 1  |
+	        Then I should have received a transactionID
+	        Then I wait up to "120" seconds for transaction to be committed to peers:
+                    | vp0  | vp1 | vp2 |
+
+            When I query chaincode "example2" function name "query" with value "a" on peers:
+                    | vp0  | vp1 | vp2 |
+	        Then I should get a JSON response from peers with "OK" = "101"
+                    | vp0  | vp1 | vp2 |
+
+        # Now start vp3 again
+        Given I start peers:
+            | vp3  |
+        And I wait "15" seconds
+
+        # Invoke 8 more txs, this will trigger a state transfer, but it cannot complete
+        When I invoke chaincode "example2" function name "invoke" on "vp0" "8" times
+			|arg1|arg2|arg3|
+			| a  | b  | 10 |
+	    Then I should have received a transactionID
+	    Then I wait up to "60" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 |
+       # wait a bit to make sure the state is invalid on vp3
+       Then I wait "20" seconds
+        When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 |
+	    Then I should get a JSON response from peers with "OK" = "21"
+            | vp0  | vp1 | vp2 | 
+        When I unconditionally query chaincode "example2" function name "query" with value "a" on peers:
+            | vp3  |
+	    Then I should get a JSON response from peers with "Error" = "Error: state may be inconsistent, cannot query"
+            | vp3  |
+
+
+    Examples: Consensus Options
+        |          ComposeFile                       |   WaitTime   |
+        |   docker-compose-4-consensus-classic.yml   |      60      |
+        |   docker-compose-4-consensus-batch.yml     |      60      |
