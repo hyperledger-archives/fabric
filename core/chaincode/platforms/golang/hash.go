@@ -43,10 +43,10 @@ var logger = logging.MustGetLogger("golang/hash")
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
-	subdir := filepath.Join(rootDir, dir)
-	logger.Debug("hashFiles %s", subdir)
+	currentDir := filepath.Join(rootDir, dir)
+	logger.Debug("hashFiles %s", currentDir)
 	//ReadDir returns sorted list of files in dir
-	fis, err := ioutil.ReadDir(subdir)
+	fis, err := ioutil.ReadDir(currentDir)
 	if err != nil {
 		return hash, fmt.Errorf("ReadDir failed %s\n", err)
 	}
