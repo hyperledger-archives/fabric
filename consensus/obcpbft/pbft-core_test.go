@@ -1187,8 +1187,9 @@ func TestReplicaCrash3(t *testing.T) {
 	// Create new pbft instances to restore from persistence
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
-		os.Setenv("CORE_PBFT_GENERAL_K", "2") // TODO, this is a hacky way to inject config before initialization rather than after, address this in a future changeset
-		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
+		config := loadConfig()
+		config.Set("general.K", "2")
+		pe.pbft = newPbftCore(uint64(id), config, pe.sc)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.requestTimeout = 200 * time.Millisecond
