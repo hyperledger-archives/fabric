@@ -481,7 +481,7 @@ func (op *omniProto) DelState(key string) {
 }
 
 func (op *omniProto) StoreState(key string, value []byte) error {
-	if nil != op.ReadStateImpl {
+	if nil != op.StoreStateImpl {
 		return op.StoreStateImpl(key, value)
 	}
 	return fmt.Errorf("unimplemented")
