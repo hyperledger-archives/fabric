@@ -37,6 +37,7 @@ It has these top-level messages:
 	SigmaOutput
 	BuildResult
 	ChaincodeReg
+	TransactionRequest
 	Interest
 	Register
 	Event

@@ -17,8 +17,9 @@
 import os
 import subprocess
 import devops_pb2
+import fabric_pb2
 
-
+from grpc.beta import implementations
 
 def cli_call(context, arg_list, expect_success=True):
     """Executes a CLI command in a subprocess and return the results.
@@ -94,3 +95,41 @@ def ipFromContainerNamePart(namePart, containerDataList):
     if ip == None:
         raise Exception("Could not find container with namePart = {0}".format(namePart))
     return ip
+
+def getTxResult(context, enrollId):
+    '''Returns the TransactionResult using the enrollId supplied'''
+    assert 'users' in context, "users not found in context. Did you register a user?"
+    assert 'compose_containers' in context, "compose_containers not found in context"
+
+    # Retrieve the userRegistration from the context
+    userRegistration = getUserRegistration(context, enrollId)
+
+    # Get the IP address of the server that the user registered on
+    ipAddress = ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
+    # Get the stub
+    channel = getGRPCChannel(ipAddress)
+    stub = devops_pb2.beta_create_Devops_stub(channel)
+    
+    txRequest = devops_pb2.TransactionRequest(transactionUuid = context.transactionID)
+    response = stub.GetTransactionResult(txRequest, 2)
+    assert response.status == fabric_pb2.Response.SUCCESS, 'Failure getting Transaction Result from {0}, for user "{1}":  {2}'.format(userRegistration.composeService,enrollId, response.msg)
+    # Now grab the TransactionResult from the Msg bytes
+    txResult = fabric_pb2.TransactionResult()
+    txResult.ParseFromString(response.msg)
+    return txResult
+
+def getGRPCChannel(ipAddress):
+    channel = implementations.insecure_channel(ipAddress, 30303)
+    print("Returning GRPC for address: {0}".format(ipAddress))
+    return channel
+
+def getGRPCChannelAndUser(context, enrollId):
+    '''Returns a tuple of GRPC channel and UserRegistration instance.  The channel is open to the composeService that the user registered with.'''
+    userRegistration = getUserRegistration(context, enrollId)
+
+    # Get the IP address of the server that the user registered on
+    ipAddress = ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
+
+    channel = getGRPCChannel(ipAddress)
+
+    return (channel, userRegistration) 

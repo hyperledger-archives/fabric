@@ -1281,25 +1281,34 @@ _sym_db.RegisterMessage(SyncStateDeltas)
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaPeerServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaPeerServicer(object):
+  """Interface exported by the server.
+  """
   def Chat(self, request_iterator, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Accepts a stream of Message during chat session, while receiving
+    other Message (e.g. from other peers).
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def ProcessTransaction(self, request, context):
-    raise NotImplementedError()
+    """Process a transaction from a remote source.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaPeerStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaPeerStub(object):
+  """Interface exported by the server.
+  """
   def Chat(self, request_iterator, timeout):
+    """Accepts a stream of Message during chat session, while receiving
+    other Message (e.g. from other peers).
+    """
     raise NotImplementedError()
-  @abc.abstractmethod
   def ProcessTransaction(self, request, timeout):
+    """Process a transaction from a remote source.
+    """
     raise NotImplementedError()
   ProcessTransaction.future = None
 
