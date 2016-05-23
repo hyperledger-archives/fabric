@@ -182,7 +182,7 @@ func getCodeFromFS(path string) (codegopath string, err error) {
 		return
 	}
 	// Only take the first element of GOPATH
-	gopath = filepath.SplitList(gopath)[0]
+	codegopath = filepath.SplitList(gopath)[0]
 
 	return
 }
