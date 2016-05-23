@@ -147,7 +147,7 @@ func getPeerAddress() string {
 	}
 
 	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
-		chaincodeLogger.Fatalf("Peer address not configured, can't connect to peer")
+		chaincodeLogger.Fatalf("peer.address not configured, can't connect to peer")
 	}
 
 	return peerAddress
