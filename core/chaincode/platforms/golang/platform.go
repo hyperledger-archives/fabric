@@ -19,10 +19,11 @@ package golang
 import (
 	"archive/tar"
 	"fmt"
-	pb "github.com/hyperledger/fabric/protos"
 	"net/url"
 	"os"
 	"path/filepath"
+
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type Platform struct {

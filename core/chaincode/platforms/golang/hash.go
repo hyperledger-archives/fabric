@@ -22,14 +22,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/op/go-logging"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 
 	cutil "github.com/hyperledger/fabric/core/container/util"
 	"github.com/hyperledger/fabric/core/util"
