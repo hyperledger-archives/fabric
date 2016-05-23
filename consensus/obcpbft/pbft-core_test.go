@@ -1228,3 +1228,56 @@ func TestReplicaCrash3(t *testing.T) {
 		}
 	}
 }
+
+func TestReplicaPersistQSet(t *testing.T) {
+	persist := make(map[string][]byte)
+
+	stack := &omniProto{
+		validateImpl: func(b []byte) error {
+			return nil
+		},
+		broadcastImpl: func(msg []byte) {
+		},
+		StoreStateImpl: func(key string, value []byte) error {
+			persist[key] = value
+			return nil
+		},
+		DelStateImpl: func(key string) {
+			delete(persist, key)
+		},
+		ReadStateImpl: func(key string) ([]byte, error) {
+			if val, ok := persist[key]; ok {
+				return val, nil
+			} else {
+				return nil, fmt.Errorf("key not found")
+			}
+		},
+		ReadStateSetImpl: func(prefix string) (map[string][]byte, error) {
+			r := make(map[string][]byte)
+			for k, v := range persist {
+				if len(k) >= len(prefix) && k[0:len(prefix)] == prefix {
+					r[k] = v
+				}
+			}
+			return r, nil
+		},
+	}
+	p := newPbftCore(1, loadConfig(), stack)
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   []byte("foo"),
+		ReplicaId: uint64(0),
+	}
+	p.recvMsgSync(&Message{&Message_PrePrepare{&PrePrepare{
+		View:           0,
+		SequenceNumber: 1,
+		RequestDigest:  hashReq(req),
+		Request:        req,
+		ReplicaId:      uint64(0),
+	}}}, uint64(0))
+
+	p = newPbftCore(1, loadConfig(), stack)
+	if !p.prePrepared(hashReq(req), 0, 1) {
+		t.Errorf("did not restore qset properly")
+	}
+}
