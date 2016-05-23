@@ -75,8 +75,8 @@ func ParseAttributesHeader(header string) (map[string]int, error) {
 	return result, nil
 }
 
-//ReadTCertAttribute rreads the attribute with name "attributeName" and returns the value and a boolean indicating if the returned value is encrypted or not.
-func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey []byte) ([]byte, bool, error) {
+//ReadAttributeHeader read the header of the attributes.
+func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]int, bool, error) {
 	var err error
 	var headerRaw []byte
 	encrypted := false
@@ -93,7 +93,7 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey
 		headerRaw, err = DecryptAttributeValue(headerKey, headerRaw)
 
 		if err != nil {
-			return nil, encrypted, err
+			return nil, encrypted, errors.New("error decrypting header value '" + err.Error() + "''")
 		}
 		headerStr = string(headerRaw)
 		header, err = ParseAttributesHeader(headerStr)
@@ -102,16 +102,31 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey
 		}
 		encrypted = true
 	}
+	return header, encrypted, nil
+}
 
+//ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
+func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
+	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
+	value, err := utils.GetCriticalExtension(tcert, oid)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+//ReadTCertAttribute read the attribute with name "attributeName" and returns the value and a boolean indicating if the returned value is encrypted or not.
+func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey []byte) ([]byte, bool, error) {
+	header, encrypted, err := ReadAttributeHeader(tcert, headerKey)
+	if err != nil {
+		return nil, false, err
+	}
 	position := header[attributeName]
 	if position == 0 {
 		return nil, encrypted, errors.New("Failed attribute '" + attributeName + "' doesn't exists in the TCert.")
 	}
-
-	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-
-	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+	value, err := ReadTCertAttributeByPosition(tcert, position)
+	if err != nil {
 		return nil, encrypted, err
 	}
 	return value, encrypted, nil

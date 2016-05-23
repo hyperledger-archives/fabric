@@ -75,9 +75,11 @@ type ABACHandler interface {
 
 //ABACHandlerImpl is an implementation of ABACHandler interface.
 type ABACHandlerImpl struct {
-	cert  *x509.Certificate
-	cache map[string][]byte
-	keys  map[string][]byte
+	cert      *x509.Certificate
+	cache     map[string][]byte
+	keys      map[string][]byte
+	header    map[string]int
+	encrypted bool
 }
 
 //NewABACHandlerImpl creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
@@ -111,7 +113,20 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 	}
 
 	cache := make(map[string][]byte)
-	return &ABACHandlerImpl{tcert, cache, keys}, nil
+	return &ABACHandlerImpl{tcert, cache, keys, nil, false}, nil
+}
+
+func (abacHandler *ABACHandlerImpl) readHeader() (map[string]int, bool, error) {
+	if abacHandler.header != nil {
+		return abacHandler.header, abacHandler.encrypted, nil
+	}
+	header, encrypted, err := abac.ReadAttributeHeader(abacHandler.cert, abacHandler.keys[abac.HeaderAttributeName])
+	if err != nil {
+		return nil, false, err
+	}
+	abacHandler.header = header
+	abacHandler.encrypted = encrypted
+	return header, encrypted, nil
 }
 
 //GetValue is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
@@ -121,9 +136,13 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 	if abacHandler.cache[attributeName] != nil {
 		return abacHandler.cache[attributeName], nil
 	}
-	value, encrypted, err := abac.ReadTCertAttribute(abacHandler.cert, attributeName, abacHandler.keys[abac.HeaderAttributeName])
+	header, encrypted, err := abacHandler.readHeader()
 	if err != nil {
 		return nil, err
+	}
+	value, err := abac.ReadTCertAttributeByPosition(abacHandler.cert, header[attributeName])
+	if err != nil {
+		return nil, errors.New("error reading attribute value '" + err.Error() + "'")
 	}
 	if abacHandler.keys[attributeName] == nil {
 		return nil, errors.New("There isn't a key")
@@ -131,7 +150,7 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 	if encrypted {
 		value, err = abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("error decrypting value '" + err.Error() + "'")
 		}
 	}
 	abacHandler.cache[attributeName] = value

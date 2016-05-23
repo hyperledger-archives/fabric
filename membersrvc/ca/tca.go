@@ -341,7 +341,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	}
 
 	var attributes = []*pb.TCertAttribute{}
-	if in.Attributes != nil {
+	if in.Attributes != nil && viper.GetBool("aca.enabled") {
 		attributes, err = tcap.requestAttributes(id, raw, in.Attributes)
 		if err != nil {
 			return nil, err

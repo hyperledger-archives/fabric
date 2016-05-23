@@ -26,10 +26,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"crypto/rand"
 
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
 	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -291,6 +293,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+//TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACompany".
 func TestClientGetAttributesFromTCert(t *testing.T) {
 	tcert, err := deployer.GetNextTCert(attributes)
 
@@ -320,6 +323,130 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	if attributeValue != "ACompany" {
 		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
+}
+
+//TestClientVerifyInvalidAttribute verfies that the TCert doesn't containes a company attribute since the value passed by the user isn't certified by ACA.
+func TestClientVerifyInvalidAttribute(t *testing.T) {
+	otherAttributes := map[string]string{"company": "InvalidCompany", "position": "Software Engineer"}
+
+	tcert, err := deployer.GetNextTCert(otherAttributes)
+
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if tcert == nil {
+		t.Fatalf("TCert should be different from nil")
+	}
+
+	tcertDER := tcert.GetCertificate().Raw
+
+	if tcertDER == nil {
+		t.Fatalf("Cert should be different from nil")
+	}
+	if len(tcertDER) == 0 {
+		t.Fatalf("Cert should have length > 0")
+	}
+
+	_, err = abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
+	if err == nil {
+		t.Fatalf("This TCert shouldn't has a company attribute")
+	}
+	if strings.Compare(err.Error(), "Failed attribute 'company' doesn't exists in the TCert.") != 0 {
+		t.Fatalf("Invalid error: %v", err)
+	}
+}
+
+type chaincodeStubMock struct {
+	callerCert []byte
+	metadata   []byte
+}
+
+// GetCallerCertificate returns caller certificate
+func (shim *chaincodeStubMock) GetCallerCertificate() ([]byte, error) {
+	return shim.callerCert, nil
+}
+
+// GetCallerMetadata returns caller metadata
+func (shim *chaincodeStubMock) GetCallerMetadata() ([]byte, error) {
+	return shim.metadata, nil
+}
+
+//TestShimAttributeVerification tests the verification of attributes within mocking a chaincode stub.
+func TestShimAttributeVerification(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attributes)
+	metadata := []byte{32, 64}
+	tcertder := tcert.GetCertificate().Raw
+	abacMetadata, err := abac.CreateABACMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
+	if err != nil {
+		t.Error(err)
+	}
+	stub := &chaincodeStubMock{tcertder, abacMetadata}
+
+	handler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	isOk, err := handler.VerifyAttribute("company", []byte("ACompany"))
+	if err != nil {
+		t.Fatalf("Error verifying 'company' %v", err)
+	}
+
+	if !isOk {
+		t.Fatalf("Attribute company not valid.")
+	}
+
+	isOk, err = handler.VerifyAttribute("position", []byte("Software Engineer"))
+	if err != nil {
+		t.Fatalf("Error verifying 'position' %v", err)
+	}
+
+	if !isOk {
+		t.Fatalf("Attribute position not valid.")
+	}
+
+}
+
+//TestShimAttributeVerificationWithTwoHandlers tests the verification of attributes within mocking a chaincode stub with two handlers.
+func TestShimAttributeVerificationWithTwoHandlers(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attributes)
+	metadata := []byte{32, 64}
+	tcertder := tcert.GetCertificate().Raw
+	abacMetadata, err := abac.CreateABACMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
+	if err != nil {
+		t.Error(err)
+	}
+	stub := &chaincodeStubMock{tcertder, abacMetadata}
+
+	handler, err := ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	isOk, err := handler.VerifyAttribute("company", []byte("ACompany"))
+	if err != nil {
+		t.Fatalf("Error verifying 'company' %v", err)
+	}
+
+	if !isOk {
+		t.Fatalf("Attribute company not valid.")
+	}
+
+	//Second handler
+	handler, err = ac.NewABACHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	isOk, err = handler.VerifyAttribute("position", []byte("Software Engineer"))
+	if err != nil {
+		t.Fatalf("Error verifying 'position' %v", err)
+	}
+
+	if !isOk {
+		t.Fatalf("Attribute position not valid.")
+	}
+
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
