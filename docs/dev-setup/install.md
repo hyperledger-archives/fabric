@@ -72,6 +72,8 @@ The `node start` command will initiate a peer process, with which one can intera
       help        Help about any command
 ```
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
@@ -84,8 +86,6 @@ Use the following sequence to run all unit tests
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and call/excecute
 
     go test -v -run=TestGetFoo
-
-**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
 
 #### 3.2 Node.js Unit Tests
 
