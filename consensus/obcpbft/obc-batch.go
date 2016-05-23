@@ -36,6 +36,7 @@ type obcBatch struct {
 	batchTimer       *time.Timer
 	batchTimerActive bool
 	batchTimeout     time.Duration
+	inViewChange     bool
 
 	incomingChan     chan *batchMessage // Queues messages for processing by main thread
 	custodyTimerChan chan custodyInfo   // Queues complaints
@@ -424,6 +425,7 @@ func (op *obcBatch) main() {
 			}
 		case <-op.viewChanged:
 			logger.Debug("Replica %d batch thread recognizing new view", op.pbft.id)
+			op.inViewChange = false
 			if op.batchTimerActive {
 				op.stopBatchTimer()
 			}
@@ -443,8 +445,9 @@ func (op *obcBatch) main() {
 				logger.Warning("Batch replica %d custody expired, complaining: %s", op.pbft.id, c.hash)
 				op.broadcastMsg(&BatchMessage{&BatchMessage_Complaint{c.req.(*Request)}})
 			} else {
-				if op.pbft.activeView {
+				if !op.inViewChange && op.pbft.activeView {
 					logger.Debug("Batch replica %d complaint timeout expired for %s", op.pbft.id, c.hash)
+					op.inViewChange = true
 					op.pbft.injectChan <- func() { op.pbft.sendViewChange() }
 				} else {
 					logger.Debug("Batch replica %d complaint timeout expired for %s while in view change", op.pbft.id, c.hash)
