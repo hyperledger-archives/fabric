@@ -261,19 +261,24 @@ _sym_db.RegisterMessage(Event)
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaEventsServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaEventsServicer(object):
+  """Interface exported by the events server
+  """
   def Chat(self, request_iterator, context):
-    raise NotImplementedError()
+    """event chatting using Event
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaEventsStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaEventsStub(object):
+  """Interface exported by the events server
+  """
   def Chat(self, request_iterator, timeout):
+    """event chatting using Event
+    """
     raise NotImplementedError()
 
 def beta_create_Events_server(servicer, pool=None, pool_size=None, default_timeout=None, maximum_timeout=None):

@@ -112,32 +112,33 @@ _sym_db.RegisterMessage(ServerStatus)
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaAdminServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaAdminServicer(object):
+  """Interface exported by the server.
+  """
   def GetStatus(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Return the serve status.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def StartServer(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def StopServer(self, request, context):
-    raise NotImplementedError()
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaAdminStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaAdminStub(object):
+  """Interface exported by the server.
+  """
   def GetStatus(self, request, timeout):
+    """Return the serve status.
+    """
     raise NotImplementedError()
   GetStatus.future = None
-  @abc.abstractmethod
   def StartServer(self, request, timeout):
     raise NotImplementedError()
   StartServer.future = None
-  @abc.abstractmethod
   def StopServer(self, request, timeout):
     raise NotImplementedError()
   StopServer.future = None

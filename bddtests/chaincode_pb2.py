@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='chaincode.proto',
   package='protos',
   syntax='proto3',
-  serialized_pb=_b('\n\x0f\x63haincode.proto\x12\x06protos\x1a\x1fgoogle/protobuf/timestamp.proto\")\n\x0b\x43haincodeID\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"0\n\x0e\x43haincodeInput\x12\x10\n\x08\x66unction\x18\x01 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x02 \x03(\t\"\xaf\x02\n\rChaincodeSpec\x12(\n\x04type\x18\x01 \x01(\x0e\x32\x1a.protos.ChaincodeSpec.Type\x12(\n\x0b\x63haincodeID\x18\x02 \x01(\x0b\x32\x13.protos.ChaincodeID\x12\'\n\x07\x63torMsg\x18\x03 \x01(\x0b\x32\x16.protos.ChaincodeInput\x12\x0f\n\x07timeout\x18\x04 \x01(\x05\x12\x15\n\rsecureContext\x18\x05 \x01(\t\x12:\n\x14\x63onfidentialityLevel\x18\x06 \x01(\x0e\x32\x1c.protos.ConfidentialityLevel\x12\x10\n\x08metadata\x18\x07 \x01(\x0c\"+\n\x04Type\x12\r\n\tUNDEFINED\x10\x00\x12\n\n\x06GOLANG\x10\x01\x12\x08\n\x04NODE\x10\x02\"\x86\x02\n\x17\x43haincodeDeploymentSpec\x12,\n\rchaincodeSpec\x18\x01 \x01(\x0b\x32\x15.protos.ChaincodeSpec\x12\x31\n\reffectiveDate\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x63odePackage\x18\x03 \x01(\x0c\x12\x45\n\x07\x65xecEnv\x18\x04 \x01(\x0e\x32\x34.protos.ChaincodeDeploymentSpec.ExecutionEnvironment\".\n\x14\x45xecutionEnvironment\x12\n\n\x06\x44OCKER\x10\x00\x12\n\n\x06SYSTEM\x10\x01\"G\n\x17\x43haincodeInvocationSpec\x12,\n\rchaincodeSpec\x18\x01 \x01(\x0b\x32\x15.protos.ChaincodeSpec\"\x8e\x01\n\x18\x43haincodeSecurityContext\x12\x12\n\ncallerCert\x18\x01 \x01(\x0c\x12\x12\n\ncallerSign\x18\x02 \x01(\x0c\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x0f\n\x07\x62inding\x18\x04 \x01(\x0c\x12\x10\n\x08metadata\x18\x05 \x01(\x0c\x12\x16\n\x0eparentMetadata\x18\x06 \x01(\x0c\"\xa2\x04\n\x10\x43haincodeMessage\x12+\n\x04type\x18\x01 \x01(\x0e\x32\x1d.protos.ChaincodeMessage.Type\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x0c\n\x04uuid\x18\x04 \x01(\t\x12\x39\n\x0fsecurityContext\x18\x05 \x01(\x0b\x32 .protos.ChaincodeSecurityContext\"\xd7\x02\n\x04Type\x12\r\n\tUNDEFINED\x10\x00\x12\x0c\n\x08REGISTER\x10\x01\x12\x0e\n\nREGISTERED\x10\x02\x12\x08\n\x04INIT\x10\x03\x12\t\n\x05READY\x10\x04\x12\x0f\n\x0bTRANSACTION\x10\x05\x12\r\n\tCOMPLETED\x10\x06\x12\t\n\x05\x45RROR\x10\x07\x12\r\n\tGET_STATE\x10\x08\x12\r\n\tPUT_STATE\x10\t\x12\r\n\tDEL_STATE\x10\n\x12\x14\n\x10INVOKE_CHAINCODE\x10\x0b\x12\x10\n\x0cINVOKE_QUERY\x10\x0c\x12\x0c\n\x08RESPONSE\x10\r\x12\t\n\x05QUERY\x10\x0e\x12\x13\n\x0fQUERY_COMPLETED\x10\x0f\x12\x0f\n\x0bQUERY_ERROR\x10\x10\x12\x15\n\x11RANGE_QUERY_STATE\x10\x11\x12\x1a\n\x16RANGE_QUERY_STATE_NEXT\x10\x12\x12\x1b\n\x17RANGE_QUERY_STATE_CLOSE\x10\x13\"*\n\x0cPutStateInfo\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c\"3\n\x0fRangeQueryState\x12\x10\n\x08startKey\x18\x01 \x01(\t\x12\x0e\n\x06\x65ndKey\x18\x02 \x01(\t\"!\n\x13RangeQueryStateNext\x12\n\n\x02ID\x18\x01 \x01(\t\"\"\n\x14RangeQueryStateClose\x12\n\n\x02ID\x18\x01 \x01(\t\"5\n\x17RangeQueryStateKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c\"n\n\x17RangeQueryStateResponse\x12\x36\n\rkeysAndValues\x18\x01 \x03(\x0b\x32\x1f.protos.RangeQueryStateKeyValue\x12\x0f\n\x07hasMore\x18\x02 \x01(\x08\x12\n\n\x02ID\x18\x03 \x01(\t*4\n\x14\x43onfidentialityLevel\x12\n\n\x06PUBLIC\x10\x00\x12\x10\n\x0c\x43ONFIDENTIAL\x10\x01\x32X\n\x10\x43haincodeSupport\x12\x44\n\x08Register\x12\x18.protos.ChaincodeMessage\x1a\x18.protos.ChaincodeMessage\"\x00(\x01\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0f\x63haincode.proto\x12\x06protos\x1a\x1fgoogle/protobuf/timestamp.proto\")\n\x0b\x43haincodeID\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\"0\n\x0e\x43haincodeInput\x12\x10\n\x08\x66unction\x18\x01 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x02 \x03(\t\"\xb8\x02\n\rChaincodeSpec\x12(\n\x04type\x18\x01 \x01(\x0e\x32\x1a.protos.ChaincodeSpec.Type\x12(\n\x0b\x63haincodeID\x18\x02 \x01(\x0b\x32\x13.protos.ChaincodeID\x12\'\n\x07\x63torMsg\x18\x03 \x01(\x0b\x32\x16.protos.ChaincodeInput\x12\x0f\n\x07timeout\x18\x04 \x01(\x05\x12\x15\n\rsecureContext\x18\x05 \x01(\t\x12:\n\x14\x63onfidentialityLevel\x18\x06 \x01(\x0e\x32\x1c.protos.ConfidentialityLevel\x12\x10\n\x08metadata\x18\x07 \x01(\x0c\"4\n\x04Type\x12\r\n\tUNDEFINED\x10\x00\x12\n\n\x06GOLANG\x10\x01\x12\x08\n\x04NODE\x10\x02\x12\x07\n\x03\x43\x41R\x10\x03\"\x86\x02\n\x17\x43haincodeDeploymentSpec\x12,\n\rchaincodeSpec\x18\x01 \x01(\x0b\x32\x15.protos.ChaincodeSpec\x12\x31\n\reffectiveDate\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x63odePackage\x18\x03 \x01(\x0c\x12\x45\n\x07\x65xecEnv\x18\x04 \x01(\x0e\x32\x34.protos.ChaincodeDeploymentSpec.ExecutionEnvironment\".\n\x14\x45xecutionEnvironment\x12\n\n\x06\x44OCKER\x10\x00\x12\n\n\x06SYSTEM\x10\x01\"G\n\x17\x43haincodeInvocationSpec\x12,\n\rchaincodeSpec\x18\x01 \x01(\x0b\x32\x15.protos.ChaincodeSpec\"\xbf\x01\n\x18\x43haincodeSecurityContext\x12\x12\n\ncallerCert\x18\x01 \x01(\x0c\x12\x12\n\ncallerSign\x18\x02 \x01(\x0c\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x0f\n\x07\x62inding\x18\x04 \x01(\x0c\x12\x10\n\x08metadata\x18\x05 \x01(\x0c\x12\x16\n\x0eparentMetadata\x18\x06 \x01(\x0c\x12/\n\x0btxTimestamp\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xa2\x04\n\x10\x43haincodeMessage\x12+\n\x04type\x18\x01 \x01(\x0e\x32\x1d.protos.ChaincodeMessage.Type\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x0c\n\x04uuid\x18\x04 \x01(\t\x12\x39\n\x0fsecurityContext\x18\x05 \x01(\x0b\x32 .protos.ChaincodeSecurityContext\"\xd7\x02\n\x04Type\x12\r\n\tUNDEFINED\x10\x00\x12\x0c\n\x08REGISTER\x10\x01\x12\x0e\n\nREGISTERED\x10\x02\x12\x08\n\x04INIT\x10\x03\x12\t\n\x05READY\x10\x04\x12\x0f\n\x0bTRANSACTION\x10\x05\x12\r\n\tCOMPLETED\x10\x06\x12\t\n\x05\x45RROR\x10\x07\x12\r\n\tGET_STATE\x10\x08\x12\r\n\tPUT_STATE\x10\t\x12\r\n\tDEL_STATE\x10\n\x12\x14\n\x10INVOKE_CHAINCODE\x10\x0b\x12\x10\n\x0cINVOKE_QUERY\x10\x0c\x12\x0c\n\x08RESPONSE\x10\r\x12\t\n\x05QUERY\x10\x0e\x12\x13\n\x0fQUERY_COMPLETED\x10\x0f\x12\x0f\n\x0bQUERY_ERROR\x10\x10\x12\x15\n\x11RANGE_QUERY_STATE\x10\x11\x12\x1a\n\x16RANGE_QUERY_STATE_NEXT\x10\x12\x12\x1b\n\x17RANGE_QUERY_STATE_CLOSE\x10\x13\"*\n\x0cPutStateInfo\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c\"3\n\x0fRangeQueryState\x12\x10\n\x08startKey\x18\x01 \x01(\t\x12\x0e\n\x06\x65ndKey\x18\x02 \x01(\t\"!\n\x13RangeQueryStateNext\x12\n\n\x02ID\x18\x01 \x01(\t\"\"\n\x14RangeQueryStateClose\x12\n\n\x02ID\x18\x01 \x01(\t\"5\n\x17RangeQueryStateKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c\"n\n\x17RangeQueryStateResponse\x12\x36\n\rkeysAndValues\x18\x01 \x03(\x0b\x32\x1f.protos.RangeQueryStateKeyValue\x12\x0f\n\x07hasMore\x18\x02 \x01(\x08\x12\n\n\x02ID\x18\x03 \x01(\t*4\n\x14\x43onfidentialityLevel\x12\n\n\x06PUBLIC\x10\x00\x12\x10\n\x0c\x43ONFIDENTIAL\x10\x01\x32X\n\x10\x43haincodeSupport\x12\x44\n\x08Register\x12\x18.protos.ChaincodeMessage\x1a\x18.protos.ChaincodeMessage\"\x00(\x01\x30\x01\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
@@ -43,8 +43,8 @@ _CONFIDENTIALITYLEVEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1826,
-  serialized_end=1878,
+  serialized_start=1884,
+  serialized_end=1936,
 )
 _sym_db.RegisterEnumDescriptor(_CONFIDENTIALITYLEVEL)
 
@@ -71,11 +71,15 @@ _CHAINCODESPEC_TYPE = _descriptor.EnumDescriptor(
       name='NODE', index=2, number=2,
       options=None,
       type=None),
+    _descriptor.EnumValueDescriptor(
+      name='CAR', index=3, number=3,
+      options=None,
+      type=None),
   ],
   containing_type=None,
   options=None,
   serialized_start=414,
-  serialized_end=457,
+  serialized_end=466,
 )
 _sym_db.RegisterEnumDescriptor(_CHAINCODESPEC_TYPE)
 
@@ -96,8 +100,8 @@ _CHAINCODEDEPLOYMENTSPEC_EXECUTIONENVIRONMENT = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=676,
-  serialized_end=722,
+  serialized_start=685,
+  serialized_end=731,
 )
 _sym_db.RegisterEnumDescriptor(_CHAINCODEDEPLOYMENTSPEC_EXECUTIONENVIRONMENT)
 
@@ -190,8 +194,8 @@ _CHAINCODEMESSAGE_TYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1146,
-  serialized_end=1489,
+  serialized_start=1204,
+  serialized_end=1547,
 )
 _sym_db.RegisterEnumDescriptor(_CHAINCODEMESSAGE_TYPE)
 
@@ -342,7 +346,7 @@ _CHAINCODESPEC = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=154,
-  serialized_end=457,
+  serialized_end=466,
 )
 
 
@@ -394,8 +398,8 @@ _CHAINCODEDEPLOYMENTSPEC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=460,
-  serialized_end=722,
+  serialized_start=469,
+  serialized_end=731,
 )
 
 
@@ -425,8 +429,8 @@ _CHAINCODEINVOCATIONSPEC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=724,
-  serialized_end=795,
+  serialized_start=733,
+  serialized_end=804,
 )
 
 
@@ -479,6 +483,13 @@ _CHAINCODESECURITYCONTEXT = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='txTimestamp', full_name='protos.ChaincodeSecurityContext.txTimestamp', index=6,
+      number=7, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -491,8 +502,8 @@ _CHAINCODESECURITYCONTEXT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=798,
-  serialized_end=940,
+  serialized_start=807,
+  serialized_end=998,
 )
 
 
@@ -551,8 +562,8 @@ _CHAINCODEMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=943,
-  serialized_end=1489,
+  serialized_start=1001,
+  serialized_end=1547,
 )
 
 
@@ -589,8 +600,8 @@ _PUTSTATEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1491,
-  serialized_end=1533,
+  serialized_start=1549,
+  serialized_end=1591,
 )
 
 
@@ -627,8 +638,8 @@ _RANGEQUERYSTATE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1535,
-  serialized_end=1586,
+  serialized_start=1593,
+  serialized_end=1644,
 )
 
 
@@ -658,8 +669,8 @@ _RANGEQUERYSTATENEXT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1588,
-  serialized_end=1621,
+  serialized_start=1646,
+  serialized_end=1679,
 )
 
 
@@ -689,8 +700,8 @@ _RANGEQUERYSTATECLOSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1623,
-  serialized_end=1657,
+  serialized_start=1681,
+  serialized_end=1715,
 )
 
 
@@ -727,8 +738,8 @@ _RANGEQUERYSTATEKEYVALUE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1659,
-  serialized_end=1712,
+  serialized_start=1717,
+  serialized_end=1770,
 )
 
 
@@ -772,8 +783,8 @@ _RANGEQUERYSTATERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1714,
-  serialized_end=1824,
+  serialized_start=1772,
+  serialized_end=1882,
 )
 
 _CHAINCODESPEC.fields_by_name['type'].enum_type = _CHAINCODESPEC_TYPE
@@ -786,6 +797,7 @@ _CHAINCODEDEPLOYMENTSPEC.fields_by_name['effectiveDate'].message_type = google_d
 _CHAINCODEDEPLOYMENTSPEC.fields_by_name['execEnv'].enum_type = _CHAINCODEDEPLOYMENTSPEC_EXECUTIONENVIRONMENT
 _CHAINCODEDEPLOYMENTSPEC_EXECUTIONENVIRONMENT.containing_type = _CHAINCODEDEPLOYMENTSPEC
 _CHAINCODEINVOCATIONSPEC.fields_by_name['chaincodeSpec'].message_type = _CHAINCODESPEC
+_CHAINCODESECURITYCONTEXT.fields_by_name['txTimestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _CHAINCODEMESSAGE.fields_by_name['type'].enum_type = _CHAINCODEMESSAGE_TYPE
 _CHAINCODEMESSAGE.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _CHAINCODEMESSAGE.fields_by_name['securityContext'].message_type = _CHAINCODESECURITYCONTEXT
@@ -901,18 +913,21 @@ _sym_db.RegisterMessage(RangeQueryStateResponse)
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaChaincodeSupportServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaChaincodeSupportServicer(object):
+  """Interface that provides support to chaincode execution. ChaincodeContext
+  provides the context necessary for the server to respond appropriately.
+  """
   def Register(self, request_iterator, context):
-    raise NotImplementedError()
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaChaincodeSupportStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaChaincodeSupportStub(object):
+  """Interface that provides support to chaincode execution. ChaincodeContext
+  provides the context necessary for the server to respond appropriately.
+  """
   def Register(self, request_iterator, timeout):
     raise NotImplementedError()
 

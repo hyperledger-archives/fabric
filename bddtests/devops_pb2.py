@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='devops.proto',
   package='protos',
   syntax='proto3',
-  serialized_pb=_b('\n\x0c\x64\x65vops.proto\x12\x06protos\x1a\x0f\x63haincode.proto\x1a\x0c\x66\x61\x62ric.proto\"0\n\x06Secret\x12\x10\n\x08\x65nrollId\x18\x01 \x01(\t\x12\x14\n\x0c\x65nrollSecret\x18\x02 \x01(\t\"L\n\nSigmaInput\x12\x1e\n\x06secret\x18\x01 \x01(\x0b\x32\x0e.protos.Secret\x12\x10\n\x08\x61ppTCert\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"g\n\x12\x45xecuteWithBinding\x12@\n\x17\x63haincodeInvocationSpec\x18\x01 \x01(\x0b\x32\x1f.protos.ChaincodeInvocationSpec\x12\x0f\n\x07\x62inding\x18\x02 \x01(\x0c\"A\n\x0bSigmaOutput\x12\r\n\x05tcert\x18\x01 \x01(\x0c\x12\r\n\x05sigma\x18\x02 \x01(\x0c\x12\x14\n\x0c\x61sn1Encoding\x18\x03 \x01(\x0c\"\xba\x01\n\x0b\x42uildResult\x12.\n\x06status\x18\x01 \x01(\x0e\x32\x1e.protos.BuildResult.StatusCode\x12\x0b\n\x03msg\x18\x02 \x01(\t\x12\x37\n\x0e\x64\x65ploymentSpec\x18\x03 \x01(\x0b\x32\x1f.protos.ChaincodeDeploymentSpec\"5\n\nStatusCode\x12\r\n\tUNDEFINED\x10\x00\x12\x0b\n\x07SUCCESS\x10\x01\x12\x0b\n\x07\x46\x41ILURE\x10\x02\x32\xb6\x04\n\x06\x44\x65vops\x12+\n\x05Login\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12\x41\n\x05\x42uild\x12\x15.protos.ChaincodeSpec\x1a\x1f.protos.ChaincodeDeploymentSpec\"\x00\x12\x42\n\x06\x44\x65ploy\x12\x15.protos.ChaincodeSpec\x1a\x1f.protos.ChaincodeDeploymentSpec\"\x00\x12=\n\x06Invoke\x12\x1f.protos.ChaincodeInvocationSpec\x1a\x10.protos.Response\"\x00\x12<\n\x05Query\x12\x1f.protos.ChaincodeInvocationSpec\x1a\x10.protos.Response\"\x00\x12=\n\x17\x45XP_GetApplicationTCert\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12\x36\n\x10\x45XP_PrepareForTx\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12:\n\x10\x45XP_ProduceSigma\x12\x12.protos.SigmaInput\x1a\x10.protos.Response\"\x00\x12H\n\x16\x45XP_ExecuteWithBinding\x12\x1a.protos.ExecuteWithBinding\x1a\x10.protos.Response\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x0c\x64\x65vops.proto\x12\x06protos\x1a\x0f\x63haincode.proto\x1a\x0c\x66\x61\x62ric.proto\"0\n\x06Secret\x12\x10\n\x08\x65nrollId\x18\x01 \x01(\t\x12\x14\n\x0c\x65nrollSecret\x18\x02 \x01(\t\"L\n\nSigmaInput\x12\x1e\n\x06secret\x18\x01 \x01(\x0b\x32\x0e.protos.Secret\x12\x10\n\x08\x61ppTCert\x18\x02 \x01(\x0c\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"g\n\x12\x45xecuteWithBinding\x12@\n\x17\x63haincodeInvocationSpec\x18\x01 \x01(\x0b\x32\x1f.protos.ChaincodeInvocationSpec\x12\x0f\n\x07\x62inding\x18\x02 \x01(\x0c\"A\n\x0bSigmaOutput\x12\r\n\x05tcert\x18\x01 \x01(\x0c\x12\r\n\x05sigma\x18\x02 \x01(\x0c\x12\x14\n\x0c\x61sn1Encoding\x18\x03 \x01(\x0c\"\xba\x01\n\x0b\x42uildResult\x12.\n\x06status\x18\x01 \x01(\x0e\x32\x1e.protos.BuildResult.StatusCode\x12\x0b\n\x03msg\x18\x02 \x01(\t\x12\x37\n\x0e\x64\x65ploymentSpec\x18\x03 \x01(\x0b\x32\x1f.protos.ChaincodeDeploymentSpec\"5\n\nStatusCode\x12\r\n\tUNDEFINED\x10\x00\x12\x0b\n\x07SUCCESS\x10\x01\x12\x0b\n\x07\x46\x41ILURE\x10\x02\"-\n\x12TransactionRequest\x12\x17\n\x0ftransactionUuid\x18\x01 \x01(\t2\xfe\x04\n\x06\x44\x65vops\x12+\n\x05Login\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12\x41\n\x05\x42uild\x12\x15.protos.ChaincodeSpec\x1a\x1f.protos.ChaincodeDeploymentSpec\"\x00\x12\x42\n\x06\x44\x65ploy\x12\x15.protos.ChaincodeSpec\x1a\x1f.protos.ChaincodeDeploymentSpec\"\x00\x12=\n\x06Invoke\x12\x1f.protos.ChaincodeInvocationSpec\x1a\x10.protos.Response\"\x00\x12<\n\x05Query\x12\x1f.protos.ChaincodeInvocationSpec\x1a\x10.protos.Response\"\x00\x12\x46\n\x14GetTransactionResult\x12\x1a.protos.TransactionRequest\x1a\x10.protos.Response\"\x00\x12=\n\x17\x45XP_GetApplicationTCert\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12\x36\n\x10\x45XP_PrepareForTx\x12\x0e.protos.Secret\x1a\x10.protos.Response\"\x00\x12:\n\x10\x45XP_ProduceSigma\x12\x12.protos.SigmaInput\x1a\x10.protos.Response\"\x00\x12H\n\x16\x45XP_ExecuteWithBinding\x12\x1a.protos.ExecuteWithBinding\x1a\x10.protos.Response\"\x00\x62\x06proto3')
   ,
   dependencies=[chaincode__pb2.DESCRIPTOR,fabric__pb2.DESCRIPTOR,])
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
@@ -266,6 +266,37 @@ _BUILDRESULT = _descriptor.Descriptor(
   serialized_end=542,
 )
 
+
+_TRANSACTIONREQUEST = _descriptor.Descriptor(
+  name='TransactionRequest',
+  full_name='protos.TransactionRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='transactionUuid', full_name='protos.TransactionRequest.transactionUuid', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=544,
+  serialized_end=589,
+)
+
 _SIGMAINPUT.fields_by_name['secret'].message_type = _SECRET
 _EXECUTEWITHBINDING.fields_by_name['chaincodeInvocationSpec'].message_type = chaincode__pb2._CHAINCODEINVOCATIONSPEC
 _BUILDRESULT.fields_by_name['status'].enum_type = _BUILDRESULT_STATUSCODE
@@ -276,6 +307,7 @@ DESCRIPTOR.message_types_by_name['SigmaInput'] = _SIGMAINPUT
 DESCRIPTOR.message_types_by_name['ExecuteWithBinding'] = _EXECUTEWITHBINDING
 DESCRIPTOR.message_types_by_name['SigmaOutput'] = _SIGMAOUTPUT
 DESCRIPTOR.message_types_by_name['BuildResult'] = _BUILDRESULT
+DESCRIPTOR.message_types_by_name['TransactionRequest'] = _TRANSACTIONREQUEST
 
 Secret = _reflection.GeneratedProtocolMessageType('Secret', (_message.Message,), dict(
   DESCRIPTOR = _SECRET,
@@ -312,79 +344,118 @@ BuildResult = _reflection.GeneratedProtocolMessageType('BuildResult', (_message.
   ))
 _sym_db.RegisterMessage(BuildResult)
 
+TransactionRequest = _reflection.GeneratedProtocolMessageType('TransactionRequest', (_message.Message,), dict(
+  DESCRIPTOR = _TRANSACTIONREQUEST,
+  __module__ = 'devops_pb2'
+  # @@protoc_insertion_point(class_scope:protos.TransactionRequest)
+  ))
+_sym_db.RegisterMessage(TransactionRequest)
+
 
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaDevopsServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaDevopsServicer(object):
+  """Interface exported by the server.
+  """
   def Login(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Log in - passed Secret object and returns Response object, where
+    msg is the security context to be used in subsequent invocations
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def Build(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Build the chaincode package.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def Deploy(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Deploy the chaincode package to the chain.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def Invoke(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Invoke chaincode.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def Query(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Invoke chaincode.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
+  def GetTransactionResult(self, request, context):
+    """Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def EXP_GetApplicationTCert(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Retrieve a TCert.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def EXP_PrepareForTx(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def EXP_ProduceSigma(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def EXP_ExecuteWithBinding(self, request, context):
-    raise NotImplementedError()
+    """Execute a transaction with a specific binding
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaDevopsStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaDevopsStub(object):
+  """Interface exported by the server.
+  """
   def Login(self, request, timeout):
+    """Log in - passed Secret object and returns Response object, where
+    msg is the security context to be used in subsequent invocations
+    """
     raise NotImplementedError()
   Login.future = None
-  @abc.abstractmethod
   def Build(self, request, timeout):
+    """Build the chaincode package.
+    """
     raise NotImplementedError()
   Build.future = None
-  @abc.abstractmethod
   def Deploy(self, request, timeout):
+    """Deploy the chaincode package to the chain.
+    """
     raise NotImplementedError()
   Deploy.future = None
-  @abc.abstractmethod
   def Invoke(self, request, timeout):
+    """Invoke chaincode.
+    """
     raise NotImplementedError()
   Invoke.future = None
-  @abc.abstractmethod
   def Query(self, request, timeout):
+    """Invoke chaincode.
+    """
     raise NotImplementedError()
   Query.future = None
-  @abc.abstractmethod
+  def GetTransactionResult(self, request, timeout):
+    """Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
+    """
+    raise NotImplementedError()
+  GetTransactionResult.future = None
   def EXP_GetApplicationTCert(self, request, timeout):
+    """Retrieve a TCert.
+    """
     raise NotImplementedError()
   EXP_GetApplicationTCert.future = None
-  @abc.abstractmethod
   def EXP_PrepareForTx(self, request, timeout):
+    """Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    """
     raise NotImplementedError()
   EXP_PrepareForTx.future = None
-  @abc.abstractmethod
   def EXP_ProduceSigma(self, request, timeout):
+    """Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    """
     raise NotImplementedError()
   EXP_ProduceSigma.future = None
-  @abc.abstractmethod
   def EXP_ExecuteWithBinding(self, request, timeout):
+    """Execute a transaction with a specific binding
+    """
     raise NotImplementedError()
   EXP_ExecuteWithBinding.future = None
 
@@ -407,6 +478,8 @@ def beta_create_Devops_server(servicer, pool=None, pool_size=None, default_timeo
   import fabric_pb2
   import devops_pb2
   import fabric_pb2
+  import devops_pb2
+  import fabric_pb2
   request_deserializers = {
     ('protos.Devops', 'Build'): chaincode_pb2.ChaincodeSpec.FromString,
     ('protos.Devops', 'Deploy'): chaincode_pb2.ChaincodeSpec.FromString,
@@ -414,6 +487,7 @@ def beta_create_Devops_server(servicer, pool=None, pool_size=None, default_timeo
     ('protos.Devops', 'EXP_GetApplicationTCert'): devops_pb2.Secret.FromString,
     ('protos.Devops', 'EXP_PrepareForTx'): devops_pb2.Secret.FromString,
     ('protos.Devops', 'EXP_ProduceSigma'): devops_pb2.SigmaInput.FromString,
+    ('protos.Devops', 'GetTransactionResult'): devops_pb2.TransactionRequest.FromString,
     ('protos.Devops', 'Invoke'): chaincode_pb2.ChaincodeInvocationSpec.FromString,
     ('protos.Devops', 'Login'): devops_pb2.Secret.FromString,
     ('protos.Devops', 'Query'): chaincode_pb2.ChaincodeInvocationSpec.FromString,
@@ -425,6 +499,7 @@ def beta_create_Devops_server(servicer, pool=None, pool_size=None, default_timeo
     ('protos.Devops', 'EXP_GetApplicationTCert'): fabric_pb2.Response.SerializeToString,
     ('protos.Devops', 'EXP_PrepareForTx'): fabric_pb2.Response.SerializeToString,
     ('protos.Devops', 'EXP_ProduceSigma'): fabric_pb2.Response.SerializeToString,
+    ('protos.Devops', 'GetTransactionResult'): fabric_pb2.Response.SerializeToString,
     ('protos.Devops', 'Invoke'): fabric_pb2.Response.SerializeToString,
     ('protos.Devops', 'Login'): fabric_pb2.Response.SerializeToString,
     ('protos.Devops', 'Query'): fabric_pb2.Response.SerializeToString,
@@ -436,6 +511,7 @@ def beta_create_Devops_server(servicer, pool=None, pool_size=None, default_timeo
     ('protos.Devops', 'EXP_GetApplicationTCert'): face_utilities.unary_unary_inline(servicer.EXP_GetApplicationTCert),
     ('protos.Devops', 'EXP_PrepareForTx'): face_utilities.unary_unary_inline(servicer.EXP_PrepareForTx),
     ('protos.Devops', 'EXP_ProduceSigma'): face_utilities.unary_unary_inline(servicer.EXP_ProduceSigma),
+    ('protos.Devops', 'GetTransactionResult'): face_utilities.unary_unary_inline(servicer.GetTransactionResult),
     ('protos.Devops', 'Invoke'): face_utilities.unary_unary_inline(servicer.Invoke),
     ('protos.Devops', 'Login'): face_utilities.unary_unary_inline(servicer.Login),
     ('protos.Devops', 'Query'): face_utilities.unary_unary_inline(servicer.Query),
@@ -462,6 +538,8 @@ def beta_create_Devops_stub(channel, host=None, metadata_transformer=None, pool=
   import fabric_pb2
   import devops_pb2
   import fabric_pb2
+  import devops_pb2
+  import fabric_pb2
   request_serializers = {
     ('protos.Devops', 'Build'): chaincode_pb2.ChaincodeSpec.SerializeToString,
     ('protos.Devops', 'Deploy'): chaincode_pb2.ChaincodeSpec.SerializeToString,
@@ -469,6 +547,7 @@ def beta_create_Devops_stub(channel, host=None, metadata_transformer=None, pool=
     ('protos.Devops', 'EXP_GetApplicationTCert'): devops_pb2.Secret.SerializeToString,
     ('protos.Devops', 'EXP_PrepareForTx'): devops_pb2.Secret.SerializeToString,
     ('protos.Devops', 'EXP_ProduceSigma'): devops_pb2.SigmaInput.SerializeToString,
+    ('protos.Devops', 'GetTransactionResult'): devops_pb2.TransactionRequest.SerializeToString,
     ('protos.Devops', 'Invoke'): chaincode_pb2.ChaincodeInvocationSpec.SerializeToString,
     ('protos.Devops', 'Login'): devops_pb2.Secret.SerializeToString,
     ('protos.Devops', 'Query'): chaincode_pb2.ChaincodeInvocationSpec.SerializeToString,
@@ -480,6 +559,7 @@ def beta_create_Devops_stub(channel, host=None, metadata_transformer=None, pool=
     ('protos.Devops', 'EXP_GetApplicationTCert'): fabric_pb2.Response.FromString,
     ('protos.Devops', 'EXP_PrepareForTx'): fabric_pb2.Response.FromString,
     ('protos.Devops', 'EXP_ProduceSigma'): fabric_pb2.Response.FromString,
+    ('protos.Devops', 'GetTransactionResult'): fabric_pb2.Response.FromString,
     ('protos.Devops', 'Invoke'): fabric_pb2.Response.FromString,
     ('protos.Devops', 'Login'): fabric_pb2.Response.FromString,
     ('protos.Devops', 'Query'): fabric_pb2.Response.FromString,
@@ -491,6 +571,7 @@ def beta_create_Devops_stub(channel, host=None, metadata_transformer=None, pool=
     'EXP_GetApplicationTCert': cardinality.Cardinality.UNARY_UNARY,
     'EXP_PrepareForTx': cardinality.Cardinality.UNARY_UNARY,
     'EXP_ProduceSigma': cardinality.Cardinality.UNARY_UNARY,
+    'GetTransactionResult': cardinality.Cardinality.UNARY_UNARY,
     'Invoke': cardinality.Cardinality.UNARY_UNARY,
     'Login': cardinality.Cardinality.UNARY_UNARY,
     'Query': cardinality.Cardinality.UNARY_UNARY,

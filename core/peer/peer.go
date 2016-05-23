@@ -74,7 +74,12 @@ type BlockChainAccessor interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 }
 
-// BlockChainModifier interface for applying changes to the block chain
+// TransactionAccessor interface for retrieving transaction information
+type TransactionAccessor interface {
+	GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error)
+}
+
+// BlockchainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
 	RollbackStateDelta(id interface{}) error
@@ -112,6 +117,7 @@ type MessageHandlerCoordinator interface {
 	BlockChainModifier
 	BlockChainUtil
 	StateAccessor
+	TransactionAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.Message, pb.PeerEndpoint_Type) []error
@@ -762,4 +768,10 @@ func (p *PeerImpl) signMessageMutating(msg *pb.Message) error {
 		msg.Signature = sig
 	}
 	return nil
+}
+
+func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetTransactionResultByUUID(txUuid)
 }

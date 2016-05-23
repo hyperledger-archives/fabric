@@ -111,40 +111,59 @@ _sym_db.RegisterMessage(BlockCount)
 import abc
 import six
 from grpc.beta import implementations as beta_implementations
+from grpc.beta import interfaces as beta_interfaces
 from grpc.framework.common import cardinality
 from grpc.framework.interfaces.face import utilities as face_utilities
 
-class BetaOpenchainServicer(six.with_metaclass(abc.ABCMeta, object)):
-  """<fill me in later!>"""
-  @abc.abstractmethod
+class BetaOpenchainServicer(object):
+  """Interface exported by the server.
+  """
   def GetBlockchainInfo(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """GetBlockchainInfo returns information about the blockchain ledger such as
+    height, current block hash, and previous block hash.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def GetBlockByNumber(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """GetBlockByNumber returns the data contained within a specific block in the
+    blockchain. The genesis block is block zero.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def GetBlockCount(self, request, context):
-    raise NotImplementedError()
-  @abc.abstractmethod
+    """GetBlockCount returns the current number of blocks in the blockchain data
+    structure.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
   def GetPeers(self, request, context):
-    raise NotImplementedError()
+    """GetPeers returns a list of all peer nodes currently connected to the target
+    peer.
+    """
+    context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
 
-class BetaOpenchainStub(six.with_metaclass(abc.ABCMeta, object)):
-  """The interface to which stubs will conform."""
-  @abc.abstractmethod
+class BetaOpenchainStub(object):
+  """Interface exported by the server.
+  """
   def GetBlockchainInfo(self, request, timeout):
+    """GetBlockchainInfo returns information about the blockchain ledger such as
+    height, current block hash, and previous block hash.
+    """
     raise NotImplementedError()
   GetBlockchainInfo.future = None
-  @abc.abstractmethod
   def GetBlockByNumber(self, request, timeout):
+    """GetBlockByNumber returns the data contained within a specific block in the
+    blockchain. The genesis block is block zero.
+    """
     raise NotImplementedError()
   GetBlockByNumber.future = None
-  @abc.abstractmethod
   def GetBlockCount(self, request, timeout):
+    """GetBlockCount returns the current number of blocks in the blockchain data
+    structure.
+    """
     raise NotImplementedError()
   GetBlockCount.future = None
-  @abc.abstractmethod
   def GetPeers(self, request, timeout):
+    """GetPeers returns a list of all peer nodes currently connected to the target
+    peer.
+    """
     raise NotImplementedError()
   GetPeers.future = None
 

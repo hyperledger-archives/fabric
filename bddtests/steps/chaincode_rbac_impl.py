@@ -17,23 +17,12 @@ import devops_pb2
 
 LAST_REQUESTED_TCERT="lastRequestedTCert"
 
-def getGRPCChannel(ipAddress):
-	channel = implementations.insecure_channel(ipAddress, 30303)
-	print("Returning GRPC for address: {0}".format(ipAddress))
-	return channel
-
 
 @when(u'user "{enrollId}" requests a new application TCert')
 def step_impl(context, enrollId):
 	assert 'users' in context, "users not found in context. Did you register a user?"
-	# Retrieve the userRegistration from the context
-	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
-
-	# Get the IP address of the server that the user registered on
-	ipAddress = bdd_test_util.ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
-
-	channel = getGRPCChannel(ipAddress)
-
+	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
+	
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	secret = userRegistration.getSecret()
@@ -42,8 +31,6 @@ def step_impl(context, enrollId):
 	tcert = response.msg
 
 	userRegistration.lastResult = tcert
-
-	#raise NotImplementedError(u'STEP: When "{0}" requests a new TCert, should go to "{1}", with len(TCert) = {2}, statusCode = {3}'.format(enrollId, userRegistration.composeService, len(tcert), response.status))
 
 @when(u'user "{enrollId}" stores their last result as "{tagName}"')
 def step_impl(context, enrollId, tagName):
@@ -64,11 +51,7 @@ def step_impl(context, enrollId, tagName):
 @when(u'user "{enrollId}" deploys chaincode "{chaincodePath}" with ctor "{ctor}" to "{composeService}"')
 def step_impl(context, enrollId, chaincodePath, ctor, composeService):
 	assert 'users' in context, "users not found in context. Did you register a user?"
-	# Retrieve the userRegistration from the context
-	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
-
-	ipAddress = bdd_test_util.ipFromContainerNamePart(composeService, context.compose_containers)
-	channel = getGRPCChannel(ipAddress)
+	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	args = []
@@ -103,14 +86,8 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	assert 'users' in context, "users not found in context. Did you register a user?"
 	assert 'compose_containers' in context, "compose_containers not found in context"
 
-	# Retrieve the userRegistration from the context
-	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
+	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
 
-	# Get the IP address of the server that the user registered on
-	ipAddress = bdd_test_util.ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
-
-	# Get the stub
-	channel = getGRPCChannel(ipAddress)
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	# First get binding with EXP_PrepareForTx
@@ -137,7 +114,6 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	newChaincodeSpec = chaincode_pb2.ChaincodeSpec()
 	newChaincodeSpec.CopyFrom(context.grpcChaincodeSpec)
 	newChaincodeSpec.metadata = sigmaOutput.asn1Encoding
-	print('ASN encoding = %s', sigmaOutput.asn1Encoding)
 	newChaincodeSpec.ctorMsg.CopyFrom(chaincodeInput)
 
 	ccInvocationSpec = chaincode_pb2.ChaincodeInvocationSpec(chaincodeSpec = newChaincodeSpec)
@@ -149,6 +125,16 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	context.response = response
 	context.transactionID = response.msg
 
-@then(u'transaction should have failed with message "Permission denied"')
-def step_impl(context):
-    raise NotImplementedError(u'STEP: Then transaction should have failed with message "Permission denied"')
+
+@then(u'"{enrollId}"\'s last transaction should have failed with message that contains "{msg}"')
+def step_impl(context, enrollId, msg):
+	assert 'users' in context, "users not found in context. Did you register a user?"
+	assert 'compose_containers' in context, "compose_containers not found in context"
+	txResult = bdd_test_util.getTxResult(context, enrollId)
+	assert txResult.errorCode > 0, "Expected failure (errorCode > 0), instead found errorCode={0}".format(txResult.errorCode)
+	assert msg in txResult.error, "Expected error to contain'{0}', instead found '{1}".format(msg, txResult.error)
+
+@then(u'"{enrollId}"\'s last transaction should have succeeded')
+def step_impl(context, enrollId):
+	txResult = bdd_test_util.getTxResult(context, enrollId)
+	assert txResult.errorCode == 0, "Expected success (errorCode == 0), instead found errorCode={0}".format(txResult.errorCode)

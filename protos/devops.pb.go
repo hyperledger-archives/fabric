@@ -112,6 +112,14 @@ func (m *BuildResult) GetDeploymentSpec() *ChaincodeDeploymentSpec {
 	return nil
 }
 
+type TransactionRequest struct {
+	TransactionUuid string `protobuf:"bytes,1,opt,name=transactionUuid" json:"transactionUuid,omitempty"`
+}
+
+func (m *TransactionRequest) Reset()         { *m = TransactionRequest{} }
+func (m *TransactionRequest) String() string { return proto.CompactTextString(m) }
+func (*TransactionRequest) ProtoMessage()    {}
+
 func init() {
 	proto.RegisterEnum("protos.BuildResult_StatusCode", BuildResult_StatusCode_name, BuildResult_StatusCode_value)
 }
@@ -134,6 +142,8 @@ type DevopsClient interface {
 	Invoke(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error)
 	// Invoke chaincode.
 	Query(ctx context.Context, in *ChaincodeInvocationSpec, opts ...grpc.CallOption) (*Response, error)
+	// Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
+	GetTransactionResult(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*Response, error)
 	// Retrieve a TCert.
 	EXP_GetApplicationTCert(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*Response, error)
 	// Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
@@ -197,6 +207,15 @@ func (c *devopsClient) Query(ctx context.Context, in *ChaincodeInvocationSpec, o
 	return out, nil
 }
 
+func (c *devopsClient) GetTransactionResult(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := grpc.Invoke(ctx, "/protos.Devops/GetTransactionResult", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *devopsClient) EXP_GetApplicationTCert(ctx context.Context, in *Secret, opts ...grpc.CallOption) (*Response, error) {
 	out := new(Response)
 	err := grpc.Invoke(ctx, "/protos.Devops/EXP_GetApplicationTCert", in, out, c.cc, opts...)
@@ -247,6 +266,8 @@ type DevopsServer interface {
 	Invoke(context.Context, *ChaincodeInvocationSpec) (*Response, error)
 	// Invoke chaincode.
 	Query(context.Context, *ChaincodeInvocationSpec) (*Response, error)
+	// Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
+	GetTransactionResult(context.Context, *TransactionRequest) (*Response, error)
 	// Retrieve a TCert.
 	EXP_GetApplicationTCert(context.Context, *Secret) (*Response, error)
 	// Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
@@ -315,6 +336,18 @@ func _Devops_Query_Handler(srv interface{}, ctx context.Context, dec func(interf
 		return nil, err
 	}
 	out, err := srv.(DevopsServer).Query(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Devops_GetTransactionResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(TransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(DevopsServer).GetTransactionResult(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -392,6 +425,10 @@ var _Devops_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Query",
 			Handler:    _Devops_Query_Handler,
+		},
+		{
+			MethodName: "GetTransactionResult",
+			Handler:    _Devops_GetTransactionResult_Handler,
 		},
 		{
 			MethodName: "EXP_GetApplicationTCert",
