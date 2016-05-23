@@ -163,6 +163,12 @@ func TestBatchStaleCustody(t *testing.T) {
 			}
 			return nil
 		},
+		BroadcastImpl: func(msg *pb.Message, pt pb.PeerEndpoint_Type) error {
+			// we need this mock because occasionally the
+			// custody timer for req3 goes off, and a
+			// complaint is sent.
+			return nil
+		},
 		BeginTxBatchImpl: func(id interface{}) error {
 			return nil
 		},
