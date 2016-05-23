@@ -85,6 +85,8 @@ To run a specific test use the `-run RE` flag where RE is a regular expression t
 
     go test -v -run=TestGetFoo
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 3.2 Node.js Unit Tests
 
 You must also run the Node.js unit tests to insure that the Node.js client SDK is not broken by your changes. To run the Node.js unit tests, follow the instructions [here](https://github.com/hyperledger/fabric/tree/master/sdk/node#unit-tests).

@@ -87,6 +87,8 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer chaincode deploy -u jim -p github.com/
 
 You can watch for the message "Received build request for chaincode spec" on the output screen of all validating peers.
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 On successful completion, the above command will print the "name" assigned to the deployed chaincode. This "name" is used as the value of the "-n" parameter in invoke and query commands described below. For example the value of "name" could be
 
     bb540edfc1ee2ac0f5e2ec6000677f4cd1c6728046d5e32dede7fea11a42f86a6943b76a8f9154f4792032551ed320871ff7b7076047e4184292e01e3421889c

@@ -3137,6 +3137,8 @@ With security enabled, the command must be modified to pass an enrollment id of 
 ./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 6.3.1.4 chaincode invoke
 
 The CLI `invoke` command executes a specified function within the target chaincode. An example is below.

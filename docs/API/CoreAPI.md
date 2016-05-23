@@ -71,6 +71,8 @@ With security enabled, modify the command to include the -u parameter passing th
 
 `./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'`
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 ### Verify Results
 
 To verify that the block containing the latest transaction has been added to the blockchain, use the `/chain` REST endpoint from the command line. Target the IP address of either a validating or a non-validating node. In the example below, 172.17.0.2 is the IP address of a validating or a non-validating node and 5000 is the REST interface port defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml).
