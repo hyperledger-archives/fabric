@@ -138,8 +138,7 @@ func closeListenerAndSleep(l net.Listener) {
 	time.Sleep(2 * time.Second)
 }
 
-// Test deploy of a transaction.
-func TestExecuteDeployTransaction(t *testing.T) {
+func executeDeployTransaction(t *testing.T, url string) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
@@ -174,7 +173,6 @@ func TestExecuteDeployTransaction(t *testing.T) {
 
 	var ctxt = context.Background()
 
-	url := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01"
 	f := "init"
 	args := []string{"a", "100", "b", "200"}
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
@@ -190,6 +188,17 @@ func TestExecuteDeployTransaction(t *testing.T) {
 
 	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec:spec})
 	closeListenerAndSleep(lis)
+}
+
+
+// Test deploy of a transaction
+func TestExecuteDeployTransaction(t *testing.T) {
+	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
+}
+
+// Test deploy of a transaction with a chaincode over HTTP.
+func TestHTTPExecuteDeployTransaction(t *testing.T) {
+	executeDeployTransaction(t, "http://github.com/lehors/fabric/examples/chaincode/go/chaincode_example01")
 }
 
 // Check the correctness of the final state after transaction execution.
