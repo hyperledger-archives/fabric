@@ -157,7 +157,6 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 		done <- cmd.Wait()
 	}()
 
-	fmt.Printf("chaincode.deploytimeout: %s\n", viper.GetInt("chaincode.deploytimeout"))
 	select {
 	case <-time.After(time.Duration(viper.GetInt("chaincode.deploytimeout")) * time.Millisecond):
 		// If pulling repos takes too long, we should give up
@@ -170,7 +169,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = fmt.Errorf("'go get' failed with error\n\"%s\"\n", err, string(errBuf.Bytes()))
+			err = fmt.Errorf("'go get' failed with error: \"%s\"\n%s", err, string(errBuf.Bytes()))
 		}
 	}
 	return
