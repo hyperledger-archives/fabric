@@ -602,11 +602,11 @@ func (s *ServerOpenchainREST) GetBlockchainInfo(rw web.ResponseWriter, req *web.
 	// Check for error
 	if err != nil {
 		// Failure
-		rw.WriteHeader(400)
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
 	} else {
 		// Success
-		rw.WriteHeader(200)
+		rw.WriteHeader(http.StatusOK)
 		encoder.Encode(info)
 	}
 }
@@ -620,7 +620,7 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	// Check for proper Block id syntax
 	if err != nil {
 		// Failure
-		rw.WriteHeader(400)
+		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"Block id must be an integer (uint64).\"}")
 	} else {
 		// Retrieve Block from blockchain
