@@ -81,8 +81,9 @@ rm -rf /tmp/rocksdb
 
 ################
 # PIP
-wget http://dl.fedoraproject.org/pub/epel/7/x86_64/p/python-pip-7.1.0-1.el7.noarch.rpm
-rpm -ivh python-pip-7.1.0-1.el7.noarch.rpm
+yum install python-setuptools
+curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+python get-pip.py
 pip install --upgrade pip
 pip install behave nose docker-compose
 
