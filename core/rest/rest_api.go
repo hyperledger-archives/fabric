@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/peer"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -1094,6 +1095,53 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	}
 }
 
+// PerfStats performs the requested perfutil actions.
+func (s *ServerOpenchainREST) PerfStats(rw web.ResponseWriter, req *web.Request) {
+	restLogger.Info("REST dump performance trace stats ...")
+
+	// Decode the incoming JSON payload
+	var spec pb.ChaincodeInvocationSpec
+	err := jsonpb.Unmarshal(req.Body, &spec)
+
+	// Check for proper JSON syntax
+	if err != nil {
+		fmt.Printf("error: jsonpb.Unmarshal failed.\n")
+		return
+	}
+
+	if spec.ChaincodeSpec == nil || (spec.ChaincodeSpec.CtorMsg == nil) {
+		fmt.Printf("error: ChaincodeSpec or ChaincodeSpec.CtorMsg invalid.\n")
+		return
+	}
+
+	switch spec.ChaincodeSpec.CtorMsg.Function {
+	case "dump":
+		fmt.Printf("Dump performance trace stats\n")
+		perfutil.DumpStats()
+		perfutil.SetTrace(false)
+		perfutil.SetTrace(true)
+
+	case "enable":
+		fmt.Printf("performance trace enabled\n")
+		perfutil.SetTrace(true)
+
+	case "disable":
+		fmt.Printf("performance trace disabled\n")
+		perfutil.SetTrace(false)
+
+	case "state":
+		fmt.Printf("performance trace global state: %v\n",  perfutil.TraceState())
+
+	case "getUuid":
+		fmt.Printf("performance trace transaction uuid: %s\n",  perfutil.GetPerfUuid())
+
+	default:
+
+	}
+
+	return
+
+}
 // ProcessChaincode implements JSON RPC 2.0 specification for chaincode deploy, invoke, and query.
 func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST processing chaincode request...")
@@ -1716,6 +1764,9 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
+
+	// Add /perfutil endpoint
+	router.Post("/perfutil", (*ServerOpenchainREST).PerfStats)
 
 	// The /chaincode endpoint which superceedes the /devops endpoint from above
 	router.Post("/chaincode", (*ServerOpenchainREST).ProcessChaincode)

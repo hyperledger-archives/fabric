@@ -19,6 +19,7 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/perfutil"
 )
 
 func (client *clientImpl) registerCryptoEngine() (err error) {
@@ -40,6 +41,9 @@ func (client *clientImpl) registerCryptoEngine() (err error) {
 
 func (client *clientImpl) initCryptoEngine() (err error) {
 	// Load TCertOwnerKDFKey
+
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_crypto.initTCertEngine", 0, true, "CreatePTOP")
+
 	if err = client.initTCertEngine(); err != nil {
 		return
 	}

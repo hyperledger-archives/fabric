@@ -19,6 +19,7 @@ package crypto
 import (
 	"database/sql"
 	"os"
+	"github.com/hyperledger/fabric/core/perfutil"
 )
 
 func (client *clientImpl) initKeyStore() error {
@@ -158,7 +159,10 @@ func (ks *keyStore) loadUnusedTCert() ([]byte, error) {
 
 func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 	// Get unused TCerts
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_ks.loadUnusedTCerts-Query", 0, true, "CreatePTOP")
 	rows, err := ks.sqlDB.Query("SELECT cert FROM TCerts")
+
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_ks.loadUnusedTCerts-sql.ErrNoRows", 0, true, "CreatePTOP")
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -167,6 +171,7 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 		return nil, err
 	}
 
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_ks.loadUnusedTCerts-scan", 0, true, "CreatePTOP")
 	tCertDERs := [][]byte{}
 	for {
 		if rows.Next() {
@@ -182,6 +187,7 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 		}
 	}
 
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_ks.loadUnusedTCerts-delete", 0, true, "CreatePTOP")
 	// Delete all entries
 	if _, err = ks.sqlDB.Exec("DELETE FROM TCerts"); err != nil {
 		ks.node.error("Failed cleaning up unused TCert entries: [%s].", err)

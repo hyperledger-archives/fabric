@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -118,6 +119,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	// Now create the Transactions message and send to Peer.
 
 	transID := chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name
+	perfutil.PerfTraceHandler(transID, "devops.Deploy", 0, true, "Create")
 
 	var tx *pb.Transaction
 	var sec crypto.Client
@@ -172,6 +174,8 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 
 	// Now create the Transactions message and send to Peer.
 	uuid := util.GenerateUUID()
+	perfutil.PerfTraceHandler(uuid, "devops.invokeOrQuery", 0, true, "Create")
+
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -204,6 +208,9 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			}
 		}
+		if !invoke {
+			perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "", 0, true, "EndPTOP")
+		}
 	}
 	return resp, err
 }
@@ -211,6 +218,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
+	perfutil.PerfTraceHandler(uuid, "devops.createExecTx", 0, true, "CreatePTOP")
 	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)

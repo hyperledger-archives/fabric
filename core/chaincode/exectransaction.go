@@ -25,12 +25,14 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 //Execute - execute transaction or a query
 func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
 	var err error
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "exectransaction.Execute", 0, true, "CreatePTOP")
 
 	// get a handle to ledger to mark the begin/finish of a tx
 	ledger, ledgerErr := ledger.GetLedger()
@@ -132,6 +134,7 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 //error
 func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (stateHash []byte, txerrs []error, err error) {
 	var chain = GetChain(cname)
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "exectransaction.ExecuteTransactions", 0, true, "CreatePTOP")
 	if chain == nil {
 		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))

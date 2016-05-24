@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/hyperledger/fabric/protos"
@@ -210,7 +211,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "InitError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
@@ -230,12 +231,12 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "InitError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, TraceName: "InitCompleted_GRPC", Start: time.Now().UnixNano()}
 		chaincodeLogger.Debug("[%s]Init succeeded. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
 	}()
 }
@@ -277,7 +278,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "TransactionError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
@@ -297,13 +298,13 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Error(fmt.Sprintf("[%s]Transaction execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR))
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "TransactionError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
 		chaincodeLogger.Debug("[%s]Transaction completed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, TraceName: "TransactionCompleted_GRPC", Start: time.Now().UnixNano()}
 	}()
 }
 
@@ -324,7 +325,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
-			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "QueryError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
@@ -344,13 +345,13 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Query execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
-			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "QueryError_GRPC", Start: time.Now().UnixNano()}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support
 		chaincodeLogger.Debug("[%s]Query completed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_COMPLETED)
-		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_COMPLETED, Payload: res, Uuid: msg.Uuid, TraceName: "QueryCompleted_GRPC", Start: time.Now().UnixNano()}
 	}()
 }
 
@@ -442,7 +443,7 @@ func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) 
 
 	// Send GET_STATE message to validator chaincode support
 	payload := []byte(key)
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_GET_STATE, Payload: payload, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_GET_STATE, Payload: payload, Uuid: uuid, TraceName: "GetState_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_GET_STATE)
 	if err := handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending GET_STATE %s", shortuuid(uuid), err))
@@ -496,7 +497,7 @@ func (handler *Handler) handlePutState(key string, value []byte, uuid string) er
 	defer handler.deleteChannel(uuid)
 
 	// Send PUT_STATE message to validator chaincode support
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_PUT_STATE, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_PUT_STATE, Payload: payloadBytes, Uuid: uuid, TraceName: "PutState_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_PUT_STATE)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending PUT_STATE %s", msg.Uuid, err))
@@ -545,7 +546,7 @@ func (handler *Handler) handleDelState(key string, uuid string) error {
 
 	// Send DEL_STATE message to validator chaincode support
 	payload := []byte(key)
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_DEL_STATE, Payload: payload, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_DEL_STATE, Payload: payload, Uuid: uuid, TraceName: "DelState_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_DEL_STATE)
 	if err := handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending DEL_STATE %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_DEL_STATE))
@@ -591,7 +592,7 @@ func (handler *Handler) handleRangeQueryState(startKey, endKey string, uuid stri
 	if err != nil {
 		return nil, errors.New("Failed to process range query state request")
 	}
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE, Payload: payloadBytes, Uuid: uuid, TraceName: "RangeQueryState_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE))
@@ -645,7 +646,7 @@ func (handler *Handler) handleRangeQueryStateNext(id, uuid string) (*pb.RangeQue
 	if err != nil {
 		return nil, errors.New("Failed to process range query state next request")
 	}
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT, Payload: payloadBytes, Uuid: uuid, TraceName: "RangeQueryStateNext_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE_NEXT))
@@ -699,7 +700,7 @@ func (handler *Handler) handleRangeQueryStateClose(id, uuid string) (*pb.RangeQu
 	if err != nil {
 		return nil, errors.New("Failed to process range query state close request")
 	}
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE, Payload: payloadBytes, Uuid: uuid, TraceName: "RangeQueryStateClose_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RANGE_QUERY_STATE_CLOSE))
@@ -762,7 +763,7 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 	defer handler.deleteChannel(uuid)
 
 	// Send INVOKE_CHAINCODE message to validator chaincode support
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INVOKE_CHAINCODE, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INVOKE_CHAINCODE, Payload: payloadBytes, Uuid: uuid, TraceName: "InvokeChaincode_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_INVOKE_CHAINCODE)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_INVOKE_CHAINCODE))
@@ -823,7 +824,7 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 	defer handler.deleteChannel(uuid)
 
 	// Send INVOKE_QUERY message to validator chaincode support
-	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INVOKE_QUERY, Payload: payloadBytes, Uuid: uuid}
+	msg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_INVOKE_QUERY, Payload: payloadBytes, Uuid: uuid, TraceName: "InvokeQuery_GRPC", Start: time.Now().UnixNano()}
 	chaincodeLogger.Debug("[%s]Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_INVOKE_QUERY)
 	if err = handler.serialSend(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]error sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_INVOKE_QUERY))
@@ -869,7 +870,7 @@ func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 		errStr := fmt.Sprintf("[%s]Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Uuid, msg.Type.String(), len(msg.Payload), handler.FSM.Current())
 		err := errors.New(errStr)
 		payload := []byte(err.Error())
-		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		errorMsg := &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, TraceName: "HandlerFSM_Error_GRPC", Start: time.Now().UnixNano()}
 		handler.serialSend(errorMsg)
 		return err
 	}

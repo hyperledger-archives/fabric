@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/looplab/fsm"
 	"github.com/op/go-logging"
@@ -104,6 +105,7 @@ func shortuuid(uuid string) string {
 func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
 	handler.Lock()
 	defer handler.Unlock()
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "serialSend", 0, true, "CreatePTOP")
 	if err := handler.ChatStream.Send(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
@@ -123,6 +125,7 @@ func (handler *Handler) createTxContext(uuid string, tx *pb.Transaction) (*trans
 	txctx := &transactionContext{transactionSecContext: tx, responseNotifier: make(chan *pb.ChaincodeMessage, 1),
 		rangeQueryIteratorMap: make(map[string]statemgmt.RangeScanIterator)}
 	handler.txCtxs[uuid] = txctx
+
 	return txctx, nil
 }
 
@@ -276,6 +279,12 @@ func (handler *Handler) processStream() error {
 			if in.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 				chaincodeLogger.Debug("Got error: %s", string(in.Payload))
 			}
+
+			perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), in.TraceName, in.Start, true, "CreatePTOPFrom")
+
+			//reset the time for computing time in FSM
+			in.TraceName = in.Type.String()+"_FSM"
+			in.Start = time.Now().UnixNano()
 
 			// we can spin off another Recv again
 			recv = true
@@ -539,6 +548,9 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			return
 		}
 
+
+		perfutil.PerfTraceHandler(msg.Uuid, msg.TraceName, msg.Start, true, "CreatePTOPFrom")
+
 		var serialSendMsg *pb.ChaincodeMessage
 
 		defer func() {
@@ -562,7 +574,18 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 		chaincodeID := handler.ChaincodeID.Name
 
 		readCommittedState := !handler.getIsTransaction(msg.Uuid)
+
+		//calculates time in ledger
+		perfutil.PerfTraceHandler(msg.Uuid, "GetLedger", 0, true, "CreatePTOP")
+
 		res, err := ledgerObj.GetState(chaincodeID, key, readCommittedState)
+
+		if err != nil {
+			perfutil.PerfTraceHandler(msg.Uuid, "GetLedger_done", 0, false, "CreatePTOP")
+		} else {
+			perfutil.PerfTraceHandler(msg.Uuid, "GetLedger_done", 0, true, "CreatePTOP")
+		}
+
 		if err != nil {
 			// Send error msg back to chaincode. GetState will not trigger event
 			payload := []byte(err.Error())
@@ -937,6 +960,10 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			return
 		}
 
+
+		//calculates time in FSM
+		perfutil.PerfTraceHandler(msg.Uuid, msg.TraceName, msg.Start, true, "CreatePTOPFrom")
+
 		var triggerNextStateMsg *pb.ChaincodeMessage
 
 		defer func() {
@@ -971,13 +998,29 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			var pVal []byte
 			// Encrypt the data if the confidential is enabled
 			if pVal, err = handler.encrypt(msg.Uuid, putStateInfo.Value); err == nil {
+				//calculates time in ledger
+				perfutil.PerfTraceHandler(msg.Uuid, "PutLedger", 0, true, "CreatePTOP")
+
 				// Invoke ledger to put state
 				err = ledgerObj.SetState(chaincodeID, putStateInfo.Key, pVal)
+				if err != nil {
+					perfutil.PerfTraceHandler(msg.Uuid, "PutLedger_done", 0, false, "CreatePTOP")
+				} else {
+					perfutil.PerfTraceHandler(msg.Uuid, "PutLedger_done", 0, true, "CreatePTOP")
+				}
 			}
 		} else if msg.Type.String() == pb.ChaincodeMessage_DEL_STATE.String() {
 			// Invoke ledger to delete state
 			key := string(msg.Payload)
+
+			//calculates time in ledger
+			perfutil.PerfTraceHandler(msg.Uuid, "ledgerObj.DeleteState", 0, true, "CreatePTOP")
 			err = ledgerObj.DeleteState(chaincodeID, key)
+			if err != nil {
+				perfutil.PerfTraceHandler(msg.Uuid, "ledgerObj.DeleteState_done", 0, false, "CreatePTOP")
+			} else {
+				perfutil.PerfTraceHandler(msg.Uuid, "ledgerObj.DeleteState_done", 0, true, "CreatePTOP")
+			}
 		} else if msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() {
 			chaincodeSpec := &pb.ChaincodeSpec{}
 			unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
@@ -1303,8 +1346,12 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	chaincodeLogger.Debug("[%s]Handling ChaincodeMessage of type: %s in state %s", shortuuid(msg.Uuid), msg.Type, handler.FSM.Current())
 
+	if msg.Type == pb.ChaincodeMessage_COMPLETED {     // invoke and deploy
+		perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "", 0, true, "EndPTOP")
+	}
 	//QUERY_COMPLETED message can happen ONLY for Transaction_QUERY (stateless)
 	if msg.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
+		perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "handler.HandleMessage", 0, true, "CreatePTOP")
 		chaincodeLogger.Debug("[%s]HandleMessage- QUERY_COMPLETED. Notify", msg.Uuid)
 		handler.deleteIsTransaction(msg.Uuid)
 		var err error
@@ -1378,6 +1425,7 @@ func (handler *Handler) sendExecuteMessage(msg *pb.ChaincodeMessage, tx *pb.Tran
 	if err != nil {
 		return nil, err
 	}
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "handler.sendExecuteMessage", 0, true, "CreatePTOP")
 
 	// Mark UUID as either transaction or query
 	chaincodeLogger.Debug("[%s]Inside sendExecuteMessage. Message %s", shortuuid(msg.Uuid), msg.Type.String())

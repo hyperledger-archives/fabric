@@ -19,6 +19,7 @@ package crypto
 import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/perfutil"
 	obc "github.com/hyperledger/fabric/protos"
 )
 
@@ -203,6 +204,8 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	if client.isInitialized {
 		return utils.ErrAlreadyInitialized
 	}
+
+	perfutil.PerfTraceHandler(perfutil.GetPerfUuid(), "client_impl.init", 0, true, "CreatePTOP")
 
 	// Register node
 	if err := client.nodeImpl.init(NodeClient, id, pwd); err != nil {

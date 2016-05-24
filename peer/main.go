@@ -56,6 +56,7 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
+	"github.com/hyperledger/fabric/core/perfutil"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -307,6 +308,13 @@ func main() {
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
 		panic(fmt.Errorf("Failed initializing the crypto layer: %s", err))
+	}
+
+	// Init performance trace
+	if viper.GetBool("perfutil.enabled") {
+		perfutil.SetTrace(true)
+	} else {
+		perfutil.SetTrace(false)
 	}
 
 	// On failure Cobra prints the usage message and error string, so we only
