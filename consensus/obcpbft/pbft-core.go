@@ -671,11 +671,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
 		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
 		instance.sendViewChange()
-	} else {
-		cert.prePrepare = preprep
-		cert.digest = preprep.RequestDigest
-		instance.persistQSet()
+		return nil
 	}
+
+	cert.prePrepare = preprep
+	cert.digest = preprep.RequestDigest
 
 	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
@@ -712,6 +712,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		cert.sentPrepare = true
+		instance.persistQSet()
 		instance.recvPrepare(prep)
 		return instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 	}
