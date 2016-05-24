@@ -368,9 +368,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
-	if restLogger.IsEnabledFor(logging.DEBUG) {
-		restLogger.Debug("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
-	}
+	restLogger.Debug("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
 
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
@@ -439,9 +437,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
-		if restLogger.IsEnabledFor(logging.DEBUG) {
-			restLogger.Debug("Sucessfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
-		}
+		restLogger.Debug("Sucessfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
@@ -457,9 +453,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
-	if restLogger.IsEnabledFor(logging.DEBUG) {
-		restLogger.Debug("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
-	}
+	restLogger.Debug("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
 
 	// Parse out the count query parameter
 	req.ParseForm()
@@ -579,9 +573,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
-		if restLogger.IsEnabledFor(logging.DEBUG) {
-			restLogger.Debug("Sucessfully retrieved transaction certificates for secure context '%s'", enrollmentID)
-		}
+		restLogger.Debug("Sucessfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
