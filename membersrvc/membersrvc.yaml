@@ -100,9 +100,29 @@ eca:
                 test_nvp9: 2 VlEsBsiyXSjw institution_a 00015
 
 tca:
+          # Enabling/disabling attributes encryption, if is enabled attributes within the certificate will be encrypted using a specific key for each attribute,
+          # in otherwise cleartext attribute value will be added into the certificate.
           attribute-encryption:
-                 enabled: false
-
+                 enabled: true
+aca:
+          # Attributes is a list of the valid attributes to each user, attribute certificate authority is emulated temporarily using this file entries.
+          # In the future an external attribute certificate authority will be invoked. The format to each entry is:
+          #
+          #     attribute-entry-#:{userid};{affiliation};{attributeName};{attributeValue};{valid from};{valid to}
+          #
+          # If valid to is empty the attribute never expire, if the valid from is empty the attribute is valid from the time zero.
+          attributes:
+              attribute-entry-0: diego;institution_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+              attribute-entry-1: diego;institution_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
+              attribute-entry-2: diego;institution_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
+              attribute-entry-3: jim,;institution_a;company;ACompany;2001-02-02T00:00:00-03:00;;
+              attribute-entry-4: jim;institution_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
+              attribute-entry-5: binhn,;institution_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+              attribute-entry-6: binhn;institution_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;
+          address: localhost:50051
+          server-name: acap
+          # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be corroborated against ACA.
+          enabled: false
 pki:
           validity-period:
                  # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
