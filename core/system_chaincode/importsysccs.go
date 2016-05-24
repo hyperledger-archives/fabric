@@ -20,10 +20,12 @@ import (
 	//import system chain codes here
 	"github.com/hyperledger/fabric/core/system_chaincode/api"
 	"github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
+	"github.com/hyperledger/fabric/core/system_chaincode/noop"
 )
 
 //RegisterSysCCs is the hook for system chaincodes where system chaincodes are registered with the fabric
 //note the chaincode must still be deployed and launched like a user chaincode will be
 func RegisterSysCCs() {
 	api.RegisterSysCC("github.com/hyperledger/fabric/core/system_chaincode/sample_syscc", &sample_syscc.SampleSysCC{})
+	api.RegisterSysCC("github.com/hyperledger/fabric/core/system_chaincode/noop", &noop.SystemChaincode{})
 }
