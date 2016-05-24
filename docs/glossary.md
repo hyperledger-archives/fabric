@@ -5,7 +5,7 @@
 ---
 <table border="0">
 <col>
-<col>t
+<col>
 <tr>
 <td width="20%"><b>Chain Member</b></td>
 <td>
