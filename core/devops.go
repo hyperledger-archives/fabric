@@ -171,7 +171,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	uuid := util.GenerateUUID()
+	// util.GenerateUUID()
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -187,7 +187,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
+        transaction, err = d.createExecTx(chaincodeInvocationSpec, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
@@ -208,24 +208,25 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	return resp, err
 }
 
-func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
+        var temp_uuid = ""
 	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
+			devopsLogger.Debug("Creating secure invocation transaction %s", temp_uuid)
 		}
 		if invokeTx {
-			tx, err = sec.NewChaincodeExecute(spec, uuid)
+			tx, err = sec.NewChaincodeExecute(spec, temp_uuid)
 		} else {
-			tx, err = sec.NewChaincodeQuery(spec, uuid)
+			tx, err = sec.NewChaincodeQuery(spec, temp_uuid)
 		}
 		if nil != err {
 			return nil, err
 		}
 	} else {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating invocation transaction (%s)", uuid)
+			devopsLogger.Debug("Creating invocation transaction (%s)", temp_uuid)
 		}
 		var t pb.Transaction_Type
 		if invokeTx {
@@ -233,11 +234,12 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 		} else {
 			t = pb.Transaction_CHAINCODE_QUERY
 		}
-		tx, err = pb.NewChaincodeExecute(spec, uuid, t)
+		tx, err = pb.NewChaincodeExecute(spec, temp_uuid, t)
 		if nil != err {
 			return nil, err
 		}
 	}
+        tx.Uuid = util.GetTransactionHashAsStr(tx.Payload)
 	return tx, nil
 }
 

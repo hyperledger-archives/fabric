@@ -22,6 +22,7 @@ import (
 	"io"
 	"math/big"
 	"time"
+        "crypto/sha256"
 
 	gp "google/protobuf"
 
@@ -87,4 +88,15 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 	copy(b, cbytes)
 	hash := ComputeCryptoHash(b)
 	return hash
+}
+
+func GetTransactionHash(txData []byte) [32]byte {
+	firstHash := sha256.Sum256(txData)
+	txHash := sha256.Sum256(firstHash[:])
+	return txHash
+}
+
+func GetTransactionHashAsStr(txData []byte) string {
+        var hash = GetTransactionHash(txData)
+        return fmt.Sprintf("%x", hash)
 }
