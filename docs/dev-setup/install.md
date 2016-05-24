@@ -107,8 +107,8 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
-## Building outside of Vagrant
-It is possible to build the project outside of Vagrant (e.g. when one already runs Linux and wants to develop natively). Generally speaking, one has to match the vagrant [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh).
+## Building outside of Vagrant <a name="vagrant"></a>
+It is possible to build the project and run peers outside of Vagrant. Generally speaking, one has to 'translate' the vagrant [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh) to the platform of your choice.
 
 ### Prerequisites
 * [Git client](https://git-scm.com/downloads)
