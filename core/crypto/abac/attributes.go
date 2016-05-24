@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -108,10 +107,6 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 
 //ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
 func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
-	if position < 0 {
-		return nil, fmt.Errorf("Invalid attribute position. Received [%v]", position)
-	}
-
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
 	value, err := utils.GetCriticalExtension(tcert, oid)
 	if err != nil {
@@ -203,37 +198,41 @@ func GetValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certifi
 	return value, err
 }
 
-func createABACHeaderEntry(preK0 []byte) *pb.ABACMetadataEntry {
+func createABACHeaderEntry(preK0 []byte) (*pb.ABACMetadataEntry, error) {
 	attKey := getAttributeKey(preK0, HeaderAttributeName)
-	return &pb.ABACMetadataEntry{HeaderAttributeName, attKey}
+	return &pb.ABACMetadataEntry{HeaderAttributeName, attKey}, nil
 }
 
-func createABACMetadataEntry(attributeName string, preK0 []byte) *pb.ABACMetadataEntry {
+func createABACMetadataEntry(attributeName string, preK0 []byte) (*pb.ABACMetadataEntry, error) {
 	attKey := getAttributeKey(preK0, attributeName)
-	return &pb.ABACMetadataEntry{attributeName, attKey}
+	return &pb.ABACMetadataEntry{attributeName, attKey}, nil
 }
 
 //CreateABACMetadataObjectFromCert creates an ABACMetadata object from certificate "cert", metadata and the attributes keys.
-func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) *pb.ABACMetadata {
+func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) (*pb.ABACMetadata, error) {
 	var entries []*pb.ABACMetadataEntry
 	for _, key := range attributeKeys {
 		if len(key) == 0 {
 			continue
 		}
-
-		entry := createABACMetadataEntry(key, preK0)
-		entries = append(entries, entry)
+		entry, err := createABACMetadataEntry(key, preK0)
+		if err == nil {
+			entries = append(entries, entry)
+		}
 	}
-	headerEntry := createABACHeaderEntry(preK0)
-	entries = append(entries, headerEntry)
-
-	return &pb.ABACMetadata{metadata, entries}
+	headerEntry, err := createABACHeaderEntry(preK0)
+	if err == nil {
+		entries = append(entries, headerEntry)
+	}
+	return &pb.ABACMetadata{metadata, entries}, nil
 }
 
 //CreateABACMetadataFromCert creates the ABACMetadata from the original metadata and certificate "cert".
 func CreateABACMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
-	abacMetadata := CreateABACMetadataObjectFromCert(cert, metadata, preK0, attributeKeys)
-
+	abacMetadata, err := CreateABACMetadataObjectFromCert(cert, metadata, preK0, attributeKeys)
+	if err != nil {
+		return nil, err
+	}
 	return proto.Marshal(abacMetadata)
 }
 

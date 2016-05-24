@@ -145,6 +145,6 @@ func validityPeriodUpdateEnabled() bool {
 		return viper.GetBool("pki.validity-period.update")
 	}
 
-	// Validity period update is enabled by default if no configuration was specified.
+	// Validity period update is disabled by default if no configuration was specified.
 	return true
 }

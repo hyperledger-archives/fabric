@@ -26,16 +26,15 @@ import (
 
 	"errors"
 	"fmt"
-	"google/protobuf"
-	"math/big"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
+	"google/protobuf"
+	"math/big"
+	"time"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -602,28 +601,6 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
 }
 
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
 // Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -642,7 +619,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = client.parseHeader(headerStr)
+	header, err = abac.ParseAttributesHeader(headerStr)
 
 	if err != nil {
 		return nil, err
