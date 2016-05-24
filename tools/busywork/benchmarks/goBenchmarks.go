@@ -106,7 +106,7 @@ func sha256Bench(size int, n int) int {
 	return int(float64(size*n) / time.Since(start).Seconds())
 }
 
-// SHA256x8 benchmarks SHA256 on 8-byte buffershash
+// SHA256x8 benchmarks SHA256 on 8-byte buffers
 func SHA256x8(n int) (int, string) {
 	return sha256Bench(8, n), "bytes"
 }
@@ -164,7 +164,7 @@ func sha3_256Bench(size int, n int) int {
 	return int(float64(size*n) / time.Since(start).Seconds())
 }
 
-// SHA3_256x8 benchmarks SHA3_256 on 8-byte buffersha3_sh
+// SHA3_256x8 benchmarks SHA3_256 on 8-byte buffers
 func SHA3_256x8(n int) (int, string) {
 	return sha3_256Bench(8, n), "bytes"
 }
