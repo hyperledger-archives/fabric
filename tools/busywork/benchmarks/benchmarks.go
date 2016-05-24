@@ -38,6 +38,12 @@ import (
 //    SHA512x8
 //    SHA512x1K
 //    SHA512x8K
+//    SHA3_256x8
+//    SHA3_256x1K
+//    SHA3_256x8K
+//    SHA3_512x8
+//    SHA3_512x1K
+//    SHA3_512x8K
 //
 // and <n> is the number of iterations
 func main() {
@@ -83,6 +89,18 @@ func main() {
 			thisRate, what = SHA512x1K(n)
 		case "SHA512x8K":
 			thisRate, what = SHA512x8K(n)
+		case "SHA3_256x8":
+			thisRate, what = SHA3_256x8(n)
+		case "SHA3_256x1K":
+			thisRate, what = SHA3_256x1K(n)
+		case "SHA3_256x8K":
+			thisRate, what = SHA3_256x8K(n)
+		case "SHA3_512x8":
+			thisRate, what = SHA3_512x8(n)
+		case "SHA3_512x1K":
+			thisRate, what = SHA3_512x1K(n)
+		case "SHA3_512x8K":
+			thisRate, what = SHA3_512x8K(n)
 		default:
 			fmt.Printf("Unrecognized operation : %s\n", operation)
 			os.Exit(1)
