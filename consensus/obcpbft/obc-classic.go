@@ -29,32 +29,58 @@ import (
 type obcClassic struct {
 	obcGeneric
 
+	isSufficientlyConnected chan bool
+	proceedWithConsensus    bool
+
 	persistForward
 
 	idleChan chan struct{} // A channel that is created and then closed, simplifies unit testing, otherwise unused
 }
 
-func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
+func newObcClassic(config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
 		obcGeneric: obcGeneric{stack: stack},
 	}
+	op.isSufficientlyConnected = make(chan bool)
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = newPbftCore(id, config, op)
+	logger.Debug("Replica obtaining startup information")
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan)
 
+	go op.waitForID(config)
+
 	return op
+}
+
+//waitForID gets the replica id for this peer once the whitelist is created and completes obcpbft initialization
+func (op *obcClassic) waitForID(config *viper.Viper) {
+	var id uint64
+
+	op.stack.CheckWhitelistExists()
+	id = op.stack.GetOwnID()
+	logger.Debug("replica ID = %v", id)
+
+	// instantiate pbft-core
+	op.pbft = newPbftCore(id, config, op)
+
+	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
 }
 
 // RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
 // the stack. New transaction requests are broadcast to all replicas,
 // so that the current primary will receive the request.
 func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
+	logger.Debug("ready to receive messages")
+
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		logger.Info("New consensus request received")
 
@@ -71,10 +97,7 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 		return fmt.Errorf("Unexpected message type: %s", ocMsg.Type)
 	}
 
-	senderID, err := getValidatorID(senderHandle)
-	if err != nil {
-		panic("Cannot map sender's PeerID to a valid replica ID")
-	}
+	senderID := op.stack.GetValidatorID(senderHandle)
 
 	op.pbft.receive(ocMsg.Payload, senderID)
 
@@ -105,10 +128,7 @@ func (op *obcClassic) unicast(msgPayload []byte, receiverID uint64) (err error) 
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 	return op.stack.Unicast(ocMsg, receiverHandle)
 }
 
@@ -117,10 +137,7 @@ func (op *obcClassic) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcClassic) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 

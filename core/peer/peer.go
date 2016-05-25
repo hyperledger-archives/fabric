@@ -211,8 +211,13 @@ type PeerImpl struct {
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
-	engine         Engine
-	isValidator    bool
+
+	whitelist        *pb.Whitelist
+	whitelistedMap   map[string]int
+	whitelistCreated chan struct{}
+
+	engine      Engine
+	isValidator bool
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -255,7 +260,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	return peer, nil
 }
 
-// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+// NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
@@ -276,6 +281,9 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
+
+	// on peer start or restart, load white list of validating peers
+	peer.LoadWhitelist()
 
 	peer.engine, err = engFactory(peer)
 	if err != nil {

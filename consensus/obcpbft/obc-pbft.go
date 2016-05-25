@@ -131,7 +131,7 @@ type obcGeneric struct {
 }
 
 func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
+	op.stack.SkipTo(seqNo, id, op.stack.GetValidatorHandles(replicas))
 }
 
 func (op *obcGeneric) getState() []byte {

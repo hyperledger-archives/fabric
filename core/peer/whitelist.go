@@ -24,17 +24,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openblockchain/obc-peer/openchain/util"
-	pb "github.com/openblockchain/obc-peer/protos"
+	"github.com/hyperledger/fabric/core/db"
+	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 
 	"github.com/golang/protobuf/proto"
 )
 
 const whitelistFile = "/tmp/whitelist.dat"
+const dbkey = "consensus.whitelist"
 
 // Gatekeeper is used to manage the list of validating peers a validator should connect to
 type Gatekeeper interface {
-	CheckWhitelistExists() (size int)
+	CheckWhitelistExists()
 	LoadWhitelist() (err error)
 	SaveWhitelist() (err error)
 	GetWhitelist() (whitelistedMap map[string]int, sortedKeys []string, sortedValues []*pb.PeerID)
@@ -42,26 +44,47 @@ type Gatekeeper interface {
 	SetWhitelistCap(cap int)
 }
 
-// CheckWhitelistExists returns the length (number of entries) of this peer's whitelist
-func (p *PeerImpl) CheckWhitelistExists() (size int) {
-	return len(p.whitelist.SortedKeys)
+// CheckWhitelistExists blocks until we have N validators in the whitelist
+func (p *PeerImpl) CheckWhitelistExists() {
+	<-p.whitelistCreated
 }
 
 // LoadWhitelist loads the validator's whitelist of validating peers from disk into memory
 // Sets p.whitelist and p.whitelistedMap
 func (p *PeerImpl) LoadWhitelist() (err error) {
-	data, err := util.LoadFromDisk(whitelistFile)
-	if err != nil {
-		return err
-	}
 
-	err = proto.Unmarshal(data, p.whitelist)
-	if err != nil {
-		return fmt.Errorf("Unable to unmarshal whitelist: %v", err)
-	}
+	if !p.isValidator {
+		return nil
+	} // if I'm an NVP, I don't care
 
+	// pbft plugin waits on this channel for whitelist to complete
+	p.whitelistCreated = make(chan struct{}, 3) // make non-blocking. We only need to wake up the receiver once
+
+	// initialize
+	p.whitelist = &pb.Whitelist{Cap: -1,
+		Persisted:    false,
+		Security:     viper.GetBool("security.enabled"),
+		SortedKeys:   []string{},
+		SortedValues: []*pb.PeerID{}}
+	p.whitelistedMap = make(map[string]int)
+
+	db := db.GetDBHandle()
+	data, err := db.Get(db.PersistCF, []byte(dbkey))
+	if err == nil {
+		if data != nil {
+			err = proto.Unmarshal(data, p.whitelist)
+			if err == nil {
+				p.whitelist.Persisted = false // SaveWhitelist() will set after we re-registered the other peers
+				p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
+			} else {
+				err = fmt.Errorf("Unable to unmarshal whitelist: %v", err)
+			}
+		}
+	} else {
+		// if we run into any error, we start fresh with a blank whitelist
+		err = fmt.Errorf("Unable to read whitelist from db: %v", err)
+	}
 	peerLogger.Debug("Whitelist now reads: %+v", p.whitelist)
-	p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
 
 	return err
 }
@@ -69,12 +92,19 @@ func (p *PeerImpl) LoadWhitelist() (err error) {
 // SaveWhitelist stores to disk the list of validating peers this validator should connect to
 // Is called when the handlerMap is locked by RegisterHandler
 func (p *PeerImpl) SaveWhitelist() (err error) {
+
+	if !p.isValidator {
+		return nil
+	} // if I'm an NVP, I don't care
 	// filter the handlerMap structure for connected VPs
+
 	vpMap := filterHandlers(p.handlerMap.m)
 
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
 	if p.whitelist.Persisted || (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
+		peerLogger.Debug("Tried to save whitelist but conditions not right. len(vpMap): %v", len(vpMap))
+		peerLogger.Debug("current whitelist: %+v", p.whitelist)
 		return nil
 	}
 
@@ -101,13 +131,16 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 		return fmt.Errorf("Unable to marshal whitelist: %v", err)
 	}
 
-	// save to disk
-	err = util.SaveToDisk(whitelistFile, data)
-	if err != nil {
-		return err
-	}
+	// save to database
+	err = nil
+	db := db.GetDBHandle()
+	err = db.Put(db.PersistCF, []byte(dbkey), data)
 
-	return nil
+	//let the replica know we have a good whitelist
+	p.whitelistCreated <- struct{}{}
+	peerLogger.Debug("whitelist created and saved")
+
+	return err
 }
 
 // GetWhitelist retrieves the map and sorted list of whitelisted peer keys
