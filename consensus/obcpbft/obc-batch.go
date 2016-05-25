@@ -36,6 +36,7 @@ type obcBatch struct {
 	batchTimer       *time.Timer
 	batchTimerActive bool
 	batchTimeout     time.Duration
+	inViewChange     bool
 
 	incomingChan     chan *batchMessage // Queues messages for processing by main thread
 	custodyTimerChan chan custodyInfo   // Queues complaints
@@ -274,7 +275,7 @@ func (op *obcBatch) leaderProcReq(req *Request) error {
 		return nil
 	}
 
-	hash := op.complainer.Custody(req)
+	hash := hashReq(req)
 
 	logger.Debug("Batch primary %d queueing new request %s", op.pbft.id, hash)
 	op.batchStore = append(op.batchStore, req)
@@ -310,31 +311,28 @@ func (op *obcBatch) sendBatch() error {
 	return nil
 }
 
+func (op *obcBatch) txToReq(tx []byte) *Request {
+	now := time.Now()
+	req := &Request{
+		Timestamp: &google_protobuf.Timestamp{
+			Seconds: now.Unix(),
+			Nanos:   int32(now.UnixNano() % 1000000000),
+		},
+		Payload:   tx,
+		ReplicaId: op.pbft.id,
+	}
+	// XXX sign req
+	return req
+}
+
 func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
-		now := time.Now()
-		req := &Request{
-			Timestamp: &google_protobuf.Timestamp{
-				Seconds: now.Unix(),
-				Nanos:   int32(now.UnixNano() % 1000000000),
-			},
-			Payload:   ocMsg.Payload,
-			ReplicaId: op.pbft.id,
-		}
-		// XXX sign req
+		req := op.txToReq(ocMsg.Payload)
 		hash := op.complainer.Custody(req)
 
-		logger.Info("New consensus request received: %s", hash)
+		logger.Info("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
 
-		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView { // primary
-			err := op.leaderProcReq(req)
-			if err != nil {
-				return err
-			}
-		} else { // backup
-			batchMsg := &BatchMessage{&BatchMessage_Request{req}}
-			op.broadcastMsg(batchMsg)
-		}
+		op.submitToLeader(req)
 		return nil
 	}
 
@@ -385,6 +383,29 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	return nil
 }
 
+// resubmitStaleRequest deals with requests that became stale.  If the
+// request has indeed been executed, we don't have to do anything.  If
+// this request raced with a later one and lost, then we need to
+// repackage this request's payload into a new request and resubmit
+// it.
+func (op *obcBatch) resubmitStaleRequest(c custodyInfo) {
+	oldReq := c.req.(*Request)
+
+	if !op.complainer.InCustody(oldReq) {
+		logger.Debug("Batch replica %d custody expired for stale request: %s",
+			op.pbft.id, c.hash)
+		return
+	}
+
+	newReq := op.txToReq(oldReq.Payload)
+
+	logger.Info("Batch replica %d custody expired for skipped request %s, resubmitting as %s",
+		op.pbft.id, hashReq(oldReq), hashReq(newReq))
+	op.complainer.Success(oldReq)
+	op.complainer.Custody(newReq)
+	op.submitToLeader(newReq)
+}
+
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) main() {
 	for {
@@ -404,29 +425,29 @@ func (op *obcBatch) main() {
 			}
 		case <-op.viewChanged:
 			logger.Debug("Replica %d batch thread recognizing new view", op.pbft.id)
+			op.inViewChange = false
 			if op.batchTimerActive {
 				op.stopBatchTimer()
 			}
 
-			reqs := op.complainer.Restart()
-			if op.pbft.primary(op.pbft.view) == op.pbft.id {
-				logger.Debug("Replica %d is primary, processing outstanding complaints", op.pbft.id)
-				for hash, req := range reqs {
-					logger.Info("Replica %d queueing request under custody: %s", op.pbft.id, hash)
-					op.leaderProcReq(req)
-				}
-			} else {
-				logger.Debug("Replica %d is not primary, so waiting for complaints to expire again", op.pbft.id)
+			op.complainer.Restart()
+			for _, pair := range op.complainer.CustodyElements() {
+				logger.Info("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
+				op.submitToLeader(pair.Request)
 			}
 		case c := <-op.custodyTimerChan:
-			// XXX filter out complaints that are about old requests
+			if !op.deduplicator.IsNew(c.req.(*Request)) {
+				op.resubmitStaleRequest(c)
+				continue
+			}
 
 			if !c.complaint {
 				logger.Warning("Batch replica %d custody expired, complaining: %s", op.pbft.id, c.hash)
 				op.broadcastMsg(&BatchMessage{&BatchMessage_Complaint{c.req.(*Request)}})
 			} else {
-				if op.pbft.activeView {
+				if !op.inViewChange && op.pbft.activeView {
 					logger.Debug("Batch replica %d complaint timeout expired for %s", op.pbft.id, c.hash)
+					op.inViewChange = true
 					op.pbft.injectChan <- func() { op.pbft.sendViewChange() }
 				} else {
 					logger.Debug("Batch replica %d complaint timeout expired for %s while in view change", op.pbft.id, c.hash)
