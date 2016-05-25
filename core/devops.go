@@ -31,6 +31,8 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
+
+        "encoding/base64"
 )
 
 var devopsLogger = logging.MustGetLogger("devops")
@@ -239,7 +241,13 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, invokeTx bool, s
 			return nil, err
 		}
 	}
-        tx.Uuid = util.GetTransactionHashAsStr(tx.Payload)
+        var userGivenB64Data = spec.ChaincodeSpec.CtorMsg.Args[0]
+        var userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenB64Data)
+        // TODO: implement proper error handling
+        if nil != encerr {
+                userGivenBytes = nil
+        }
+        tx.Uuid = util.GetTransactionHashAsStr(userGivenBytes)
 	return tx, nil
 }
 
