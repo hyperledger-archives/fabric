@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	cutil "github.com/hyperledger/fabric/core/container/util"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
@@ -96,7 +97,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		dockerLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
 		return err
 	}
-	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
+	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: viper.GetString("core.chaincode.containerNetworkmode")})
 	if err != nil {
 		dockerLogger.Error(fmt.Sprintf("start-could not start container %s", err))
 		return err
