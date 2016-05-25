@@ -135,11 +135,13 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . more secure
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
-	os.Setenv("GOPATH", codegopath+":"+origgopath)
-	// Get a copy of that new env for the go get command
 	env := os.Environ()
-	// and reset GOPATH to its original value
-	os.Setenv("GOPATH", origgopath)
+	for i, v := range env {
+		if strings.Index(v, "GOPATH=") == 0 {
+			env[i] = "GOPATH=" + codegopath + string(os.PathListSeparator) + origgopath
+			break
+		}
+	}
 
 	// Use a 'go get' command to pull the chaincode from the given repo
 	logger.Debug("go get %s", path)
