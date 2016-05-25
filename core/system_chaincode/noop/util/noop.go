@@ -19,7 +19,7 @@ package util
 import (
 	"crypto/sha256"
 	// "encoding/hex"
-	// "fmt"
+        // "fmt"
 	"math"
         ld "github.com/hyperledger/fabric/core/ledger"
         "github.com/golang/protobuf/proto"
@@ -63,7 +63,7 @@ type ExecResult struct {
 }
 
 // Execute runs the transaction, verifying previous outputs
-func (u *UTXO) Execute(txData string) (*ExecResult, error) {
+func (u *UTXO) Execute(txData []byte) (*ExecResult, error) {
 	// newTX := ParseUTXOBytes(txData)
 	// txHash := u.GetTransactionHash(txData)
 	execResult := &ExecResult{}
@@ -79,19 +79,20 @@ func (u *UTXO) Execute(txData string) (*ExecResult, error) {
 // Query for a transaction via its hash
 func (u *UTXO) Query(txHashHex string) (string, error) {
 	//tx, _, err := u.Store.GetTran(txHashHex)
-	var ledger, err = ld.GetLedger()
+	var zero_output = ""
+        var ledger, err = ld.GetLedger()
         if nil != err {
-               return "", err
+               return zero_output, err
         }
         var tx, txerr = ledger.GetTransactionByUUID(txHashHex)
         if nil != txerr || nil == tx {
-               return "", err
+               return zero_output, err
         }
         var data = tx.Payload
         newCCIS := &protos.ChaincodeInvocationSpec{}
         var merr = proto.Unmarshal(data, newCCIS)
         if nil != merr {
-               return "", merr
+               return zero_output, merr
         }
         return newCCIS.ChaincodeSpec.CtorMsg.Args[0], nil
 }

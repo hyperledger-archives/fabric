@@ -19,7 +19,7 @@ package noop
 import (
 	"errors"
 	"fmt"
-
+        "encoding/base64"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/system_chaincode/noop/util"
 )
@@ -54,12 +54,11 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a bitcoin transaction")
 		}
                 logger.Infof("Executing NOOP INVOKE")
-		txData := args[0]
-                // txDataBase64 := args[0]
-		// txData, err := base64.StdEncoding.DecodeString(txDataBase64)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("Error decoding TX as base64:  %s", err)
-		// }
+                txDataBase64 := args[0]
+		txData, err := base64.StdEncoding.DecodeString(txDataBase64)
+		if err != nil {
+		   return nil, fmt.Errorf("Error decoding TX as base64:  %s", err)
+		}
                 // store = MakeChaincodeStore(stub)
 		utxo := util.MakeUTXO()
 		execResult, err := utxo.Execute(txData)
@@ -97,9 +96,11 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		if err != nil {
 			return nil, fmt.Errorf("Error querying for transaction:  %s", err)
 		}
-		bytes := []byte(data)
-		return bytes, nil
-
+                var dataInByteForm, b64err = base64.StdEncoding.DecodeString(data)
+		if b64err != nil {
+			return nil, fmt.Errorf("Error in decoding from Base64:  %s", b64err)
+		}
+                return dataInByteForm, nil
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
