@@ -105,7 +105,18 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	err = nil
 	logger.Debug("getCodeFromHTTP %s", path)
 
-	origgopath := os.Getenv("GOPATH")
+	// The following could be done with os.Getenv("GOPATH") but we need to change it later so this prepares for that next step
+	env := os.Environ()
+	var origgopath string
+	var gopathenvIndex int
+	for i, v := range env {
+		if strings.Index(v, "GOPATH=") == 0 {
+			p := strings.SplitAfter(v, "GOPATH=")
+			origgopath = p[1]
+			gopathenvIndex = i
+			break
+		}
+	}
 	if origgopath == "" {
 		err = fmt.Errorf("GOPATH not defined")
 		return
@@ -135,13 +146,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . more secure
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
-	env := os.Environ()
-	for i, v := range env {
-		if strings.Index(v, "GOPATH=") == 0 {
-			env[i] = "GOPATH=" + codegopath + string(os.PathListSeparator) + origgopath
-			break
-		}
-	}
+	env[gopathenvIndex] = "GOPATH=" + codegopath + string(os.PathListSeparator) + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
 	logger.Debug("go get %s", path)
