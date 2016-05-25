@@ -39,10 +39,10 @@ type Handler struct {
 	FSM                           *fsm.FSM
 	initiatedStream               bool // Was the stream initiated within this Peer
 	registered                    bool
-	syncBlocksMutex               sync.Mutex
 	syncBlocks                    chan *pb.SyncBlocks
 	snapshotRequestHandler        *syncStateSnapshotRequestHandler
 	syncStateDeltasRequestHandler *syncStateDeltasHandler
+	syncBlocksRequestHandler      *syncBlocksRequestHandler
 }
 
 // NewPeerHandler returns a new Peer handler
@@ -58,6 +58,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 
 	d.snapshotRequestHandler = newSyncStateSnapshotRequestHandler()
 	d.syncStateDeltasRequestHandler = newSyncStateDeltasHandler()
+	d.syncBlocksRequestHandler = newSyncBlocksRequestHandler()
 	d.FSM = fsm.NewFSM(
 		"created",
 		fsm.Events{
@@ -73,7 +74,7 @@ func NewPeerHandler(coord MessageHandlerCoordinator, stream ChatStream, initiate
 			{Name: pb.Message_SYNC_STATE_DELTAS.String(), Src: []string{"established"}, Dst: "established"},
 		},
 		fsm.Callbacks{
-			"enter_state":                                                    func(e *fsm.Event) { d.enterState(e) },
+			"enter_state":                                           func(e *fsm.Event) { d.enterState(e) },
 			"before_" + pb.Message_DISC_HELLO.String():              func(e *fsm.Event) { d.beforeHello(e) },
 			"before_" + pb.Message_DISC_GET_PEERS.String():          func(e *fsm.Event) { d.beforeGetPeers(e) },
 			"before_" + pb.Message_DISC_PEERS.String():              func(e *fsm.Event) { d.beforePeers(e) },
@@ -351,14 +352,11 @@ func (d *Handler) start() error {
 // RequestBlocks get the blocks from the other PeerEndpoint based upon supplied SyncBlockRange, will provide them through the returned channel.
 // this will also stop writing any received blocks to channels created from Prior calls to RequestBlocks(..)
 func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error) {
-	d.syncBlocksMutex.Lock()
-	defer d.syncBlocksMutex.Unlock()
+	d.syncBlocksRequestHandler.Lock()
+	defer d.syncBlocksRequestHandler.Unlock()
 
-	if d.syncBlocks != nil {
-		// close the previous one
-		close(d.syncBlocks)
-	}
-	d.syncBlocks = make(chan *pb.SyncBlocks, viper.GetInt("peer.sync.blocks.channelSize"))
+	d.syncBlocksRequestHandler.reset()
+	syncBlockRange.CorrelationId = d.syncBlocksRequestHandler.correlationID
 
 	// Marshal the SyncBlockRange as the payload
 	syncBlockRangeBytes, err := proto.Marshal(syncBlockRange)
@@ -369,7 +367,7 @@ func (d *Handler) RequestBlocks(syncBlockRange *pb.SyncBlockRange) (<-chan *pb.S
 	if err := d.SendMessage(&pb.Message{Type: pb.Message_SYNC_GET_BLOCKS, Payload: syncBlockRangeBytes}); err != nil {
 		return nil, fmt.Errorf("Error sending %s during GetBlocks: %s", pb.Message_SYNC_GET_BLOCKS, err)
 	}
-	return d.syncBlocks, nil
+	return d.syncBlocksRequestHandler.channel, nil
 }
 
 func (d *Handler) beforeSyncGetBlocks(e *fsm.Event) {
@@ -413,11 +411,20 @@ func (d *Handler) beforeSyncBlocks(e *fsm.Event) {
 			peerLogger.Error(fmt.Sprintf("Error sending syncBlocks to channel: %v", x))
 		}
 	}()
+
+	d.syncBlocksRequestHandler.Lock()
+	defer d.syncBlocksRequestHandler.Unlock()
 	// Use non-blocking send, will WARN if missed message.
-	select {
-	case d.syncBlocks <- syncBlocks:
-	default:
-		peerLogger.Warning("Did NOT send SyncBlocks message to channel for range: %d - %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+	if d.syncBlocksRequestHandler.shouldHandle(syncBlocks.Range.CorrelationId) {
+		select {
+		case d.syncBlocksRequestHandler.channel <- syncBlocks:
+		default:
+			peerLogger.Warning("Did NOT send SyncBlocks message to channel for range: %d - %d", syncBlocks.Range.Start, syncBlocks.Range.End)
+			d.syncBlocksRequestHandler.reset()
+		}
+	} else {
+		//Ignore the message, does not match the current correlationId
+		peerLogger.Warning("Ignoring SyncBlocks message with correlationId = %d, blocks %d to %d, as current correlationId = %d", syncBlocks.Range.CorrelationId, syncBlocks.Range.Start, syncBlocks.Range.End, d.syncBlocksRequestHandler.correlationID)
 	}
 }
 
@@ -446,7 +453,7 @@ func (d *Handler) sendBlocks(syncBlockRange *pb.SyncBlockRange) {
 			break
 		}
 		// Encode a SyncBlocks into the payload
-		syncBlocks := &pb.SyncBlocks{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum}, Blocks: []*pb.Block{block}}
+		syncBlocks := &pb.SyncBlocks{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum, CorrelationId: syncBlockRange.CorrelationId}, Blocks: []*pb.Block{block}}
 		syncBlocksBytes, err := proto.Marshal(syncBlocks)
 		if err != nil {
 			peerLogger.Error(fmt.Sprintf("Error marshalling syncBlocks for BlockNum = %d: %s", currBlockNum, err))
@@ -534,7 +541,7 @@ func (d *Handler) beforeSyncStateSnapshot(e *fsm.Event) {
 	d.snapshotRequestHandler.Lock()
 	defer d.snapshotRequestHandler.Unlock()
 	// Make sure the correlationID matches
-	if d.snapshotRequestHandler.shouldHandle(syncStateSnapshot) {
+	if d.snapshotRequestHandler.shouldHandle(syncStateSnapshot.Request.CorrelationId) {
 		select {
 		case d.snapshotRequestHandler.channel <- syncStateSnapshot:
 		default:
@@ -614,6 +621,7 @@ func (d *Handler) RequestStateDeltas(syncBlockRange *pb.SyncBlockRange) (<-chan 
 	defer d.syncStateDeltasRequestHandler.Unlock()
 	// Reset the handler
 	d.syncStateDeltasRequestHandler.reset()
+	syncBlockRange.CorrelationId = d.syncStateDeltasRequestHandler.correlationID
 
 	// Create the syncStateSnapshotRequest
 	syncStateDeltasRequest := d.syncStateDeltasRequestHandler.createRequest(syncBlockRange)
@@ -679,7 +687,7 @@ func (d *Handler) sendStateDeltas(syncStateDeltasRequest *pb.SyncStateDeltasRequ
 		}
 		// Encode a SyncStateDeltas into the payload
 		stateDeltaBytes := stateDelta.Marshal()
-		syncStateDeltas := &pb.SyncStateDeltas{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum}, Deltas: [][]byte{stateDeltaBytes}}
+		syncStateDeltas := &pb.SyncStateDeltas{Range: &pb.SyncBlockRange{Start: currBlockNum, End: currBlockNum, CorrelationId: syncBlockRange.CorrelationId}, Deltas: [][]byte{stateDeltaBytes}}
 		syncStateDeltasBytes, err := proto.Marshal(syncStateDeltas)
 		if err != nil {
 			peerLogger.Error(fmt.Sprintf("Error marshalling syncStateDeltas for BlockNum = %d: %s", currBlockNum, err))
@@ -718,12 +726,17 @@ func (d *Handler) beforeSyncStateDeltas(e *fsm.Event) {
 	// Use non-blocking send, will WARN and close channel if missed message.
 	d.syncStateDeltasRequestHandler.Lock()
 	defer d.syncStateDeltasRequestHandler.Unlock()
-	select {
-	case d.syncStateDeltasRequestHandler.channel <- syncStateDeltas:
-	default:
-		// Was not able to write to the channel, in which case the SyncStateDeltasRequest stream is incomplete, and must be discarded, closing the channel
-		peerLogger.Warning("Did NOT send SyncStateDeltas message to channel for block range %d-%d, closing channel as the message has been discarded", syncStateDeltas.Range.Start, syncStateDeltas.Range.End)
-		d.syncStateDeltasRequestHandler.reset()
+	if d.syncStateDeltasRequestHandler.shouldHandle(syncStateDeltas.Range.CorrelationId) {
+		select {
+		case d.syncStateDeltasRequestHandler.channel <- syncStateDeltas:
+		default:
+			// Was not able to write to the channel, in which case the SyncStateDeltasRequest stream is incomplete, and must be discarded, closing the channel
+			peerLogger.Warning("Did NOT send SyncStateDeltas message to channel for block range %d-%d, closing channel as the message has been discarded", syncStateDeltas.Range.Start, syncStateDeltas.Range.End)
+			d.syncStateDeltasRequestHandler.reset()
+		}
+	} else {
+		//Ignore the message, does not match the current correlationId
+		peerLogger.Warning("Ignoring SyncStateDeltas message with correlationId = %d, blocks %d to %d, as current correlationId = %d", syncStateDeltas.Range.CorrelationId, syncStateDeltas.Range.Start, syncStateDeltas.Range.End, d.syncStateDeltasRequestHandler.correlationID)
 	}
 
 }

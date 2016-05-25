@@ -1187,8 +1187,9 @@ func TestReplicaCrash3(t *testing.T) {
 	// Create new pbft instances to restore from persistence
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
-		os.Setenv("CORE_PBFT_GENERAL_K", "2") // TODO, this is a hacky way to inject config before initialization rather than after, address this in a future changeset
-		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
+		config := loadConfig()
+		config.Set("general.K", "2")
+		pe.pbft = newPbftCore(uint64(id), config, pe.sc)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.requestTimeout = 200 * time.Millisecond
@@ -1225,5 +1226,82 @@ func TestReplicaCrash3(t *testing.T) {
 		if pep.sc.executions != expectedExecutions {
 			t.Errorf("Expected %d executions on replica %d, got %d", expectedExecutions, pep.id, pep.sc.executions)
 		}
+	}
+}
+
+func TestReplicaPersistQSet(t *testing.T) {
+	persist := make(map[string][]byte)
+
+	stack := &omniProto{
+		validateImpl: func(b []byte) error {
+			return nil
+		},
+		broadcastImpl: func(msg []byte) {
+		},
+		StoreStateImpl: func(key string, value []byte) error {
+			persist[key] = value
+			return nil
+		},
+		DelStateImpl: func(key string) {
+			delete(persist, key)
+		},
+		ReadStateImpl: func(key string) ([]byte, error) {
+			if val, ok := persist[key]; ok {
+				return val, nil
+			} else {
+				return nil, fmt.Errorf("key not found")
+			}
+		},
+		ReadStateSetImpl: func(prefix string) (map[string][]byte, error) {
+			r := make(map[string][]byte)
+			for k, v := range persist {
+				if len(k) >= len(prefix) && k[0:len(prefix)] == prefix {
+					r[k] = v
+				}
+			}
+			return r, nil
+		},
+	}
+	p := newPbftCore(1, loadConfig(), stack)
+	req := &Request{
+		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
+		Payload:   []byte("foo"),
+		ReplicaId: uint64(0),
+	}
+	p.recvMsgSync(&Message{&Message_PrePrepare{&PrePrepare{
+		View:           0,
+		SequenceNumber: 1,
+		RequestDigest:  hashReq(req),
+		Request:        req,
+		ReplicaId:      uint64(0),
+	}}}, uint64(0))
+
+	p = newPbftCore(1, loadConfig(), stack)
+	if !p.prePrepared(hashReq(req), 0, 1) {
+		t.Errorf("did not restore qset properly")
+	}
+}
+
+func TestReplicaPersistDelete(t *testing.T) {
+	persist := make(map[string][]byte)
+
+	stack := &omniProto{
+		StoreStateImpl: func(key string, value []byte) error {
+			persist[key] = value
+			return nil
+		},
+		DelStateImpl: func(key string) {
+			delete(persist, key)
+		},
+	}
+	p := newPbftCore(1, loadConfig(), stack)
+	p.reqStore["a"] = &Request{}
+	p.persistRequest("a")
+	if len(persist) != 1 {
+		t.Error("expected one persisted entry")
+	}
+	p.persistDelRequest("a")
+	if len(persist) != 0 {
+		t.Error("expected no persisted entry")
 	}
 }
