@@ -28,7 +28,13 @@ import (
 	configSetup "github.com/hyperledger/fabric/core/config"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
+
+	"github.com/op/go-logging"
 )
+
+func init() {
+	logging.SetLevel(logging.DEBUG, "")
+}
 
 var AllFailures = [...]mockResponse{Timeout, Corrupt, OutOfOrder}
 
@@ -166,6 +172,52 @@ func TestCatchupSimple(t *testing.T) {
 
 }
 
+func TestCatchupWithLowMaxDeltas(t *testing.T) {
+	mrls := createRemoteLedgers(1, 3)
+
+	// Test from blockheight of 1, with valid genesis block
+	deltasTransferred := uint64(0)
+	blocksTransferred := uint64(0)
+	ml := NewMockLedger(mrls, func(request mockRequest, peerID *protos.PeerID) mockResponse {
+		if request == SyncDeltas {
+			deltasTransferred++
+		}
+
+		if request == SyncBlocks {
+			blocksTransferred++
+		}
+
+		return Normal
+	}, t)
+	ml.PutBlock(0, SimpleGetBlock(0))
+
+	sts := newTestStateTransfer(ml, mrls)
+	maxRange := uint64(3)
+	sts.maxStateDeltaRange = maxRange
+	sts.maxBlockRange = maxRange
+	defer sts.Stop()
+
+	targetBlock := uint64(7)
+	if err := executeStateTransfer(sts, ml, targetBlock, 10, mrls); nil != err {
+		t.Fatalf("Without deltas case: %s", err)
+	}
+
+	existingBlocks := uint64(1)
+	targetTransferred := (targetBlock - existingBlocks) / maxRange
+	if (targetBlock-existingBlocks)%maxRange != 0 {
+		targetTransferred++
+	}
+
+	if deltasTransferred != targetTransferred {
+		t.Errorf("Expected %d state deltas transferred, got %d", targetTransferred, deltasTransferred)
+	}
+
+	if blocksTransferred != targetTransferred {
+		t.Errorf("Expected %d state blocks transferred, got %d", targetTransferred, blocksTransferred)
+	}
+
+}
+
 func TestCatchupWithoutDeltas(t *testing.T) {
 	mrls := createRemoteLedgers(1, 3)
 
@@ -182,7 +234,7 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 	ml.PutBlock(0, SimpleGetBlock(0))
 
 	sts := newTestStateTransfer(ml, mrls)
-	sts.MaxStateDeltas = 0
+	sts.maxStateDeltas = 0
 	defer sts.Stop()
 
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
@@ -276,7 +328,7 @@ func TestCatchupSyncBlocksAllErrors(t *testing.T) {
 		sts.AddTarget(blockNumber, blockHash, nil, nil)
 
 		select {
-		case <-time.After(time.Second * 2):
+		case <-time.After(time.Second * 4):
 			t.Fatalf("Timed out waiting for state to error out")
 		case <-failChannel:
 		}
@@ -487,6 +539,57 @@ func TestCatchupLaggingChains(t *testing.T) {
 	// Use a large timeout here because the mock ledger is slow for large blocks
 	if err := executeBlockRecovery(ml, 1000, mrls); nil != err {
 		t.Fatalf("TestCatchupLaggingChains long chain failure: %s", err)
+	}
+}
+
+func TestCatchupLaggingWithSmallMaxBlocks(t *testing.T) {
+	mrls := createRemoteLedgers(0, 3)
+
+	for peerID := range mrls.remoteLedgers {
+		mrls.GetMockRemoteLedgerByPeerID(&peerID).blockHeight = 201
+	}
+
+	maxSyncBlocks := uint64(3)
+	startingBlock := uint64(200)
+
+	syncBlockTries := uint64(0)
+	ml := NewMockLedger(mrls, func(request mockRequest, peerID *protos.PeerID) mockResponse {
+		if request == SyncBlocks {
+			syncBlockTries++
+		}
+
+		return Normal
+	}, t)
+	ml.PutBlock(startingBlock, SimpleGetBlock(startingBlock))
+
+	sts := newTestThreadlessStateTransfer(ml, mrls)
+	sts.BlockRequestTimeout = 1000 * time.Millisecond
+	sts.RecoverDamage = true
+	sts.maxBlockRange = maxSyncBlocks
+	sts.blockVerifyChunkSize = maxSyncBlocks
+
+	w := make(chan struct{})
+
+	go func() {
+		for !sts.verifyAndRecoverBlockchain() {
+		}
+		w <- struct{}{}
+	}()
+
+	select {
+	case <-time.After(time.Second * 2):
+		t.Fatalf("Timed out waiting for blocks to replicate for blockchain")
+	case <-w:
+		// Do nothing, continue the test
+	}
+
+	target := startingBlock / maxSyncBlocks
+	if startingBlock%maxSyncBlocks != 0 {
+		target++
+	}
+
+	if syncBlockTries != target {
+		t.Fatalf("Expected %d calls to sync blocks, but got %d, this indicates maxBlockRange is not being respected", target, syncBlockTries)
 	}
 }
 

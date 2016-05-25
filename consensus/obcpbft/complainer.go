@@ -25,6 +25,12 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/custodian"
 )
 
+// CustodyPair is a tuple of enqueued id and data object
+type CustodyPair struct {
+	Hash    string
+	Request *Request
+}
+
 // complaintHandler represents a receiver of complaints
 type complaintHandler interface {
 	// Complain is called by the complainer to signal that custody
@@ -116,22 +122,34 @@ func (c *complainer) SuccessHash(hash string) {
 	c.complaints.Remove(hash)
 }
 
+// InCustody returns true if a request is currently in custody
+func (c *complainer) InCustody(req *Request) bool {
+	hash := hashReq(req)
+	return c.custody.InCustody(hash)
+}
+
+// CustodyElements returns all requests currently in custody.
+func (c *complainer) CustodyElements() []CustodyPair {
+	var ret []CustodyPair
+	for _, pair := range c.custody.Elements() {
+		ret = append(ret, CustodyPair{pair.ID, pair.Data.(*Request)})
+	}
+	return ret
+}
+
 // Restart resets custody and complaint queues without calling into
 // the complaintHandler.  The complaint queue is drained completely.
 // The custody queue timeouts are reset.  Restart returns all requests
-// that are maintained in custody, or have been received from other replicas
-func (c *complainer) Restart() map[string]*Request {
-	reqs := make(map[string]*Request)
+// that were in the complaint queue.
+func (c *complainer) Restart() []CustodyPair {
+	var reqs []CustodyPair
 
-	complaints := c.complaints.RemoveAll()
-	for _, pair := range complaints {
-		reqs[pair.ID] = pair.Data.(*Request)
+	for _, pair := range c.custody.RemoveAll() {
+		c.custody.Register(pair.ID, pair.Data)
 	}
 
-	custody := c.custody.RemoveAll()
-	for _, pair := range custody {
-		c.custody.Register(pair.ID, pair.Data)
-		reqs[pair.ID] = pair.Data.(*Request)
+	for _, pair := range c.complaints.RemoveAll() {
+		reqs = append(reqs, CustodyPair{pair.ID, pair.Data.(*Request)})
 	}
 
 	return reqs

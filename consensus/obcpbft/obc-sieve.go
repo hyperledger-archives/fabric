@@ -788,12 +788,10 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 		op.rollback()
 	}
 
-	reqs := op.complainer.Restart()
-	if op.pbft.primary(op.pbft.view) == op.id {
-		for hash, req := range reqs {
-			logger.Info("Replica %d queueing request under custody: %s", op.id, hash)
-			op.queuedTx = append(op.queuedTx, req)
-		}
+	op.complainer.Restart()
+	for _, pair := range op.complainer.CustodyElements() {
+		logger.Info("Replica %d resubmitting request under custody: %s", op.id, pair.Hash)
+		op.submitToLeader(pair.Request)
 	}
 }
 
