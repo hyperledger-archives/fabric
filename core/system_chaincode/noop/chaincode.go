@@ -93,15 +93,12 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		}
                 logger.Infof("Executing NOOP QUERY")
                 utxo := util.MakeUTXO()
-		tx, err := utxo.Query(args[0])
+		data, err := utxo.Query(args[0])
 		if err != nil {
 			return nil, fmt.Errorf("Error querying for transaction:  %s", err)
 		}
-		if tx == nil {
-			var data []byte
-			return data, nil
-		}
-		return tx, nil
+		bytes := []byte(data)
+		return bytes, nil
 
 	default:
 		return nil, errors.New("Unsupported operation")

@@ -21,6 +21,9 @@ import (
 	// "encoding/hex"
 	// "fmt"
 	"math"
+        ld "github.com/hyperledger/fabric/core/ledger"
+        "github.com/golang/protobuf/proto"
+        "github.com/hyperledger/fabric/protos"
 )
 
 type UTXO struct {
@@ -74,7 +77,21 @@ func (u *UTXO) Execute(txData string) (*ExecResult, error) {
 }
 
 // Query for a transaction via its hash
-func (u *UTXO) Query(txHashHex string) ([]byte, error) {
+func (u *UTXO) Query(txHashHex string) (string, error) {
 	//tx, _, err := u.Store.GetTran(txHashHex)
-	return nil, nil
+	var ledger, err = ld.GetLedger()
+        if nil != err {
+               return "", err
+        }
+        var tx, txerr = ledger.GetTransactionByUUID(txHashHex)
+        if nil != txerr || nil == tx {
+               return "", err
+        }
+        var data = tx.Payload
+        newCCIS := &protos.ChaincodeInvocationSpec{}
+        var merr = proto.Unmarshal(data, newCCIS)
+        if nil != merr {
+               return "", merr
+        }
+        return newCCIS.ChaincodeSpec.CtorMsg.Args[0], nil
 }
