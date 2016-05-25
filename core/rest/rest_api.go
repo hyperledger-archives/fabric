@@ -669,6 +669,7 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 // blockchain.
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST deploying chaincode...")
+	restLogger.Warning("/devops/deploy endpoint has been deprecated. Use /chaincode endpoint instead.")
 
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeSpec
@@ -812,6 +813,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 // Invoke executes a specified function within a target Chaincode.
 func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST invoking chaincode...")
+	restLogger.Warning("/devops/invoke endpoint has been deprecated. Use /chaincode endpoint instead.")
 
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeInvocationSpec
@@ -948,6 +950,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 // Query performs the requested query on the target Chaincode.
 func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST querying chaincode...")
+	restLogger.Warning("/devops/query endpoint has been deprecated. Use /chaincode endpoint instead.")
 
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeInvocationSpec
