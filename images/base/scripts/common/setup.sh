@@ -57,16 +57,7 @@ EOF
 
 
 # Install NodeJS
-#cd /tmp
-#ver=0.12.7 #Replace this with the latest version available
-#wget -c http://nodejs.org/dist/v$ver/node-v$ver.tar.gz #This is to download the source code.
-#tar -xzf node-v$ver.tar.gz
-#rm node-v$ver.tar.gz
-#cd node-v$ver
-#./configure && make && sudo make install
-#cd /tmp && rm -rf node-v$ver
 
-cd $TEMP_DIR
 if [ x$MACHINE = xs390x ]
 then
     apt-get install --yes nodejs
@@ -77,6 +68,7 @@ else
     SRC_PATH=$TEMP_DIR/$NODE_PACKAGE
 
     # First remove any prior packages downloaded in case of failure
+    cd $TEMP_DIR
     rm -f node*.tar.gz
     wget --quiet https://nodejs.org/dist/v$NODE_VER/$NODE_PACKAGE
     cd /usr/local && sudo tar --strip-components 1 -xzf $SRC_PATH
