@@ -60,7 +60,7 @@ type ExecResult struct {
 }
 
 // Execute runs the transaction, verifying previous outputs
-func (u *UTXO) Execute(txData []byte) (*ExecResult, error) {
+func (u *UTXO) Execute(txData string) (*ExecResult, error) {
 	// newTX := ParseUTXOBytes(txData)
 	// txHash := u.GetTransactionHash(txData)
 	execResult := &ExecResult{}

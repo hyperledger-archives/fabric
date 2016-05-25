@@ -17,7 +17,6 @@ limitations under the License.
 package noop
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -55,11 +54,12 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a bitcoin transaction")
 		}
                 logger.Infof("Executing NOOP INVOKE")
-		txDataBase64 := args[0]
-		txData, err := base64.StdEncoding.DecodeString(txDataBase64)
-		if err != nil {
-			return nil, fmt.Errorf("Error decoding TX as base64:  %s", err)
-		}
+		txData := args[0]
+                // txDataBase64 := args[0]
+		// txData, err := base64.StdEncoding.DecodeString(txDataBase64)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("Error decoding TX as base64:  %s", err)
+		// }
                 // store = MakeChaincodeStore(stub)
 		utxo := util.MakeUTXO()
 		execResult, err := utxo.Execute(txData)
