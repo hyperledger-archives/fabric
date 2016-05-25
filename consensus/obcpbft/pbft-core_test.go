@@ -1281,3 +1281,27 @@ func TestReplicaPersistQSet(t *testing.T) {
 		t.Errorf("did not restore qset properly")
 	}
 }
+
+func TestReplicaPersistDelete(t *testing.T) {
+	persist := make(map[string][]byte)
+
+	stack := &omniProto{
+		StoreStateImpl: func(key string, value []byte) error {
+			persist[key] = value
+			return nil
+		},
+		DelStateImpl: func(key string) {
+			delete(persist, key)
+		},
+	}
+	p := newPbftCore(1, loadConfig(), stack)
+	p.reqStore["a"] = &Request{}
+	p.persistRequest("a")
+	if len(persist) != 1 {
+		t.Error("expected one persisted entry")
+	}
+	p.persistDelRequest("a")
+	if len(persist) != 0 {
+		t.Error("expected no persisted entry")
+	}
+}
