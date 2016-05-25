@@ -52,7 +52,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case <-ce.consumer.getPBFTCore().idleChan:
+	case ce.consumer.getPBFTCore().manager.queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
