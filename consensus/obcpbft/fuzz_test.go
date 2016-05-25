@@ -59,9 +59,11 @@ func TestFuzz(t *testing.T) {
 
 	mock := newFuzzMock()
 	primary := newPbftCore(0, loadConfig(), mock)
+	primary.manager.start()
 	defer primary.close()
 	mock = newFuzzMock()
 	backup := newPbftCore(1, loadConfig(), mock)
+	backup.manager.start()
 	defer backup.close()
 
 	f := fuzz.New()

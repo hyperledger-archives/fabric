@@ -83,6 +83,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.restoreBlockNumber()
 
 	op.pbft = newPbftCore(id, config, op)
+	op.pbft.manager.start()
 	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
 	op.deduplicator = newDeduplicator()
 

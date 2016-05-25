@@ -60,6 +60,7 @@ func (t *threaded) halt() {
 // eventManager provides a serialized interface for submitting events to
 // an eventReceiver on the other side of the queue
 type eventManager interface {
+	inject(event)        // A temporary interface to allow the event manager thread to skip the queue
 	queue() chan<- event // Get a write-only reference to the queue, to submit events
 	start()              // Starts the eventManager thread TODO, these thread management things should probably go away
 	halt()               // Stops the eventManager thread
@@ -91,14 +92,19 @@ func (em *eventManagerImpl) queue() chan<- event {
 	return em.events
 }
 
+// inject can only safely be called by the eventManager thread itself, it skips the queue
+func (em *eventManagerImpl) inject(event event) {
+	for next := event; next != nil; next = em.receiver.processEvent(next) {
+		// If an event returns something non-nil, then process it as a new event
+	}
+}
+
 // eventLoop is where the event thread loops, delivering events
 func (em *eventManagerImpl) eventLoop() {
 	for {
 		select {
 		case next := <-em.events:
-			// If an event returns something non-nil, then process it as a new event
-			for ; next != nil; next = em.receiver.processEvent(next) {
-			}
+			em.inject(next)
 		case <-em.exit:
 			logger.Debug("eventLoop told to exit")
 			return
@@ -260,7 +266,12 @@ const (
 	execDoneEventID
 	stateUpdatedEventID
 	stateUpdatingEventID
-	messageEventID
+	pbftMessageEventID
+	batchMessageEventID
+	batchTimerEventID
+	viewChangedEventID
+	complaintEventID
+	batchExecEventID
 )
 
 // workEvent is a temporary type, to inject work
@@ -298,9 +309,44 @@ func (e stateUpdatingEvent) eventType() eventType {
 	return stateUpdatingEventID
 }
 
-// messageEvent is sent when a consensus messages is received to be sent to pbft
-type messageEvent pbftMessage
+// pbftMessageEvent is sent when a consensus messages is received to be sent to pbft
+type pbftMessageEvent pbftMessage
 
-func (e messageEvent) eventType() eventType {
-	return messageEventID
+func (e pbftMessageEvent) eventType() eventType {
+	return pbftMessageEventID
+}
+
+// batchMessageEvent is sent when a consensus messages is received to be sent to pbft
+type batchMessageEvent batchMessage
+
+func (e batchMessageEvent) eventType() eventType {
+	return batchMessageEventID
+}
+
+// batchTimerEvent is sent when the batch timer expires
+type batchTimerEvent struct{}
+
+func (e batchTimerEvent) eventType() eventType {
+	return batchTimerEventID
+}
+
+// viewChangedEvent is sent when the view change timer expires
+type viewChangedEvent struct{}
+
+func (e viewChangedEvent) eventType() eventType {
+	return viewChangedEventID
+}
+
+// complaintEvent is sent when custody has a complaint
+type complaintEvent custodyInfo
+
+func (e complaintEvent) eventType() eventType {
+	return complaintEventID
+}
+
+// batchExecEvent is sent when a batch execution should take place
+type batchExecEvent execInfo
+
+func (e batchExecEvent) eventType() eventType {
+	return batchExecEventID
 }

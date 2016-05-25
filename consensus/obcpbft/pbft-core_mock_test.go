@@ -147,6 +147,8 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 			fn(pe)
 		}
 
+		pe.pbft.manager.start()
+
 		return pe
 
 	}

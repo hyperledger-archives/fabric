@@ -73,6 +73,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 		},
 	}
 	instance := newPbftCore(1, loadConfig(), mock)
+	instance.manager.start()
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -125,6 +126,7 @@ func TestIncompletePayload(t *testing.T) {
 		},
 	}
 	instance := newPbftCore(1, loadConfig(), mock)
+	instance.manager.start()
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -370,6 +372,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 		},
 		broadcastImpl: func(b []byte) {},
 	})
+	instance.manager.start()
 	instance.activeView = false
 	instance.view = 1
 	instance.lastExec = 10
@@ -786,6 +789,7 @@ func TestSendQueueThrottling(t *testing.T) {
 
 	mock := &omniProto{}
 	instance := newPbftCore(0, loadConfig(), mock)
+	instance.manager.start()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -820,6 +824,7 @@ func TestSendQueueThrottling(t *testing.T) {
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
 	instance := newPbftCore(1, loadConfig(), mock)
+	instance.manager.start()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -845,6 +850,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 	mock := &omniProto{}
 	instance := newPbftCore(1, loadConfig(), mock)
+	instance.manager.start()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -996,6 +1002,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 		},
 	}
 	instance := newPbftCore(1, loadConfig(), mock)
+	instance.manager.start()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -1048,6 +1055,7 @@ func TestReplicaCrash1(t *testing.T) {
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
 		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
+		pe.pbft.manager.start()
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2
@@ -1190,6 +1198,7 @@ func TestReplicaCrash3(t *testing.T) {
 		config := loadConfig()
 		config.Set("general.K", "2")
 		pe.pbft = newPbftCore(uint64(id), config, pe.sc)
+		pe.pbft.manager.start()
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.requestTimeout = 200 * time.Millisecond
