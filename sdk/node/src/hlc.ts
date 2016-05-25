@@ -721,6 +721,9 @@ export class Member {
      */
     getNextTCert(cb:GetTCertCallback):void {
         let self = this;
+        if (!self.isEnrolled()) {
+            return cb(Error(util.format("user '%s' is not enrolled",self.getName())));
+        }
         if (self.tcerts.length > 0) {
             return cb(null, self.tcerts.shift());
         }
