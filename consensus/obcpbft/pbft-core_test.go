@@ -1291,3 +1291,8 @@ func TestReplicaPersistDelete(t *testing.T) {
 		t.Error("expected no persisted entry")
 	}
 }
+
+func TestNilCurrentExec(t *testing.T) {
+	p := newPbftCore(1, loadConfig(), &omniProto{})
+	p.execDoneSync() // Per issue 1538, this would cause a Nil pointer dereference
+}
