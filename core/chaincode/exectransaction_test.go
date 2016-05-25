@@ -294,8 +294,7 @@ func closeListenerAndSleep(l net.Listener) {
 	}
 }
 
-// Test deploy of a transaction.
-func TestExecuteDeployTransaction(t *testing.T) {
+func executeDeployTransaction(t *testing.T) {
 	var opts []grpc.ServerOption
 	if viper.GetBool("peer.tls.enabled") {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
@@ -347,6 +346,19 @@ func TestExecuteDeployTransaction(t *testing.T) {
 	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
 	closeListenerAndSleep(lis)
 }
+
+func TestExecuteDeployTransaction(t *testing.T) {
+	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
+}
+
+// Test deploy of a transaction with a chaincode over HTTP.
+func TestHTTPExecuteDeployTransaction(t *testing.T) {
+	// The chaincode used here cannot be from the hyperledger repo
+	// itself or it won't be downloaded because it will be found
+	// in GOPATH, which would defeat the test
+	executeDeployTransaction(t, "http://github.com/lehors/fabric/tree/ca8135b1a0f95127c96478518628a65a377ec123/examples/chaincode/go/chaincode_example01")
+}
+
 
 // Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {
