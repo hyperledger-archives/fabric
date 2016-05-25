@@ -34,11 +34,11 @@ then
 elif [ x$MACHINE = xx86_64 ]
 then
    export GOROOT="/opt/go"
-   
+
    #ARCH=`uname -m | sed 's|i686|386|' | sed 's|x86_64|amd64|'`
    ARCH=amd64
    GO_VER=1.6
-   
+
    cd /tmp
    wget --quiet --no-check-certificate https://storage.googleapis.com/golang/go$GO_VER.linux-${ARCH}.tar.gz
    tar -xvf go$GO_VER.linux-${ARCH}.tar.gz
@@ -93,7 +93,7 @@ fi
 cd /tmp
 git clone https://github.com/google/protobuf.git
 cd protobuf
-git checkout 12fb61b292d7ec4cb14b0d60e58ed5c35adda3b7
+git checkout v3.0.0-beta-3
 #unzip needed for ./autogen.sh
 apt-get install -y unzip
 apt-get install -y autoconf
