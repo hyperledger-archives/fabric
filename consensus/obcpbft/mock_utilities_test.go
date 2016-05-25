@@ -111,10 +111,10 @@ type omniProto struct {
 	GetValidatorHandleImpl     func(id uint64) (handle *pb.PeerID)
 	GetValidatorHandlesImpl    func(ids []uint64) (handles []*pb.PeerID)
 	GetConnectedValidatorsImpl func() (handles []*pb.PeerID)
-	CheckWhitelistExistsImpl   func() (size int)
+	CheckWhitelistExistsImpl   func()
 	SetWhitelistCapImpl        func(cap int)
-	BroadcastImpl              func(msg *pb.OpenchainMessage, peerType pb.PeerEndpoint_Type) error
-	UnicastImpl                func(msg *pb.OpenchainMessage, receiverHandle *pb.PeerID) error
+	BroadcastImpl              func(msg *pb.Message, peerType pb.PeerEndpoint_Type) error
+	UnicastImpl                func(msg *pb.Message, receiverHandle *pb.PeerID) error
 	SignImpl                   func(msg []byte) ([]byte, error)
 	VerifyImpl                 func(peerID *pb.PeerID, signature []byte, message []byte) error
 	GetBlockImpl               func(id uint64) (block *pb.Block, err error)
@@ -206,20 +206,22 @@ func (op *omniProto) GetConnectedValidators() (handles []*pb.PeerID) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) CheckWhitelistExists() (size int) {
+func (op *omniProto) CheckWhitelistExists() {
 	if nil != op.CheckWhitelistExistsImpl {
-		return op.CheckWhitelistExistsImpl()
+		op.CheckWhitelistExistsImpl()
+	} else {
+		panic("Unimplemented")
 	}
-
-	panic("Unimplemented")
 }
+
 func (op *omniProto) SetWhitelistCap(cap int) {
 	if nil != op.SetWhitelistCapImpl {
 		op.SetWhitelistCapImpl(cap)
+	} else {
+		panic("Unimplemented")
 	}
-
-	panic("Unimplemented")
 }
+
 func (op *omniProto) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 	if nil != op.BroadcastImpl {
 		return op.BroadcastImpl(msg, peerType)

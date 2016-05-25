@@ -27,8 +27,9 @@ import (
 type endpoint interface {
 	stop()
 	deliver([]byte, *pb.PeerID)
-	getHandle() *pb.PeerID
-	getID() uint64
+	GetOwnHandle() *pb.PeerID
+	GetOwnID() uint64
+	GetValidatorID(handle *pb.PeerID) (id uint64)
 	isBusy() bool
 }
 
@@ -89,14 +90,12 @@ func (ep *testEndpoint) GetNetworkHandles() (self *pb.PeerID, network []*pb.Peer
 		err = fmt.Errorf("Network not initialized")
 		return
 	}
-	self = ep.getHandle()
-	network = make([]*pb.PeerID, len(ep.net.endpoints))
-	for i, oep := range ep.net.endpoints {
-		if nil != oep {
-			// In case this is invoked before all endpoints are initialized, this emulates a real network as well
-			network[i] = oep.getHandle()
-		}
-	}
+
+	return
+}
+
+func (te *testEndpoint) CheckWhitelistExists() {
+	// no-op
 	return
 }
 
@@ -104,13 +103,14 @@ func (ep *testEndpoint) GetNetworkHandles() (self *pb.PeerID, network []*pb.Peer
 // Broadcast, this will also deliver back to the replica.  We keep
 // this behavior, because it exposes subtle bugs in the
 // implementation.
-func (ep *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
-	ep.net.broadcastFilter(ep, msg.Payload)
+func (te *testEndpoint) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+	te.net.broadcastFilter(te, msg.Payload)
 	return nil
 }
 
-func (ep *testEndpoint) Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error {
-	receiverID, err := getValidatorID(receiverHandle)
+func (te *testEndpoint) Unicast(msg *pb.Message, handle *pb.PeerID) error {
+	var err error
+	receiverID := te.GetValidatorID(handle)
 	if err != nil {
 		return fmt.Errorf("Couldn't unicast message to %s: %v", receiverHandle.Name, err)
 	}
@@ -155,7 +155,7 @@ func (net *testnet) broadcastFilter(ep *testEndpoint, payload []byte) {
 
 func (net *testnet) deliverFilter(msg taggedMsg) {
 	net.debugMsg("TEST: deliver\n")
-	senderHandle := net.endpoints[msg.src].getHandle()
+	senderHandle := net.endpoints[msg.src].GetOwnHandle()
 	if msg.dst == -1 {
 		net.debugMsg("TEST: Sending broadcast %v\n", net.endpoints)
 		wg := &sync.WaitGroup{}

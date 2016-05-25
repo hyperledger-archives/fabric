@@ -17,6 +17,7 @@ limitations under the License.
 package obcpbft
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -32,9 +33,9 @@ func (op *obcBatch) getPBFTCore() *pbftCore {
 	return op.pbft
 }
 
-func obcBatchHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+func obcBatchHelper(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcBatch directly
-	return newObcBatch(id, config, stack)
+	return newObcBatch(config, stack)
 }
 
 func TestNetworkBatch(t *testing.T) {
@@ -45,7 +46,7 @@ func TestNetworkBatch(t *testing.T) {
 	})
 	defer net.stop()
 
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
@@ -85,17 +86,19 @@ func TestBatchCustody(t *testing.T) {
 	t.Skip("test is racy")
 
 	validatorCount := 4
-	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+	net := makeConsumerNetwork(validatorCount, func(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 		config.Set("general.batchsize", "1")
 		config.Set("general.timeout.batch", "250ms")
-		if id == 0 {
-			// Keep replica 0 from unnecessarilly advancing its view
-			config.Set("general.timeout.request", "1500ms")
-		} else {
-			config.Set("general.timeout.request", "1000ms")
-		}
 		config.Set("general.timeout.viewchange", "800ms")
-		return newObcBatch(id, config, stack)
+		config.Set("general.timeout.request", "250ms")
+		consumer := newObcBatch(config, stack)
+		time.Sleep(1 * time.Second) // just to make sure newObcBatch can finish getting its id
+		if consumer.getPBFTCore().id == 0 {
+			// Keep replica 0 from unnecessarilly advancing its view
+			consumer.getPBFTCore().requestTimeout, _ = time.ParseDuration("1500ms") // set it here as we do not know id until newObcBatch finishes
+		} else {
+		}
+		return consumer
 	})
 	defer net.stop()
 	net.filterFn = func(src int, dst int, payload []byte) []byte {
@@ -109,8 +112,8 @@ func TestBatchCustody(t *testing.T) {
 	// Submit two requests to replica 2, because vp0 is byzantine, they will not be processed until complaints triggers a view change
 	// Once the complaints work, we should end up in view 1, with 2 blocks
 	r2 := net.endpoints[2].(*consumerEndpoint).consumer
-	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
-	r2.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[1].getHandle())
+	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].GetOwnHandle())
+	r2.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[1].GetOwnHandle())
 
 	//net.debug = true
 	net.debugMsg("Stage 1\n")
@@ -180,8 +183,17 @@ func TestBatchStaleCustody(t *testing.T) {
 		CommitTxBatchImpl: func(id interface{}, meta []byte) (*pb.Block, error) {
 			return nil, nil
 		},
+		CheckWhitelistExistsImpl: func() {
+		},
+		GetOwnIDImpl: func() (id uint64) {
+			return 1
+		},
+		GetValidatorHandleImpl: func(id uint64) (handle *pb.PeerID) {
+			return &pb.PeerID{Name: fmt.Sprintf("vp%d", 0)}
+		},
 	}
-	op := newObcBatch(1, config, stack)
+
+	op := newObcBatch(config, stack) // assigning id =1 to ourself via GetOwnIDImpl
 	defer op.Close()
 
 	req1 := createOcMsgWithChainTx(1)
