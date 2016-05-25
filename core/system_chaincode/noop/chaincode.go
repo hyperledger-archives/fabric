@@ -23,10 +23,9 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/system_chaincode/noop/util"
-        "github.com/op/go-logging"
 )
 
-var logger = logging.MustGetLogger("noop")
+var logger = shim.NewLogger("noop")
 
 // SystemChaincode UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
 // encoded transactions from the Bitcoin network. This chaincode will parse the transactions and pass the transaction
@@ -40,7 +39,9 @@ type SystemChaincode struct {
 // Init initailizes the system chaincode
 func (t *SystemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	// do nothing
-	return nil, nil
+	logger.SetLevel(shim.LogDebug)
+        logger.Debugf("NOOP INIT")
+        return nil, nil
 }
 
 // Invoke runs an invocation on the system chaincode
@@ -53,7 +54,7 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		if len(args) < 1 {
 			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a bitcoin transaction")
 		}
-                logger.Info("Executing NOOP INVOKE")
+                logger.Infof("Executing NOOP INVOKE")
 		txDataBase64 := args[0]
 		txData, err := base64.StdEncoding.DecodeString(txDataBase64)
 		if err != nil {
@@ -65,8 +66,6 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		if err != nil {
 			return nil, fmt.Errorf("Error executing TX:  %s", err)
 		}
-
-		fmt.Printf("\nExecResult: Coinbase: %t, SumInputs %d, SumOutputs %d\n\n", execResult.IsCoinbase, execResult.SumPriorOutputs, execResult.SumCurrentOutputs)
 
 		if execResult.IsCoinbase == false {
 			if execResult.SumCurrentOutputs > execResult.SumPriorOutputs {
@@ -92,7 +91,7 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		if len(args) < 1 {
 			return nil, errors.New("getTran operation must include a single argument, the TX hash hex")
 		}
-                logger.Info("Executing NOOP QUERY")
+                logger.Infof("Executing NOOP QUERY")
                 utxo := util.MakeUTXO()
 		tx, err := utxo.Query(args[0])
 		if err != nil {
