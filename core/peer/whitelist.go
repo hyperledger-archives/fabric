@@ -32,6 +32,7 @@ import (
 )
 
 const whitelistFile = "/tmp/whitelist.dat"
+const noWhitelistNeeded = -1
 const dbkey = "consensus.whitelist"
 
 // Gatekeeper is used to manage the list of validating peers a validator should connect to
@@ -61,7 +62,7 @@ func (p *PeerImpl) LoadWhitelist() (err error) {
 	p.whitelistCreated = make(chan struct{}, 3) // make non-blocking. We only need to wake up the receiver once
 
 	// initialize
-	p.whitelist = &pb.Whitelist{Cap: -1,
+	p.whitelist = &pb.Whitelist{Cap: noWhitelistNeeded,
 		Persisted:    false,
 		Security:     viper.GetBool("security.enabled"),
 		SortedKeys:   []string{},
@@ -74,7 +75,6 @@ func (p *PeerImpl) LoadWhitelist() (err error) {
 		if data != nil {
 			err = proto.Unmarshal(data, p.whitelist)
 			if err == nil {
-				p.whitelist.Persisted = false // SaveWhitelist() will set after we re-registered the other peers
 				p.whitelistedMap = createMapFromWhitelist(p.whitelist.SortedKeys)
 			} else {
 				err = fmt.Errorf("Unable to unmarshal whitelist: %v", err)
@@ -98,11 +98,26 @@ func (p *PeerImpl) SaveWhitelist() (err error) {
 	} // if I'm an NVP, I don't care
 	// filter the handlerMap structure for connected VPs
 
-	vpMap := filterHandlers(p.handlerMap.m)
+	if p.whitelist.Cap == noWhitelistNeeded {
+		peerLogger.Info("whitelist will not be saved. whitelist.Cap = %v", p.whitelist.Cap)
+		return nil
+	}
+
+	vpMap := filterHandlers(p.handlerMap.m) // who are we connected to currently ?
+
+	if p.whitelist.Persisted {
+		peerLogger.Debug("Whitelist has already been saved. This is a restart.")
+		minNeeded := ((p.whitelist.Cap - 1) / 3) * 2 //2f
+		if int32(len(vpMap)) == minNeeded {          // if we have 2f+1 connections, let's start
+			peerLogger.Debug("have %d connections. 2f: %d . Can start obcpbft", len(vpMap), minNeeded)
+			p.whitelistCreated <- struct{}{}
+		}
+		return nil
+	}
 
 	// TODO Fix *potential* race condition; *may* need to SetWhitelistCap()
 	//      before RegisterHandler() registers the (N-1)-th connection
-	if p.whitelist.Persisted || (p.whitelist.Cap == -1) || (int32(len(vpMap)) < (p.whitelist.Cap - 1)) {
+	if int32(len(vpMap)) < (p.whitelist.Cap - 1) {
 		peerLogger.Debug("Tried to save whitelist but conditions not right. len(vpMap): %v", len(vpMap))
 		peerLogger.Debug("current whitelist: %+v", p.whitelist)
 		return nil
