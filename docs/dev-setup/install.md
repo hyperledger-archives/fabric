@@ -157,7 +157,7 @@ sudo su
 yum install git
 mkdir -p $HOME/git/src/github.com/hyperledger
 cd $HOME/git/src/github.com/hyperledger
-git clone https://github.com/vpaprots/fabric.git
+git clone https://github.com/hyperledger/fabric.git
 source fabric/devenv/setupRHELonZ.sh
 ```
 From there, follow instructions at [Installation](install.md):
