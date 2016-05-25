@@ -112,7 +112,9 @@ type omniProto struct {
 	VerifyImpl                 func(peerID *pb.PeerID, signature []byte, message []byte) error
 	GetBlockImpl               func(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHashImpl    func() (stateHash []byte, err error)
-	GetBlockchainSizeImpl      func() (uint64, error)
+	GetBlockchainSizeImpl      func() uint64
+	GetBlockHeadMetadataImpl   func() ([]byte, error)
+	GetBlockchainInfoBlobImpl  func() []byte
 	HashBlockImpl              func(block *pb.Block) ([]byte, error)
 	VerifyBlockchainImpl       func(start, finish uint64) (uint64, error)
 	PutBlockImpl               func(blockNumber uint64, block *pb.Block) error
@@ -152,6 +154,7 @@ type omniProto struct {
 
 	// Orderer methods
 	ValidateImpl func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
+	SkipToImpl   func(seqNo uint64, id []byte, peers []*pb.PeerID)
 }
 
 func (op *omniProto) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
@@ -210,9 +213,23 @@ func (op *omniProto) GetCurrentStateHash() (stateHash []byte, err error) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) GetBlockchainSize() (uint64, error) {
+func (op *omniProto) GetBlockchainSize() uint64 {
 	if nil != op.GetBlockchainSizeImpl {
 		return op.GetBlockchainSizeImpl()
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetBlockHeadMetadata() ([]byte, error) {
+	if nil != op.GetBlockHeadMetadataImpl {
+		return op.GetBlockHeadMetadataImpl()
+	}
+
+	return nil, nil
+}
+func (op *omniProto) GetBlockchainInfoBlob() []byte {
+	if nil != op.GetBlockchainInfoBlobImpl {
+		return op.GetBlockchainInfoBlobImpl()
 	}
 
 	panic("Unimplemented")
@@ -416,6 +433,15 @@ func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID
 
 	panic("Unimplemented")
 
+}
+
+func (op *omniProto) SkipTo(seqNo uint64, meta []byte, id []*pb.PeerID) {
+	if nil != op.SkipToImpl {
+		op.SkipToImpl(seqNo, meta, id)
+		return
+	}
+
+	panic("Unimplemented")
 }
 
 func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
