@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
@@ -36,6 +37,7 @@ import (
 )
 
 var logger = logging.MustGetLogger("golang/hash")
+
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
@@ -150,7 +152,6 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	cmd.Stderr = &errBuf //capture Stderr and print it on error
 	err = cmd.Start()
 
-
 	// Create a go routine that will wait for the command to finish
 	done := make(chan error, 1)
 	go func() {
@@ -169,7 +170,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			 err = fmt.Errorf("'go get' failed with error\n\"%s\"\n", err, string(errBuf.Bytes()))
+			err = fmt.Errorf("'go get' failed with error\n\"%s\"\n", err, string(errBuf.Bytes()))
 		}
 	}
 	return

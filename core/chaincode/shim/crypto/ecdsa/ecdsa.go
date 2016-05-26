@@ -19,9 +19,9 @@ package ecdsa
 import (
 	"crypto/ecdsa"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/core/chaincode/shim/crypto"
 	"math/big"
 
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto"
 )
 
 type x509ECDSASignatureVerifierImpl struct {

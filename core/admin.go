@@ -17,8 +17,8 @@ limitations under the License.
 package core
 
 import (
-	"runtime"
 	"os"
+	"runtime"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -72,7 +72,6 @@ func (*ServerAdmin) StartServer(context.Context, *google_protobuf.Empty) (*pb.Se
 func (*ServerAdmin) StopServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STOPPED}
 	log.Debug("returning status: %s", status)
-
 
 	pidFile := viper.GetString("peer.fileSystemPath") + "/peer.pid"
 	log.Debug("Remove pid file  %s", pidFile)

@@ -61,7 +61,7 @@ func SetupTestConfig(pathToOpenchainYaml string) {
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("core")         // name of config file (without extension)
+	viper.SetConfigName("core")              // name of config file (without extension)
 	viper.AddConfigPath(pathToOpenchainYaml) // path to look for the config file in
 	err := viper.ReadInConfig()              // Find and read the config file
 	if err != nil {                          // Handle errors reading the config file

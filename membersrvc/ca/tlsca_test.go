@@ -48,7 +48,7 @@ import (
 var (
 	ecaS   *ECA
 	tlscaS *TLSCA
-	srv     *grpc.Server
+	srv    *grpc.Server
 )
 
 func TestTLS(t *testing.T) {

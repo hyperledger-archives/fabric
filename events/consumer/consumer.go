@@ -123,7 +123,7 @@ func (ec *EventsClient) processEvents() error {
 			return err
 		}
 		if ec.adapter != nil {
-			cont,err := ec.adapter.Recv(in)
+			cont, err := ec.adapter.Recv(in)
 			if !cont {
 				return err
 			}
@@ -138,7 +138,7 @@ func (ec *EventsClient) Start() error {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
 	}
 
-	ies,err := ec.adapter.GetInterestedEvents()
+	ies, err := ec.adapter.GetInterestedEvents()
 	if err != nil {
 		return fmt.Errorf("error getting interested events:%s", err)
 	}
