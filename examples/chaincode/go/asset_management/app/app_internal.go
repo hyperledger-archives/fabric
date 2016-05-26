@@ -15,6 +15,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
+	"encoding/base64"
 )
 
 var (
@@ -168,7 +169,10 @@ func assignOwnershipInternal(invoker crypto.Client, invokerCert crypto.Certifica
 		return nil, err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
+	chaincodeInput := &pb.ChaincodeInput{
+		Function: "assign",
+		Args: []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
+	}
 	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
 	if err != nil {
 		return nil, err
@@ -217,7 +221,10 @@ func transferOwnershipInternal(owner crypto.Client, ownerCert crypto.Certificate
 		return nil, err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
+	chaincodeInput := &pb.ChaincodeInput{
+		Function: "transfer",
+		Args: []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
+	}
 	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
 	if err != nil {
 		return nil, err
