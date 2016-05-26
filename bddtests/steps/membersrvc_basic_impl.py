@@ -14,6 +14,6 @@
 # limitations under the License.
 #
 
-"""
-This files used in Behave as compatibility layer between different Python versions/implementations.
-"""
+from shared.common import *
+
+# TODO

@@ -1,13 +1,7 @@
 
 import subprocess
-from steps.bdd_test_util import cli_call
-
-def getDockerComposeFileArgsFromYamlFile(compose_yaml):
-    parts = compose_yaml.split()
-    args = []
-    for part in parts:
-        args = args + ["-f"] + [part]
-    return args
+from steps.shared.common import cli_call
+from steps.shared.common import getDockerComposeFileArgsFromYamlFile
 
 def after_scenario(context, scenario):
     get_logs = context.config.userdata.get("logs", "N")
