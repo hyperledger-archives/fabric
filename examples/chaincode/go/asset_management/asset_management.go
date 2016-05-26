@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/op/go-logging"
+	"encoding/hex"
 	"encoding/base64"
 )
 
@@ -45,8 +46,8 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 
 	// Create ownership table
 	err := stub.CreateTable("AssetsOwnership", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{"Asset", shim.ColumnDefinition_STRING, true},
-		&shim.ColumnDefinition{"Owner", shim.ColumnDefinition_BYTES, false},
+		&shim.ColumnDefinition{Name: "Asset", Type: shim.ColumnDefinition_STRING, Key: true},
+		&shim.ColumnDefinition{Name: "Owner", Type: shim.ColumnDefinition_BYTES, Key: false},
 	})
 	if err != nil {
 		return nil, errors.New("Failed creating AssetsOnwership table.")
@@ -127,7 +128,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	asset := args[0]
-	newOwner, err := base64.StdEncoding.DecodeString(args[1])
+	newOwner, err := hex.DecodeString(args[1])
 	if err != nil {
 		return nil, fmt.Errorf("Failed decoding owner")
 	}
