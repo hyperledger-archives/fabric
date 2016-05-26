@@ -5,6 +5,8 @@
  * NOTE: This is in pure java script to be compatible with the sjcl.hmac function.
  */
 var sjcl = require('sjcl');
+var sha3_256 = require('js-sha3').sha3_256;
+var sha3_384 = require('js-sha3').sha3_384;
 
 var hash_sha3_256 = function (hash) {
 
