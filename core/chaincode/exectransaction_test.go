@@ -190,11 +190,15 @@ func executeDeployTransaction(t *testing.T, url string) {
 	closeListenerAndSleep(lis)
 }
 
+<<<<<<< HEAD
 // Test deploy of a transaction
+=======
+>>>>>>> d8af28320433508af5defac4f217566f88ee9066
 func TestExecuteDeployTransaction(t *testing.T) {
 	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
 }
 
+<<<<<<< HEAD
 // Test deploy of a transaction with a GOPATH with multiple elements
 func TestGopathExecuteDeployTransaction(t *testing.T) {
 	// add a trailing slash to GOPATH
@@ -204,6 +208,8 @@ func TestGopathExecuteDeployTransaction(t *testing.T) {
 	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
 }
 
+=======
+>>>>>>> d8af28320433508af5defac4f217566f88ee9066
 // Test deploy of a transaction with a chaincode over HTTP.
 func TestHTTPExecuteDeployTransaction(t *testing.T) {
 	// The chaincode used here cannot be from the hyperledger repo
@@ -212,6 +218,10 @@ func TestHTTPExecuteDeployTransaction(t *testing.T) {
 	executeDeployTransaction(t, "http://github.com/lehors/fabric/examples/chaincode/go/chaincode_example01")
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> d8af28320433508af5defac4f217566f88ee9066
 // Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {
 	// Check the state in the ledger
