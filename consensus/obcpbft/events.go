@@ -298,3 +298,6 @@ type batchExecEvent execInfo
 
 // returnRequestEvent is sent by pbft when we are forwarded a request
 type returnRequestEvent *Request
+
+// nullRequestEvent provides "keep-alive" null requests
+type nullRequestEvent struct{}

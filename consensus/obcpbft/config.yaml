@@ -49,6 +49,10 @@ general:
 
         # How long may a view change take
         viewchange: 2s
+
+        # Interval to send "keep-alive" null requests.  Set to 0 to disable.
+        nullrequest: 0s
+
 ################################################################################
 #
 #   SECTION: EXECUTOR

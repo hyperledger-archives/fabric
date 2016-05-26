@@ -140,7 +140,6 @@ func TestIncompletePayload(t *testing.T) {
 	checkMsg(&Message{}, "Expected to reject empty message")
 	checkMsg(&Message{&Message_Request{&Request{ReplicaId: broadcaster}}}, "Expected to reject empty request")
 	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{ReplicaId: broadcaster}}}, "Expected to reject empty pre-prepare")
-	checkMsg(&Message{&Message_PrePrepare{&PrePrepare{SequenceNumber: 1, ReplicaId: broadcaster}}}, "Expected to reject incomplete pre-prepare")
 }
 
 func TestNetwork(t *testing.T) {
@@ -1295,4 +1294,60 @@ func TestReplicaPersistDelete(t *testing.T) {
 func TestNilCurrentExec(t *testing.T) {
 	p := newPbftCore(1, loadConfig(), &omniProto{})
 	p.execDoneSync() // Per issue 1538, this would cause a Nil pointer dereference
+}
+
+func TestNetworkNullRequests(t *testing.T) {
+	validatorCount := 4
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.nullRequestTimeout = 200 * time.Millisecond
+		pe.pbft.requestTimeout = 500 * time.Millisecond
+	})
+	defer net.stop()
+
+	msg := createPbftRequestWithChainTx(1, 0)
+	net.pbftEndpoints[0].pbft.manager.queue() <- msg
+
+	go net.processContinually()
+	time.Sleep(2 * time.Second)
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 1 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
+		}
+		if pep.pbft.lastExec <= 1 {
+			t.Errorf("Instance %d: no null requests processed", pep.id)
+		}
+		if pep.pbft.view != 0 {
+			t.Errorf("Instance %d: expected view=0", pep.id)
+		}
+	}
+}
+
+func TestNetworkNullRequestMissing(t *testing.T) {
+	validatorCount := 4
+	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
+		pe.pbft.nullRequestTimeout = 200 * time.Millisecond
+		pe.pbft.requestTimeout = 500 * time.Millisecond
+	})
+	defer net.stop()
+
+	net.pbftEndpoints[0].pbft.nullRequestTimeout = 0
+
+	msg := createPbftRequestWithChainTx(1, 0)
+	net.pbftEndpoints[0].pbft.manager.queue() <- msg
+
+	go net.processContinually()
+	time.Sleep(2 * time.Second)
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 1 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
+		}
+		if pep.pbft.lastExec <= 1 {
+			t.Errorf("Instance %d: no null requests processed", pep.id)
+		}
+		if pep.pbft.view != 1 {
+			t.Errorf("Instance %d: expected view=1", pep.id)
+		}
+	}
 }
