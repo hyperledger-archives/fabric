@@ -147,7 +147,7 @@ test("Alice assign ownership", function (t) {
         // Function to trigger
         function: "assign",
         // Parameters for the invoke function
-        arguments: ['Ferrari', bobAppCert.encode().toString('hex')],
+        arguments: ['Ferrari', bobAppCert.encode().toString('base64')],
 
         invoker: {appCert: aliceAppCert},
         confidential: true
@@ -176,7 +176,7 @@ test("Bob transfers ownership to Charlie", function (t) {
         // Function to trigger
         function: "transfer",
         // Parameters for the invoke function
-        arguments: ['Ferrari', charlieAppCert.encode().toString('hex')],
+        arguments: ['Ferrari', charlieAppCert.encode().toString('base64')],
 
         invoker: {appCert: bobAppCert},
         confidential: true
