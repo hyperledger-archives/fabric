@@ -941,8 +941,9 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	txuuid := resp.Msg
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked chainCode.\",\"message\": \"%s\"}", string(txuuid))
-	restLogger.Info("Successfuly invoked chainCode with txuuid (%s)\n", string(txuuid))
+	// Make a clarification in the invoke response message, that the transaction has been successfuly submitted but not completed
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully submitted invoke transaction.\",\"message\": \"%s\"}", string(txuuid))
+	restLogger.Info("Successfuly submitted invoke transaction (%s).\n", string(txuuid))
 }
 
 // Query performs the requested query on the target Chaincode.
@@ -1310,7 +1311,13 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, string(jsonResponse))
 	}
-	restLogger.Info(fmt.Sprintf("REST sucessfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse)))
+
+	// Make a clarification in the invoke response message, that the transaction has been successfuly submitted but not completed
+	if *(requestPayload.Method) == "invoke" {
+		restLogger.Info(fmt.Sprintf("REST successfuly submitted invoke transaction: %s", string(jsonResponse)))
+	} else {
+		restLogger.Info(fmt.Sprintf("REST sucessfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse)))
+	}
 
 	return
 }
@@ -1598,7 +1605,8 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		result = formatRPCOK(txuuid)
-		restLogger.Info(fmt.Sprintf("Successfuly invoked chainCode with txuuid (%s)", txuuid))
+		// Make a clarification in the invoke response message, that the transaction has been successfuly submitted but not completed
+		restLogger.Info(fmt.Sprintf("Successfuly submitted invoke transaction with txuuid (%s)", txuuid))
 	}
 
 	if method == "query" {
