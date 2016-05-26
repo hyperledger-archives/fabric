@@ -53,22 +53,33 @@ docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=v
 If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=XX  hyperledger-peer peer node start
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=vp0_secret  hyperledger-peer peer node start
 ```
 
-Additionally, validating peer (enrollID vp0 and enrollSecret XX) has to be added to membersrvc.yaml file (in fabric/membersrvc).
+Additionally, the validating peer (enrollID vp0 and enrollSecret vp0_secret) has to be added to membersrvc.yaml file (in fabric/membersrvc).
 
-####Start up the second validating peer:
-We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2). We'll use "vp1" as the ID for the second validating peer.
+#### Start up the second validating peer:
+We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable. We'll use "vp1" as the ID for the second validating peer.
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer node start
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp1 -e CORE_SECURITY_ENROLLSECRET=vp1_secret -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger-peer peer node start
 ```
 
-You can start up a few more validating peers in the similar manner as you wish. Remember to change the ID.
+Again, the validating peer (enrollID vp1 and enrollSecret vp1_secret) has to be added to membersrvc.yaml file (in fabric/membersrvc).
+
+You can start up a few more validating peers in the similar manner as you wish. Remember to change the peer ID and add the enrollID/enrollSecret to the membersrvc.yaml.
+
+### Enroll/Login a test user (if security is enabled):
+If security is enabled, you must enroll a user with the certificate authority before sending requests. Choose a user that is already registered, i.e. added to the membersrvc.yaml file. Then, execute the command below to log in the user on the target validating peer. `CORE_PEER_ADDRESS` specifies the target validating peer for which the user is to be logged in.
+
+```
+CORE_PEER_ADDRESS=172.17.0.2:30303 ./peer network login jim
+```
+
+**Note:**, the certificate authority allows the enrollID and enrollSecret credentials to be used only *once*. Therefore, login by the same user from any other validating peer will result in an error. Currently, the application layer is responsible for duplicating the crypto material returned from the CA to other peer nodes. If you want to test secure transactions from more than one peer node without replicating the returned key and certificate, you can log in with a different user on other peer nodes.
 
 ### Deploy, Invoke, and Query a Chaincode
-**Note:** When security is enabled, modify the CLI commands to deploy, invoke, or query a chaincode to pass the username of a logged in user. To log in a registered user through the CLI or the REST API, follow the security setup instructions described [here](../API/SandboxSetup.md#note-on-security-functionality). On the CLI the username is passed with the -u parameter.
+**Note:** When security is enabled, modify the CLI commands to deploy, invoke, or query a chaincode to pass the username of a logged in user. To log in a registered user through the CLI, execute the login command from the section above. On the CLI the username is passed with the -u parameter.
 
 We can use the sample chaincode to test the network. You may find the chaincode here `$GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02`.
 
