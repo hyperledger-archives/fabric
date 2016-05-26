@@ -579,10 +579,11 @@ if {[parms deploy]} {
     foreach id [parms chaincodeIDs] {
         set peer [peerList next]
         set user [peerUser $peer]
-        set name [::fabric::deploy $peer $user $chaincode parms \
-                      [concat [list -id $id] [parms args]]]
+        set args [concat [list -id $id] [parms args]]
+        set name [::fabric::deploy $peer $user $chaincode parms $args]
         note {} "Deployed $id as $name"
-        exec echo "$name $chaincode" >> $BUSYWORK_HOME/chaincodes
+        set args [quote [concat parms $args]]
+        exec echo "$name $chaincode $args" >> $BUSYWORK_HOME/chaincodes
         lappend chaincodeNames $name
     }
     parms chaincodeNames $chaincodeNames

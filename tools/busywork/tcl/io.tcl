@@ -322,3 +322,19 @@ proc httpErrorExit {i_token} {
     errorExit
 }
 
+
+############################################################################
+# quote i_l
+
+# 'quote' wraps each element of i_l in "" and returns the new list *as a
+# string*. 
+
+proc quote {i_l} {
+    set ans ""
+    set space ""
+    foreach x $i_l {
+        set ans "$ans$space\"$x\""
+        set space " "
+    }
+    return $ans
+}

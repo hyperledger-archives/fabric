@@ -109,10 +109,15 @@ and applications create (if necessary) and use `~/.busywork` as the
 in the **BUSYWORK_HOME** depending on which **busywork** tools are being
 used.
 
-* `chaincodes` This file lists chaincode deployments. Each line contains 2
-  fields: 1) The chaincode name or ID; and 2) the chaincode path.
+* `chaincodes` This file lists chaincode deployments. Each line contains
+  The chaincode name or ID, the chaincode path, the initialization function
+  and its arguments.
 
-* `fabricLog` The is a text representation of the blockchain created by the
+* `dev-vp*-*` If you excute the `make cclogs` target of the
+  [Makefile](Makefile) the chaincode logs will be dumped into these
+  directories.
+
+* `fabricLog` This is a text representation of the blockchain created by the
   [fabricLogger](fabricLogger) process that driver scripts invoke to validate
   transaction execution.
   
@@ -121,8 +126,11 @@ used.
   
 * `network` The network configuration is described [below](#network).
 
+* `pprof.*` If you use the [pprofClient](pprofClient) to collect profiles the
+  profile files will be placed here by default.
+
 * `vp[0,...N]/` These directories contain the validating peer databases
-  `/data` and their `/stderr` and `stdout` logs.
+  `/data` and their `/stderr` and `/stdout` logs.
   
 * `*.chain` These files are created by the [checkAgreement](checkAgreement)
   script, and represent the blockchains as recorded on the different peers in

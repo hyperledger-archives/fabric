@@ -81,7 +81,7 @@ STRESS2 = ./driver \
 		-checkAgreement -dupCheck
 
 stress2b: 
-	@$(NETWORK) -peerLogging debug -batch 4
+	@$(NETWORK) -batch 4
 	@$(STRESS2)
 
 stress2c: 
