@@ -94,9 +94,12 @@ func TestMaliciousPrePrepare(t *testing.T) {
 }
 
 func TestWrongReplicaID(t *testing.T) {
-	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
-	defer net.stop()
+	mock := &omniProto{
+		validateImpl: func(msg []byte) error {
+			return nil
+		},
+	}
+	instance := newPbftCore(1, loadConfig(), mock)
 
 	chainTxMsg := createOcMsgWithChainTx(1)
 	req := &Request{
@@ -105,9 +108,9 @@ func TestWrongReplicaID(t *testing.T) {
 		ReplicaId: 1,
 	}
 	pbftMsg := &Message{&Message_Request{req}}
-	err := net.pbftEndpoints[0].pbft.recvMsg(pbftMsg, 0)
+	next, err := instance.recvMsg(pbftMsg, 0)
 
-	if err == nil {
+	if next != nil || err == nil {
 		t.Fatalf("Shouldn't have processed message with incorrect replica ID")
 	}
 

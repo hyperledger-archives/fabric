@@ -269,6 +269,8 @@ func (instance *pbftCore) close() {
 // allow the view-change protocol to kick-off when the timer expires
 func (instance *pbftCore) processEvent(e interface{}) interface{} {
 
+	var err error
+
 	logger.Debug("Replica %d processing event", instance.id)
 
 	switch et := e.(type) {
@@ -279,7 +281,29 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	case pbftMessageEvent:
 		msg := et
 		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
-		instance.recvMsg(msg.msg, msg.sender)
+		next, err := instance.recvMsg(msg.msg, msg.sender)
+		if err != nil {
+			break
+		}
+		return next
+	case *Request:
+		err = instance.recvRequest(et)
+	case *PrePrepare:
+		err = instance.recvPrePrepare(et)
+	case *Prepare:
+		err = instance.recvPrepare(et)
+	case *Commit:
+		err = instance.recvCommit(et)
+	case *Checkpoint:
+		err = instance.recvCheckpoint(et)
+	case *ViewChange:
+		err = instance.recvViewChange(et)
+	case *NewView:
+		err = instance.recvNewView(et)
+	case *FetchRequest:
+		err = instance.recvFetchRequest(et)
+	case returnRequestEvent:
+		err = instance.recvReturnRequest(et)
 	case stateUpdatingEvent:
 		update := et
 		instance.skipInProgress = true
@@ -304,6 +328,9 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		logger.Warning("Replica %d received an unknown message type", instance.id)
 	}
 
+	if err != nil {
+		logger.Warning(err.Error())
+	}
 	return nil
 }
 
@@ -450,17 +477,6 @@ func (instance *pbftCore) requestSync(msgPayload []byte, senderID uint64) error 
 	return nil
 }
 
-// handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
-		ReplicaId: senderID}}}
-	instance.manager.queue() <- pbftMessageEvent{
-		sender: senderID,
-		msg:    msg,
-	}
-	return nil
-}
-
 // handle internal consensus messages
 func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
@@ -477,116 +493,54 @@ func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error 
 	return nil
 }
 
-// handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
-	msg := &Message{}
-	err := proto.Unmarshal(msgPayload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-
-	instance.manager.queue() <- pbftMessageEvent{
-		msg:    msg,
-		sender: senderID,
-	}
-
-	return nil
-}
-
-// stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.manager.queue() <- stateUpdatedEvent{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
-// stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
-	instance.manager.queue() <- stateUpdatingEvent{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
-// TODO, this should not return an error
-func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
-	instance.manager.queue() <- pbftMessageEvent{
-		msg:    msg,
-		sender: senderID,
-	}
-	return nil
-}
-
-func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (err error) {
+func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, error) {
 
 	if req := msg.GetRequest(); req != nil {
 		if senderID != req.ReplicaId {
-			err = fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
 		}
-		err = instance.recvRequest(req)
+		return req, nil
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
 		if senderID != preprep.ReplicaId {
-			err = fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
 		}
-		err = instance.recvPrePrepare(preprep)
+		return preprep, nil
 	} else if prep := msg.GetPrepare(); prep != nil {
 		if senderID != prep.ReplicaId {
-			err = fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
 		}
-		err = instance.recvPrepare(prep)
+		return prep, nil
 	} else if commit := msg.GetCommit(); commit != nil {
 		if senderID != commit.ReplicaId {
-			err = fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
 		}
-		err = instance.recvCommit(commit)
+		return commit, nil
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		if senderID != chkpt.ReplicaId {
-			err = fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
 		}
-		err = instance.recvCheckpoint(chkpt)
+		return chkpt, nil
 	} else if vc := msg.GetViewChange(); vc != nil {
 		if senderID != vc.ReplicaId {
-			err = fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
 		}
-		err = instance.recvViewChange(vc)
+		return vc, nil
 	} else if nv := msg.GetNewView(); nv != nil {
 		if senderID != nv.ReplicaId {
-			err = fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
 		}
-		err = instance.recvNewView(nv)
+		return nv, nil
 	} else if fr := msg.GetFetchRequest(); fr != nil {
 		if senderID != fr.ReplicaId {
-			err = fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
 		}
-		err = instance.recvFetchRequest(fr)
+		return fr, nil
 	} else if req := msg.GetReturnRequest(); req != nil {
 		// it's ok for sender ID and replica ID to differ; we're sending the original request message
-		err = instance.recvReturnRequest(req)
+		return returnRequestEvent(req), nil
 	} else {
-		err = fmt.Errorf("Invalid message: %v", msg)
-		logger.Error(err.Error())
+		return nil, fmt.Errorf("Invalid message: %v", msg)
 	}
-
-	return
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {
