@@ -1,4 +1,6 @@
 import subprocess
+import os
+
 from steps.bdd_test_util import cli_call
 
 def getDockerComposeFileArgsFromYamlFile(compose_yaml):
@@ -29,7 +31,8 @@ def after_scenario(context, scenario):
                 if sys_rc !=0 :
                     print("Cannot get logs for {0}. Docker rc = {1}".format(namepart,sys_rc))
     if 'doNotDecompose' in scenario.tags:
-        print("Not going to decompose after scenario {0}, with yaml '{1}'".format(scenario.name, context.compose_yaml))
+        if 'compose_yaml' in context:
+            print("Not going to decompose after scenario {0}, with yaml '{1}'".format(scenario.name, context.compose_yaml))
     else:
         if 'compose_yaml' in context:
             fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
@@ -54,3 +57,13 @@ def after_scenario(context, scenario):
 # stop any running peer that could get in the way before starting the tests
 def before_all(context):
         cli_call(context, ["../build/bin/peer", "node", "stop"], expect_success=False)
+
+# stop any running peer that could get in the way before starting the tests
+def after_all(context):
+        # print("Here!!!!!!")
+        # print("")
+        # os._exit(0)
+        #cli_call(context, ["../peer/peer", "node", "stop"], expect_success=False)
+        print("context.failed = {0}".format(context.failed))
+        pass
+
