@@ -1,3 +1,7 @@
+# We could set VERSION=$(shell cat ./release), but better to leave this version independent
+# of consumers so that updates to base image may be prepared/published before consumers
+# begin to access
+
 NAME=hyperledger/fabric-baseimage
 VERSION=0.0.9
 ARCH=$(shell uname -m)
@@ -5,6 +9,7 @@ DOCKER_TAG ?= $(ARCH)-$(VERSION)
 VAGRANTIMAGE=packer_virtualbox-iso_virtualbox.box
 
 DOCKER_BASE_x86_64=ubuntu:trusty
+DOCKER_BASE_s390x=s390x/ubuntu:xenial
 
 DOCKER_BASE=$(DOCKER_BASE_$(ARCH))
 
