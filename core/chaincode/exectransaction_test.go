@@ -355,7 +355,7 @@ func TestHTTPExecuteDeployTransaction(t *testing.T) {
 	// The chaincode used here cannot be from the hyperledger repo
 	// itself or it won't be downloaded because it will be found
 	// in GOPATH, which would defeat the test
-	executeDeployTransaction(t, "http://github.com/lehors/fabric/tree/ca8135b1a0f95127c96478518628a65a377ec123/examples/chaincode/go/chaincode_example01")
+	executeDeployTransaction(t, "http://github.com/lehors/fabric/examples/chaincode/go/chaincode_example01")
 }
 
 
