@@ -31,7 +31,6 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
-
         "encoding/base64"
 )
 
@@ -241,14 +240,24 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, invokeTx bool, s
 			return nil, err
 		}
 	}
-        var userGivenB64Data = spec.ChaincodeSpec.CtorMsg.Args[0]
-        var userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenB64Data)
-        // TODO: implement proper error handling
-        if nil != encerr {
-                userGivenBytes = nil
+        var userGivenData = spec.ChaincodeSpec.CtorMsg.Args[0]
+        var userGivenBytes []byte
+        if invokeTx {
+                var encerr error
+                userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenData)
+                if nil != encerr {
+                        devopsLogger.Info("Failed to decode b64 data.")
+                        return nil, encerr
+                }
+        } else {
+                devopsLogger.Info("Argument is used for querying, it is not Base64")
+                // TODO: In case of query transaction the Tx ID can be anything
+                // but we could have an ID that makes more sense than this
+                userGivenBytes = []byte(userGivenData) 
         }
         tx.Uuid = util.GetTransactionHashAsStr(userGivenBytes)
-	return tx, nil
+        devopsLogger.Info("Transaction TxID (UUID): %x", tx.Uuid)
+        return tx, nil
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction

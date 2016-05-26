@@ -91,6 +91,7 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 			return nil, errors.New("getTran operation must include a single argument, the TX hash hex")
 		}
                 logger.Infof("Executing NOOP QUERY")
+                logger.Infof("--> %x", args[0])
                 utxo := util.MakeUTXO()
 		data, err := utxo.Query(args[0])
 		if err != nil {
