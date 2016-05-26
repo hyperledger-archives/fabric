@@ -38,7 +38,7 @@ var common = require("asn1js/org/pkijs/common");
 var _asn1js = require("asn1js");
 var _pkijs = require("pkijs");
 var _x509schema = require("pkijs/org/pkijs/x509_schema");
-
+var hash = require(__dirname+"/hash");
 
 
 // constants
@@ -379,12 +379,12 @@ export class Crypto {
         switch (this.suite) {
             case "sha3-256":
                 debug("Using sha3-256");
-                hash = hash_sha3_256;
+                hash = hash.hash_sha3_256;
                 hashSize = 32;
                 break;
             case "sha3-384":
                 debug("Using sha3-384");
-                hash = hash_sha3_384;
+                hash = hash.hash_sha3_384;
                 hashSize = 48;
                 break;
             case "sha2-256":
@@ -532,11 +532,11 @@ export class Crypto {
         var hash, hashSize;
         switch (self.level) {
             case 256:
-                hash = hash_sha3_256;
+                hash = hash.hash_sha3_256;
                 hashSize = 32;
                 break;
             case 384:
-                hash = hash_sha3_384;
+                hash = hash.hash_sha3_384;
                 hashSize = 48;
                 break;
         }
@@ -691,81 +691,6 @@ export class X509Certificate {
     }
 
 } // end X509Certificate class
-
-var hash_sha3_256 = function (hash) {
-
-    if (hash) {
-        this._hash = hash._hash;
-    }
-    else {
-        this.reset();
-    }
-};
-
-hash_sha3_256.hash = function (data) {
-    var hashBits = sjcl.codec.hex.toBits(sha3_256(bitsToBytes(data)));
-    return hashBits;
-};
-
-hash_sha3_256.prototype = {
-
-    blockSize: 1088,
-
-    reset: function () {
-        this._hash = sha3_256.create();
-    },
-
-    update: function (data) {
-        this._hash.update(bitsToBytes(data));
-        return this;
-    },
-
-    finalize: function () {
-        var hash = this._hash.hex();
-        var hashBits = sjcl.codec.hex.toBits(hash);
-        this.reset();
-        return hashBits;
-
-    }
-};
-
-var hash_sha3_384 = function (hash) {
-
-    if (hash) {
-        this._hash = hash._hash;
-    }
-    else {
-        this.reset();
-    }
-};
-
-hash_sha3_384.hash = function (data) {
-    var hashBits = sjcl.codec.hex.toBits(sha3_384(bitsToBytes(data)));
-    return hashBits;
-};
-
-hash_sha3_384.prototype = {
-
-    blockSize: 832,
-
-    reset: function () {
-        this._hash = sha3_384.create();
-    },
-
-    update: function (data) {
-        this._hash.update(bitsToBytes(data));
-        return this;
-    },
-
-    finalize: function () {
-        var hash = this._hash.hex();
-        var hashBits = sjcl.codec.hex.toBits(hash);
-        //debug('finalize hashBits:\n',hashBits)
-        this.reset();
-        return hashBits;
-
-    }
-};
 
 function bitsToBytes(arr) {
     var out = [], bl = sjcl.bitArray.bitLength(arr), i, tmp;

@@ -345,7 +345,9 @@ export class Chain {
      */
     setMemberServices(memberServices:MemberServices):void {
         this.memberServices = memberServices;
-        this.cryptoPrimitives = memberServices.cryptoPrimitives;
+        if (memberServices instanceof MemberServicesImpl) {
+           this.cryptoPrimitives = (<MemberServicesImpl>memberServices).getCrypto();
+        }
     };
 
     /**
@@ -950,7 +952,7 @@ export class TransactionContext extends events.EventEmitter {
                         debug("Encrypted: [%j]", results);
 
                         let res = self.decryptResult(results);
-                        
+
                         debug("Decrypted: [%j]", res);
 
                         self.emit("complete", res);
@@ -1418,6 +1420,10 @@ class MemberServicesImpl {
      */
     setHashAlgorithm(hashAlgorithm:string):void {
         this.cryptoPrimitives.setHashAlgorithm(hashAlgorithm);
+    }
+
+    getCrypto():crypto.Crypto {
+        return this.cryptoPrimitives;
     }
 
     /**
