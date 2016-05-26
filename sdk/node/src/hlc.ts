@@ -1744,7 +1744,7 @@ function toKeyValStoreName(name:string):string {
  * Create and load peers for bluemix.
  */
 function bluemixInit():boolean {
-    var vcap = process.env.VCAP_SERVICES;
+    var vcap = process.env['VCAP_SERVICES'];
     if (!vcap) return false; // not in bluemix
     // TODO: Take logic from marbles app
     return true;
