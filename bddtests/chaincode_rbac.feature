@@ -10,7 +10,7 @@ Feature: Role Based Access Control (RBAC)
     As a HyperLedger developer
     I want various mechanisms available for implementing RBAC within Chaincode
 
-  @doNotDecompose
+  #@doNotDecompose
   @issue_1207
   Scenario Outline: test a chaincode showing how to implement role-based access control using TCerts with no attributes
 
@@ -37,7 +37,7 @@ Feature: Role Based Access Control (RBAC)
 
       # Deploy, in this case Binh is assinging himself as the Admin for the RBAC chaincode.
       When user "binhn" sets metadata to their stored value "TCERT_APP_ADMIN"    
-      And user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/rbac_tcerts_no_attrs" with ctor "init" to "vp0"
+      And user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/rbac_tcerts_no_attrs" aliased as "rbac_tcerts_no_attrs" with ctor "init" and args
             ||
             ||
       Then I should have received a chaincode name
@@ -84,7 +84,7 @@ Feature: Role Based Access Control (RBAC)
         |   docker-compose-4-consensus-batch.yml |      60      |
 
 
-  @doNotDecompose
+  #@doNotDecompose
   @issue_RBAC_TCERT_With_Attributes
   Scenario Outline: test a chaincode showing how to implement role-based access control using TCerts with attributes
 
@@ -167,6 +167,57 @@ Feature: Role Based Access Control (RBAC)
 #      Then I should have received a transactionID
 #      Then I wait up to "10" seconds for transaction to be committed to peers:
 #            | vp0  | vp1 | vp2 | vp3 |
+
+
+    Examples: Consensus Options
+        |          ComposeFile                   |   WaitTime   |
+        |   docker-compose-4-consensus-batch.yml |      60      |
+
+
+  #@doNotDecompose
+  @issue_1565
+  Scenario Outline: test chaincode to chaincode invocation
+
+      Given we compose "<ComposeFile>"
+      And I wait "5" seconds
+      And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+         | vp0  |
+      And I register with CA supplying username "alice" and secret "8Y7WIrLX0A8G" on peers:
+         | vp0  |
+      And I use the following credentials for querying peers:
+         | peer |   username  |    secret    |
+         | vp0  |  test_user0 | MS9qrN8hFjlE |
+         | vp1  |  test_user1 | jGlNl6ImkuDo |
+         | vp2  |  test_user2 | zMflqOKezFiA |
+         | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+      When requesting "/chain" from "vp0"
+      Then I should get a JSON response with "height" = "1"
+
+      # Deploy the first chaincode
+      When user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" aliased as "chaincode_example02" with ctor "init" and args
+                    | arg1 |  arg2 | arg3 | arg4 |
+                    |  a   |  100  |  b   |  200 |
+      Then I should have received a chaincode name
+      Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                 | vp0  | vp1 | vp2 | vp3 |
+
+      # Deploy the second chaincode
+      When user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example05" aliased as "chaincode_example05" with ctor "init" and args
+                    | arg1  |  arg2 |
+                    | sum   |   0   |
+      Then I should have received a chaincode name
+      Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+                 | vp0  | vp1 | vp2 | vp3 |
+
+      # Invoke chaincode_example05 which in turn will invoke chaincode_example02
+      When user "binhn" invokes chaincode "chaincode_example05" function name "invoke" with args
+              | arg1  |
+              | sum   |
+      Then I should have received a transactionID
+      Then I wait up to "60" seconds for transaction to be committed to peers:
+         | vp0  | vp1 | vp2 | vp3 |
+      And "binhn"'s last transaction should have succeeded
 
 
     Examples: Consensus Options

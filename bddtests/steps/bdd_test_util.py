@@ -18,6 +18,7 @@ import os
 import subprocess
 import devops_pb2
 import fabric_pb2
+import chaincode_pb2
 
 from grpc.beta import implementations
 
@@ -101,13 +102,7 @@ def getTxResult(context, enrollId):
     assert 'users' in context, "users not found in context. Did you register a user?"
     assert 'compose_containers' in context, "compose_containers not found in context"
 
-    # Retrieve the userRegistration from the context
-    userRegistration = getUserRegistration(context, enrollId)
-
-    # Get the IP address of the server that the user registered on
-    ipAddress = ipFromContainerNamePart(userRegistration.composeService, context.compose_containers)
-    # Get the stub
-    channel = getGRPCChannel(ipAddress)
+    (channel, userRegistration) = getGRPCChannelAndUser(context, enrollId)
     stub = devops_pb2.beta_create_Devops_stub(channel)
     
     txRequest = devops_pb2.TransactionRequest(transactionUuid = context.transactionID)
@@ -133,3 +128,69 @@ def getGRPCChannelAndUser(context, enrollId):
     channel = getGRPCChannel(ipAddress)
 
     return (channel, userRegistration) 
+
+
+def getDeployment(context, ccAlias):
+    '''Return a deployment with chaincode alias from prior deployment, or None if not found'''
+    deployment = None
+    if 'deployments' in context:
+        pass
+    else:
+        context.deployments = {}
+    if ccAlias in context.deployments:
+        deployment = context.deployments[ccAlias] 
+    # else:
+    #     raise Exception("Deployment alias not found: '{0}'.  Are you sure you have deployed a chaincode with this alias?".format(ccAlias)) 
+    return deployment
+
+def deployChaincode(context, enrollId, chaincodePath, ccAlias, ctor):
+    '''Deploy a chaincode with the specified alias for the specfied enrollId'''
+    assert 'users' in context, "users not found in context. Did you register a user?"
+    (channel, userRegistration) = getGRPCChannelAndUser(context, enrollId)
+    stub = devops_pb2.beta_create_Devops_stub(channel)
+
+    # Make sure deployment alias does NOT already exist
+    assert getDeployment(context, ccAlias) == None, "Deployment alias already exists: '{0}'.".format(ccAlias)
+
+    args = []
+    if 'table' in context:
+       # There is ctor arguments
+       args = context.table[0].cells
+    ccSpec = chaincode_pb2.ChaincodeSpec(type = chaincode_pb2.ChaincodeSpec.GOLANG,
+        chaincodeID = chaincode_pb2.ChaincodeID(name="",path=chaincodePath),
+        ctorMsg = chaincode_pb2.ChaincodeInput(function = ctor, args = args))
+    if 'userName' in context:
+        ccSpec.secureContext = userRegistration.getUserName()
+    if 'metadata' in context:
+        ccSpec.metadata = context.metadata
+    ccDeploymentSpec = stub.Deploy(ccSpec, 60)
+    ccSpec.chaincodeID.name = ccDeploymentSpec.chaincodeSpec.chaincodeID.name
+    context.grpcChaincodeSpec = ccSpec
+    context.deployments[ccAlias] = ccSpec
+
+
+def invokeChaincode(context, enrollId, ccAlias, functionName):
+    # Get the deployment for the supplied chaincode alias
+    deployedCcSpec = getDeployment(context, ccAlias)
+    assert deployedCcSpec != None, "Deployment NOT found for chaincode alias '{0}'".format(ccAlias)
+
+    # Create a new ChaincodeSpec by copying the deployed one
+    newChaincodeSpec = chaincode_pb2.ChaincodeSpec()
+    newChaincodeSpec.CopyFrom(deployedCcSpec)
+    
+    # Update hte chaincodeSpec ctorMsg for invoke
+    args = []
+    if 'table' in context:
+       # There are function arguments
+       args = context.table[0].cells
+    
+    chaincodeInput = chaincode_pb2.ChaincodeInput(function = functionName, args = args ) 
+    newChaincodeSpec.ctorMsg.CopyFrom(chaincodeInput)
+
+    ccInvocationSpec = chaincode_pb2.ChaincodeInvocationSpec(chaincodeSpec = newChaincodeSpec)
+
+    (channel, userRegistration) = getGRPCChannelAndUser(context, enrollId)
+    
+    stub = devops_pb2.beta_create_Devops_stub(channel)
+    response = stub.Invoke(ccInvocationSpec,2)
+    return response

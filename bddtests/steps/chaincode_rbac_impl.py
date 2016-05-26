@@ -48,28 +48,11 @@ def step_impl(context, enrollId, tagName):
 	assert tagName in userRegistration.tags, 'Tag "{0}" not found in user "{1}" tags'.format(tagName, enrollId)
 	context.metadata = userRegistration.tags[tagName] 
 
-@when(u'user "{enrollId}" deploys chaincode "{chaincodePath}" with ctor "{ctor}" to "{composeService}"')
-def step_impl(context, enrollId, chaincodePath, ctor, composeService):
-	assert 'users' in context, "users not found in context. Did you register a user?"
-	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
-	stub = devops_pb2.beta_create_Devops_stub(channel)
 
-	args = []
-	if 'table' in context:
-	   # There is ctor arguments
-	   args = context.table[0].cells
-	ccSpec = chaincode_pb2.ChaincodeSpec(type = chaincode_pb2.ChaincodeSpec.GOLANG,
-    	chaincodeID = chaincode_pb2.ChaincodeID(name="",path=chaincodePath),
-    	ctorMsg = chaincode_pb2.ChaincodeInput(function = ctor, args = args))
-	if 'userName' in context:
-		ccSpec.secureContext = context.userName
-	if 'metadata' in context:
-		ccSpec.metadata = context.metadata
-	ccDeploymentSpec = stub.Deploy(ccSpec, 60)
-	ccSpec.chaincodeID.name = ccDeploymentSpec.chaincodeSpec.chaincodeID.name
-	context.grpcChaincodeSpec = ccSpec
+@when(u'user "{enrollId}" deploys chaincode "{chaincodePath}" aliased as "{ccAlias}" with ctor "{ctor}" and args')
+def step_impl(context, enrollId, chaincodePath, ccAlias, ctor):
+	bdd_test_util.deployChaincode(context, enrollId, chaincodePath, ccAlias, ctor)
 
-	#raise NotImplementedError(u'Got to here!!!')
 
 @when(u'user "{enrollId}" gives stored value "{tagName}" to "{recipientEnrollId}"')
 def step_impl(context, enrollId, tagName, recipientEnrollId):
@@ -137,4 +120,11 @@ def step_impl(context, enrollId, msg):
 @then(u'"{enrollId}"\'s last transaction should have succeeded')
 def step_impl(context, enrollId):
 	txResult = bdd_test_util.getTxResult(context, enrollId)
-	assert txResult.errorCode == 0, "Expected success (errorCode == 0), instead found errorCode={0}".format(txResult.errorCode)
+	assert txResult.errorCode == 0, "Expected success (errorCode == 0), instead found errorCode={0}, error={1}".format(txResult.errorCode, txResult.error)
+
+@when(u'user "{enrollId}" invokes chaincode "{ccAlias}" function name "{functionName}" with args')
+def step_impl(context, enrollId, ccAlias, functionName):
+	response = bdd_test_util.invokeChaincode(context, enrollId, ccAlias, functionName)
+	context.response = response
+	context.transactionID = response.msg
+	#assert response.status == fabric_pb2.Response.SUCCESS, 'Failure invoking chaincode {0} on {1}, for user "{2}":  {3}'.format(ccAlias, userRegistration.composeService,enrollId, response.msg)

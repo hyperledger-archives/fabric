@@ -109,11 +109,6 @@ def getDockerComposeFileArgsFromYamlFile(compose_yaml):
 
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
-	# Use the uninstalled version of `cf active-deploy` rather than the installed version on the OS $PATH
-    #cmd = os.path.dirname(os.path.abspath(__file__)) + "/../../../cf_update/v1/cf_update.py"
-
-    # Expand $vars, e.g. "--path $PATH" becomes "--path /bin"
-    #args = re.sub('\$\w+', lambda v: os.getenv(v.group(0)[1:]), composeYamlFile)
     context.compose_yaml = composeYamlFile
     fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     context.compose_output, context.compose_error, context.compose_returncode = \
