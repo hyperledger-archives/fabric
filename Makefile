@@ -33,6 +33,7 @@
 #   - protos - generate all protobuf artifacts based on .proto files
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
+#   - sdk - builds the client-sdk
 
 
 PKGNAME = github.com/hyperledger/fabric
@@ -40,7 +41,7 @@ CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
 
 EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
-	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
+ 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
 # Make our baseimage depend on any changes to images/base or scripts/provision
 BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
@@ -124,6 +125,14 @@ $(GOPATH)/bin/%:
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
+
+.PHONY: sdk
+sdk:
+	cp ./protos/*.proto ./sdk/node/lib
+	cp ./membersrvc/protos/*.proto ./sdk/node/lib
+	cd ./sdk/node && npm install && typings install
+	cd ./sdk/node && tsc
+	cd ./sdk/node && ./makedoc.sh
 
 .PHONY: clean
 clean:
