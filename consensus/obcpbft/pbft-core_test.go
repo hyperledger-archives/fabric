@@ -1272,6 +1272,7 @@ func TestReplicaPersistQSet(t *testing.T) {
 		},
 	}
 	p := newPbftCore(1, loadConfig(), stack)
+	p.manager.start()
 	req := &Request{
 		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
 		Payload:   []byte("foo"),
@@ -1284,6 +1285,8 @@ func TestReplicaPersistQSet(t *testing.T) {
 		Request:        req,
 		ReplicaId:      uint64(0),
 	}}}, uint64(0))
+	p.manager.queue() <- nil
+	p.close()
 
 	p = newPbftCore(1, loadConfig(), stack)
 	if !p.prePrepared(hashReq(req), 0, 1) {
