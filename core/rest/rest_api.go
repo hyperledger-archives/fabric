@@ -437,7 +437,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
-		restLogger.Debug("Sucessfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
+		restLogger.Debug("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
@@ -573,7 +573,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
-		restLogger.Debug("Sucessfully retrieved transaction certificates for secure context '%s'", enrollmentID)
+		restLogger.Debug("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
@@ -806,7 +806,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	rw.WriteHeader(http.StatusOK)
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\""+chainID+"\"}")
-	restLogger.Info("Successfuly deployed chainCode: " + chainID + ".\n")
+	restLogger.Info("Successfully deployed chainCode: " + chainID + ".\n")
 }
 
 // Invoke executes a specified function within a target Chaincode.
@@ -941,8 +941,9 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	txuuid := resp.Msg
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Successfully invoked chainCode.\",\"message\": \"%s\"}", string(txuuid))
-	restLogger.Info("Successfuly invoked chainCode with txuuid (%s)\n", string(txuuid))
+	// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
+	fmt.Fprintf(rw, "{\"OK\": \"Successfully submitted invoke transaction.\",\"message\": \"%s\"}", string(txuuid))
+	restLogger.Info("Successfully submitted invoke transaction (%s).\n", string(txuuid))
 }
 
 // Query performs the requested query on the target Chaincode.
@@ -1310,7 +1311,13 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, string(jsonResponse))
 	}
-	restLogger.Info(fmt.Sprintf("REST sucessfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse)))
+
+	// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
+	if *(requestPayload.Method) == "invoke" {
+		restLogger.Info(fmt.Sprintf("REST successfully submitted invoke transaction: %s", string(jsonResponse)))
+	} else {
+		restLogger.Info(fmt.Sprintf("REST successfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse)))
+	}
 
 	return
 }
@@ -1462,7 +1469,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	//
 
 	result := formatRPCOK(chainID)
-	restLogger.Info(fmt.Sprintf("Successfuly deployed chainCode: %s", chainID))
+	restLogger.Info(fmt.Sprintf("Successfully deployed chainCode: %s", chainID))
 
 	return result
 }
@@ -1598,7 +1605,8 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		result = formatRPCOK(txuuid)
-		restLogger.Info(fmt.Sprintf("Successfuly invoked chainCode with txuuid (%s)", txuuid))
+		// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
+		restLogger.Info(fmt.Sprintf("Successfully submitted invoke transaction with txuuid (%s)", txuuid))
 	}
 
 	if method == "query" {
@@ -1636,7 +1644,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		result = formatRPCOK(val)
-		restLogger.Info(fmt.Sprintf("Successfuly queried chaincode: %s", val))
+		restLogger.Info(fmt.Sprintf("Successfully queried chaincode: %s", val))
 	}
 
 	return result
