@@ -18,9 +18,6 @@
  * © Copyright IBM Corp. 2016
  */
 
-// TODO: replace debug with debug
-
-
 // requires
 var debug = require('debug')('crypto');
 var aesjs = require('aes-js');
@@ -47,11 +44,18 @@ const SHA3 = 'SHA3';
 export const TCertEncTCertIndex:string = "1.2.3.4.5.6.7";
 const NonceSize:number = 24;
 const AESKeyLength:number = 32;
+const HMACKeyLength:number = 32;
 const BlockSize:number = 16;
 
 const GCMTagSize:number = 16;
 const GCMStandardNonceSize:number = 12;
 
+const ECIESKDFOutput = 512; // bits
+const IVLength = 16; // bytes
+const AESBlockLength = 16;
+
+const CURVE_P_256_Size = 256;
+const CURVE_P_384_Size = 384;
 
 // variables
 // #region Merging function/object declarations for ASN1js and PKIjs
@@ -79,9 +83,9 @@ export class Crypto {
         this.checkLevel(level);
         this.level = level;
         this.suite = hashAlgorithm.toLowerCase() + '-' + this.level;
-        if (level == 256) {
+        if (level == CURVE_P_256_Size) {
             this.curveName = "secp256r1"
-        } else if (level == 384) {
+        } else if (level == CURVE_P_384_Size) {
             this.curveName = "secp384r1";
         } else{
             throw new Error("Invalid security level: " + level);
@@ -254,15 +258,15 @@ export class Crypto {
         // debug("ecdsa.keyFromPublic=%s", util.inspect(ecdsaRecipientPublicKey));//XXX
         var Z = ephPrivKey.derive(ecdsaRecipientPublicKey.pub);
         // debug('[Z]: %j', Z);
-        var kdfOutput = self.hkdf(Z.toArray(), 256 + 256, null, null);
+        var kdfOutput = self.hkdf(Z.toArray(), ECIESKDFOutput, null, null);
         // debug('[kdfOutput]: %j', new Buffer(new Buffer(kdfOutput).toString('hex'), 'hex').toString('hex'));
 
-        var aesKey = kdfOutput.slice(0, 32);
-        var hmacKey = kdfOutput.slice(32, 64);
+        var aesKey = kdfOutput.slice(0, AESKeyLength);
+        var hmacKey = kdfOutput.slice(AESKeyLength, AESKeyLength + HMACKeyLength);
         // debug('[Ek] ', new Buffer(aesKey, 'hex'));
         // debug('[Mk] ', new Buffer(hmacKey, 'hex'));
 
-        var iv = crypto.randomBytes(16);
+        var iv = crypto.randomBytes(IVLength);
         var cipher = crypto.createCipheriv('aes-256-cfb', new Buffer(aesKey), iv);
         // debug("MSG %j: ", msg);
         var encryptedBytes = cipher.update(msg);
@@ -326,10 +330,9 @@ export class Crypto {
         var Z = privKey.derive(ephPubKey.pub);
         // debug('Z computed', Z);
         // debug('secret:  ', new Buffer(Z.toArray(), 'hex'));
-        // TODO: remove magic numbers
-        var kdfOutput = self.hkdf(Z.toArray(), 256 + 256, null, null);
-        var aesKey = kdfOutput.slice(0, 32);
-        var hmacKey = kdfOutput.slice(32, 64);
+        var kdfOutput = self.hkdf(Z.toArray(), ECIESKDFOutput, null, null);
+        var aesKey = kdfOutput.slice(0, AESKeyLength);
+        var hmacKey = kdfOutput.slice(AESKeyLength, AESKeyLength + HMACKeyLength);
         // debug('secret:  ', new Buffer(Z.toArray(), 'hex'));
         // debug('aesKey:  ', new Buffer(aesKey, 'hex'));
         // debug('hmacKey: ', new Buffer(hmacKey, 'hex'));
@@ -341,22 +344,22 @@ export class Crypto {
             // debug("D="+D.toString('hex')+" vs "+new Buffer(recoveredD).toString('hex'));
             throw new Error("HMAC verify failed");
         }
-        var iv = EM.slice(0, 16);
+        var iv = EM.slice(0, IVLength);
         var cipher = crypto.createDecipheriv('aes-256-cfb', new Buffer(aesKey), iv);
-        var decryptedBytes = cipher.update(EM.slice(16));
+        var decryptedBytes = cipher.update(EM.slice(IVLength));
         // debug("decryptedBytes: ",new Buffer(decryptedBytes).toString('hex'));
         return decryptedBytes;
     }
 
     aesCFBDecryt(key, encryptedBytes) {
 
-        var iv = crypto.randomBytes(16);
-        var aes = new aesjs.ModeOfOperation.cfb(key, iv, 16);
+        var iv = crypto.randomBytes(IVLength);
+        var aes = new aesjs.ModeOfOperation.cfb(key, iv, IVLength);
 
         debug("encryptedBytes: ", encryptedBytes);
 
         //need to pad encryptedBytes to multiples of 16
-        var numMissingBytes = 16 - (encryptedBytes.length % 16);
+        var numMissingBytes = IVLength - (encryptedBytes.length % AESBlockLength);
         debug("missingBytes: ", numMissingBytes);
 
         if (numMissingBytes > 0) {
@@ -367,7 +370,7 @@ export class Crypto {
 
         var decryptedBytes = aes.decrypt(encryptedBytes);
 
-        return decryptedBytes.slice(16, decryptedBytes.length - numMissingBytes);
+        return decryptedBytes.slice(IVLength, decryptedBytes.length - numMissingBytes);
 
     }
 
@@ -566,17 +569,17 @@ export class Crypto {
     }
 
     decryptResult(key, ct) {
-        debug('Decrypt result..');
+        // debug('Decrypt result..');
 
-        debug('ciphertext %j', ct);
-        debug('CT.length %j', ct.length);
+        // debug('ciphertext %j', ct);
+        // debug('CT.length %j', ct.length);
         //
-        debug('KEY %j', key);
-        debug('IV %j', ct.slice(0, GCMStandardNonceSize));
-        debug('IV length %j', ct.slice(0, GCMStandardNonceSize).length);
-        debug('AUTH %j', ct.slice(ct.length - GCMTagSize));
-        debug('AUTH length %j', ct.slice(ct.length - GCMTagSize).length);
-        debug('CONTENT %s', ct.slice(GCMStandardNonceSize, ct.length - GCMTagSize));
+        // debug('KEY %j', key);
+        // debug('IV %j', ct.slice(0, GCMStandardNonceSize));
+        // debug('IV length %j', ct.slice(0, GCMStandardNonceSize).length);
+        // debug('AUTH %j', ct.slice(ct.length - GCMTagSize));
+        // debug('AUTH length %j', ct.slice(ct.length - GCMTagSize).length);
+        // debug('CONTENT %s', ct.slice(GCMStandardNonceSize, ct.length - GCMTagSize));
 
         let decipher = crypto.createDecipheriv('aes-256-gcm', key, ct.slice(0, GCMStandardNonceSize));
         decipher.setAuthTag(ct.slice(ct.length - GCMTagSize));
@@ -606,11 +609,10 @@ export class Crypto {
         sk.writeBuffer(new Buffer(prvKeyHex, 'hex'), 4);
         sk.writeByte(160);
         sk.writeByte(7);
-        // TODO: remove the magic numbers
-        if (this.level == 384 ) {
+        if (this.level == CURVE_P_384_Size ) {
             // OID of P384
             sk.writeOID('1.3.132.0.34');
-        } else if (this.level == 256) {
+        } else if (this.level == CURVE_P_256_Size) {
             // OID of P256
             sk.writeOID('1.2.840.10045.3.1.7');
         } else {

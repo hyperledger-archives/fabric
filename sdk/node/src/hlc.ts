@@ -50,6 +50,7 @@ let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 
 let DEFAULT_SECURITY_LEVEL = 256;
 let DEFAULT_HASH_ALGORITHM = "SHA3";
+let CONFIDENTIALITY_1_2_STATE_KD_C6 = 6;
 
 let _chains = {};
 
@@ -263,8 +264,7 @@ export class Chain {
     private members:{[name:string]:Member} = {};
 
     // The number of tcerts to get in each batch
-    // TODO: change this magic number
-    private tcertBatchSize:number = 2;
+    private tcertBatchSize:number = 200;
 
     // The registrar (if any) that registers & enrolls new members/users
     private registrar:Member;
@@ -993,7 +993,7 @@ export class TransactionContext extends events.EventEmitter {
             return
         }
 
-        console.log('Process Confidentiality ...');
+        debug('Process Confidentiality ...');
         var self = this;
 
         // Set confidentiality level and protocol version
@@ -1019,11 +1019,10 @@ export class TransactionContext extends events.EventEmitter {
             stateKey = new Buffer([]);
         } else {
             // The request is for a query
-            // TODO: remove magic number 6
             debug('Generate state key...');
             stateKey = new Buffer(self.chain.cryptoPrimitives.hmacAESTruncated(
                 self.member.getEnrollment().queryStateKey,
-                [6].concat(self.nonce)
+                [CONFIDENTIALITY_1_2_STATE_KD_C6].concat(self.nonce)
             ));
         }
 
@@ -1034,18 +1033,19 @@ export class TransactionContext extends events.EventEmitter {
         chainCodeValidatorMessage1_2.startSequence();
         chainCodeValidatorMessage1_2.writeBuffer(privBytes, 4);
         if (stateKey.length != 0) {
-            console.log('STATE KEY %j', stateKey);
+            debug('STATE KEY %j', stateKey);
             chainCodeValidatorMessage1_2.writeBuffer(stateKey, 4);
         } else {
             chainCodeValidatorMessage1_2.writeByte(4);
             chainCodeValidatorMessage1_2.writeLength(0);
         }
         chainCodeValidatorMessage1_2.endSequence();
-        console.log(chainCodeValidatorMessage1_2.buffer);
+        debug(chainCodeValidatorMessage1_2.buffer);
 
-        // TODO: centralize this in member.enrollment
         debug('Using chain key [%j]', self.member.getEnrollment().chainKey);
-        var ecdsaChainKey = self.chain.cryptoPrimitives.UnmarshallChainKey(self.member.getEnrollment().chainKey);
+        var ecdsaChainKey = self.chain.cryptoPrimitives.UnmarshallChainKey(
+            self.member.getEnrollment().chainKey
+        );
 
         let encMsgToValidators = self.chain.cryptoPrimitives.ECIESEncryptECDSA(
             ecdsaChainKey,
@@ -1054,7 +1054,7 @@ export class TransactionContext extends events.EventEmitter {
         transaction.setToValidators(encMsgToValidators);
 
         // Encrypts chaincodeID using txKey
-        // console.log('CHAINCODE ID %j', transaction.chaincodeID);
+        // debug('CHAINCODE ID %j', transaction.chaincodeID);
 
         let encryptedChaincodeID = self.chain.cryptoPrimitives.ECIESEncrypt(
             txKey.pubKeyObj,
@@ -1063,7 +1063,7 @@ export class TransactionContext extends events.EventEmitter {
         transaction.setChaincodeID(encryptedChaincodeID);
 
         // Encrypts payload using txKey
-        // console.log('PAYLOAD ID %j', transaction.payload);
+        // debug('PAYLOAD ID %j', transaction.payload);
         let encryptedPayload = self.chain.cryptoPrimitives.ECIESEncrypt(
             txKey.pubKeyObj,
             transaction.getPayload().buffer
@@ -1072,7 +1072,7 @@ export class TransactionContext extends events.EventEmitter {
 
         // Encrypt metadata using txKey
         if (transaction.getMetadata() != null && transaction.getMetadata().buffer != null) {
-            console.log('METADATA ID %j', transaction.getMetadata().buffer);
+            debug('Metadata [%j]', transaction.getMetadata().buffer);
             let encryptedMetadata = self.chain.cryptoPrimitives.ECIESEncrypt(
                 txKey.pubKeyObj,
                 transaction.getMetadata().buffer
@@ -1083,7 +1083,9 @@ export class TransactionContext extends events.EventEmitter {
 
     private decryptResult(ct:Buffer) {
         let key = new Buffer(
-            this.chain.cryptoPrimitives.hmacAESTruncated(this.member.getEnrollment().queryStateKey, [6].concat(this.nonce))
+            this.chain.cryptoPrimitives.hmacAESTruncated(
+                this.member.getEnrollment().queryStateKey,
+                [CONFIDENTIALITY_1_2_STATE_KD_C6].concat(this.nonce))
         );
 
         debug('Decrypt Result [%s]', ct.toString('hex'));
@@ -1209,23 +1211,23 @@ export class TransactionContext extends events.EventEmitter {
                 // cert based
 
                 let certRaw = new Buffer(self.tcert.publicKey);
-                // console.log('========== Invoker Cert [%s]', certRaw.toString('hex'));
+                // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
                 let nonceRaw = new Buffer(self.nonce);
 
                 let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
-                // console.log('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+                // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
                 this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
 
-                // console.log('========== Binding [%s]', this.binding.toString('hex'));
+                // debug('========== Binding [%s]', this.binding.toString('hex'));
 
                 let ctor = chaincodeSpec.getCtorMsg().toBuffer();
-                // console.log('========== Ctor [%s]', ctor.toString('hex'));
+                // debug('========== Ctor [%s]', ctor.toString('hex'));
 
                 let txmsg = Buffer.concat([ctor, this.binding]);
-                // console.log('========== Pyaload||binding [%s]', txmsg.toString('hex'));
+                // debug('========== Pyaload||binding [%s]', txmsg.toString('hex'));
                 let mdsig = self.chain.cryptoPrimitives.sign(request.invoker.appCert.privateKey.getPrivate('hex'), txmsg);
                 let sigma = new Buffer(mdsig.toDER());
-                // console.log('========== Sigma [%s]', sigma.toString('hex'));
+                // debug('========== Sigma [%s]', sigma.toString('hex'));
 
                 tx.setMetadata(sigma)
             }
@@ -1525,7 +1527,6 @@ class MemberServicesImpl {
             self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
                 if (err) return cb(err);
                 debug('[MemberServicesImpl.enroll] eCertCreateResp : [%j]' + eCertCreateResp);
-                // TODO: store additional key
 
                 let enrollment = {
                     key: signingKeyPair.prvKeyObj.prvKeyHex,
@@ -1613,9 +1614,9 @@ class MemberServicesImpl {
         for (var i = 0; i < tCerts.length; i++) {
             var tCert = tCerts[i];
             //debug('tcert %d: %j',i,tCert);
-            // console.log("HERE1: index=%d: val: %s\n", i, JSON.stringify(tCert.cert));
+            // debug("HERE1: index=%d: val: %s\n", i, JSON.stringify(tCert.cert));
             //var tcert64 = tCert.cert.data.toString('base64');
-            //console.log("HERE1.1: %s\n",tcert64);
+            //debug("HERE1.1: %s\n",tcert64);
             let x509Certificate;
             try {
                 x509Certificate = new crypto.X509Certificate(tCert.cert);
@@ -1624,7 +1625,7 @@ class MemberServicesImpl {
                 continue
             }
 
-            // console.log("HERE2: got x509 cert");
+            // debug("HERE2: got x509 cert");
             // extract the encrypted bytes from extension attribute
             let tCertIndexCT = x509Certificate.criticalExtension(crypto.TCertEncTCertIndex);
             // debug('tCertIndexCT: ',JSON.stringify(tCertIndexCT));
@@ -1658,8 +1659,9 @@ class MemberServicesImpl {
             tCertBatch.push(tcert);
         }
 
-        // TODO: check if the list is empty
-
+        if (tCertBatch.length == 0) {
+            throw Error('Failed fetching TCerts. No valid TCert received.')
+        }
         return tCertBatch;
 
     } // end processTCerts
@@ -1738,7 +1740,7 @@ function toKeyValStoreName(name:string):string {
 function bluemixInit():boolean {
     var vcap = process.env.VCAP_SERVICES;
     if (!vcap) return false; // not in bluemix
-    // TODO: Pilfer logic from marbles app
+    // TODO: Take logic from marbles app
     return true;
 }
 
@@ -1759,7 +1761,8 @@ function isFunction(fcn:any):boolean {
     return (typeof fcn === 'function');
 }
 
-function parseUrl(url:string):any {  // TODO: find ambient definition for url
+function parseUrl(url:string):any {
+    // TODO: find ambient definition for url
     var purl = urlParser.parse(url, true);
     var protocol = purl.protocol;
     if (endsWith(protocol, ":")) {
