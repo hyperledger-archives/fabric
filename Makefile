@@ -121,12 +121,16 @@ $(GOPATH)/bin/%:
 	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
 	$(MAKE) gotool.$(TOOL)
 
+build/bin:
+	mkdir -p $@
+
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
 
 .PHONY: clean
 clean:
+	-@rm -rf build ||:
 	-@rm -f .*image-dummy ||:
 	-@rm -f ./peer/peer ||:
 	-@rm -f ./membersrvc/membersrvc ||:
