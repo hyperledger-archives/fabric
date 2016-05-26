@@ -18,6 +18,7 @@ package sample_syscc
 
 import (
 	"errors"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -26,7 +27,7 @@ type SampleSysCC struct {
 }
 
 func (t *SampleSysCC) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var key, val string    // Entities
+	var key, val string // Entities
 
 	if len(args) != 2 {
 		return nil, errors.New("need 2 args (key and a value).")
@@ -46,7 +47,7 @@ func (t *SampleSysCC) Init(stub *shim.ChaincodeStub, function string, args []str
 
 // Transaction makes payment of X units from A to B
 func (t *SampleSysCC) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var key, val string    // Entities
+	var key, val string // Entities
 
 	if len(args) != 2 {
 		return nil, errors.New("need 2 args (key and a value).")
