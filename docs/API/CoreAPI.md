@@ -136,7 +136,7 @@ For additional information on the available CLI commands, please see the [protoc
 
 You can work with the REST API through any tool of your choice. For example, the curl command line utility or a browser based client such as the Firefox Rest Client or Chrome Postman. You can likewise trigger REST requests directly through [Swagger](http://swagger.io/). You can utilize the Swagger service directly or, if you prefer, you can set up Swagger locally by following the instructions [here](#to-set-up-swagger-ui).
 
-**Note:** The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). If you are sending REST requests to a peer node running in Vagrant from outside of Vagrant, also use port 5000. This mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile)
+**Note:** The default REST interface port is 5000. It can be configured in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) using the `rest.address` property. If using Vagrant, the REST port mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile).
 
 **Note on constructing a test blockchain** If you want to test the REST API locally, construct a test blockchain by running the TestServerOpenchain_API_GetBlockCount test implemented inside [api_test.go](https://github.com/hyperledger/fabric/blob/master/core/rest/api_test.go). This test will create a test blockchain with 5 blocks. Subsequently restart the peer process.
 

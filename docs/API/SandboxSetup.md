@@ -70,7 +70,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). If you are sending REST requests to a peer node running in Vagrant from outside of Vagrant, also use port 5000. This mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile)
+The default REST interface port is 5000. It can be configured in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) using the `rest.address` property. If using Vagrant, the REST port mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile).
 
 #### **Note on security functionality**
 
