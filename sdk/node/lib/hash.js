@@ -83,5 +83,33 @@ hash_sha3_384.prototype = {
     }
 };
 
+function bitsToBytes(arr) {
+    var out = [], bl = sjcl.bitArray.bitLength(arr), i, tmp;
+    for (i = 0; i < bl / 8; i++) {
+        if ((i & 3) === 0) {
+            tmp = arr[i / 4];
+        }
+        out.push(tmp >>> 24);
+        tmp <<= 8;
+    }
+    return out;
+}
+
+/** Convert from an array of bytes to a bitArray. */
+function bytesToBits(bytes) {
+    var out = [], i, tmp = 0;
+    for (i = 0; i < bytes.length; i++) {
+        tmp = tmp << 8 | bytes[i];
+        if ((i & 3) === 3) {
+            out.push(tmp);
+            tmp = 0;
+        }
+    }
+    if (i & 3) {
+        out.push(sjcl.bitArray.partial(8 * (i & 3), tmp));
+    }
+    return out;
+}
+
 exports.hash_sha3_256 = hash_sha3_256;
 exports.hash_sha3_384 = hash_sha3_384;
