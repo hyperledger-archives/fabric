@@ -27,13 +27,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/abac"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -108,7 +107,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Handle Critical Extension TCertEncTCertIndex
-	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex);
+	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex)
 	if err != nil {
 		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", der, err)
 
@@ -142,7 +141,6 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Try to extract the signing key from the TCert by decrypting the TCertIndex
-
 
 	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
 	// Let TCertIndex = Timestamp, RandValue, 1,2,…
@@ -190,10 +188,10 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Compute temporary public key
 		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
 		tempSK.PublicKey.X, tempSK.PublicKey.Y =
-		tempSK.PublicKey.Add(
-			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-			tempX, tempY,
-		)
+			tempSK.PublicKey.Add(
+				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
+				tempX, tempY,
+			)
 
 		// Verify temporary public key is a valid point on the reference curve
 		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
@@ -602,28 +600,6 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
 }
 
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
 // Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
 	tcert, err := utils.DERToX509Certificate(tcertder)
@@ -642,7 +618,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = client.parseHeader(headerStr)
+	header, err = abac.ParseAttributesHeader(headerStr)
 
 	if err != nil {
 		return nil, err

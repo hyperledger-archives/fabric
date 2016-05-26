@@ -217,7 +217,7 @@ func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 }
 
 func (ecap *ECAP) fetchAttributes(cert *pb.Cert) error {
-	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
+	//TODO we are creating a new client connection per each ecer request. We should implement a connections pool.
 	sock, acaP, err := GetACAClient()
 	if err != nil {
 		return err
