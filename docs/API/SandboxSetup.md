@@ -70,7 +70,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 #### **Note on REST API port**
 
-The REST interface port is defined as port 5000 in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). If you are sending REST requests to the peer node from inside Vagrant, use port 5000. If you are sending REST requests through Swagger, the port specified in the Swagger file is port 3000. The different port emphasizes that Swagger will likely run outside of Vagrant. To send requests from the Swagger interface, set up port forwarding from host port 3000 to Vagrant port 5000 on your machine, or edit the Swagger configuration file to specify another port number of your choice.
+The default REST interface port is 5000. It can be configured in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) using the `rest.address` property. If using Vagrant, the REST port mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile).
 
 #### **Note on security functionality**
 
@@ -89,11 +89,11 @@ Register the user though the CLI, substituting for `<username>` appropriately:
 
 The command will prompt for a password, which must match the <b>enrollmentPW</b> listed for the target user in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the <b>enrollmentPW</b>, an error will result.
 
-To log in through the REST API, send a POST request to the <b>/registrar</b> endpoint, containing the <b>enrollmentID</b> and <b>enrollmentPW</b> listed in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
+To log in through the REST API, send a POST request to the <b>/registrar</b> endpoint, containing the <b>enrollmentID</b> and <b>enrollmentPW</b> listed in the 'users' section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file.
 
 <b>REST Request:</b>
 ```
-POST localhost:3000/registrar
+POST localhost:5000/registrar
 
 {
   "enrollId": "jim",
@@ -117,7 +117,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric/peer
 ./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
-Alternatively, you can run the chaincode deploy transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
+Alternatively, you can run the chaincode deploy transaction through the REST API.
 
 <b>REST Request:</b>
 ```
@@ -189,7 +189,7 @@ Run the chaincode invoking transaction on the CLI as many times as desired. The 
 
 	./peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
-Alternatively, run the chaincode invoking transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
+Alternatively, run the chaincode invoking transaction through the REST API.
 
 <b>REST Request:</b>
 ```
@@ -269,7 +269,7 @@ If a name other than "a" or "b" is provided in a query sent to <b>chaincode_exam
 
     {"Error":"Nil amount for c"}
 
-Alternatively, run the chaincode query transaction through the REST API. Note, that you should use port 5000 if you are sending the REST request from inside Vagrant and port 3000 (or another port number that you have configured) if you are sending the REST request from outside Vagrant.
+Alternatively, run the chaincode query transaction through the REST API.
 
 <b> REST Request:</b>
 ```
