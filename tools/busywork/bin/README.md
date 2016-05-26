@@ -1,8 +1,9 @@
 # bin
 
 This directory contains several executable scripts and a
-[Makefile](Makefile). You may find it useful to put this directory in your
-**PATH**. 
+[Makefile](Makefile). You may find it *useful* to put this directory in your
+**PATH**, however this is never *required* for the **busywork** components to
+work correctly.
 
 Many simple "scripts" are actually implemented as make targets, and are
 documeted at the top of the Makefile. Make targets are provided for various
@@ -11,25 +12,37 @@ fabric networks and obtaining logs from containers. Some of the make targets
 are similar to those found in the fabric/Makefile, however are defined with a
 slightly different sensibility.
 
-The following major support scripts are provided. Scripts are typically
-documented in a *usage* string embedded at the top of the script.
+## Major Scripts
 
-* [checkAgreement](checkAgreement) is a script that uses the **fabricLogger**
-  (see below) to check that all of the peers in a network agree on the
-  contents of the blockchain.
+The following major support scripts are provided. These scripts are called out
+by other major scripts or test drivers. Scripts are typically documented in a
+*usage* string embedded at the top of the script.
+
+* [checkAgreement](checkAgreement) is a script that uses the
+  [fabricLogger](fabricLogger) (see below) to check that all of the peers in a
+  network agree on the contents of the blockchain.
 
 * [fabricLogger](fabricLogger) is a simple script that converts a blockchain
   into a text file listing of transaction IDs.
   
-* [userModeNetwork](userModeNetwork) is a script defines Hyperledger fabric
-  peer networks as simple networks of user-mode processes, that is, networks
-  that do not rely on Docker-compose or multiple physical nodes. The concept
-  of a user-mode network is discussed [below](#userModeNetwork).
+* [networkStatus](networkStatis) is a script that reports on the status of
+  Hyperledger fabric peer networks created with **busywork** tools, with an
+  option to be used as a background *watchdog* on the health of the network. 
+
+* [pprofClient](pprofClient) is a script that takes profiles from the
+  profiling server built into the Hyperledger fabric peer.
+
+* [userModeNetwork](userModeNetwork) is a script that defines Hyperledger
+  fabric peer networks as simple networks of user-mode processes, that is,
+  networks that do not rely on Docker-compose, or multiple physical or virtual
+  nodes. The concept of a user-mode network is discussed
+  [below](#userModeNetwork).
   
-* [wait-for-it](wait-for-it) is a script that waits for a network service to
-  be available with an optional timeout. **busywork** applications use
-  `wait-for-it` to sequence network startup correctly.
+* [wait-for-it](wait-for-it) is a general-purpose script that waits for a
+  network service to be available with an optional timeout. **busywork**
+  applications use `wait-for-it` to correctly sequence network startup.
   
+
 <a name="userModeNetwork"></a>
 ## User-Mode Networks
 
@@ -55,6 +68,15 @@ an example of setting up a 4-node network with security, PBFT Sieve consensus
 and DEBUG-level logging in the peers
 
     userModeNetwork -security -sieve -peerLogging debug 4
+	
+Another advantage of a user-mode network can be that the peer processes are
+executed in the environment of the call of
+[userModeNetwork](userModeNetwork). This makes it very easy to override
+default configuration parameters from the command line or from a script. For
+example
+
+    CORE_SECURITY_TCERT_BATCH_SIZE=1000 userModeNetwork -security -sieve 4
+	
 	
 <a name="caveats"></a>
 ## User-Mode Caveats
@@ -87,6 +109,9 @@ and applications create (if necessary) and use `~/.busywork` as the
 in the **BUSYWORK_HOME** depending on which **busywork** tools are being
 used.
 
+* `chaincodes` This file lists chaincode deployments. Each line contains 2
+  fields: 1) The chaincode name or ID; and 2) the chaincode path.
+
 * `fabricLog` The is a text representation of the blockchain created by the
   [fabricLogger](fabricLogger) process that driver scripts invoke to validate
   transaction execution.
@@ -94,7 +119,7 @@ used.
 * `membersrvc/` This directory contains the **membersrvc** database (`/data` -
   TBD) and the `/stderr` and `/stdout` logs from the **membersrvc** server.
   
-* `network` The network configuraation is described [below](#network).
+* `network` The network configuration is described [below](#network).
 
 * `vp[0,...N]/` These directories contain the validating peer databases
   `/data` and their `/stderr` and `stdout` logs.
