@@ -267,26 +267,26 @@ func (instance *pbftCore) close() {
 }
 
 // allow the view-change protocol to kick-off when the timer expires
-func (instance *pbftCore) processEvent(e event) event {
+func (instance *pbftCore) processEvent(e interface{}) interface{} {
 
 	logger.Debug("Replica %d processing event", instance.id)
 
-	switch e.eventType() {
-	case viewChangeTimerEventID:
+	switch et := e.(type) {
+	case viewChangeTimerEvent:
 		logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 		instance.timerActive = false
 		instance.sendViewChange()
-	case pbftMessageEventID:
-		msg := e.(pbftMessageEvent)
+	case pbftMessageEvent:
+		msg := et
 		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 		instance.recvMsg(msg.msg, msg.sender)
-	case stateUpdatingEventID:
-		update := e.(stateUpdatingEvent)
+	case stateUpdatingEvent:
+		update := et
 		instance.skipInProgress = true
 		instance.lastExec = update.seqNo
 		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
-	case stateUpdatedEventID:
-		update := e.(stateUpdatedEvent)
+	case stateUpdatedEvent:
+		update := et
 		seqNo := update.seqNo
 		logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
 		// XXX create checkpoint
@@ -294,11 +294,11 @@ func (instance *pbftCore) processEvent(e event) event {
 		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 		instance.skipInProgress = false
 		instance.executeOutstanding()
-	case execDoneEventID:
+	case execDoneEvent:
 		instance.execDoneSync()
-	case workEventID:
-		e.(workEvent)() // Used to allow the caller to steal use of the main thread, to be removed
-	case viewChangedEventID:
+	case workEvent:
+		et() // Used to allow the caller to steal use of the main thread, to be removed
+	case viewChangedEvent:
 		instance.consumer.viewChange(instance.view)
 	default:
 		logger.Warning("Replica %d received an unknown message type", instance.id)

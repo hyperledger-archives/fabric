@@ -18,16 +18,11 @@ package obcpbft
 
 import "time"
 
-// event is an interface which defines an event which is identified by eventType
-type event interface {
-	eventType() eventType // The type of the event
-}
-
 // eventReceiver is a consumer of events, processEvent will be called serially
 // as events arrive
 type eventReceiver interface {
 	// processEvent delivers an event to the eventReceiver, if it returns non-nil, the return is the next processed event
-	processEvent(e event) event
+	processEvent(e interface{}) interface{}
 }
 
 // ------------------------------------------------------------
@@ -60,24 +55,24 @@ func (t *threaded) halt() {
 // eventManager provides a serialized interface for submitting events to
 // an eventReceiver on the other side of the queue
 type eventManager interface {
-	inject(event)        // A temporary interface to allow the event manager thread to skip the queue
-	queue() chan<- event // Get a write-only reference to the queue, to submit events
-	start()              // Starts the eventManager thread TODO, these thread management things should probably go away
-	halt()               // Stops the eventManager thread
+	inject(interface{})        // A temporary interface to allow the event manager thread to skip the queue
+	queue() chan<- interface{} // Get a write-only reference to the queue, to submit events
+	start()                    // Starts the eventManager thread TODO, these thread management things should probably go away
+	halt()                     // Stops the eventManager thread
 }
 
 // eventManagerImpl is an implementation of eventManger
 type eventManagerImpl struct {
 	threaded
 	receiver eventReceiver
-	events   chan event
+	events   chan interface{}
 }
 
 // newEventManager creates an instance of eventManagerImpl
 func newEventManagerImpl(er eventReceiver) eventManager {
 	return &eventManagerImpl{
 		receiver: er,
-		events:   make(chan event),
+		events:   make(chan interface{}),
 		threaded: threaded{make(chan struct{})},
 	}
 }
@@ -88,14 +83,19 @@ func (em *eventManagerImpl) start() {
 }
 
 // queue returns a write only reference to the event queue
-func (em *eventManagerImpl) queue() chan<- event {
+func (em *eventManagerImpl) queue() chan<- interface{} {
 	return em.events
 }
 
 // inject can only safely be called by the eventManager thread itself, it skips the queue
-func (em *eventManagerImpl) inject(event event) {
-	for next := event; next != nil; next = em.receiver.processEvent(next) {
+func (em *eventManagerImpl) inject(event interface{}) {
+	next := event
+	for {
 		// If an event returns something non-nil, then process it as a new event
+		next = em.receiver.processEvent(next)
+		if next == nil {
+			break
+		}
 	}
 }
 
@@ -124,10 +124,10 @@ func (em *eventManagerImpl) eventLoop() {
 // then even if the timer has already fired, the event will not be
 // delivered to the event queue
 type eventTimer interface {
-	softReset(duration time.Duration, event event) // start a new countdown, only if one is not already started
-	reset(duration time.Duration, event event)     // start a new countdown, clear any pending events
-	stop()                                         // stop the countdown, clear any pending events
-	halt()                                         // Stops the eventTimer thread
+	softReset(duration time.Duration, event interface{}) // start a new countdown, only if one is not already started
+	reset(duration time.Duration, event interface{})     // start a new countdown, clear any pending events
+	stop()                                               // stop the countdown, clear any pending events
+	halt()                                               // Stops the eventTimer thread
 }
 
 // eventTimerFactory abstracts the creation of eventTimers, as they may
@@ -154,7 +154,7 @@ func (etf *eventTimerFactoryImpl) createTimer() eventTimer {
 // timerStart is used to deliver the start request to the eventTimer thread
 type timerStart struct {
 	hard     bool          // Whether to reset the timer if it is running
-	event    event         // What event to push onto the event queue
+	event    interface{}   // What event to push onto the event queue
 	duration time.Duration // How long to wait before sending the event
 }
 
@@ -181,7 +181,7 @@ func newEventTimer(manager eventManager) eventTimer {
 
 // softReset tells the timer to start a new countdown, only if it is not currently counting down
 // this will not clear any pending events
-func (et *eventTimerImpl) softReset(timeout time.Duration, event event) {
+func (et *eventTimerImpl) softReset(timeout time.Duration, event interface{}) {
 	et.startChan <- &timerStart{
 		duration: timeout,
 		event:    event,
@@ -190,7 +190,7 @@ func (et *eventTimerImpl) softReset(timeout time.Duration, event event) {
 }
 
 // reset tells the timer to start counting down from a new timeout, this also clears any pending events
-func (et *eventTimerImpl) reset(timeout time.Duration, event event) {
+func (et *eventTimerImpl) reset(timeout time.Duration, event interface{}) {
 	et.startChan <- &timerStart{
 		duration: timeout,
 		event:    event,
@@ -205,8 +205,8 @@ func (et *eventTimerImpl) stop() {
 
 // loop is where the timer thread lives, looping
 func (et *eventTimerImpl) loop() {
-	var eventDestChan chan<- event
-	var event event
+	var eventDestChan chan<- interface{}
+	var event interface{}
 
 	for {
 		// A little state machine, relying on the fact that nil channels will block on read/write indefinitely
@@ -258,95 +258,35 @@ func (et *eventTimerImpl) loop() {
 //
 // ------------------------------------------------------------
 
-type eventType int
-
-const (
-	workEventID eventType = iota
-	viewChangeTimerEventID
-	execDoneEventID
-	stateUpdatedEventID
-	stateUpdatingEventID
-	pbftMessageEventID
-	batchMessageEventID
-	batchTimerEventID
-	viewChangedEventID
-	complaintEventID
-	batchExecEventID
-)
-
 // workEvent is a temporary type, to inject work
 type workEvent func()
-
-func (e workEvent) eventType() eventType {
-	return workEventID
-}
 
 // viewChangeTimerEvent is sent when the view change timer expires
 type viewChangeTimerEvent struct{}
 
-func (e viewChangeTimerEvent) eventType() eventType {
-	return viewChangeTimerEventID
-}
-
 // execDoneEvent is sent when an execution completes
 type execDoneEvent struct{}
-
-func (e execDoneEvent) eventType() eventType {
-	return execDoneEventID
-}
 
 // stateUpdatedEvent is sent when state transfer completes
 type stateUpdatedEvent checkpointMessage
 
-func (e stateUpdatedEvent) eventType() eventType {
-	return stateUpdatedEventID
-}
-
 // stateUpdatingEvent is sent when state transfer is initiated
 type stateUpdatingEvent checkpointMessage
-
-func (e stateUpdatingEvent) eventType() eventType {
-	return stateUpdatingEventID
-}
 
 // pbftMessageEvent is sent when a consensus messages is received to be sent to pbft
 type pbftMessageEvent pbftMessage
 
-func (e pbftMessageEvent) eventType() eventType {
-	return pbftMessageEventID
-}
-
 // batchMessageEvent is sent when a consensus messages is received to be sent to pbft
 type batchMessageEvent batchMessage
-
-func (e batchMessageEvent) eventType() eventType {
-	return batchMessageEventID
-}
 
 // batchTimerEvent is sent when the batch timer expires
 type batchTimerEvent struct{}
 
-func (e batchTimerEvent) eventType() eventType {
-	return batchTimerEventID
-}
-
 // viewChangedEvent is sent when the view change timer expires
 type viewChangedEvent struct{}
-
-func (e viewChangedEvent) eventType() eventType {
-	return viewChangedEventID
-}
 
 // complaintEvent is sent when custody has a complaint
 type complaintEvent custodyInfo
 
-func (e complaintEvent) eventType() eventType {
-	return complaintEventID
-}
-
 // batchExecEvent is sent when a batch execution should take place
 type batchExecEvent execInfo
-
-func (e batchExecEvent) eventType() eventType {
-	return batchExecEventID
-}
