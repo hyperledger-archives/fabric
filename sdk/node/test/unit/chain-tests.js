@@ -233,10 +233,7 @@ test('Deploy a chaincode by enrolled user', function (t) {
             t.fail("Invoke transaction UUID is blank" + " ---> " + "UUID : " + results);
         } else {
             t.pass("Invoke transaction UUID is present" + " ---> " + "UUID : " + results);
-            t.end()
-
-            // TODO: remove the following sleep when the Events API will be available
-            sleep.sleep(3)
+            t.end();
         }
     });
 
@@ -261,7 +258,7 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -291,7 +288,7 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -327,7 +324,7 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -360,7 +357,7 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "BOGUS",
         // Existing state variable to retrieve
@@ -392,7 +389,7 @@ test('Invoke a chaincode by enrolled user', function (t) {
     // Construct the invoke request
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "invoke",
         // Parameters for the invoke function
