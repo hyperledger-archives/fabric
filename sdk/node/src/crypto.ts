@@ -77,7 +77,7 @@ export class Crypto {
     constructor(hashAlgorithm:string, securityLevel:number) {
         this.hashAlgorithm = hashAlgorithm;
         this.securityLevel = securityLevel;
-        this.initiliaze()
+        this.initialiaze()
     }
 
     /**
@@ -94,7 +94,7 @@ export class Crypto {
      */
     setSecurityLevel(securityLevel:number):void {
         this.securityLevel = securityLevel;
-        this.initiliaze();
+        this.initialiaze();
     }
 
     /**
@@ -111,7 +111,7 @@ export class Crypto {
      */
     setHashAlgorithm(hashAlgorithm:string):void {
         this.hashAlgorithm = hashAlgorithm;
-        this.initiliaze();
+        this.initialiaze();
     }
 
     generateNonce() {
@@ -396,7 +396,7 @@ export class Crypto {
             throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
     }
 
-    private initiliaze() {
+    private initialiaze() {
         this.checkSecurityLevel();
         this.checkHashFunction();
 
@@ -422,7 +422,7 @@ export class Crypto {
                 break;
             case "sha2-256":
                 debug("Using sha2-256");
-                this.hashFunction = hashPrimitives.hash_sha2_256;
+                this.hashFunction = hashPrimitives.sha2_256;
                 this.hashFunctionKeyDerivation = hashPrimitives.hash_sha2_256;
                 this.hashOutputSize = 32;
                 break;
