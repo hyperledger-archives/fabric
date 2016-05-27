@@ -7,3 +7,4 @@ node_modules/*
 /lib/hlc.js
 /lib/crypto.js
 /typings/
+tsdoc
