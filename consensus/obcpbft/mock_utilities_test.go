@@ -145,13 +145,14 @@ type omniProto struct {
 	// Inner Stack methods
 	broadcastImpl          func(msgPayload []byte)
 	unicastImpl            func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl            func(seqNo uint64, txRaw []byte, execInfo *ExecutionInfo)
-	skipToImpl             func(seqNo uint64, snapshotID []byte, peers []uint64, execInfo *ExecutionInfo)
-	validStateImpl         func(seqNo uint64, id []byte, peers []uint64, execInfo *ExecutionInfo)
+	executeImpl            func(seqNo uint64, txRaw []byte)
+	getStateImpl           func() []byte
+	skipToImpl             func(seqNo uint64, snapshotID []byte, peers []uint64)
 	validateImpl           func(txRaw []byte) error
 	viewChangeImpl         func(curView uint64)
 	signImpl               func(msg []byte) ([]byte, error)
 	verifyImpl             func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl       func() (uint64, error)
 	getValidatorHandleImpl func(id uint64) (handle *pb.PeerID)
 
 	// Closable Consenter methods

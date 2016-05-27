@@ -247,10 +247,7 @@ func (op *obcSieve) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 
