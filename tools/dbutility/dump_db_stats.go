@@ -14,57 +14,79 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package db
+package main
 
 import (
+	"flag"
 	"fmt"
-	"testing"
+	"os"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 	"github.com/tecbot/gorocksdb"
 )
 
-//This file contains a test function TestDumpDBStats. This test is not a unit test, rather this is used for printing
-// the details of a db-dump pointed to by DBDir. For analysing a db-dump,
-// - comment the t.SkipNow(),
-// - specify the location of db-dump in DBDir, and
-// - execute "go test -run TestDumpDBStats"
-
 const (
 	//MaxValueSize is used to compare the size of the key-value in db.
 	//If a key-value is more than this size, it's details are printed for further analysis.
 	MaxValueSize = 1024 * 1024
-
-	//DBDir the name of the folder that can be given for off-line study of a db dump
-	DBDir = ""
 )
 
 type detailPrinter func(data []byte)
 
-func TestDumpDBStats(t *testing.T) {
-	t.SkipNow()
-	if DBDir != "" {
-		viper.Set("peer.fileSystemPath", DBDir)
+func main() {
+	flagSetName := os.Args[0]
+	flagSet := flag.NewFlagSet(flagSetName, flag.ExitOnError)
+	dbDirPtr := flagSet.String("dbDir", "", "path to db dump")
+	flagSet.Parse(os.Args[1:])
+
+	dbDir := *dbDirPtr
+
+	if dbDir == "" {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", flagSetName)
+		flagSet.PrintDefaults()
+		os.Exit(3)
 	}
-	openchainDB := GetDBHandle()
+	viper.Set("peer.fileSystemPath", dbDir)
+	fmt.Printf("dbDir = [%s]\n", dbDir)
+
+	// check that dbDir exists
+	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stderr, "dbDir does not exist")
+		os.Exit(4)
+	}
+
+	if _, err := os.Stat(dbDir + "/db"); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stderr, "dbDir does not contain a sub-dir named 'db'")
+		os.Exit(5)
+	}
+
+	openchainDB := db.GetDBHandle()
 	defer openchainDB.CloseDB()
-	scan(openchainDB, blockchainCF, openchainDB.BlockchainCF, blockDetailPrinter)
-	scan(openchainDB, persistCF, openchainDB.PersistCF, nil)
+	fmt.Println()
+	scan(openchainDB, "blockchainCF", openchainDB.BlockchainCF, blockDetailPrinter)
+	fmt.Println()
+	scan(openchainDB, "persistCF", openchainDB.PersistCF, nil)
+	fmt.Println()
+	printLiveFilesMetaData(openchainDB)
+	fmt.Println()
+	printProperties(openchainDB)
+	fmt.Println()
 }
 
-func printLiveFilesMetaData(openchainDB *OpenchainDB) {
+func printLiveFilesMetaData(openchainDB *db.OpenchainDB) {
 	fmt.Println("------ Details of LiveFilesMetaData ---")
 	db := openchainDB.DB
 	liveFileMetadata := db.GetLiveFilesMetaData()
 	for _, file := range liveFileMetadata {
-		fmt.Printf("file.Name=[%s], file.Level=[%d], file.Size=[%d], file.SmallestKey=[%s], file.LargestKey=[%s]\n",
-			file.Name, file.Level, file.Size, file.SmallestKey, file.LargestKey)
+		fmt.Printf("file.Name=[%s], file.Level=[%d], file.Size=[%d]\n",
+			file.Name, file.Level, file.Size)
 	}
 }
 
-func printProperties(openchainDB *OpenchainDB) {
+func printProperties(openchainDB *db.OpenchainDB) {
 	fmt.Println("------ Details of Properties ---")
 	db := openchainDB.DB
 	fmt.Printf("rocksdb.estimate-live-data-size:- BlockchainCF:%s, StateCF:%s, StateDeltaCF:%s, IndexesCF:%s, PersistCF:%s\n\n",
@@ -90,8 +112,8 @@ func printProperties(openchainDB *OpenchainDB) {
 		db.GetPropertyCF("rocksdb.cfstats", openchainDB.PersistCF))
 }
 
-func scan(openchainDB *OpenchainDB, cfName string, cf *gorocksdb.ColumnFamilyHandle, printer detailPrinter) {
-	fmt.Printf("------- Details of column family = [%s]--------\n", cfName)
+func scan(openchainDB *db.OpenchainDB, cfName string, cf *gorocksdb.ColumnFamilyHandle, printer detailPrinter) {
+	fmt.Printf("------- Printing Key-values larger than [%d] bytes in Column family [%s]--------\n", MaxValueSize, cfName)
 	itr := openchainDB.GetIterator(cf)
 	totalKVs := 0
 	overSizeKVs := 0
