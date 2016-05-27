@@ -112,9 +112,14 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
-// StateUpdate does nothing
-func (i *Noops) StateUpdate(seqNo uint64, id []byte) {
-	// ignored
+// StateUpdating is called once state transfer is initiated, currently unused
+func (i *Noops) StateUpdating(seqNo uint64, id []byte) {
+	// ignored as it is never initiated
+}
+
+// StateUpdated is called once state transfer finishes, currently unused
+func (i *Noops) StateUpdated(seqNo uint64, id []byte) {
+	// ignored as it is never initiated
 }
 
 func (i *Noops) broadcastConsensusMsg(msg *pb.Message) error {

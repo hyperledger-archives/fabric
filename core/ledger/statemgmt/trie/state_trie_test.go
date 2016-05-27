@@ -42,6 +42,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
 	stateDelta.Set("chaincodeID2", "key3", []byte("value3"), nil)
 	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
+	stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	rootHash1 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 
 	hash1 := expectedCryptoHashForTest(newTrieKey("chaincodeID1", "key1"), []byte("value1"))
@@ -55,7 +56,7 @@ func TestStateTrie_ComputeHash_AllInMemory(t *testing.T) {
 	testutil.AssertEquals(t, rootHash1, expectedRootHash1)
 	stateTrie.ClearWorkingSet(true)
 
-	// Test2 - Add one more key
+	//Test2 - Add one more key
 	t.Logf("-- Add one more key exiting key --- ")
 	stateDelta.Set("chaincodeID3", "key5", []byte("value5"), nil)
 	rootHash2 := stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
@@ -82,9 +83,19 @@ func TestStateTrie_GetSet_WithDB(t *testing.T) {
 	stateDelta.Set("chaincodeID1", "key2", []byte("value2"), nil)
 	stateDelta.Set("chaincodeID2", "key3", []byte("value3"), nil)
 	stateDelta.Set("chaincodeID2", "key4", []byte("value4"), nil)
+	stateDelta.Set("chaincodeID3", "key5", []byte{}, nil)
 	stateTrieTestWrapper.PrepareWorkingSetAndComputeCryptoHash(stateDelta)
 	stateTrieTestWrapper.PersistChangesAndResetInMemoryChanges()
 	testutil.AssertEquals(t, stateTrieTestWrapper.Get("chaincodeID1", "key1"), []byte("value1"))
+
+	emptyBytes := stateTrieTestWrapper.Get("chaincodeID3", "key5")
+	if emptyBytes == nil || len(emptyBytes) != 0 {
+		t.Fatalf("Expected an empty byte array. found = %#v", emptyBytes)
+	}
+	nilVal := stateTrieTestWrapper.Get("chaincodeID3", "non-existing-key")
+	if nilVal != nil {
+		t.Fatalf("Expected a nil. found = %#v", nilVal)
+	}
 }
 
 func TestStateTrie_ComputeHash_WithDB_Spread_Keys(t *testing.T) {

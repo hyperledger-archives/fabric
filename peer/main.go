@@ -63,6 +63,8 @@ var logger = logging.MustGetLogger("main")
 
 // Constants go here.
 const fabric = "hyperledger"
+const nodeFuncName = "node"
+const networkFuncName = "network"
 const chainFuncName = "chaincode"
 const cmdRoot = "core"
 const undefinedParamValue = ""
@@ -76,25 +78,28 @@ var mainCmd = &cobra.Command{
 	},
 }
 
-var peerCmd = &cobra.Command{
-	Use:   "peer",
-	Short: "Runs the peer.",
-	Long:  `Runs a peer that interacts with the network.`,
+var nodeCmd = &cobra.Command{
+	Use:   nodeFuncName,
+	Short: fmt.Sprintf("%s specific commands.", nodeFuncName),
+	Long:  fmt.Sprintf("%s specific commands.", nodeFuncName),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("peer")
+		core.LoggingInit(nodeFuncName)
 	},
+}
+
+var nodeStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Starts the node.",
+	Long:  `Starts a node that interacts with the network.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return serve(args)
 	},
 }
 
-var statusCmd = &cobra.Command{
+var nodeStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Returns status of the peer.",
-	Long:  `Returns the status of the currently running peer.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("status")
-	},
+	Short: "Returns status of the node.",
+	Long:  `Returns the status of the running node.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		status()
 	},
@@ -104,27 +109,30 @@ var (
 	stopPidFile string
 )
 
-var stopCmd = &cobra.Command{
+var nodeStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stops the running peer.",
-	Long:  `Stops the currently running peer, disconnecting from the network.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("stop")
-	},
+	Short: "Stops the running node.",
+	Long:  `Stops the running node, disconnecting from the network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
 	},
 }
 
-var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Logs in a user on CLI.",
-	Long:  `Logs in the local user on CLI. Must supply username as a parameter.`,
+var networkCmd = &cobra.Command{
+	Use:   networkFuncName,
+	Short: fmt.Sprintf("%s specific commands.", networkFuncName),
+	Long:  fmt.Sprintf("%s specific commands.", networkFuncName),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("login")
+		core.LoggingInit(networkFuncName)
 	},
+}
+
+var networkLoginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Logs in user to CLI.",
+	Long:  `Logs in the local user to CLI. Must supply username as a parameter.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return login(args)
+		return networkLogin(args)
 	},
 }
 
@@ -146,15 +154,12 @@ var loginCmd = &cobra.Command{
 // 	},
 // }
 
-var networkCmd = &cobra.Command{
-	Use:   "network",
+var networkListCmd = &cobra.Command{
+	Use:   "list",
 	Short: "Lists all network peers.",
 	Long:  `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("network")
-	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return network()
+		return networkList()
 	},
 }
 
@@ -223,14 +228,14 @@ func main() {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Define command-line flags that are valid for all obc-peer commands and
+	// Define command-line flags that are valid for all peer commands and
 	// subcommands.
 	mainFlags := mainCmd.PersistentFlags()
 	mainFlags.String("logging-level", "", "Default logging level and overrides, see core.yaml for full syntax")
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
 
-	// Set the flags on the peer command.
-	flags := peerCmd.Flags()
+	// Set the flags on the node start command.
+	flags := nodeStartCmd.Flags()
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
 	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
 	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
@@ -262,19 +267,23 @@ func main() {
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
 
-	mainCmd.AddCommand(peerCmd)
-	mainCmd.AddCommand(statusCmd)
+	nodeCmd.AddCommand(nodeStartCmd)
+	nodeCmd.AddCommand(nodeStatusCmd)
 
-	stopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
-	mainCmd.AddCommand(stopCmd)
+	nodeStopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
+	nodeCmd.AddCommand(nodeStopCmd)
+
+	mainCmd.AddCommand(nodeCmd)
 
 	// Set the flags on the login command.
-	loginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
+	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
 
-	mainCmd.AddCommand(loginCmd)
+	networkCmd.AddCommand(networkLoginCmd)
 
 	// vmCmd.AddCommand(vmPrimeCmd)
 	// mainCmd.AddCommand(vmCmd)
+
+	networkCmd.AddCommand(networkListCmd)
 
 	mainCmd.AddCommand(networkCmd)
 
@@ -594,7 +603,7 @@ func stop() (err error) {
 
 // login confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
-func login(args []string) (err error) {
+func networkLogin(args []string) (err error) {
 	logger.Info("CLI client login...")
 
 	// Check for username argument
@@ -957,7 +966,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 // Show a list of all existing network connections for the target peer node,
 // includes both validating and non-validating peers
-func network() (err error) {
+func networkList() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)

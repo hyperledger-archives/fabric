@@ -26,7 +26,6 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
-	"github.com/hyperledger/fabric/core/util"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
@@ -44,7 +43,7 @@ func init() {
 }
 
 const (
-	// An ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
+	// UnreasonableTimeout is an ugly thing, we need to create timers, then stop them before they expire, so use a large timeout
 	UnreasonableTimeout = 100 * time.Hour
 )
 
@@ -83,12 +82,13 @@ type checkpointMessage struct {
 
 type pbftCore struct {
 	// internal data
-	internalLock     sync.Mutex
-	executing        bool                    // signals that application is executing
-	closed           chan struct{}           // informs the main thread to exit (never written to, only closed)
-	incomingChan     chan *pbftMessage       // informs the main thread of new messages
-	stateUpdateChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
-	execCompleteChan chan struct{}           // informs the main thread an execution has finished
+	internalLock      sync.Mutex
+	executing         bool                    // signals that application is executing
+	closed            chan struct{}           // informs the main thread to exit (never written to, only closed)
+	incomingChan      chan *pbftMessage       // informs the main thread of new messages
+	stateUpdatedChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
+	stateUpdatingChan chan *checkpointMessage // informs the main thread the state update has started (via state transfer)
+	execCompleteChan  chan struct{}           // informs the main thread an execution has finished
 
 	idleChan   chan struct{} // Used to detect idleness for testing
 	injectChan chan func()   // Used as a hack to inject work onto the PBFT thread, to be removed eventually
@@ -186,7 +186,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.consumer = consumer
 	instance.closed = make(chan struct{})
 	instance.incomingChan = make(chan *pbftMessage)
-	instance.stateUpdateChan = make(chan *checkpointMessage)
+	instance.stateUpdatedChan = make(chan *checkpointMessage)
+	instance.stateUpdatingChan = make(chan *checkpointMessage)
 	instance.execCompleteChan = make(chan struct{})
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
@@ -282,12 +283,16 @@ func (instance *pbftCore) main() {
 		case msg := <-instance.incomingChan:
 			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 			instance.recvMsg(msg.msg, msg.sender)
-		case update := <-instance.stateUpdateChan:
+		case update := <-instance.stateUpdatingChan:
+			instance.skipInProgress = true
+			instance.lastExec = update.seqNo
+			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+		case update := <-instance.stateUpdatedChan:
 			seqNo := update.seqNo
 			logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
 			// XXX create checkpoint
 			instance.lastExec = seqNo
-			instance.moveWatermarks(instance.lastExec) // XXX should be checkpoint, not lastExec
+			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 			instance.skipInProgress = false
 			instance.executeOutstanding()
 		case <-instance.execCompleteChan:
@@ -461,9 +466,18 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 }
 
 // stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdate(seqNo uint64, id []byte) {
+func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.stateUpdateChan <- &checkpointMessage{
+	instance.stateUpdatedChan <- &checkpointMessage{
+		seqNo: seqNo,
+		id:    id,
+	}
+}
+
+// stateUpdate is an event telling us that the application fast-forwarded its state
+func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
+	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
+	instance.stateUpdatingChan <- &checkpointMessage{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -597,9 +611,9 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 
 			instance.innerBroadcast(&Message{&Message_PrePrepare{preprep}})
 			return instance.maybeSendCommit(digest, instance.view, n)
-		} else {
-			logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		}
+
+		logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 	} else {
 		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
 	}
@@ -657,11 +671,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
 		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
 		instance.sendViewChange()
-	} else {
-		cert.prePrepare = preprep
-		cert.digest = preprep.RequestDigest
-		instance.persistQSet()
+		return nil
 	}
+
+	cert.prePrepare = preprep
+	cert.digest = preprep.RequestDigest
 
 	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
@@ -677,7 +691,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		instance.reqStore[digest] = preprep.Request
-		logger.Debug("Replica %d storing request %s in oustanding request store", instance.id, digest)
+		logger.Debug("Replica %d storing request %s in outstanding request store", instance.id, digest)
 		instance.outstandingReqs[digest] = preprep.Request
 		instance.persistRequest(digest)
 	}
@@ -698,6 +712,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		cert.sentPrepare = true
+		instance.persistQSet()
 		instance.recvPrepare(prep)
 		return instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 	}
@@ -798,8 +813,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
+		logger.Debug("Replica %d not attempting to executeOutstanding because a it is currently executing", instance.id)
 		return
 	}
+	logger.Debug("Replica %d attempting to executeOutstanding", instance.id)
 
 	for idx := range instance.certStore {
 		if instance.executeOne(idx) {
@@ -807,7 +824,7 @@ func (instance *pbftCore) executeOutstanding() {
 		}
 	}
 
-	logger.Debug("replica %d certstore %+v", instance.id, instance.certStore)
+	logger.Debug("Replica %d certstore %+v", instance.id, instance.certStore)
 
 	return
 }
@@ -1014,10 +1031,8 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	if instance.skipInProgress {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		instance.moveWatermarks(chkpt.SequenceNumber)
-		instance.lastExec = chkpt.SequenceNumber
-		instance.activeView = true // TODO, verify this with experts
-		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers)
+		// The view should not be set to active, this should be handled by the yet unimplimented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
+		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
 	}
 }
 
@@ -1195,9 +1210,4 @@ func (instance *pbftCore) stopTimer() {
 	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
-}
-
-func hashReq(req *Request) (digest string) {
-	reqRaw, _ := proto.Marshal(req)
-	return base64.StdEncoding.EncodeToString(util.ComputeCryptoHash(reqRaw))
 }

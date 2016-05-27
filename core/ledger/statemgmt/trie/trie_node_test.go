@@ -17,8 +17,9 @@ limitations under the License.
 package trie
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestTrieNode_MarshalUnmarshal_NoValue_NoChildren(t *testing.T) {
