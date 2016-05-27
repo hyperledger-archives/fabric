@@ -87,16 +87,21 @@ func (em *eventManagerImpl) queue() chan<- interface{} {
 	return em.events
 }
 
-// inject can only safely be called by the eventManager thread itself, it skips the queue
-func (em *eventManagerImpl) inject(event interface{}) {
+// sendEvent performs the event loop on a receiver to completion
+func sendEvent(receiver eventReceiver, event interface{}) {
 	next := event
 	for {
 		// If an event returns something non-nil, then process it as a new event
-		next = em.receiver.processEvent(next)
+		next = receiver.processEvent(next)
 		if next == nil {
 			break
 		}
 	}
+}
+
+// inject can only safely be called by the eventManager thread itself, it skips the queue
+func (em *eventManagerImpl) inject(event interface{}) {
+	sendEvent(em.receiver, event)
 }
 
 // eventLoop is where the event thread loops, delivering events

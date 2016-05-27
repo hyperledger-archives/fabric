@@ -18,7 +18,7 @@ package obcpbft
 
 // --------------------------------------------------------
 //
-// legacyShim is a temporary measure to allow the non-batch
+// legacyPbftShim is a temporary measure to allow the non-batch
 // plugins to continue to function until they are completely
 // deprecated
 //
@@ -30,12 +30,17 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-type legacyShim struct {
-	manager eventManager
+type legacyGenericShim struct {
+	obcGeneric
+	pbft legacyPbftShim
+}
+
+type legacyPbftShim struct {
+	*pbftCore
 }
 
 // stateUpdated is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
+func (instance legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
 	instance.manager.queue() <- stateUpdatedEvent{
 		seqNo: seqNo,
@@ -44,7 +49,7 @@ func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
 }
 
 // stateUpdating is an event telling us that the application is fast-forwarding its state
-func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
+func (instance legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
 	instance.manager.queue() <- stateUpdatingEvent{
 		seqNo: seqNo,
@@ -53,7 +58,7 @@ func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
 }
 
 // handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
+func (instance legacyPbftShim) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
 	instance.manager.queue() <- pbftMessageEvent{
@@ -64,7 +69,7 @@ func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 }
 
 // handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
+func (instance legacyPbftShim) receive(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
@@ -80,7 +85,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 }
 
 // TODO, this should not return an error
-func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
+func (instance legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err error) {
 	instance.manager.queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,

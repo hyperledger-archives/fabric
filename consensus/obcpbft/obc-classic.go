@@ -27,7 +27,7 @@ import (
 )
 
 type obcClassic struct {
-	obcGeneric
+	legacyGenericShim
 
 	persistForward
 
@@ -36,14 +36,16 @@ type obcClassic struct {
 
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
-		obcGeneric: obcGeneric{stack: stack},
+		legacyGenericShim: legacyGenericShim{
+			obcGeneric: obcGeneric{stack: stack},
+		},
 	}
 
 	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
 
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = legacyPbftShim{newPbftCore(id, config, op)}
 	op.pbft.manager.start()
 
 	op.idleChan = make(chan struct{})

@@ -278,6 +278,8 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 		instance.timerActive = false
 		instance.sendViewChange()
+	case *pbftMessage:
+		return pbftMessageEvent(*et)
 	case pbftMessageEvent:
 		msg := et
 		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
@@ -325,7 +327,7 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	case viewChangedEvent:
 		instance.consumer.viewChange(instance.view)
 	default:
-		logger.Warning("Replica %d received an unknown message type", instance.id)
+		logger.Warning("Replica %d received an unknown message type %T", instance.id, et)
 	}
 
 	if err != nil {
@@ -538,9 +540,9 @@ func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, e
 	} else if req := msg.GetReturnRequest(); req != nil {
 		// it's ok for sender ID and replica ID to differ; we're sending the original request message
 		return returnRequestEvent(req), nil
-	} else {
-		return nil, fmt.Errorf("Invalid message: %v", msg)
 	}
+
+	return nil, fmt.Errorf("Invalid message: %v", msg)
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {

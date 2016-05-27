@@ -40,7 +40,7 @@ func (ce *consumerEndpoint) stop() {
 func (ce *consumerEndpoint) isBusy() bool {
 	pbft := ce.consumer.getPBFTCore()
 	if pbft.timerActive || pbft.skipInProgress || pbft.currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or skipInProgress or currentExec\n")
+		ce.net.debugMsg("Reporting busy because of timer (%v) or skipInProgress (%v) or currentExec (%v)\n", pbft.timerActive, pbft.skipInProgress, pbft.currentExec)
 		return true
 	}
 

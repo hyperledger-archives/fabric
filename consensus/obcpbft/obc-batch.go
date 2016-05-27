@@ -31,6 +31,7 @@ import (
 type obcBatch struct {
 	obcGeneric
 	externalEventReceiver
+	pbft *pbftCore
 
 	batchSize        int
 	batchStore       []*Request

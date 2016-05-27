@@ -19,6 +19,8 @@ package obcpbft
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -28,9 +30,15 @@ type pbftEndpoint struct {
 	sc   *simpleConsumer
 }
 
-func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
+func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
 	senderID, _ := getValidatorID(senderHandle)
-	pe.pbft.receive(msg, senderID)
+	msg := &Message{}
+	err := proto.Unmarshal(msgPayload, msg)
+	if err != nil {
+		panic("Told deliver something which did not unmarshal")
+	}
+
+	pe.pbft.manager.queue() <- &pbftMessage{msg: msg, sender: senderID}
 }
 
 func (pe *pbftEndpoint) stop() {
