@@ -439,7 +439,7 @@ export class Chain {
 
 export class Member {
 
-    chain:Chain;
+    private chain:Chain;
     private name:string;
     private roles:string[];
     private account:string;
