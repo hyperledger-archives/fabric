@@ -163,6 +163,13 @@ Optional parameters. Default values are given after the colon:
     and all create transactions are generated as quickly as possible by the
     base driver.
 
+-txDelay <duration> : 0
+-peerDelay <duration> : 0
+-netDelay <duration> : 0
+
+    These are delays added after each transaction (-txDelay), each burst to a
+    peer (-peerDelay) and each burst to the network (-netDelay).
+
 -interlock | -noInterlock : -noInterlock
 
     If -interlock is specified, then each client waits after each network
@@ -309,6 +316,9 @@ set options {
     {key     -transactions         parms(transactions)      1}
     {key     -peerBurst            parms(peerBurst)         1}
     {key     -netBurst             parms(netBurst)          1}
+    {key     -txDelay              parms(txDelay)           0}
+    {key     -peerDelay            parms(peerDelay)         0}
+    {key     -netDelay             parms(netDelay)          0}
     {bool    {-interlock -noInterlock} parms(interlock)     0}
     {bool    -finalInterlock       parms(finalInterlock)    0}
     {key     -interlockTimeout     parms(interlockTimeout)  60s}
@@ -450,6 +460,12 @@ if {[string is integer [parms size]]} {
 }
 parms arraySizes $sizes
 
+
+# Normalize delays to milliseconds
+
+parms txDelay [durationToMs [parms txDelay]]
+parms peerDelay [durationToMs [parms peerDelay]]
+parms netDelay [durationToMs [parms netDelay]]
 
 ############################################################################
 # Setup
@@ -779,7 +795,16 @@ proc clientRoutine {i_logger} {
                          $peer [peerUser $peer] \
                          $chaincodeName increment $arrayName \
                          [parms retry]]
+                if {[parms txDelay]} {
+                    after [parms txDelay]
+                }
             }
+            if {[parms peerDelay]} {
+                after [parms peerDelay]
+            }
+        }
+        if {[parms netDelay]} {
+            after [parms netDelay]
         }
     }
 }

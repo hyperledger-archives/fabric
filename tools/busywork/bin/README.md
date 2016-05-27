@@ -25,7 +25,7 @@ by other major scripts or test drivers. Scripts are typically documented in a
 * [fabricLogger](fabricLogger) is a simple script that converts a blockchain
   into a text file listing of transaction IDs.
   
-* [networkStatus](networkStatis) is a script that reports on the status of
+* [networkStatus](networkStatus) is a script that reports on the status of
   Hyperledger fabric peer networks created with **busywork** tools, with an
   option to be used as a background *watchdog* on the health of the network. 
 
