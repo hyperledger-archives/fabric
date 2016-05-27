@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"reflect"
+	"time"
+
 	"github.com/hyperledger/fabric/core/crypto"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"google.golang.org/grpc"
-	"os"
-	"reflect"
-	"time"
-	"fmt"
 )
 
 var (
