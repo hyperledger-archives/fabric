@@ -35,8 +35,15 @@ func TestCustody(t *testing.T) {
 		func(req string, data interface{}) {
 			notify <- info{req, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "bar")
+	if !c.InCustody("foo") {
+		t.Error("should have request in custody")
+	}
+	if c.InCustody("bar") {
+		t.Error("should not have request in custody")
+	}
 	select {
 	case req := <-notify:
 		if req.id != "foo" || req.data != "bar" {
@@ -44,6 +51,9 @@ func TestCustody(t *testing.T) {
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Error("did not receive notification")
+	}
+	if c.InCustody("foo") {
+		t.Error("should not have request in custody")
 	}
 }
 
@@ -53,6 +63,7 @@ func TestRemove(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	time.Sleep(10 * time.Millisecond)
@@ -80,6 +91,7 @@ func TestRemoveAll(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	time.Sleep(10 * time.Millisecond)
@@ -97,6 +109,7 @@ func TestElements(t *testing.T) {
 		func(id string, data interface{}) {
 			notify <- info{id, data.(string)}
 		})
+	defer c.Stop()
 
 	c.Register("foo", "1")
 	c.Register("baz", "3")
@@ -120,7 +133,7 @@ func TestElements(t *testing.T) {
 
 	l = c.RemoveAll()
 	if len(l) != 1 {
-		t.Fatal("expected 1 element")
+		t.Fatal("expected 1 elements")
 	}
 	if l[0].ID != "bar" || l[0].Data.(string) != "2" {
 		t.Error("invalid element")
@@ -135,12 +148,39 @@ func TestReCustody(t *testing.T) {
 			c.Register(req, data)
 			notify <- true
 		})
+	defer c.Stop()
 
 	c.Register("foo", "bar")
 	select {
 	case <-notify:
 		reqs := c.Elements()
 		if len(reqs) != 1 || reqs[0].ID != "foo" || reqs[0].Data != "bar" {
+			t.Error("invalid datasheet")
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Error("did not receive notification")
+	}
+}
+
+func TestBackToBack(t *testing.T) {
+	notify := make(chan bool)
+	var reqs []string
+
+	var c *Custodian
+	c = New(100*time.Millisecond,
+		func(req string, data interface{}) {
+			reqs = append(reqs, req)
+			if len(reqs) == 2 {
+				notify <- true
+			}
+		})
+	defer c.Stop()
+
+	c.Register("foo", "bar")
+	c.Register("foo2", "bar")
+	select {
+	case <-notify:
+		if len(reqs) != 2 || reqs[0] != "foo" || reqs[1] != "foo2" {
 			t.Error("invalid datasheet")
 		}
 	case <-time.After(200 * time.Millisecond):

@@ -18,9 +18,10 @@ package ledger
 
 import (
 	"errors"
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
 	"time"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
@@ -66,7 +67,7 @@ func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		chain.size = chain.size - 1
-		blk,err := buildTestBlock(t)
+		blk, err := buildTestBlock(t)
 		if err != nil {
 			t.Logf("Error building test block: %s", err)
 			t.Fail()

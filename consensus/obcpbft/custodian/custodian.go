@@ -22,7 +22,15 @@ package custodian
 import (
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
 )
+
+var logger *logging.Logger // package-level logger
+
+func init() {
+	logger = logging.MustGetLogger("consensus/obcpbft/custodian")
+}
 
 type custody struct {
 	id       string
@@ -82,6 +90,7 @@ func (c *Custodian) Register(id string, data interface{}) {
 		data:     data,
 		deadline: time.Now().Add(c.timeout),
 	}
+	logger.Debug("Registering %s into custody with timeout %v", id, obj.deadline)
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.requests[obj.id] = obj
@@ -96,12 +105,22 @@ func (c *Custodian) Register(id string, data interface{}) {
 func (c *Custodian) Remove(id string) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	logger.Debug("Removing %s from custody", id)
 	obj, ok := c.requests[id]
 	if ok {
 		delete(c.requests, id)
+		logger.Debug("Canceling %s", id)
 		obj.canceled = true
 		obj.data = nil
 	}
+	return ok
+}
+
+// InCustody returns true if an object is in custody
+func (c *Custodian) InCustody(id string) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, ok := c.requests[id]
 	return ok
 }
 
@@ -159,23 +178,24 @@ func (c *Custodian) notifyRoutine() {
 			c.stopCh = nil
 			return
 		}
+
+		var obj *custody
+
 		c.lock.Lock()
-		var expired []CustodyPair
-		for _, obj := range c.seq {
+		if len(c.seq) > 0 {
+			obj = c.seq[0]
 			if obj.deadline.After(time.Now()) {
-				break
+				obj = nil
+			} else {
+				delete(c.requests, obj.id)
+				c.seq = c.seq[1:]
 			}
-			if !obj.canceled {
-				expired = append(expired, CustodyPair{obj.id, obj.data})
-			}
-			delete(c.requests, obj.id)
-			c.seq = c.seq[1:]
 		}
 		c.resetTimer()
 		c.lock.Unlock()
 
-		for _, data := range expired {
-			c.notifyCb(data.ID, data.Data)
+		if obj != nil && !obj.canceled {
+			c.notifyCb(obj.id, obj.data)
 		}
 	}
 }

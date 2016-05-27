@@ -339,3 +339,8 @@ pki:
                             file: testdata/server1.key
 
             devops-address: 0.0.0.0:30303
+
+        ca:
+            subject:
+                organization: Hyperledger
+                country: US

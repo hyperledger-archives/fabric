@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/op/go-logging"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 

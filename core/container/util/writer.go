@@ -20,12 +20,13 @@ import (
 	"archive/tar"
 	"bufio"
 	"fmt"
-	"github.com/op/go-logging"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 var vmLogger = logging.MustGetLogger("container")
@@ -33,10 +34,10 @@ var vmLogger = logging.MustGetLogger("container")
 //WriteGopathSrc tars up files under gopath src
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
-	if strings.LastIndex(gopath, "/") == len(gopath)-1 {
-		gopath = gopath[:len(gopath)]
-	}
-	rootDirectory := fmt.Sprintf("%s%s%s", os.Getenv("GOPATH"), string(os.PathSeparator), "src")
+	// Only take the first element of GOPATH
+	gopath = filepath.SplitList(gopath)[0]
+
+	rootDirectory := filepath.Join(gopath, "src")
 	vmLogger.Info("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary
@@ -69,7 +70,6 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		newPath := fmt.Sprintf("src%s", path[rootDirLen:])
 		//newPath := path[len(rootDirectory):]
 
-		vmLogger.Debug("writing file %s to %s", path, newPath)
 		err = WriteFileToPackage(path, newPath, tw)
 		if err != nil {
 			return fmt.Errorf("Error writing file to package: %s", err)
