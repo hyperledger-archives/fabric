@@ -822,6 +822,7 @@ func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
 	if op.currentReq != "" {
 		op.rollback()
 	}
+	op.stack.InvalidateState()
 	op.obcGeneric.skipTo(seqNo, id, peers)
 }
 

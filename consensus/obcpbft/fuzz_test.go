@@ -47,6 +47,8 @@ func newFuzzMock() *omniProto {
 		},
 		viewChangeImpl: func(curView uint64) {
 		},
+		validateStateImpl:   func() {},
+		invalidateStateImpl: func() {},
 	}
 }
 

@@ -66,6 +66,9 @@ type innerStack interface {
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
 
+	invalidateState()
+	validateState()
+
 	consensus.StatePersistor
 }
 
@@ -319,6 +322,7 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		instance.lastExec = seqNo
 		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 		instance.skipInProgress = false
+		instance.consumer.validateState()
 		instance.executeOutstanding()
 	case execDoneEvent:
 		instance.execDoneSync()
@@ -983,6 +987,7 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 				instance.moveWatermarks(m)
 				instance.outstandingReqs = make(map[string]*Request)
 				instance.skipInProgress = true
+				instance.consumer.invalidateState()
 				instance.stopTimer()
 
 				// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
