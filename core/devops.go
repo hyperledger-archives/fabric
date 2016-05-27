@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
+        "encoding/base64"
 )
 
 var devopsLogger = logging.MustGetLogger("devops")
@@ -171,7 +172,24 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	uuid := util.GenerateUUID()
+        var userGivenData = chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0]
+        var userGivenBytes []byte
+        var uuid string
+        if invoke {
+                var encerr error
+                userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenData)
+                if nil != encerr {
+                        devopsLogger.Info("Failed to decode b64 data.")
+                        return nil, encerr
+                }
+                uuid = util.GetTransactionHashAsStr(userGivenBytes)
+        } else {
+                devopsLogger.Info("Argument is used for querying, it is not Base64")
+                // For queries, we use UUID instead of TxID, because
+                // in this case the argument is not a Base64 encoded byte sequence
+                uuid = util.GenerateUUID()
+        }
+        devopsLogger.Info("Transaction TxID (UUID): %x", uuid)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -187,7 +205,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
+        transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +256,7 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 			return nil, err
 		}
 	}
-	return tx, nil
+        return tx, nil
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
