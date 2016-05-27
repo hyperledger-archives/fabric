@@ -22,26 +22,20 @@ import (
 )
 
 // mockEventID is equivalent to MIN_INT to prevent collisions
-const mockEventID eventType = eventType(^0)
-
 type mockEvent struct{}
 
-func (mev *mockEvent) eventType() eventType {
-	return mockEventID
-}
-
 type mockReceiver struct {
-	processEventImpl func(event event) event
+	processEventImpl func(event interface{}) interface{}
 }
 
-func (mr *mockReceiver) processEvent(event event) event {
+func (mr *mockReceiver) processEvent(event interface{}) interface{} {
 	if mr.processEventImpl != nil {
 		return mr.processEventImpl(event)
 	}
 	return nil
 }
 
-func newMockManager(processEvent func(event event) event) eventManager {
+func newMockManager(processEvent func(event interface{}) interface{}) eventManager {
 	return newEventManagerImpl(&mockReceiver{
 		processEventImpl: processEvent,
 	})
@@ -49,8 +43,8 @@ func newMockManager(processEvent func(event event) event) eventManager {
 
 // Starts an event timer, waits for the event to be delivered
 func TestEventTimerStart(t *testing.T) {
-	events := make(chan event)
-	mr := newMockManager(func(event event) event {
+	events := make(chan interface{})
+	mr := newMockManager(func(event interface{}) interface{} {
 		events <- event
 		return nil
 	})
@@ -73,8 +67,8 @@ func TestEventTimerStart(t *testing.T) {
 
 // Starts an event timer, resets it twice, expects second output
 func TestEventTimerHardReset(t *testing.T) {
-	events := make(chan event)
-	mr := newMockManager(func(event event) event {
+	events := make(chan interface{})
+	mr := newMockManager(func(event interface{}) interface{} {
 		events <- event
 		return nil
 	})
@@ -100,8 +94,8 @@ func TestEventTimerHardReset(t *testing.T) {
 
 // Starts an event timer, soft resets it twice, expects first output
 func TestEventTimerSoftReset(t *testing.T) {
-	events := make(chan event)
-	mr := newMockManager(func(event event) event {
+	events := make(chan interface{})
+	mr := newMockManager(func(event interface{}) interface{} {
 		events <- event
 		return nil
 	})
@@ -127,8 +121,8 @@ func TestEventTimerSoftReset(t *testing.T) {
 
 // Starts an event timer, then stops it before delivery is possible, should not receive event
 func TestEventTimerStop(t *testing.T) {
-	events := make(chan event)
-	mr := newMockManager(func(event event) event {
+	events := make(chan interface{})
+	mr := newMockManager(func(event interface{}) interface{} {
 		events <- event
 		return nil
 	})
@@ -154,7 +148,7 @@ func TestEventTimerStop(t *testing.T) {
 func TestEventManagerLoop(t *testing.T) {
 	success := make(chan struct{})
 	m2 := &mockEvent{}
-	mr := newMockManager(func(event event) event {
+	mr := newMockManager(func(event interface{}) interface{} {
 		if event != m2 {
 			return m2
 		}

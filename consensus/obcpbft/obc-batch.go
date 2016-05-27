@@ -394,21 +394,21 @@ func (op *obcBatch) resubmitStaleRequest(c complaintEvent) {
 }
 
 // allow the primary to send a batch when the timer expires
-func (op *obcBatch) processEvent(event event) event {
+func (op *obcBatch) processEvent(event interface{}) interface{} {
 	logger.Debug("Replica %d batch main thread looping", op.pbft.id)
-	switch event.eventType() {
-	case batchMessageEventID:
-		ocMsg := event.(batchMessageEvent)
+	switch et := event.(type) {
+	case batchMessageEvent:
+		ocMsg := et
 		if err := op.processMessage(ocMsg.msg, ocMsg.sender); nil != err {
 			logger.Error("Error processing message: %v", err)
 		}
 		return nil
-	case batchTimerEventID:
+	case batchTimerEvent:
 		logger.Info("Replica %d batch timer expired", op.pbft.id)
 		if op.pbft.activeView && (len(op.batchStore) > 0) {
 			op.sendBatch()
 		}
-	case viewChangedEventID:
+	case viewChangedEvent:
 		// Outstanding reqs doesn't make sense for batch, as all the requests in a batch may be processed
 		// in a different batch, but PBFT core can't see through the opaque structure to see this
 		// so, on view change, we rely on the fact that the complaint service will resubmit requests
@@ -426,11 +426,11 @@ func (op *obcBatch) processEvent(event event) event {
 			logger.Info("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
 			op.submitToLeader(pair.Request)
 		}
-	case batchExecEventID:
-		execInfo := event.(batchExecEvent)
+	case batchExecEvent:
+		execInfo := et
 		op.executeImpl(execInfo.seqNo, execInfo.raw)
-	case complaintEventID:
-		c := event.(complaintEvent)
+	case complaintEvent:
+		c := et
 		logger.Debug("Replica %d processing complaint from custodian", op.pbft.id)
 		if !op.deduplicator.IsNew(c.req.(*Request)) {
 			op.resubmitStaleRequest(c)
