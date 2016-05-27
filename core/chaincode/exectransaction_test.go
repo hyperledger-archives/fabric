@@ -355,7 +355,7 @@ func TestExecuteDeployTransaction(t *testing.T) {
 func TestGopathExecuteDeployTransaction(t *testing.T) {
 	// add a trailing slash to GOPATH
 	// and a couple of elements - it doesn't matter what they are
-	os.Setenv("GOPATH", os.Getenv("GOPATH") + string(os.PathSeparator) + string(os.PathListSeparator) + "/tmp/foo" + string(os.PathListSeparator) + "/tmp/bar")
+	os.Setenv("GOPATH", os.Getenv("GOPATH")+string(os.PathSeparator)+string(os.PathListSeparator)+"/tmp/foo"+string(os.PathListSeparator)+"/tmp/bar")
 	fmt.Printf("set GOPATH to: \"%s\"\n", os.Getenv("GOPATH"))
 	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
 }

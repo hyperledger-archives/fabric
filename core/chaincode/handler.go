@@ -161,7 +161,7 @@ func (handler *Handler) deleteRangeQueryIterator(txContext *transactionContext, 
 
 //THIS CAN BE REMOVED ONCE WE SUPPORT CONFIDENTIALITY WITH CC-CALLING-CC
 //we dissallow chaincode-chaincode interactions till confidentiality implications are understood
-func (handler *Handler) canCallChaincode(uuid string) (*pb.ChaincodeMessage) {
+func (handler *Handler) canCallChaincode(uuid string) *pb.ChaincodeMessage {
 	secHelper := handler.chaincodeSupport.getSecHelper()
 	if secHelper == nil {
 		return nil
