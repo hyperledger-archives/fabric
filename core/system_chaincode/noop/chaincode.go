@@ -28,12 +28,6 @@ import (
 
 var logger = shim.NewLogger("noop")
 
-// SystemChaincode UTXO example chaincode contains a single invocation function named execute. This function accepts BASE64
-// encoded transactions from the Bitcoin network. This chaincode will parse the transactions and pass the transaction
-// components to the Bitcoin libconsensus C library for script verification. A table of UTXOs is maintained to ensure
-// each transaction is valid.
-// Documentation can be found at
-// https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/utxo/README.md
 type SystemChaincode struct {
 }
 
