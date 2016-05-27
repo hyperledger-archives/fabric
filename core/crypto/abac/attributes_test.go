@@ -142,9 +142,9 @@ func loadTCertAndPreK0() (*x509.Certificate, []byte, error) {
 		return nil, nil, err
 	}
 
-	_, tcertPem := pem.Decode(tcertRaw)
+	tcertDecoded, _ := pem.Decode(tcertRaw)
 
-	tcert, err := x509.ParseCertificate(tcertPem)
+	tcert, err := x509.ParseCertificate(tcertDecoded.Bytes)
 	if err != nil {
 		return nil, nil, err
 	}
