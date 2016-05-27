@@ -894,7 +894,9 @@ func (instance *pbftCore) execDoneSync() {
 		}
 
 	} else {
-		logger.Debug("Replica %d had execDoneSync called, but there is no current execution", instance.id)
+		// XXX This masks a bug, this should not be called when currentExec is nil
+		logger.Warning("Replica %d had execDoneSync called, flagging ourselves as out of date", instance.id)
+		instance.skipInProgress = true
 	}
 	instance.currentExec = nil
 
