@@ -15,5 +15,5 @@
 #
 
 """
-This files used in Behave as compatibility layer between different Python versions/implementations.
+This file is used in Behave for compatibility between different Python versions/implementations.
 """
