@@ -670,6 +670,9 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST deploying chaincode...")
 
+	// This endpoint has been deprecated. Add a warning header to all responses.
+	rw.Header().Set("Warning", "299 - /devops/deploy endpoint has been deprecated. Use /chaincode endpoint instead.")
+
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
@@ -813,6 +816,9 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST invoking chaincode...")
 
+	// This endpoint has been deprecated. Add a warning header to all responses.
+	rw.Header().Set("Warning", "299 - /devops/invoke endpoint has been deprecated. Use /chaincode endpoint instead.")
+
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeInvocationSpec
 	err := jsonpb.Unmarshal(req.Body, &spec)
@@ -949,6 +955,9 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 // Query performs the requested query on the target Chaincode.
 func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST querying chaincode...")
+
+	// This endpoint has been deprecated. Add a warning header to all responses.
+	rw.Header().Set("Warning", "299 - /devops/query endpoint has been deprecated. Use /chaincode endpoint instead.")
 
 	// Decode the incoming JSON payload
 	var spec pb.ChaincodeInvocationSpec
