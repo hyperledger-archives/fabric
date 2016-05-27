@@ -44,6 +44,7 @@ func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcCl
 	logger.Debug("Replica %d obtaining startup information", id)
 
 	op.pbft = newPbftCore(id, config, op)
+	op.pbft.manager.start()
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan)

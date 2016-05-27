@@ -197,7 +197,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.manager = newEventManagerImpl(instance)
 	etf := newEventTimerFactoryImpl(instance.manager)
 	instance.newViewTimer = etf.createTimer()
-	instance.manager.start()
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -277,8 +276,8 @@ func (instance *pbftCore) processEvent(e event) event {
 		logger.Info("Replica %d view change timer expired, sending view change", instance.id)
 		instance.timerActive = false
 		instance.sendViewChange()
-	case messageEventID:
-		msg := e.(messageEvent)
+	case pbftMessageEventID:
+		msg := e.(pbftMessageEvent)
 		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
 		instance.recvMsg(msg.msg, msg.sender)
 	case stateUpdatingEventID:
@@ -299,8 +298,10 @@ func (instance *pbftCore) processEvent(e event) event {
 		instance.execDoneSync()
 	case workEventID:
 		e.(workEvent)() // Used to allow the caller to steal use of the main thread, to be removed
+	case viewChangedEventID:
+		instance.consumer.viewChange(instance.view)
 	default:
-		logger.Error("Replica %d received an unknown message type", instance.id)
+		logger.Warning("Replica %d received an unknown message type", instance.id)
 	}
 
 	return nil
@@ -439,13 +440,40 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // =============================================================================
 
 // handle new consensus requests
+func (instance *pbftCore) requestSync(msgPayload []byte, senderID uint64) error {
+	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
+		ReplicaId: senderID}}}
+	instance.manager.inject(pbftMessageEvent{
+		sender: senderID,
+		msg:    msg,
+	})
+	return nil
+}
+
+// handle new consensus requests
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.manager.queue() <- messageEvent{
+	instance.manager.queue() <- pbftMessageEvent{
 		sender: senderID,
 		msg:    msg,
 	}
+	return nil
+}
+
+// handle internal consensus messages
+func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error {
+	msg := &Message{}
+	err := proto.Unmarshal(msgPayload, msg)
+	if err != nil {
+		return fmt.Errorf("Error unpacking payload from message: %s", err)
+	}
+
+	instance.manager.inject(pbftMessageEvent{
+		msg:    msg,
+		sender: senderID,
+	})
+
 	return nil
 }
 
@@ -457,7 +485,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.manager.queue() <- messageEvent{
+	instance.manager.queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -485,7 +513,7 @@ func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
 
 // TODO, this should not return an error
 func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
-	instance.manager.queue() <- messageEvent{
+	instance.manager.queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -898,14 +926,17 @@ func (instance *pbftCore) execDone() {
 }
 
 func (instance *pbftCore) execDoneSync() {
-	logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+	if instance.currentExec != nil {
+		logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+		instance.lastExec = *instance.currentExec
+		if instance.lastExec%instance.K == 0 {
+			instance.Checkpoint(instance.lastExec, instance.consumer.getState())
+		}
 
-	instance.lastExec = *instance.currentExec
-	instance.currentExec = nil
-
-	if instance.lastExec%instance.K == 0 {
-		instance.Checkpoint(instance.lastExec, instance.consumer.getState())
+	} else {
+		logger.Debug("Replica %d had execDoneSync called, but there is no current execution", instance.id)
 	}
+	instance.currentExec = nil
 
 	instance.executeOutstanding()
 }
