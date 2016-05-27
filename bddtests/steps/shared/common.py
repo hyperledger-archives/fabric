@@ -22,7 +22,6 @@ import subprocess
 from datetime import datetime, timedelta
 
 import sys, requests, json
-import test_utils
 
 CORE_REST_PORT = 5000
 
@@ -63,19 +62,19 @@ def parseComposeOutput(context):
     # Now get the Network Address for each name, and set the ContainerData onto the context.
     containerDataList = []
     for containerName in containerNames:
-       output, error, returncode = \
-               test_utils.cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_suc
+    	output, error, returncode = \
+        	cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_success=True)
         #print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
         ipAddress = output.splitlines()[0]
 
         # Get the environment array
         output, error, returncode = \
-            test_utils.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Env }}", containerName], expect_success=True)
+            cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Env }}", containerName], expect_success=True)
         env = output.splitlines()[0][1:-1].split()
 
         # Get the Labels to access the com.docker.compose.service value
         output, error, returncode = \
-            test_utils.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Labels }}", containerName], expect_success=True)
+            cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Labels }}", containerName], expect_success=True)
         labels = output.splitlines()[0][4:-1].split()
         dockerComposeService = [composeService[27:] for composeService in labels if composeService.startswith("com.docker.compose.service:")]
         print("dockerComposeService = {0}".format(dockerComposeService))
@@ -92,15 +91,15 @@ def parseComposeOutput(context):
     print("")
 
 def ipFromContainerNamePart(namePart, containerDataList):
-       """Returns the IPAddress based upon a name part of the full container name"""
-       ip = None
-       containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-       for containerData in containerDataList:
-           if containerData.containerName.startswith(containerNamePrefix + namePart):
-               ip = containerData.ipAddress
-       if ip == None:
-               raise Exception("Could not find container with namePart = {0}".format(namePart))
-       return ip
+	"""Returns the IPAddress based upon a name part of the full container name"""
+	ip = None
+	containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+	for containerData in containerDataList:
+	    if containerData.containerName.startswith(containerNamePrefix + namePart):
+	    	ip = containerData.ipAddress
+	if ip == None:
+		raise Exception("Could not find container with namePart = {0}".format(namePart))
+	return ip
 
 def buildUrl(context, ipAddress, path):
     schema = "http"
