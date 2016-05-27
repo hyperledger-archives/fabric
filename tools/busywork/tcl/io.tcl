@@ -83,7 +83,6 @@ proc errorExit {args} {
     if {[null $args]} {
         err err Aborting
     } else {
-        err err "Aborting on error described below:"
         eval err err $args
     }
     exit 1
@@ -296,4 +295,46 @@ oo::class create NonblockingGets {
 
         return $d_line
     }
+}
+
+
+############################################################################
+# httpTokenDump i_token {i_level err} {i_module {}}
+# httpErrorExit i_token
+
+# It can be helpful for error diagnosis to dump the entire contents of an HTTP
+# token when an error is encountered. That's what these routines do.
+
+proc httpTokenDump {i_token {i_level err} {i_module {}}} {
+
+    package require http
+
+    $i_level $i_module "Full HTTP token dump"
+    $i_level $i_module "HTTP 'ncode' = '[http::ncode $i_token]'"
+    foreach {k v} [array get $i_token] {
+        $i_level $i_module "    $k $v"
+    }
+}
+                    
+proc httpErrorExit {i_token} {
+
+    httpTokenDump $i_token
+    errorExit
+}
+
+
+############################################################################
+# quote i_l
+
+# 'quote' wraps each element of i_l in "" and returns the new list *as a
+# string*. 
+
+proc quote {i_l} {
+    set ans ""
+    set space ""
+    foreach x $i_l {
+        set ans "$ans$space\"$x\""
+        set space " "
+    }
+    return $ans
 }

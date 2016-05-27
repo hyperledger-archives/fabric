@@ -19,6 +19,8 @@ package obcpbft
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -28,9 +30,15 @@ type pbftEndpoint struct {
 	sc   *simpleConsumer
 }
 
-func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
+func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
 	senderID, _ := getValidatorID(senderHandle)
-	pe.pbft.receive(msg, senderID)
+	msg := &Message{}
+	err := proto.Unmarshal(msgPayload, msg)
+	if err != nil {
+		panic("Told deliver something which did not unmarshal")
+	}
+
+	pe.pbft.manager.queue() <- &pbftMessage{msg: msg, sender: senderID}
 }
 
 func (pe *pbftEndpoint) stop() {
@@ -47,7 +55,7 @@ func (pe *pbftEndpoint) isBusy() bool {
 	// channel, the send blocks until the thread has picked up the new work, still
 	// this will be removed pending the transition to an externally driven state machine
 	select {
-	case <-pe.pbft.idleChan:
+	case pe.pbft.manager.queue() <- nil:
 	default:
 		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan\n")
 		return true
@@ -102,6 +110,9 @@ func (sc *simpleConsumer) verify(senderID uint64, signature []byte, message []by
 func (sc *simpleConsumer) viewChange(curView uint64) {
 }
 
+func (sc *simpleConsumer) invalidateState() {}
+func (sc *simpleConsumer) validateState()   {}
+
 func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
 	sc.executions = seqNo
@@ -146,6 +157,8 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 		for _, fn := range initFNs {
 			fn(pe)
 		}
+
+		pe.pbft.manager.start()
 
 		return pe
 

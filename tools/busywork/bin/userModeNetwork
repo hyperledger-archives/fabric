@@ -98,10 +98,12 @@ Optional arguments, with defaults after the colon:
     NOT IMPLEMENTED. Currently, membersrvc logging levels must be controlled
     through the membersrvc.yaml file.
 
--profile | -noProfile : -noProfile
+-profile | -noProfile : -profile
 
-    If -profile is selected, then the profiling HTTP service of each peer is
-    started. Profiling the membersrvc server is currently not supported.
+    Since there is only trivial overhead to starting the profiling server
+    embedded in the peer, this server is started by default. Use -noProfile to
+    disable this if necessary.  Profiling the membersrvc server is currently
+    not supported.
 
 -stdio : Logging output goes to $BUSYWORK_HOME
 
@@ -143,7 +145,7 @@ proc pristine {} {
     catch {exec docker ps -a -q | xargs docker rm -f}
     
     note {} "    Removing all chaincode containers"
-    catch {exec docker images | egrep '^dev-|^<none>' |
+    catch {exec docker images | egrep '^dev-|^<none>' | \
         awk '{print $3}' | xargs docker rmi -f}
     
     # Clean out BUSYWORK_HOME. If this fails, we blindly assume that we need
@@ -181,7 +183,7 @@ set options {
     {key  -home                           parms(home)          {}           }
     {bool {-security -noSecurity}         parms(security)      0            }
     {enum {-noops -batch -classic -sieve} parms(consensus)     -batch       }
-    {bool {-profile -noProfile}           parms(profile)       0            }
+    {bool {-profile -noProfile}           parms(profile)       1            }
     {enum {-pristine -clean -dirty}       parms(clean)         -pristine}
     {key  -startupWait                    parms(startupWait)   10s}
     {key  -scriptLogging                  parms(scriptLogging) note   }
@@ -248,11 +250,11 @@ if {[parms security]} {
 
 
 # The following is a simple approach to creating a user-mode network.  Each
-# peer needs 4 ports: A gRPC port, a REST API port, an event-hub server port
-# and a profiling port.  We begin by creating 4 dummy servers for each
-# required peer, simply to reserve the dynamic TCP port numbers. As each
-# actual peer is started, we kill the dummy servers and bind the peer to the
-# now-free ports.
+# peer needs 5 ports: A gRPC port, a REST API port, an event-hub server port,
+# a CLI callback port and a profiling port.  We begin by creating dummy
+# servers for each required port, simply to reserve the dynamic TCP port
+# numbers. As each actual peer is started, we kill the dummy servers and bind
+# the peer to the now-free ports.
 
 # The membersrvc server is a bit simpler in that it only requires 1 port,
 # however for consistency we go ahead and allocate 4 ports for it as well.
@@ -264,7 +266,7 @@ if {[parms security]} {
 # Allocate/reserve TCP ports dynamically. Note that the fabric requires the
 # peers to be named "vp<n>". The membersrvc server does not have a name.
 
-set PORTS_PER_PEER 4
+set PORTS_PER_PEER 5
 
 set nServers [parms nPeers]
 if {[parms security]} {
@@ -323,7 +325,16 @@ set ::env(CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN) \
 # As we spin up the network we simulataneously create the log for the user as
 # well as the $BUSYWORK_HOME/network configuration file.
 
-note {} "Network Port Map:"
+note {} "Network Port and PID Map:"
+
+note {} "------------------------------------------------------------"
+note {} " PeerID |  gRPC  |  REST | Events |  CLI  | Profile |  PID "
+note {} "------------------------------------------------------------"
+
+proc networkTable {id grpc rest events cli profile pid} {
+    note {} [format "%7s |  %5s | %5s |  %5s | %5s |  %5s  | %5s" \
+                 $id $grpc $rest $events $cli $profile $pid]
+}
 
 set config [open $BUSYWORK_HOME/network w]
 
@@ -335,6 +346,7 @@ puts $config "    \"date\": \"[timestamp]\","
 puts $config "    \"createdBy\": \"userModeNetwork\","
 puts $config "    \"security\": \"[? [parms security] true false]\","
 puts $config "    \"consensus\": \"$CONSENSUS_TO_MODE([parms consensus])\","
+puts $config "    \"peerProfileServer\": \"[? [parms profile] true false]\","
 
 # Start membersrvc and wait until the service port is responding before
 # continuing. 
@@ -346,14 +358,13 @@ if {[parms security]} {
         set caStdout {}
         set caStderr {}
     } else {
-        set caStdout 1>$BUSYWORK_HOME/membersrvc/stdout
+        set caStdout >$BUSYWORK_HOME/membersrvc/stdout
         set caStderr 2>$BUSYWORK_HOME/membersrvc/stderr
     }
     
     # FABRIC BUG - membersrvc can only run on 50051
     #set service [first [third [first $caMap]]]
     set service {x 0.0.0.0 50051}
-    set profile [second [third [first $caMap]]]; # Note : not implemented
 
     set ::env(SERVER_PORT) :[port $service]
 
@@ -361,16 +372,12 @@ if {[parms security]} {
         close [first $clause]
     }
 
-    # FABRIC BUG - membersrvc can only run from $FABRIC/membersrvc
-    set pid [exec \
-                 sh -c "cd $FABRIC/membersrvc; ./membersrvc $caStdout $caStderr" &]
+    set pid [exec $FABRIC/membersrvc/membersrvc $caStdout $caStderr &]
 
-    note {} "---------------------------------------------------"
-    note {} " membersrvc : service = [port $service] : profile = [port $profile]"
-
+    networkTable CA [port $service] {} {} {} {} $pid
+    
     puts $config "    \"membersrvc\":"
     puts $config "        { \"service\": \"[server $service]\","
-    puts $config "          \"profile\": \"[server $profile]\","
     puts $config "          \"pid\": \"$pid\""
     puts $config "        },"
     
@@ -386,10 +393,6 @@ if {[parms security]} {
 
 # Now start the peers
 
-note {} "---------------------------------------------------"
-note {} "  N |  PeerID |  gRPC  |   REST | Events | Profile "
-note {} "---------------------------------------------------"
-
 puts $config "    \"peers\": \["
 
 foreach clause $peerMap {
@@ -402,14 +405,15 @@ foreach clause $peerMap {
         set peerStdout {}
         set peerStderr {}
     } else {
-        set peerStdout 1>$BUSYWORK_HOME/$peerID/stdout
+        set peerStdout >$BUSYWORK_HOME/$peerID/stdout
         set peerStderr 2>$BUSYWORK_HOME/$peerID/stderr
     }
 
     set grpc    [first $portMap]
     set rest    [second $portMap]
     set events  [third $portMap]
-    set profile [fourth $portMap]
+    set cli     [fourth $portMap]
+    set profile [fifth $portMap]
 
     set ::env(CORE_PEER_ID)                       $peerID
     set ::env(CORE_PEER_FILESYSTEMPATH)           $peerDatabase
@@ -417,6 +421,7 @@ foreach clause $peerMap {
     set ::env(CORE_PEER_LISTENADDRESS)            [server $grpc]
     set ::env(CORE_REST_ADDRESS)                  [server $rest]
     set ::env(CORE_PEER_VALIDATOR_EVENTS_ADDRESS) [server $events]
+    set ::env(CORE_CLI_ADDRESS)                   [server $cli]
     set ::env(CORE_PEER_PROFILE_LISTENADDRESS)    [server $profile]
             
     if {[parms nPeers] > 1} {
@@ -444,9 +449,8 @@ foreach clause $peerMap {
 
     set pid [exec $FABRIC/peer/peer node start $peerStdout $peerStderr &]
 
-    note {} [format "%3d | %7s |  %5s |  %5s |  %5s |  %5s" \
-                 $peerN $peerID \
-                 [port $grpc] [port $rest] [port $events] [port $profile]]
+    networkTable $peerID [port $grpc] [port $rest] [port $events] \
+        [port $cli] [port $profile] $pid
 
     if {$peerN != 0} {
         puts $config "        ,"
@@ -455,12 +459,13 @@ foreach clause $peerMap {
     puts $config "          \"grpc\": \"[server $grpc]\","
     puts $config "          \"rest\": \"[server $rest]\","
     puts $config "          \"events\": \"[server $events]\","
+    puts $config "          \"cli\": \"[server $cli]\","
     puts $config "          \"profile\": \"[server $profile]\","
     puts $config "          \"pid\": \"$pid\""
     puts $config "        }"
 }
 
-note {} "--------------------------------------------------"
+note {} "------------------------------------------------------------"
 
 puts $config "    \]"
 puts $config "}"

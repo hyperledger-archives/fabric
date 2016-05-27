@@ -230,7 +230,7 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	go func() {
 		defer close(c)
 
-		id,err := v.GetVMName(req.getCCID())
+		id, err := v.GetVMName(req.getCCID())
 		if err != nil {
 			resp = VMCResp{Err: err}
 			return

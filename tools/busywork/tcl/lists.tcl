@@ -309,7 +309,7 @@ proc range {args} {
 proc enumerate {i_spec} {
 
     if {[llength $i_spec] != 1} {
-        error "Non-atomic specifcification '$i_spec'"
+        error "Non-atomic specification '$i_spec'"
     }
     
     set specs [split $i_spec ,]
@@ -324,6 +324,9 @@ proc enumerate {i_spec} {
                 [concat $enumeration [range $min [expr {$max + 1}]]]
     
         } else {
+            if {![string is integer $spec]} {
+                error "Expecting an integer : $spec"
+            }
             lappend enumeration $spec
         }
     }

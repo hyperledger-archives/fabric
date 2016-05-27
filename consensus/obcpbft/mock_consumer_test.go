@@ -40,7 +40,7 @@ func (ce *consumerEndpoint) stop() {
 func (ce *consumerEndpoint) isBusy() bool {
 	pbft := ce.consumer.getPBFTCore()
 	if pbft.timerActive || pbft.skipInProgress || pbft.currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or skipInProgress or currentExec\n")
+		ce.net.debugMsg("Reporting busy because of timer (%v) or skipInProgress (%v) or currentExec (%v)\n", pbft.timerActive, pbft.skipInProgress, pbft.currentExec)
 		return true
 	}
 
@@ -52,7 +52,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case <-ce.consumer.getPBFTCore().idleChan:
+	case ce.consumer.getPBFTCore().manager.queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
@@ -75,6 +75,9 @@ type completeStack struct {
 }
 
 const MaxStateTransferTime int = 200
+
+func (cs *completeStack) ValidateState()   {}
+func (cs *completeStack) InvalidateState() {}
 
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	select {
