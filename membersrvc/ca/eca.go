@@ -253,7 +253,7 @@ func (ecap *ECAP) fetchAttributes(cert *pb.Cert) error {
 		return err
 	}
 
-	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+	if resp.Status != pb.ACAFetchAttrResp_FAILURE {
 		return nil
 	}
 	return errors.New("Error fetching attributes.")
