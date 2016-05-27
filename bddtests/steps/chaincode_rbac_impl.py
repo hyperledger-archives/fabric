@@ -38,7 +38,6 @@ def step_impl(context, enrollId, tagName):
 	# Retrieve the userRegistration from the context
 	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
 	userRegistration.tags[tagName] = userRegistration.lastResult
-    #raise NotImplementedError(u'STEP: When user "binhn" stores his or her last result as "TCERT"')
 
 @when(u'user "{enrollId}" sets metadata to their stored value "{tagName}"')
 def step_impl(context, enrollId, tagName):
@@ -128,3 +127,11 @@ def step_impl(context, enrollId, ccAlias, functionName):
 	context.response = response
 	context.transactionID = response.msg
 	#assert response.status == fabric_pb2.Response.SUCCESS, 'Failure invoking chaincode {0} on {1}, for user "{2}":  {3}'.format(ccAlias, userRegistration.composeService,enrollId, response.msg)
+
+@given(u'user "{enrollId}" stores a reference to chaincode "{ccAlias}" as "{tagName}"')
+def step_impl(context, enrollId, ccAlias, tagName):
+	# Retrieve the userRegistration from the context
+	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
+	deployedCcSpec = bdd_test_util.getDeployment(context, ccAlias)
+	assert deployedCcSpec != None, "Deployment NOT found for chaincode alias '{0}'".format(ccAlias)
+	userRegistration.tags[tagName] = deployedCcSpec.chaincodeID.name
