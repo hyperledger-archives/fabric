@@ -712,7 +712,7 @@ export class Member {
         return new TransactionContext(this, tcert);
     }
 
-    getApplicationCertificate(cb:GetTCertCallback):void {
+    getUserCert(cb:GetTCertCallback):void {
         this.getNextTCert(cb);
     }
 

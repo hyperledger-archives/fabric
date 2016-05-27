@@ -78,7 +78,7 @@ test('Enroll Alice', function (t) {
         if (err) return fail(t, "enroll Alice", err);
         alice = user;
         
-        alice.getApplicationCertificate(function (err, appCert) {
+        alice.getUserCert(function (err, appCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             aliceAppCert = appCert;
 
@@ -92,7 +92,7 @@ test('Enroll Bob', function (t) {
         if (err) return fail(t, "enroll Bob", err);
         bob = user;
 
-        bob.getApplicationCertificate(function (err, appCert) {
+        bob.getUserCert(function (err, appCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             bobAppCert = appCert;
 
@@ -106,7 +106,7 @@ test('Enroll Charlie', function (t) {
         if (err) return fail(t, "enroll Charlie", err);
         charlie = user;
 
-        charlie.getApplicationCertificate(function (err, appCert) {
+        charlie.getUserCert(function (err, appCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             charlieAppCert = appCert;
 
