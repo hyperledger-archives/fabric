@@ -627,7 +627,7 @@ export class Member {
             if (err) return cb(err);
             self.enrollment = enrollment;
             // Generate queryStateKey
-            self.enrollment.queryStateKey = self.chain.cryptoPrimitives.GenerateNonce();
+            self.enrollment.queryStateKey = self.chain.cryptoPrimitives.generateNonce();
 
             // Save state
             self.saveState(function (err) {
@@ -636,7 +636,7 @@ export class Member {
                 // Unmarshall chain key
                 // TODO: during restore, unmarshall enrollment.chainKey
                 debug("[memberServices.enroll] Unmarshalling chainKey");
-                var ecdsaChainKey = self.chain.cryptoPrimitives.UnmarshallChainKey(self.enrollment.chainKey);
+                var ecdsaChainKey = self.chain.cryptoPrimitives.ecdsaPEMToPublicKey(self.enrollment.chainKey);
                 self.enrollment.enrollChainKey = ecdsaChainKey;
 
                 cb(null, enrollment);
@@ -821,7 +821,7 @@ export class TransactionContext extends events.EventEmitter {
         this.memberServices = this.chain.getMemberServices();
         this.tcert = tcert;
 
-        this.nonce = this.chain.cryptoPrimitives.GenerateNonce();
+        this.nonce = this.chain.cryptoPrimitives.generateNonce();
     }
 
     /**
@@ -937,7 +937,7 @@ export class TransactionContext extends events.EventEmitter {
                 tx.setCert(tcert.publicKey);
                 // sign the transaction bytes
                 let txBytes = tx.toBuffer();
-                let derSignature = self.chain.cryptoPrimitives.sign(tcert.privateKey.getPrivate('hex'), txBytes).toDER();
+                let derSignature = self.chain.cryptoPrimitives.ecdsaSign(tcert.privateKey.getPrivate('hex'), txBytes).toDER();
                 // debug('signature: ', derSignature);
                 tx.setSignature(new Buffer(derSignature));
 
@@ -1002,19 +1002,19 @@ export class TransactionContext extends events.EventEmitter {
         transaction.setConfidentialityProtocolVersion('1.2');
 
         // Generate transaction key. Common to all type of transactions
-        var txKey = self.chain.cryptoPrimitives.ECIESKeyGen();
+        var txKey = self.chain.cryptoPrimitives.eciesKeyGen();
 
         debug('txkey [%j]', txKey.pubKeyObj.pubKeyHex);
         debug('txKey.prvKeyObj %j', txKey.prvKeyObj.toString());
 
-        var privBytes = self.chain.cryptoPrimitives.PrivateKeyHextoASN1(txKey.prvKeyObj.prvKeyHex);
+        var privBytes = self.chain.cryptoPrimitives.ecdsaPrivateKeyToASN1(txKey.prvKeyObj.prvKeyHex);
         debug('privBytes %s', privBytes.toString());
 
         // Generate stateKey. Transaction type dependent step.
         var stateKey;
         if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
             // The request is for a deploy
-            stateKey = new Buffer(self.chain.cryptoPrimitives.AESKeyGen());
+            stateKey = new Buffer(self.chain.cryptoPrimitives.aesKeyGen());
         } else if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE ) {
             // The request is for an execute
             // Empty state key
@@ -1045,11 +1045,11 @@ export class TransactionContext extends events.EventEmitter {
         debug(chainCodeValidatorMessage1_2.buffer);
 
         debug('Using chain key [%j]', self.member.getEnrollment().chainKey);
-        var ecdsaChainKey = self.chain.cryptoPrimitives.UnmarshallChainKey(
+        var ecdsaChainKey = self.chain.cryptoPrimitives.ecdsaPEMToPublicKey(
             self.member.getEnrollment().chainKey
         );
 
-        let encMsgToValidators = self.chain.cryptoPrimitives.ECIESEncryptECDSA(
+        let encMsgToValidators = self.chain.cryptoPrimitives.eciesEncryptECDSA(
             ecdsaChainKey,
             chainCodeValidatorMessage1_2.buffer
         );
@@ -1058,7 +1058,7 @@ export class TransactionContext extends events.EventEmitter {
         // Encrypts chaincodeID using txKey
         // debug('CHAINCODE ID %j', transaction.chaincodeID);
 
-        let encryptedChaincodeID = self.chain.cryptoPrimitives.ECIESEncrypt(
+        let encryptedChaincodeID = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
             transaction.getChaincodeID().buffer
         );
@@ -1066,7 +1066,7 @@ export class TransactionContext extends events.EventEmitter {
 
         // Encrypts payload using txKey
         // debug('PAYLOAD ID %j', transaction.payload);
-        let encryptedPayload = self.chain.cryptoPrimitives.ECIESEncrypt(
+        let encryptedPayload = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
             transaction.getPayload().buffer
         );
@@ -1075,7 +1075,7 @@ export class TransactionContext extends events.EventEmitter {
         // Encrypt metadata using txKey
         if (transaction.getMetadata() != null && transaction.getMetadata().buffer != null) {
             debug('Metadata [%j]', transaction.getMetadata().buffer);
-            let encryptedMetadata = self.chain.cryptoPrimitives.ECIESEncrypt(
+            let encryptedMetadata = self.chain.cryptoPrimitives.eciesEncrypt(
                 txKey.pubKeyObj,
                 transaction.getMetadata().buffer
             );
@@ -1091,7 +1091,7 @@ export class TransactionContext extends events.EventEmitter {
         );
 
         debug('Decrypt Result [%s]', ct.toString('hex'));
-        return this.chain.cryptoPrimitives.decryptResult(key, ct);
+        return this.chain.cryptoPrimitives.aes256GCMDecrypt(key, ct);
     }
 
     /**
@@ -1227,7 +1227,7 @@ export class TransactionContext extends events.EventEmitter {
 
                 let txmsg = Buffer.concat([ctor, this.binding]);
                 // debug('========== Pyaload||binding [%s]', txmsg.toString('hex'));
-                let mdsig = self.chain.cryptoPrimitives.sign(request.invoker.appCert.privateKey.getPrivate('hex'), txmsg);
+                let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.invoker.appCert.privateKey.getPrivate('hex'), txmsg);
                 let sigma = new Buffer(mdsig.toDER());
                 // debug('========== Sigma [%s]', sigma.toString('hex'));
 
@@ -1465,10 +1465,10 @@ class MemberServicesImpl {
 
         // generate ECDSA keys: signing and encryption keys
         // 1) signing key
-        var signingKeyPair = self.cryptoPrimitives.GenerateECDSAKeyPair();
+        var signingKeyPair = self.cryptoPrimitives.ecdsaKeyGen();
         var spki = new asn1.x509.SubjectPublicKeyInfo(signingKeyPair.pubKeyObj);
         // 2) encryption key
-        var encryptionKeyPair = self.cryptoPrimitives.GenerateECDSAKeyPair();
+        var encryptionKeyPair = self.cryptoPrimitives.ecdsaKeyGen();
         var spki2 = new asn1.x509.SubjectPublicKeyInfo(encryptionKeyPair.pubKeyObj);
 
         debug("[MemberServicesImpl.enroll] Generating keys...done!");
@@ -1509,7 +1509,7 @@ class MemberServicesImpl {
                 return cb(err);
             }
             let cipherText = eCertCreateResp.tok.tok;
-            var decryptedTokBytes = self.cryptoPrimitives.ECIESDecrypt(encryptionKeyPair.prvKeyObj, cipherText);
+            var decryptedTokBytes = self.cryptoPrimitives.eciesDecrypt(encryptionKeyPair.prvKeyObj, cipherText);
 
             //debug(decryptedTokBytes);
             // debug(decryptedTokBytes.toString());
@@ -1519,9 +1519,9 @@ class MemberServicesImpl {
 
             var buf = eCertCreateRequest.toBuffer();
 
-            var signKey = self.cryptoPrimitives.keyFromPrivate(signingKeyPair.prvKeyObj.prvKeyHex, 'hex');
+            var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(signingKeyPair.prvKeyObj.prvKeyHex, 'hex');
             //debug(new Buffer(sha3_384(buf),'hex'));
-            var sig = self.cryptoPrimitives.sign(signKey, buf);
+            var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
 
             eCertCreateRequest.setSig(new _caProto.Signature(
                 {
@@ -1570,8 +1570,8 @@ class MemberServicesImpl {
         let buf = tCertCreateSetReq.toBuffer();
 
         // sign the transaction using enrollment key
-        let signKey = self.cryptoPrimitives.keyFromPrivate(req.enrollment.key, 'hex');
-        let sig = self.cryptoPrimitives.sign(signKey, buf);
+        let signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(req.enrollment.key, 'hex');
+        let sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
 
         tCertCreateSetReq.setSig(new _caProto.Signature(
             {
@@ -1635,7 +1635,7 @@ class MemberServicesImpl {
             // extract the encrypted bytes from extension attribute
             let tCertIndexCT = x509Certificate.criticalExtension(crypto.TCertEncTCertIndex);
             // debug('tCertIndexCT: ',JSON.stringify(tCertIndexCT));
-            let tCertIndex = self.cryptoPrimitives.CBCPKCS7Decrypt(tCertOwnerEncryptKey, tCertIndexCT);
+            let tCertIndex = self.cryptoPrimitives.aesCBCPKCS7Decrypt(tCertOwnerEncryptKey, tCertIndexCT);
             // debug('tCertIndex: ',JSON.stringify(tCertIndex));
 
             let expansionValue = self.cryptoPrimitives.hmac(expansionKey, tCertIndex);
@@ -1648,20 +1648,20 @@ class MemberServicesImpl {
             // debug('enroll key hex: ',enrollKey);
             // debug('enroll private key: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').getPrivate());
             // debug('enroll key N: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').ec.curve.n);
-            let n = self.cryptoPrimitives.keyFromPrivate(enrollKey, 'hex').ec.curve.n.sub(one);
+            let n = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').ec.curve.n.sub(one);
             // debug('n: ',n.toString());
             k = k.mod(n).add(one);
             // debug('k: ',k.toString());
 
-            let D = self.cryptoPrimitives.keyFromPrivate(enrollKey, 'hex').getPrivate().add(k);
+            let D = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPrivate().add(k);
             // debug('pub: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').getPublic());
-            let pubHex = self.cryptoPrimitives.keyFromPrivate(enrollKey, 'hex').getPublic('hex');
+            let pubHex = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPublic('hex');
             // debug('enroll public key N: ',ecdsa.keyFromPublic(pubHex,self.securityLevel,'hex').ec.curve.n);
-            D = D.mod(self.cryptoPrimitives.keyFromPublic(pubHex, 'hex').ec.curve.n);
+            D = D.mod(self.cryptoPrimitives.ecdsaKeyFromPublic(pubHex, 'hex').ec.curve.n);
             // debug('D: ',D.toString());
 
             // Put private and public key in returned tcert
-            let tcert = new TCert(tCert.cert, self.cryptoPrimitives.keyFromPrivate(D, 'hex'));
+            let tcert = new TCert(tCert.cert, self.cryptoPrimitives.ecdsaKeyFromPrivate(D, 'hex'));
             tCertBatch.push(tcert);
         }
 
