@@ -1,5 +1,4 @@
 # Local build binaries
-peer/peer
 node-cli/node-cli
 *.pyc
 /build/_workspace
@@ -10,7 +9,7 @@ node-cli/node-cli
 tags
 .tags
 .vagrant/
-membersrvc/membersrvc
+/build
 # Emacs backup files
 *~
 *#

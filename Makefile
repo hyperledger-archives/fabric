@@ -20,8 +20,8 @@
 #
 #   - all (default) - builds all targets and runs all tests/checks
 #   - checks - runs all tests/checks
-#   - peer - builds the fabric ./peer/peer binary
-#   - membersrvc - builds the ./membersrvc/membersrvc binary
+#   - peer - builds the fabric peer binary
+#   - membersrvc - builds the membersrvc binary
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
 #   - behave-deps - ensures pre-requisites are availble for running behave manually
@@ -37,7 +37,7 @@
 
 
 PKGNAME = github.com/hyperledger/fabric
-CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
+CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 
 EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
@@ -50,6 +50,8 @@ BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
 GOTOOLS = golint govendor goimports protoc-gen-go
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
 
+PROJECT_FILES = $(shell git ls-files)
+
 # go tool->path mapping
 go.fqp.govendor  := github.com/kardianos/govendor
 go.fqp.golint    := github.com/golang/lint/golint
@@ -60,12 +62,10 @@ all: peer membersrvc checks
 checks: unit-test behave linter
 
 .PHONY: peer
-peer: base-image
-	cd peer; CGO_CFLAGS=" "	CGO_LDFLAGS="$(CGO_LDFLAGS)" go build
+peer: build/bin/peer
 
 .PHONY: membersrvc
-membersrvc:
-	cd membersrvc; CGO_CFLAGS=" " CGO_LDFLAGS="$(CGO_LDFLAGS)" go build
+membersrvc: build/bin/membersrvc
 
 unit-test: peer-image gotools
 	@./scripts/goUnitTests.sh
@@ -122,6 +122,12 @@ $(GOPATH)/bin/%:
 build/bin:
 	mkdir -p $@
 
+build/bin/%: .base-image-dummy $(PROJECT_FILES)
+	@mkdir -p $(@D)
+	$(CGO_FLAGS) GOBIN=$(abspath $(@D)) go install $(PKGNAME)/$(@F)
+	@echo "Binary available as $@"
+	@touch $@
+
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
@@ -138,8 +144,6 @@ node-sdk:
 clean:
 	-@rm -rf build ||:
 	-@rm -f .*image-dummy ||:
-	-@rm -f ./peer/peer ||:
-	-@rm -f ./membersrvc/membersrvc ||:
 	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
