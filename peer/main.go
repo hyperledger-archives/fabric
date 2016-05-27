@@ -239,7 +239,6 @@ func main() {
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
 	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
 	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-port", 30303, "Port this peer listens to for incoming connections")
 	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
 	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
 
@@ -248,7 +247,6 @@ func main() {
 	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
 	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer_port", flags.Lookup("peer-port"))
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
 
