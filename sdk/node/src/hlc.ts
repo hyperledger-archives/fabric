@@ -37,10 +37,7 @@ import * as crypto from "./crypto"
 import events = require('events');
 
 let debug = debugModule('hlc');   // 'hlc' stands for 'HyperLedger Client'
-let KEYUTIL = jsrsa.KEYUTIL;
 let asn1 = jsrsa.asn1;
-let sha3_256 = sha3.sha3_256;
-let sha3_384 = sha3.sha3_384;
 var asn1Builder = require('asn1');
 
 let _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
@@ -50,7 +47,7 @@ let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 let net = require('net');
 
 let DEFAULT_SECURITY_LEVEL = 256;
-let DEFAULT_HASH_ALGORITHM = "SHA2";
+let DEFAULT_HASH_ALGORITHM = "SHA3";
 let CONFIDENTIALITY_1_2_STATE_KD_C6 = 6;
 
 let _chains = {};
