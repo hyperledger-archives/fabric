@@ -9,8 +9,8 @@ The Hyperledger fabric blockchain standard is a base architecture, with built-in
 and platform independence for blockchain networks. The open standard facilitates adoption by any public or 
 private organization or enterprise, and in turn by their constituent members.
 
-References:
-(1) Hyperledger Project: https://www.hyperledger.org/ 
+References:  
+(1) Hyperledger Project: https://www.hyperledger.org/  
 (2) Hyperledger Project members: https://www.hyperledger.org/about/members
 
 ## Audience
