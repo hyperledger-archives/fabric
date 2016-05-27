@@ -97,7 +97,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		dockerLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
 		return err
 	}
-	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: viper.GetString("core.chaincode.containerNetworkmode")})
+	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: viper.GetString("core.chaincode.containerNetworkMode")})
 	if err != nil {
 		dockerLogger.Error(fmt.Sprintf("start-could not start container %s", err))
 		return err
