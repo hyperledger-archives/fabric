@@ -15,6 +15,7 @@
 #
 
 import os
+import re
 import subprocess
 import devops_pb2
 import fabric_pb2
@@ -145,29 +146,27 @@ def getDeployment(context, ccAlias):
 
 def deployChaincode(context, enrollId, chaincodePath, ccAlias, ctor):
     '''Deploy a chaincode with the specified alias for the specfied enrollId'''
-    assert 'users' in context, "users not found in context. Did you register a user?"
     (channel, userRegistration) = getGRPCChannelAndUser(context, enrollId)
     stub = devops_pb2.beta_create_Devops_stub(channel)
 
     # Make sure deployment alias does NOT already exist
     assert getDeployment(context, ccAlias) == None, "Deployment alias already exists: '{0}'.".format(ccAlias)
 
-    args = []
-    if 'table' in context:
-       # There is ctor arguments
-       args = context.table[0].cells
+    args = getArgsFromContextForUser(context, enrollId)
     ccSpec = chaincode_pb2.ChaincodeSpec(type = chaincode_pb2.ChaincodeSpec.GOLANG,
         chaincodeID = chaincode_pb2.ChaincodeID(name="",path=chaincodePath),
         ctorMsg = chaincode_pb2.ChaincodeInput(function = ctor, args = args))
-    if 'userName' in context:
-        ccSpec.secureContext = userRegistration.getUserName()
+    ccSpec.secureContext = userRegistration.getUserName()
     if 'metadata' in context:
         ccSpec.metadata = context.metadata
-    ccDeploymentSpec = stub.Deploy(ccSpec, 60)
-    ccSpec.chaincodeID.name = ccDeploymentSpec.chaincodeSpec.chaincodeID.name
-    context.grpcChaincodeSpec = ccSpec
-    context.deployments[ccAlias] = ccSpec
-
+    try:
+        ccDeploymentSpec = stub.Deploy(ccSpec, 60)
+        ccSpec.chaincodeID.name = ccDeploymentSpec.chaincodeSpec.chaincodeID.name
+        context.grpcChaincodeSpec = ccSpec
+        context.deployments[ccAlias] = ccSpec
+    except:
+        del stub
+        raise
 
 def invokeChaincode(context, enrollId, ccAlias, functionName):
     # Get the deployment for the supplied chaincode alias
@@ -179,10 +178,7 @@ def invokeChaincode(context, enrollId, ccAlias, functionName):
     newChaincodeSpec.CopyFrom(deployedCcSpec)
     
     # Update hte chaincodeSpec ctorMsg for invoke
-    args = []
-    if 'table' in context:
-       # There are function arguments
-       args = context.table[0].cells
+    args = getArgsFromContextForUser(context, enrollId)
     
     chaincodeInput = chaincode_pb2.ChaincodeInput(function = functionName, args = args ) 
     newChaincodeSpec.ctorMsg.CopyFrom(chaincodeInput)
@@ -194,3 +190,27 @@ def invokeChaincode(context, enrollId, ccAlias, functionName):
     stub = devops_pb2.beta_create_Devops_stub(channel)
     response = stub.Invoke(ccInvocationSpec,2)
     return response
+
+def getArgsFromContextForUser(context, enrollId):
+    # Update the chaincodeSpec ctorMsg for invoke
+    args = []
+    if 'table' in context:
+       # There are function arguments
+       userRegistration = getUserRegistration(context, enrollId)
+       # Allow the user to specify expressions referencing tags in the args list
+       pattern = re.compile('\{(.*)\}$')
+       for arg in context.table[0].cells:
+          m = pattern.match(arg)
+          if m:
+              # tagName reference found in args list
+              tagName = m.groups()[0]
+              # make sure the tagName is found in the users tags
+              assert tagName in userRegistration.tags, "TagName '{0}' not found for user '{1}'".format(tagName, userRegistration.getUserName())
+              args.append(userRegistration.tags[tagName])
+          else:
+              #No tag referenced, pass the arg
+              args.append(arg)
+    return args
+
+
+

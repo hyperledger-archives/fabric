@@ -201,6 +201,7 @@ Feature: Role Based Access Control (RBAC)
       Then I should have received a chaincode name
       Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
                  | vp0  | vp1 | vp2 | vp3 |
+      And "binhn"'s last transaction should have succeeded
 
       # Deploy the second chaincode
       When user "binhn" deploys chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example05" aliased as "chaincode_example05" with ctor "init" and args
@@ -209,11 +210,14 @@ Feature: Role Based Access Control (RBAC)
       Then I should have received a chaincode name
       Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
                  | vp0  | vp1 | vp2 | vp3 |
+      And "binhn"'s last transaction should have succeeded
 
-      # Invoke chaincode_example05 which in turn will invoke chaincode_example02
+
+      # Invoke chaincode_example05 which in turn will invoke chaincode_example02.  NOTE: Binhn must pass a reference to the first chaincode
+      Given user "binhn" stores a reference to chaincode "chaincode_example02" as "cc1"
       When user "binhn" invokes chaincode "chaincode_example05" function name "invoke" with args
-              | arg1  |
-              | sum   |
+              |  arg1   |  arg2  |
+              | {cc1}   |  sum   |
       Then I should have received a transactionID
       Then I wait up to "60" seconds for transaction to be committed to peers:
          | vp0  | vp1 | vp2 | vp3 |
