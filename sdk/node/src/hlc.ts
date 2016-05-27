@@ -1554,7 +1554,7 @@ class MemberServicesImpl {
      * 'num' is the number of transaction contexts to obtain.
      * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
      */
-    getTCerts = function (req:GetTCertsRequest, cb:GetTCertsCallback) {
+    getTCerts(req:GetTCertsRequest, cb:GetTCertsCallback): void {
         let self = this;
         cb = cb || nullCB;
 
@@ -1593,11 +1593,10 @@ class MemberServicesImpl {
         let self = this;
 
         //
-        // Derive secret keys for tcerts
+        // Derive secret keys for TCerts
         //
 
         let enrollKey = req.enrollment.key;
-        let securityLevel = self.getSecurityLevel();
         let tCertOwnerKDFKey = resp.certs.key;
         let tCerts = resp.certs.certs;
 
@@ -1609,20 +1608,11 @@ class MemberServicesImpl {
         let tCertOwnerEncryptKey = self.cryptoPrimitives.hmac(tCertOwnerKDFKey, byte1).slice(0, 32);
         let expansionKey = self.cryptoPrimitives.hmac(tCertOwnerKDFKey, byte2);
 
-        // debug('tCertOwnerEncryptKey: ', tCertOwnerEncryptKey);
-        // debug('tCertOwnerEncryptKey length: ', tCertOwnerEncryptKey.length);
-        // debug('expansionKey: ', expansionKey);
-        // debug('expansionKey length: ', expansionKey.length);
-
         let tCertBatch:TCert[] = [];
 
         // Loop through certs and extract private keys
         for (var i = 0; i < tCerts.length; i++) {
             var tCert = tCerts[i];
-            //debug('tcert %d: %j',i,tCert);
-            // debug("HERE1: index=%d: val: %s\n", i, JSON.stringify(tCert.cert));
-            //var tcert64 = tCert.cert.data.toString('base64');
-            //debug("HERE1.1: %s\n",tcert64);
             let x509Certificate;
             try {
                 x509Certificate = new crypto.X509Certificate(tCert.cert);
@@ -1644,21 +1634,12 @@ class MemberServicesImpl {
             // compute the private key
             let one = new BN(1);
             let k = new BN(expansionValue);
-            // debug('k: ',k.toString());
-            // debug('enroll key hex: ',enrollKey);
-            // debug('enroll private key: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').getPrivate());
-            // debug('enroll key N: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').ec.curve.n);
             let n = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').ec.curve.n.sub(one);
-            // debug('n: ',n.toString());
             k = k.mod(n).add(one);
-            // debug('k: ',k.toString());
 
             let D = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPrivate().add(k);
-            // debug('pub: ',ecdsa.keyFromPrivate(enrollKey,securityLevel,'hex').getPublic());
             let pubHex = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPublic('hex');
-            // debug('enroll public key N: ',ecdsa.keyFromPublic(pubHex,self.securityLevel,'hex').ec.curve.n);
             D = D.mod(self.cryptoPrimitives.ecdsaKeyFromPublic(pubHex, 'hex').ec.curve.n);
-            // debug('D: ',D.toString());
 
             // Put private and public key in returned tcert
             let tcert = new TCert(tCert.cert, self.cryptoPrimitives.ecdsaKeyFromPrivate(D, 'hex'));
@@ -1668,6 +1649,7 @@ class MemberServicesImpl {
         if (tCertBatch.length == 0) {
             throw Error('Failed fetching TCerts. No valid TCert received.')
         }
+
         return tCertBatch;
 
     } // end processTCerts
