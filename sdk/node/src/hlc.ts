@@ -293,8 +293,8 @@ export class Chain {
      * @param endpoint The endpoint of the form: { url: "grpcs://host:port", tls: { .... } }
      * @returns {Peer} Returns a new peer.
      */
-    addPeer(url:string):Peer {
-        let peer = new Peer(url, this);
+    addPeer(url:string, pem?:string):Peer {
+        let peer = new Peer(url, this, pem);
         this.peers.push(peer);
         return peer;
     };
@@ -326,8 +326,8 @@ export class Chain {
      * Set the member services URL
      * @param {string} url Member services URL of the form: "grpc://host:port" or "grpcs://host:port"
      */
-    setMemberServicesUrl(url:string):void {
-        this.setMemberServices(newMemberServices(url));
+    setMemberServicesUrl(url:string, pem?:string):void {
+        this.setMemberServices(newMemberServices(url,pem));
     }
 
     /**
@@ -1270,10 +1270,10 @@ export class Peer {
      * @param {Chain} The chain of which this peer is a member.
      * @returns {Peer} The new peer.
      */
-    constructor(url:string, chain:Chain) {
+    constructor(url:string, chain:Chain, pem:string) {
         this.url = url;
         this.chain = chain;
-        this.ep = new Endpoint(url);
+        this.ep = new Endpoint(url,pem);
         this.peerClient = new _fabricProto.Peer(this.ep.addr, this.ep.creds);
     }
 
@@ -1371,7 +1371,7 @@ class Endpoint {
     addr:string;
     creds:Buffer;
 
-    constructor(url:string) {
+    constructor(url:string, pem?:string) {
         let purl = parseUrl(url);
         let protocol = purl.protocol.toLowerCase();
         if (protocol === 'grpc') {
@@ -1379,7 +1379,7 @@ class Endpoint {
             this.creds = grpc.credentials.createInsecure();
         } else if (protocol === 'grpcs') {
             this.addr = purl.host;
-            this.creds = grpc.credentials.createSsl();
+            this.creds = grpc.credentials.createSsl(new Buffer(pem));
         } else {
             throw Error("invalid protocol: " + protocol);
         }
@@ -1399,8 +1399,8 @@ class MemberServicesImpl {
      * @param config The config information required by this member services implementation.
      * @returns {MemberServices} A MemberServices object.
      */
-    constructor(url:string) {
-        let ep = new Endpoint(url);
+    constructor(url:string,pem:string) {
+        let ep = new Endpoint(url,pem);
         this.ecaaClient = new _caProto.ECAA(ep.addr, ep.creds);
         this.ecapClient = new _caProto.ECAP(ep.addr, ep.creds);
         this.tcapClient = new _caProto.TCAP(ep.addr, ep.creds);
@@ -1672,8 +1672,8 @@ class MemberServicesImpl {
 
 } // end MemberServicesImpl
 
-function newMemberServices(url) {
-    return new MemberServicesImpl(url);
+function newMemberServices(url,pem) {
+    return new MemberServicesImpl(url,pem);
 }
 
 /**
