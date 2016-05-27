@@ -14,7 +14,7 @@ var registrar = {
     secret: 'DJY27pEnl16d'
 };
 
-var alice, bob, charlie, chaincodeId;
+var alice, bob, charlie, chaincodeID;
 var alicesCert, bobAppCert, charlieAppCert;
 
 //
@@ -32,7 +32,7 @@ chain.setDevMode(true);
 function getUser(name, cb) {
     chain.getUser(name, function (err, user) {
         if (err) return cb(err);
-        if (user.isEnrolled()) return cb();
+        if (user.isEnrolled()) return cb(null, user);
         // User is not enrolled yet, so perform both registration and enrollment
         var registrationRequest = {
             enrollmentID: name,
@@ -108,7 +108,7 @@ test('Enroll Charlie', function (t) {
 });
 
 test("Alice deploys chaincode", function (t) {
-    console.log('Deploy and assigning administrative rights to Alice [%s]', alicesCert.encode().toString());
+    console.log('Deploy and assigning administrative rights to Alice [%s]', alicesCert.encode().toString('hex'));
     var deployRequest = {
         chaincodeID: "assetmgmt",
         fcn: 'init',
@@ -118,11 +118,12 @@ test("Alice deploys chaincode", function (t) {
     };
     var tx = alice.deploy(deployRequest);
     tx.on('submitted', function (results) {
-        chaincodeId = results;
+        console.log("Chaincode ID: %s", results);
+        chaincodeID = results.toString();
     });
     tx.on('complete', function (results) {
         console.log("deploy complete: %j", results);
-        pass(t, "Alice deploy chaincode. ID " + chaincodeId);
+        pass(t, "Alice deploy chaincode. ID: " + chaincodeID);
     });
     tx.on('error', function (err) {
         fail(t, "Alice depoy chaincode", err);
@@ -130,9 +131,10 @@ test("Alice deploys chaincode", function (t) {
 });
 
 test("Alice assign ownership", function (t) {
+    console.log("Chaincode ID: %s", chaincodeID);
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeId: chaincodeId,
+        chaincodeID: chaincodeID,
         // Function to trigger
         fcn: "assign",
         // Parameters for the invoke function
@@ -157,12 +159,12 @@ test("Alice assign ownership", function (t) {
 test("Bob transfers ownership to Charlie", function (t) {
     var invokeRequest = {
         // Name (hash) required for invoke
-        name: chaincodeId,
+        chaincodeID: chaincodeID,
         // Function to trigger
         fcn: "transfer",
         // Parameters for the invoke function
         args: ['Ferrari', charlieAppCert.encode().toString('base64')],
-        appCert: bobAppCert,
+        userCert: bobAppCert,
         confidential: true
     };
 
@@ -182,7 +184,7 @@ test("Bob transfers ownership to Charlie", function (t) {
 test("Alice queries chaincode", function (t) {
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: chaincodeId,
+        chaincodeID: chaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
