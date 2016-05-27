@@ -321,7 +321,7 @@ chaincode:
     installpath: /opt/gopath/bin/
 
     # The NetworkMode in HostConfig when starting a chaincode container
-    containerNetworkmode: host
+    containerNetworkMode: host
 
 ###############################################################################
 #
