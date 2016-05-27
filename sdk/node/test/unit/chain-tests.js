@@ -15,7 +15,6 @@ var hlc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
-var sleep = require('sleep');
 
 //
 //  Create a test chain
@@ -208,8 +207,6 @@ test('Register and enroll a new user', function (t) {
 });
 
 test('Deploy a chaincode by enrolled user', function (t) {
-    t.plan(2);
-
     // Construct the invoke request
     var deployRequest = {
         // Name (hash) required for invoke
@@ -226,17 +223,15 @@ test('Deploy a chaincode by enrolled user', function (t) {
     // Print the invoke results
     deployTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
-        t.pass("Successfully submitted chaincode deploy transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + results);
-
-        // Insure the txUUID returned is not an empty string
-        if (results === "") {
-            t.fail("Invoke transaction UUID is blank" + " ---> " + "UUID : " + results);
-        } else {
-            t.pass("Invoke transaction UUID is present" + " ---> " + "UUID : " + results);
-            t.end();
-        }
+        console.log("Successfully submitted chaincode deploy transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + results);
     });
 
+    // Listen for the completed event
+    deployTx.on('complete', function (results) {
+        // Invoke transaction submitted successfully
+        t.pass("Successfully completed chaincode deploy transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + results);
+        t.end();
+    });
 
     deployTx.on('error', function (err) {
         // Invoke transaction submission failed
@@ -253,8 +248,6 @@ test('Deploy a chaincode by enrolled user', function (t) {
 //
 
 test('Query existing chaincode state by enrolled user with batch size of 1', function (t) {
-    t.plan(1);
-
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
@@ -274,11 +267,13 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
         // Query completed successfully
         t.pass("Successfully queried existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
             new Buffer(results).toString());
+        t.end();
     });
     queryTx.on('error', function (results) {
         // Query failed
         t.fail("Failed to query existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
             new Buffer(results).toString());
+        t.end();
     });
 });
 

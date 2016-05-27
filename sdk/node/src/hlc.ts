@@ -1385,8 +1385,12 @@ export class Peer {
                 case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
                     if (response.status === "SUCCESS") {
                         // Deploy transaction has been submitted
-                       eventEmitter.emit('submitted', response.msg);
-                       self.awaitCompletion(eventEmitter);
+                        if (!response.msg || response.msg === "") {
+                            eventEmitter.emit('error', 'the response is missing the transaction UUID');
+                        } else {
+                            eventEmitter.emit('submitted', response.msg);
+                            self.waitToComplete(eventEmitter);
+                        }
                     } else {
                         // Deploy completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);
@@ -1396,7 +1400,7 @@ export class Peer {
                     if (response.status === "SUCCESS") {
                         // Invoke transaction has been submitted
                         eventEmitter.emit('submitted', response.msg);
-                        self.awaitCompletion(eventEmitter);
+                        self.waitToComplete(eventEmitter);
                     } else {
                         // Invoke completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);
@@ -1423,8 +1427,13 @@ export class Peer {
      * This is a temporary hack until event notification is implemented.
      * TODO: implement this appropriately.
      */
-    private awaitCompletion(eventEmitter:events.EventEmitter): void {
-        setTimeout(eventEmitter.emit.bind('complete'),5000);
+    private waitToComplete(eventEmitter:events.EventEmitter): void {
+        debug("waiting 5 seconds before emitting complete event");
+        var emitComplete = function() {
+            debug("emitting completion event");
+            eventEmitter.emit('complete');
+        };
+        setTimeout(emitComplete,5000);
     }
 
     /**
