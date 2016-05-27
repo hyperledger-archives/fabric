@@ -33,7 +33,7 @@
 #   - protos - generate all protobuf artifacts based on .proto files
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
-#   - sdk - builds the client-sdk
+#   - node-sdk - builds the node.js client-sdk
 
 
 PKGNAME = github.com/hyperledger/fabric
@@ -126,8 +126,8 @@ $(GOPATH)/bin/%:
 protos:
 	./devenv/compile_protos.sh
 
-.PHONY: sdk
-sdk:
+.PHONY: node-sdk
+node-sdk:
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
 	cd ./sdk/node && npm install && typings install

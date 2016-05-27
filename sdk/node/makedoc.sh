@@ -2,10 +2,15 @@
 
 typedoc=$(which typedoc)
 if [[ $? -ne 0 ]]; then
-    echo "No typedoc found. Please install it like this:"
-    echo "  npm install -g typedoc"
-    echo "and rerun this shell script again."
-    exit 1
+    echo "Installing typedoc ..."
+    sudo npm install -g typedoc
+    if [[ $? -ne 0 ]]; then
+       echo "No typedoc found. Please install it like this:"
+       echo "  npm install -g typedoc"
+       echo "and rerun this shell script again."
+       exit 1
+    fi
+    echo "Successfully installed typedoc"
 fi
 set -e
 
