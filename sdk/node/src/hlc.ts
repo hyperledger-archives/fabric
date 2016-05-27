@@ -193,6 +193,7 @@ export enum PrivacyLevel {
 
 export class Certificate {
     constructor(public cert:Buffer,
+                public privateKey:any,
                 /** Denoting if the Certificate is anonymous or carrying its owner's identity. */
                 public privLevel?:PrivacyLevel) {  // TODO: privLevel not currently used?
     }
@@ -209,7 +210,7 @@ export class ECert extends Certificate {
 
     constructor(public cert:Buffer,
                 public privateKey:any) {
-        super(cert, PrivacyLevel.Nominal);
+        super(cert, privateKey, PrivacyLevel.Nominal);
     }
 
 }
@@ -220,7 +221,7 @@ export class ECert extends Certificate {
 export class TCert extends Certificate {
     constructor(public publicKey:any,
                 public privateKey:any) {
-        super(publicKey, PrivacyLevel.Anonymous);
+        super(publicKey, privateKey, PrivacyLevel.Anonymous);
     }
 }
 
@@ -237,7 +238,7 @@ export interface TransactionRequest {
     // Specify whether the transaction is confidential or not.  The default value is false.
     confidential?:boolean,
     // Optionally provide a user certificate which can be used by chaincode to perform access control
-    userCert?:Buffer;
+    userCert?:Certificate;
     // Optionally provide additional metadata
     metadata?:Buffer
 }
@@ -251,17 +252,21 @@ export interface DeployRequest extends TransactionRequest {
 /**
  * Query request.
  */
-export interface QueryRequest extends TransactionRequest {
+export interface InvokeOrQueryRequest extends TransactionRequest {
     // Optionally pass a list of attributes which can be used by chaincode to perform access control
     attrs?:string[];
 }
 
 /**
+ * Query request.
+ */
+export interface QueryRequest extends InvokeOrQueryRequest {
+}
+
+/**
  * Invoke request.
  */
-export interface InvokeRequest extends TransactionRequest {
-    // Optionally pass a list of attributes which can be used by chaincode to perform access control
-    attrs?:string[];
+export interface InvokeRequest extends InvokeOrQueryRequest {
 }
 
 /**
@@ -934,6 +939,7 @@ export class TransactionContext extends events.EventEmitter {
    */
     deploy(deployRequest:DeployRequest):TransactionContext {
         let self = this;
+        debug("received deploy request: %j",deployRequest);
         self.getMyTCert(function (err) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
@@ -1220,7 +1226,7 @@ export class TransactionContext extends events.EventEmitter {
         tx.setTimestamp(generateTimestamp());
 
         // Set confidentiality level
-        if ('confidential' in request && request.confidential) {
+        if (request.confidential) {
             debug('Set confidentiality on');
             tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL)
         } else {
@@ -1228,7 +1234,7 @@ export class TransactionContext extends events.EventEmitter {
             tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC)
         }
 
-        if ('metadata' in request && request.metadata) {
+        if (request.metadata) {
             tx.setMetadata(request.metadata)
         }
 
@@ -1239,7 +1245,7 @@ export class TransactionContext extends events.EventEmitter {
      * Create an invoke or query transaction.
      * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
  */
-    private newInvokeOrQueryTransaction(request:any, isInvokeRequest:boolean):Transaction {
+    private newInvokeOrQueryTransaction(request:InvokeOrQueryRequest, isInvokeRequest:boolean):Transaction {
         let self = this;
 
         // Create a deploy transaction
@@ -1252,8 +1258,8 @@ export class TransactionContext extends events.EventEmitter {
 
         // Set the chaincodeID
         let chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.name);
-        debug("newInvokeOrQueryTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
+        chaincodeID.setName(request.chaincodeID);
+        debug("newInvokeOrQueryTransaction: request=%j, chaincodeID=%s", request, JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
 
         // Construct the ChaincodeSpec
@@ -1264,8 +1270,8 @@ export class TransactionContext extends events.EventEmitter {
         chaincodeSpec.setChaincodeID(chaincodeID);
         // Set ctorMsg
         let chaincodeInput = new _chaincodeProto.ChaincodeInput();
-        chaincodeInput.setFunction(request.function);
-        chaincodeInput.setArgs(request.arguments);
+        chaincodeInput.setFunction(request.fcn);
+        chaincodeInput.setArgs(request.args);
         chaincodeSpec.setCtorMsg(chaincodeInput);
         // Construct the ChaincodeInvocationSpec (i.e. the payload)
         let chaincodeInvocationSpec = new _chaincodeProto.ChaincodeInvocationSpec();
@@ -1279,7 +1285,7 @@ export class TransactionContext extends events.EventEmitter {
         tx.setTimestamp(generateTimestamp());
 
         // Set confidentiality level
-        if ('confidential' in request && request.confidential) {
+        if (request.confidential) {
             debug('Set confidentiality on');
             tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL)
         } else {
@@ -1287,39 +1293,28 @@ export class TransactionContext extends events.EventEmitter {
             tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC)
         }
 
-        if ('metadata' in request && request.metadata) {
+        if (request.metadata) {
             tx.setMetadata(request.metadata)
         }
 
-        if ('invoker' in request && request.invoker != null) {
-
-            if ('appCert' in request.invoker.appCert != null) {
-                // cert based
-
-                let certRaw = new Buffer(self.tcert.publicKey);
-                // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
-                let nonceRaw = new Buffer(self.nonce);
-
-                let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
-                // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
-                this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
-
-                // debug('========== Binding [%s]', this.binding.toString('hex'));
-
-                let ctor = chaincodeSpec.getCtorMsg().toBuffer();
-                // debug('========== Ctor [%s]', ctor.toString('hex'));
-
-                let txmsg = Buffer.concat([ctor, this.binding]);
-                // debug('========== Pyaload||binding [%s]', txmsg.toString('hex'));
-                let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.invoker.appCert.privateKey.getPrivate('hex'), txmsg);
-                let sigma = new Buffer(mdsig.toDER());
-                // debug('========== Sigma [%s]', sigma.toString('hex'));
-
-                tx.setMetadata(sigma)
-            }
-
+        if (request.userCert) {
+            // cert based
+            let certRaw = new Buffer(self.tcert.publicKey);
+            // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+            let nonceRaw = new Buffer(self.nonce);
+            let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+            // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+            this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+            // debug('========== Binding [%s]', this.binding.toString('hex'));
+            let ctor = chaincodeSpec.getCtorMsg().toBuffer();
+            // debug('========== Ctor [%s]', ctor.toString('hex'));
+            let txmsg = Buffer.concat([ctor, this.binding]);
+            // debug('========== Pyaload||binding [%s]', txmsg.toString('hex'));
+            let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+            let sigma = new Buffer(mdsig.toDER());
+            // debug('========== Sigma [%s]', sigma.toString('hex'));
+            tx.setMetadata(sigma)
         }
-
         return tx;
     }
 
@@ -1369,13 +1364,12 @@ export class Peer {
     sendTransaction = function (tx:Transaction, eventEmitter:events.EventEmitter) {
         var self = this;
 
-        // debug("peer.sendTransaction: sending %j", tx);
+        //debug("peer.sendTransaction: sending %j", tx);
 
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
         //     rpc ProcessTransaction(Transaction) returns (Response) {}
         self.peerClient.processTransaction(tx, function (err, response) {
-            var self = this;
             if (err) {
                 debug("peer.sendTransaction: error=%j", err);
                 return eventEmitter.emit('error', err);
@@ -1391,8 +1385,12 @@ export class Peer {
                 case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
                     if (response.status === "SUCCESS") {
                         // Deploy transaction has been submitted
-                       eventEmitter.emit('submitted', response.msg);
-                       self.awaitCompletion(eventEmitter);
+                        if (!response.msg || response.msg === "") {
+                            eventEmitter.emit('error', 'the response is missing the transaction UUID');
+                        } else {
+                            eventEmitter.emit('submitted', response.msg);
+                            self.waitToComplete(eventEmitter);
+                        }
                     } else {
                         // Deploy completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);
@@ -1402,7 +1400,7 @@ export class Peer {
                     if (response.status === "SUCCESS") {
                         // Invoke transaction has been submitted
                         eventEmitter.emit('submitted', response.msg);
-                        self.awaitCompletion(eventEmitter);
+                        self.waitToComplete(eventEmitter);
                     } else {
                         // Invoke completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);
@@ -1429,8 +1427,13 @@ export class Peer {
      * This is a temporary hack until event notification is implemented.
      * TODO: implement this appropriately.
      */
-    private awaitCompletion(eventEmitter:events.EventEmitter): void {
-        setTimeout(eventEmitter.emit.bind('complete'),5000);
+    private waitToComplete(eventEmitter:events.EventEmitter): void {
+        debug("waiting 5 seconds before emitting complete event");
+        var emitComplete = function() {
+            debug("emitting completion event");
+            eventEmitter.emit('complete');
+        };
+        setTimeout(emitComplete,5000);
     }
 
     /**
@@ -1713,7 +1716,7 @@ class MemberServicesImpl {
             try {
                 x509Certificate = new crypto.X509Certificate(tCert.cert);
             } catch (ex) {
-                debug('Error parsing certificate bytes: ', ex);
+                debug('Warning: problem parsing certificate bytes; retrying ... ', ex);
                 continue
             }
 
