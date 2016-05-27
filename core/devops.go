@@ -183,9 +183,9 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
                 }
         } else {
                 devopsLogger.Info("Argument is used for querying, it is not Base64")
-                // TODO: In case of query transaction the Tx ID can be anything
-                // but we could have an ID that makes more sense than this
-                userGivenBytes = []byte(userGivenData) 
+                // For queries, we use UUID instead of TxID, because
+                // in this case the argument is not a Base64 encoded byte sequence
+                userGivenBytes = util.GenerateBytesUUID()
         }
         var uuid = util.GetTransactionHashAsStr(userGivenBytes)
         devopsLogger.Info("Transaction TxID (UUID): %x", uuid)
