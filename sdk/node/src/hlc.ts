@@ -47,6 +47,7 @@ let _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
 let _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
 let _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
+let net = require('net');
 
 let DEFAULT_SECURITY_LEVEL = 256;
 let DEFAULT_HASH_ALGORITHM = "SHA3";
@@ -426,15 +427,33 @@ export class Chain {
      * @param eventEmitter An event emitter
      */
     sendTransaction(tx:Transaction, eventEmitter:events.EventEmitter) {
-        let self = this;
-        if (self.peers.length === 0) {
-            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", self.getName())));
+        if (this.peers.length === 0) {
+            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", this.getName())));
         }
-        // Always send to 1st peer for now.  TODO: failover
-        let peer = self.peers[0];
-        peer.sendTransaction(tx, eventEmitter);
+	let peers = this.peers;
+	let trySendTransaction = (pidx) => {
+	    if( pidx >= peers.length ) {
+		eventEmitter.emit('error', "None of "+peers.length+" peers reponding");
+		return;
+	    }
+	    let p = urlParser.parse(peers[pidx].getUrl());
+	    let client = new net.Socket();
+	    let tryNext = () => {
+		debug("Skipping unresponsive peer "+peers[pidx].getUrl());
+		client.destroy();
+		trySendTransaction(pidx+1);
+	    }
+	    client.on('timeout', tryNext);
+	    client.on('error', tryNext);
+	    client.connect(p.port, p.hostname, () => {
+		if( pidx > 0  &&  peers === this.peers )
+		    this.peers = peers.slice(pidx).concat(peers.slice(0,pidx));
+		client.destroy();
+		peers[pidx].sendTransaction(tx, eventEmitter);
+	    });
+	}
+	trySendTransaction(0);
     }
-
 }
 
 export class Member {
