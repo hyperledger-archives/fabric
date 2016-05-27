@@ -55,7 +55,7 @@ their network service interfaces, databases and logging directories are
 unique. A description of the [network configuration](#network) is written to
 `$BUSYWORK_HOME/network`, and the **busywork** tools refer to this configuration
 by default in order to examine and control the network. The databases and
-logging directories are stored in the [$BUSYWORK_HOME](BUSYWORK_HOME.md)
+logging directories are stored in the [$BUSYWORK_HOME](#busywork-home)
 directory.
 
 Starting a user-mode network of 10 peers running PBFT batch consensus is as as
@@ -82,7 +82,7 @@ example
 ## User-Mode Caveats
 
 Docker is still currently required for chaincode containers, so currently
-users *are* still required to have *root* access and/or sudo-less permission
+users are still required to have *root* access and/or sudo-less permission
 to control Docker. One goal of this project is to completely eliminate the
 *requirement* for Docker from the development and test environment however,
 and allow networks to be reliably set up and tested by normal users sharing a
@@ -151,46 +151,50 @@ used.
     "networkMode": "user",
     "chaincodeMode": "vm",
     "host": "local",
-    "date": "2016/05/17+18:53:07",
+    "date": "2016/05/27+08:15:45",
     "createdBy": "userModeNetwork",
     "security": "true",
     "consensus": "sieve",
+    "peerProfileServer": "true",
     "membersrvc":
         { "service": "0.0.0.0:50051",
-          "profile": "0.0.0.0:44971",
-          "pid": "62328"
+          "pid": "93244"
         },
     "peers": [
         { "id": "vp0",
-          "grpc": "0.0.0.0:35547",
-          "rest": "0.0.0.0:36097",
-          "events": "0.0.0.0:33355",
-          "profile": "0.0.0.0:35510",
-          "pid": "62358"
+          "grpc": "0.0.0.0:42580",
+          "rest": "0.0.0.0:38048",
+          "events": "0.0.0.0:45311",
+          "cli": "0.0.0.0:44155",
+          "profile": "0.0.0.0:44024",
+          "pid": "93269"
         }
         ,
         { "id": "vp1",
-          "grpc": "0.0.0.0:35540",
-          "rest": "0.0.0.0:40712",
-          "events": "0.0.0.0:41232",
-          "profile": "0.0.0.0:37337",
-          "pid": "62362"
+          "grpc": "0.0.0.0:34801",
+          "rest": "0.0.0.0:43718",
+          "events": "0.0.0.0:41947",
+          "cli": "0.0.0.0:43596",
+          "profile": "0.0.0.0:40860",
+          "pid": "93273"
         }
         ,
         { "id": "vp2",
-          "grpc": "0.0.0.0:44523",
-          "rest": "0.0.0.0:39215",
-          "events": "0.0.0.0:42639",
-          "profile": "0.0.0.0:40144",
-          "pid": "62370"
+          "grpc": "0.0.0.0:39656",
+          "rest": "0.0.0.0:36277",
+          "events": "0.0.0.0:36991",
+          "cli": "0.0.0.0:40268",
+          "profile": "0.0.0.0:34522",
+          "pid": "93281"
         }
         ,
         { "id": "vp3",
-          "grpc": "0.0.0.0:42380",
-          "rest": "0.0.0.0:35422",
-          "events": "0.0.0.0:42112",
-          "profile": "0.0.0.0:42939",
-          "pid": "62378"
+          "grpc": "0.0.0.0:36270",
+          "rest": "0.0.0.0:42204",
+          "events": "0.0.0.0:41790",
+          "cli": "0.0.0.0:44141",
+          "profile": "0.0.0.0:45035",
+          "pid": "93289"
         }
     ]
 }
