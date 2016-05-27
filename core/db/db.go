@@ -203,7 +203,7 @@ func openDB() (*OpenchainDB, error) {
 	cfNames := []string{"default"}
 	cfNames = append(cfNames, columnfamilies...)
 	var cfOpts []*gorocksdb.Options
-	for _ = range cfNames {
+	for range cfNames {
 		cfOpts = append(cfOpts, opts)
 	}
 

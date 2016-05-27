@@ -137,7 +137,7 @@ func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]by
 	} else {
 		// This is basically a default fake default transaction execution
 		if nil == txs {
-			txs = []*protos.Transaction{&protos.Transaction{Payload: []byte("DUMMY")}}
+			txs = []*protos.Transaction{{Payload: []byte("DUMMY")}}
 		}
 
 		for _, transaction := range txs {
@@ -183,7 +183,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		Transactions:      mock.curBatch,
 		NonHashData: &protos.NonHashData{
 			TransactionResults: []*protos.TransactionResult{
-				&protos.TransactionResult{
+				{
 					Result: mock.curResults,
 				},
 			},

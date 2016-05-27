@@ -310,7 +310,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
 
-	attributeValue := string(attributeBytes[:len(attributeBytes)])
+	attributeValue := string(attributeBytes[:])
 
 	if attributeValue != "IBM" {
 		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
