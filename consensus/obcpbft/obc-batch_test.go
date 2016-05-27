@@ -83,7 +83,6 @@ func TestNetworkBatch(t *testing.T) {
 
 func TestBatchCustody(t *testing.T) {
 	t.Skip("test is racy")
-
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
 		config.Set("general.batchsize", "1")

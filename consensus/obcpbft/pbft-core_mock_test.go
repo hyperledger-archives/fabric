@@ -47,7 +47,7 @@ func (pe *pbftEndpoint) isBusy() bool {
 	// channel, the send blocks until the thread has picked up the new work, still
 	// this will be removed pending the transition to an externally driven state machine
 	select {
-	case <-pe.pbft.idleChan:
+	case pe.pbft.manager.queue() <- nil:
 	default:
 		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan\n")
 		return true

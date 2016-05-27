@@ -117,13 +117,13 @@ type pbftCore struct {
 	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
 
 	currentExec        *uint64             // currently executing request
-	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
+	newViewTimer       eventTimer          // timeout triggering a view change
+	manager            eventManager        // TODO, remove eventually, the event manager which sends events to pbft
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
-	newViewTimerReason string              // what triggered the timer
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -192,6 +192,13 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
 
+	// TODO Ultimately, the timer factory will be passed in, and the existence of the manager
+	// will be hidden from pbftCore, but in the interest of a small PR, leaving it here for now
+	instance.manager = newEventManagerImpl(instance)
+	etf := newEventTimerFactoryImpl(instance.manager)
+	instance.newViewTimer = etf.createTimer()
+	instance.manager.start()
+
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
 	if instance.f*3+1 > instance.N {
@@ -249,67 +256,60 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
 
-	instance.stopTimer()
 	instance.restoreState()
-
-	go instance.main()
 
 	return instance
 }
 
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	select { // Prevent closing multiple times
-	case <-instance.closed:
-	default:
-		close(instance.closed)
-	}
-	instance.stopTimer()
+	instance.manager.halt()
+	instance.newViewTimer.halt()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
-func (instance *pbftCore) main() {
+func (instance *pbftCore) processEvent(e event) event {
 
-	for {
-		logger.Debug("Replica %d service thread looping", instance.id)
+	logger.Debug("Replica %d processing event", instance.id)
 
-		select {
-		case <-instance.closed:
-			close(instance.idleChan)
-			return
-		case <-instance.newViewTimer.C:
-			logger.Info("Replica %d view change timer expired, sending view change", instance.id)
-			instance.sendViewChange()
-		case msg := <-instance.incomingChan:
-			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
-			instance.recvMsg(msg.msg, msg.sender)
-		case update := <-instance.stateUpdatingChan:
-			instance.skipInProgress = true
-			instance.lastExec = update.seqNo
-			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
-		case update := <-instance.stateUpdatedChan:
-			seqNo := update.seqNo
-			logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
-			// XXX create checkpoint
-			instance.lastExec = seqNo
-			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
-			instance.skipInProgress = false
-			instance.executeOutstanding()
-		case <-instance.execCompleteChan:
-			instance.execDoneSync()
-		case work := <-instance.injectChan:
-			work() // Used to allow the caller to steal use of the main thread
-		case instance.idleChan <- struct{}{}:
-			// Used to detect when this thread is idle for testing
-		}
+	switch e.eventType() {
+	case viewChangeTimerEventID:
+		logger.Info("Replica %d view change timer expired, sending view change", instance.id)
+		instance.timerActive = false
+		instance.sendViewChange()
+	case messageEventID:
+		msg := e.(messageEvent)
+		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
+		instance.recvMsg(msg.msg, msg.sender)
+	case stateUpdatingEventID:
+		update := e.(stateUpdatingEvent)
+		instance.skipInProgress = true
+		instance.lastExec = update.seqNo
+		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+	case stateUpdatedEventID:
+		update := e.(stateUpdatedEvent)
+		seqNo := update.seqNo
+		logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+		// XXX create checkpoint
+		instance.lastExec = seqNo
+		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+		instance.skipInProgress = false
+		instance.executeOutstanding()
+	case execDoneEventID:
+		instance.execDoneSync()
+	case workEventID:
+		e.(workEvent)() // Used to allow the caller to steal use of the main thread, to be removed
+	default:
+		logger.Error("Replica %d received an unknown message type", instance.id)
 	}
+
+	return nil
 }
 
 // Allows the caller to inject work onto the main thread
 // This is useful when the caller wants to safely manipulate PBFT state
 func (instance *pbftCore) inject(work func()) {
-	instance.injectChan <- work
-	<-instance.idleChan
+	instance.manager.queue() <- workEvent(work)
 }
 
 // =============================================================================
@@ -442,7 +442,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.incomingChan <- &pbftMessage{
+	instance.manager.queue() <- messageEvent{
 		sender: senderID,
 		msg:    msg,
 	}
@@ -457,7 +457,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.incomingChan <- &pbftMessage{
+	instance.manager.queue() <- messageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -468,7 +468,7 @@ func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
 // stateUpdate is an event telling us that the application fast-forwarded its state
 func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.stateUpdatedChan <- &checkpointMessage{
+	instance.manager.queue() <- stateUpdatedEvent{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -477,7 +477,7 @@ func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
 // stateUpdate is an event telling us that the application fast-forwarded its state
 func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
-	instance.stateUpdatingChan <- &checkpointMessage{
+	instance.manager.queue() <- stateUpdatingEvent{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -485,7 +485,7 @@ func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
 
 // TODO, this should not return an error
 func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
-	instance.incomingChan <- &pbftMessage{
+	instance.manager.queue() <- messageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -573,8 +573,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
 	instance.persistRequest(digest)
-	if !instance.timerActive && instance.activeView {
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
+	if instance.activeView {
+		instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
 	}
 
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
@@ -696,9 +696,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		instance.persistRequest(digest)
 	}
 
-	if !instance.timerActive {
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
-	}
+	instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
 
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
@@ -896,7 +894,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 
 // execDone is an event telling us that the last execution has completed
 func (instance *pbftCore) execDone() {
-	instance.execCompleteChan <- struct{}{}
+	instance.manager.queue() <- execDoneEvent{}
 }
 
 func (instance *pbftCore) execDoneSync() {
@@ -1182,9 +1180,6 @@ func (instance *pbftCore) innerBroadcast(msg *Message) error {
 }
 
 func (instance *pbftCore) startTimerIfOutstandingRequests() {
-	if instance.timerActive {
-		return
-	}
 
 	if len(instance.outstandingReqs) > 0 {
 		reqs := func() []string {
@@ -1194,20 +1189,24 @@ func (instance *pbftCore) startTimerIfOutstandingRequests() {
 			}
 			return r
 		}()
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
+		instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
 	}
 }
 
-func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
-	instance.newViewTimer = time.NewTimer(timeout) // Create a new timer, if it has already fired, it will still read on the channel
-	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
-	instance.newViewTimerReason = reason
+func (instance *pbftCore) softStartTimer(timeout time.Duration, reason string) {
+	logger.Debug("Replica %d soft starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.timerActive = true
+	instance.newViewTimer.softReset(timeout, viewChangeTimerEvent{})
+}
+
+func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
+	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
+	instance.timerActive = true
+	instance.newViewTimer.reset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) stopTimer() {
-	instance.newViewTimer = time.NewTimer(UnreasonableTimeout) // Create a new timer, then stop it, if it has already fired, it will still read on the channel
-	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
+	instance.newViewTimer.stop()
 }
