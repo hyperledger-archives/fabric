@@ -320,7 +320,10 @@ chaincode:
     # the image
     installpath: /opt/gopath/bin/
 
-    # The NetworkMode in HostConfig when starting a chaincode container
+    # The NetworkMode in HostConfig when starting a chaincode container. The 
+    # value could be anyone that is supported by Docker Engine, e.g., host,
+    # bridge, overlay. Use may change this one if he deployes chaincode outside
+    # the same host of the validator node.
     containerNetworkMode: host
 
 ###############################################################################
