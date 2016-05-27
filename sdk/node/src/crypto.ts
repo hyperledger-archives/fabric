@@ -66,11 +66,11 @@ var pkijs = merge(true, pkijs_1, x509schema);
 export class Crypto {
 
     private hashAlgorithm:string;
-    private level:number;
+    private securityLevel:number;
     private curveName:string;
     private suite:string;
 
-    constructor(hashAlgorithm:string, level:number) {
+    constructor(hashAlgorithm:string, securityLevel:number) {
         hashAlgorithm = hashAlgorithm.toUpperCase();
         if (hashAlgorithm == SHA2) {
             throw Error("SHA2 is not yet supported");
@@ -79,64 +79,108 @@ export class Crypto {
         } else {
             throw Error("unknown hash algorithm: " + hashAlgorithm);
         }
-        this.checkLevel(level);
-        this.level = level;
-        this.suite = hashAlgorithm.toLowerCase() + '-' + this.level;
-        if (level == CURVE_P_256_Size) {
+        this.checkLevel(securityLevel);
+        this.securityLevel = securityLevel;
+        this.suite = hashAlgorithm.toLowerCase() + '-' + this.securityLevel;
+        if (securityLevel == CURVE_P_256_Size) {
             this.curveName = "secp256r1"
-        } else if (level == CURVE_P_384_Size) {
+        } else if (securityLevel == CURVE_P_384_Size) {
             this.curveName = "secp384r1";
-        } else{
-            throw new Error("Invalid security level: " + level);
+        } else {
+            throw new Error("Invalid security level: " + securityLevel);
         }
     }
 
-    GenerateNonce() {
+    /**
+     * Get the security level
+     * @returns The security level
+     */
+    getSecurityLevel():number {
+        return this.securityLevel;
+    }
+
+    /**
+     * Set the security level
+     * @params securityLevel The security level
+     */
+    setSecurityLevel(securityLevel:number):void {
+        this.securityLevel = securityLevel;
+    }
+
+    /**
+     * Get the hash algorithm
+     * @returns {string} The hash algorithm
+     */
+    getHashAlgorithm():string {
+        return this.hashAlgorithm;
+    }
+
+    /**
+     * Set the hash algorithm
+     * @params hashAlgorithm The hash algorithm ('SHA2' or 'SHA3')
+     */
+    setHashAlgorithm(hashAlgorithm:string):void {
+        this.hashAlgorithm = hashAlgorithm;
+    }
+
+    generateNonce() {
         return crypto.randomBytes(NonceSize);
     }
 
-    UnmarshallChainKey(chainKey:any) {
-        // enrollChainKey is a PEM. Extract the key from it.
-        var pem = new Buffer(chainKey, 'hex').toString();
-        debug("ChainKey %s", pem);
-        var chainKey = KEYUTIL.getHexFromPEM(pem, 'ECDSA PUBLIC KEY');
-        // debug(chainKey);
-        var certBuffer = this.toArrayBuffer(new Buffer(chainKey, 'hex'));
-        var asn1 = pkijs.org.pkijs.fromBER(certBuffer);
-        // debug('asn1:\n', asn1);
-        var cert;
-        cert = new pkijs.org.pkijs.simpl.PUBLIC_KEY_INFO({schema: asn1.result});
-        // debug('cert:\n', JSON.stringify(cert, null, 4));
+    ecdsaKeyGen() {
+        var curve;
+        // select curve and hash algo based on level
+        switch (this.securityLevel) {
+            case 256:
+                curve = "secp256r1";
+                break;
+            case 384:
+                curve = "secp384r1";
+                break;
+        };
+        return KEYUTIL.generateKeypair("EC", curve);
+    };
 
-        var ab = new Uint8Array(cert.subjectPublicKey.value_block.value_hex);
-        var ecdsaChainKey = this.keyFromPublic(ab, 'hex');
-
-        return ecdsaChainKey
-    }
-
-    toArrayBuffer(buffer:any) {
-        var ab = new ArrayBuffer(buffer.length);
-        var view = new Uint8Array(ab);
-        for (var i = 0; i < buffer.length; ++i) {
-            view[i] = buffer[i];
+    ecdsaKeyFromPrivate(key, encoding) {
+        // select curve and hash algo based on level
+        var curve;
+        switch (this.securityLevel) {
+            case 256:
+                curve = elliptic.curves['p256'];
+                break;
+            case 384:
+                curve = elliptic.curves['p384'];
+                break;
         }
-        return ab;
-    }
 
-    toBuffer(buffer:any) {
-        var b = new Buffer(buffer.length);
-        for (var i = 0; i < buffer.length; ++i) {
-            b[i] = buffer.charCodeAt(i)
+        var keypair = new EC(curve).keyFromPrivate(key, encoding);
+        debug('keypair: ', keypair);
+        return keypair;
+    };
+
+    ecdsaKeyFromPublic(key, encoding) {
+        var curve;
+        //select curve and hash algo based on level
+        switch (this.securityLevel) {
+            case 256:
+                curve = elliptic.curves['p256'];
+                break;
+            case 384:
+                curve = elliptic.curves['p384'];
+                break;
         }
-        return b;
-    }
 
-    sign(key, msg) {
+        var publicKey = new EC(curve).keyFromPublic(key, encoding);
+        // debug('publicKey: [%j]', publicKey);
+        return publicKey;
+    };
+
+    ecdsaSign(key:Buffer, msg:Buffer) {
         var curve;
         var hash;
 
         // select curve and hash algo based on level
-        switch (this.level) {
+        switch (this.securityLevel) {
             case 256:
                 curve = elliptic.curves['p256'];
                 hash = sha3_256;
@@ -150,87 +194,54 @@ export class Crypto {
         var ecdsa = new EC(curve);
         var signKey = ecdsa.keyFromPrivate(key, 'hex');
         var sig = ecdsa.sign(new Buffer(hash(msg), 'hex'), signKey);
-        debug('ecdsa signature: ', sig)
+        debug('ecdsa signature: ', sig);
         return sig;
-
     };
 
-    keyFromPrivate(key, encoding) {
+    ecdsaPEMToPublicKey(chainKey:any) {
+        // enrollChainKey is a PEM. Extract the key from it.
+        var pem = new Buffer(chainKey, 'hex').toString();
+        debug("ChainKey %s", pem);
+        var chainKey = KEYUTIL.getHexFromPEM(pem, 'ECDSA PUBLIC KEY');
+        // debug(chainKey);
+        var certBuffer = _toArrayBuffer(new Buffer(chainKey, 'hex'));
+        var asn1 = pkijs.org.pkijs.fromBER(certBuffer);
+        // debug('asn1:\n', asn1);
+        var cert;
+        cert = new pkijs.org.pkijs.simpl.PUBLIC_KEY_INFO({schema: asn1.result});
+        // debug('cert:\n', JSON.stringify(cert, null, 4));
 
-        // select curve and hash algo based on level
-        var curve;
-        switch (this.level) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                break;
+        var ab = new Uint8Array(cert.subjectPublicKey.value_block.value_hex);
+        var ecdsaChainKey = this.ecdsaKeyFromPublic(ab, 'hex');
+
+        return ecdsaChainKey
+    }
+
+    ecdsaPrivateKeyToASN1(prvKeyHex:string): Buffer {
+        var Ber = require('asn1').Ber;
+        var sk = new Ber.Writer();
+        sk.startSequence();
+        sk.writeInt(1);
+        sk.writeBuffer(new Buffer(prvKeyHex, 'hex'), 4);
+        sk.writeByte(160);
+        sk.writeByte(7);
+        if (this.securityLevel == CURVE_P_384_Size ) {
+            // OID of P384
+            sk.writeOID('1.3.132.0.34');
+        } else if (this.securityLevel == CURVE_P_256_Size) {
+            // OID of P256
+            sk.writeOID('1.2.840.10045.3.1.7');
+        } else {
+            throw Error("Not supported. Level " + this.securityLevel)
         }
-        ;
+        sk.endSequence();
+        return sk.buffer;
+    }
 
-        var keypair = new EC(curve).keyFromPrivate(key, encoding);
-        ;
-        debug('keypair: ', keypair)
-        return keypair;
-    };
-
-    keyFromPublic(key, encoding) {
-
-        var curve;
-        //select curve and hash algo based on level
-        switch (this.level) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                break;
-        }
-        ;
-
-        var publicKey = new EC(curve).keyFromPublic(key, encoding);
-        // debug('publicKey: [%j]', publicKey);
-        return publicKey;
-    };
-
-    generateKeyPair() {
-
+    eciesKeyGen() {
         var curve;
         // select curve and hash algo based on level
-        switch (this.level) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                break;
-        }
-        ;
-
-        var keypair = new EC(curve).genKeyPair();
-        debug('keypair: ', keypair)
-        return keypair;
-    };
-
-    GenerateECDSAKeyPair() {
-        var curve;
-        // select curve and hash algo based on level
-        switch (this.level) {
-            case 256:
-                curve = "secp256r1";
-                break;
-            case 384:
-                curve = "secp384r1";
-                break;
-        };
-        return KEYUTIL.generateKeypair("EC", curve);
-    };
-
-    ECIESKeyGen() {
-        var curve;
-        // select curve and hash algo based on level
-        switch (this.level) {
+        switch (this.securityLevel) {
             case 256:
                 curve = "secp256r1";
                 break;
@@ -241,11 +252,11 @@ export class Crypto {
         return KEYUTIL.generateKeypair("EC", curve);
     }
 
-    ECIESEncryptECDSA(ecdsaRecipientPublicKey, msg): Buffer {
+    eciesEncryptECDSA(ecdsaRecipientPublicKey, msg): Buffer {
         var self = this;
         var EC = elliptic.ec;
         //var curve = elliptic.curves['p'+level];
-        var ecdsa = new EC('p' + self.level);
+        var ecdsa = new EC('p' + self.securityLevel);
 
         // Generate ephemeral key-pair
         var ephKeyPair = KEYUTIL.generateKeypair("EC", this.curveName);
@@ -280,7 +291,7 @@ export class Crypto {
         return Buffer.concat([new Buffer(Rb, 'hex'), EM, new Buffer(D)]);
     }
 
-    ECIESEncrypt(recipientPublicKey, msg) {
+    eciesEncrypt(recipientPublicKey, msg) {
         var level = recipientPublicKey.ecparams.keylen;
         // debug("=============> %d", level);
         var EC = elliptic.ec;
@@ -288,10 +299,10 @@ export class Crypto {
         // debug("=============> curve=%s", util.inspect(curve));
         var ecdsa = new EC(curve);
 
-        return this.ECIESEncryptECDSA(ecdsa.keyFromPublic(recipientPublicKey.pubKeyHex, 'hex'), msg)
+        return this.eciesEncryptECDSA(ecdsa.keyFromPublic(recipientPublicKey.pubKeyHex, 'hex'), msg)
     }
 
-    ECIESDecrypt(recipientPrivateKey, cipherText) {
+    eciesDecrypt(recipientPrivateKey, cipherText) {
         var self = this;
         // debug("recipientPrivateKey=%s", util.inspect(recipientPrivateKey));//XXX
         var level = recipientPrivateKey.ecparams.keylen;
@@ -350,6 +361,10 @@ export class Crypto {
         return decryptedBytes;
     }
 
+    aesKeyGen() {
+        return crypto.randomBytes(AESKeyLength);
+    }
+
     aesCFBDecryt(key, encryptedBytes) {
 
         var iv = crypto.randomBytes(IVLength);
@@ -371,6 +386,27 @@ export class Crypto {
 
         return decryptedBytes.slice(IVLength, decryptedBytes.length - numMissingBytes);
 
+    }
+
+    aesCBCPKCS7Decrypt(key, bytes) {
+
+        var decryptedBytes, unpaddedBytes;
+
+        decryptedBytes = this.CBCDecrypt(key, bytes);
+        unpaddedBytes = this.PKCS7UnPadding(decryptedBytes);
+
+        return unpaddedBytes;
+    };
+
+    aes256GCMDecrypt(key:Buffer, ct:Buffer) {
+        let decipher = crypto.createDecipheriv('aes-256-gcm', key, ct.slice(0, GCMStandardNonceSize));
+        decipher.setAuthTag(ct.slice(ct.length - GCMTagSize));
+        let dec = decipher.update(
+            ct.slice(GCMStandardNonceSize, ct.length - GCMTagSize).toString('hex'),
+            'hex', 'hex'
+        );
+        dec += decipher.final('hex');
+        return dec;
     }
 
     hkdf(ikm, keyBitLength, salt, info) {
@@ -398,7 +434,7 @@ export class Crypto {
         ;
 
         if (!salt)
-            salt = zeroBuffer(hashSize);
+            salt = _zeroBuffer(hashSize);
 
         if (!info)
             info = "";
@@ -407,6 +443,56 @@ export class Crypto {
 
         return bitsToBytes(key);
 
+    }
+
+    hmac(key, bytes) {
+        var self = this;
+        debug('key: ', JSON.stringify(key));
+        debug('bytes: ', JSON.stringify(bytes));
+        var hash, hashSize;
+        switch (self.securityLevel) {
+            case 256:
+                hash = hashPrimitives.hash_sha3_256;
+                hashSize = 32;
+                break;
+            case 384:
+                hash = hashPrimitives.hash_sha3_384;
+                hashSize = 48;
+                break;
+        }
+
+        var hmac = new sjcl.misc.hmac(bytesToBits(key), hash);
+        hmac.update(bytesToBits(bytes));
+        var result = hmac.digest();
+        debug("result: ", bitsToBytes(result));
+        return bitsToBytes(result);
+    }
+
+    hmacAESTruncated(key, bytes) {
+        var res = this.hmac(key, bytes);
+        return res.slice(0, AESKeyLength);
+    }
+
+    hash(bytes) {
+        var self = this;
+        debug('bytes: ', JSON.stringify(bytes));
+        var hashFunction, hashSize;
+        switch (self.securityLevel) {
+            case 256:
+                hashFunction = sha3_256;
+                hashSize = 32;
+                break;
+            case 384:
+                hashFunction = sha3_384;
+                hashSize = 48;
+                break;
+        }
+        return hashFunction(bytes);
+    }
+
+    private checkLevel(level) {
+        if (level != 256 && level != 384)
+            throw new Error("Illegal level: " + level + " - must be either 256 or 384");
     }
 
     /** HKDF with the specified hash function.
@@ -502,16 +588,6 @@ export class Crypto {
 
     };
 
-    public CBCPKCS7Decrypt(key, bytes) {
-
-        var decryptedBytes, unpaddedBytes;
-
-        decryptedBytes = this.CBCDecrypt(key, bytes);
-        unpaddedBytes = this.PKCS7UnPadding(decryptedBytes);
-
-        return unpaddedBytes;
-    };
-
     private PKCS7UnPadding(bytes) {
 
         //last byte is the number of padded bytes
@@ -522,137 +598,6 @@ export class Crypto {
         debug('unpadded bytes: ', JSON.stringify(unpadded));
         return unpadded;
     };
-
-    AESKeyGen() {
-        return crypto.randomBytes(AESKeyLength);
-    }
-
-    hmac(key, bytes) {
-        var self = this;
-        debug('key: ', JSON.stringify(key));
-        debug('bytes: ', JSON.stringify(bytes));
-        var hash, hashSize;
-        switch (self.level) {
-            case 256:
-                hash = hashPrimitives.hash_sha3_256;
-                hashSize = 32;
-                break;
-            case 384:
-                hash = hashPrimitives.hash_sha3_384;
-                hashSize = 48;
-                break;
-        }
-
-        var hmac = new sjcl.misc.hmac(bytesToBits(key), hash);
-        hmac.update(bytesToBits(bytes));
-        var result = hmac.digest();
-        debug("result: ", bitsToBytes(result));
-        return bitsToBytes(result);
-    }
-
-    hash(bytes) {
-        var self = this;
-        debug('bytes: ', JSON.stringify(bytes));
-        var hash, hashSize;
-        switch (self.level) {
-            case 256:
-                hash = sha3_256;
-                hashSize = 32;
-                break;
-            case 384:
-                hash = sha3_384;
-                hashSize = 48;
-                break;
-        }
-        return hash(bytes);
-    }
-
-    decryptResult(key, ct) {
-        // debug('Decrypt result..');
-
-        // debug('ciphertext %j', ct);
-        // debug('CT.length %j', ct.length);
-        //
-        // debug('KEY %j', key);
-        // debug('IV %j', ct.slice(0, GCMStandardNonceSize));
-        // debug('IV length %j', ct.slice(0, GCMStandardNonceSize).length);
-        // debug('AUTH %j', ct.slice(ct.length - GCMTagSize));
-        // debug('AUTH length %j', ct.slice(ct.length - GCMTagSize).length);
-        // debug('CONTENT %s', ct.slice(GCMStandardNonceSize, ct.length - GCMTagSize));
-
-        let decipher = crypto.createDecipheriv('aes-256-gcm', key, ct.slice(0, GCMStandardNonceSize));
-        decipher.setAuthTag(ct.slice(ct.length - GCMTagSize));
-        let dec = decipher.update(
-            ct.slice(GCMStandardNonceSize, ct.length - GCMTagSize).toString('hex'),
-            'hex', 'hex'
-        );
-        dec += decipher.final('hex');
-        return dec;
-    }
-
-    hmacAESTruncated(key, bytes) {
-        var res = this.hmac(key, bytes);
-        return res.slice(0, AESKeyLength);
-    }
-
-    private checkLevel(level) {
-        if (level != 256 && level != 384)
-            throw new Error("Illegal level: " + level + " - must be either 256 or 384");
-    }
-
-    PrivateKeyHextoASN1(prvKeyHex:string) {
-        var Ber = require('asn1').Ber;
-        var sk = new Ber.Writer();
-        sk.startSequence();
-        sk.writeInt(1);
-        sk.writeBuffer(new Buffer(prvKeyHex, 'hex'), 4);
-        sk.writeByte(160);
-        sk.writeByte(7);
-        if (this.level == CURVE_P_384_Size ) {
-            // OID of P384
-            sk.writeOID('1.3.132.0.34');
-        } else if (this.level == CURVE_P_256_Size) {
-            // OID of P256
-            sk.writeOID('1.2.840.10045.3.1.7');
-        } else {
-            throw Error("Not supported. Level " + this.level)
-        }
-        sk.endSequence();
-        return sk.buffer;
-    }
-
-    /**
-     * Get the security level
-     * @returns The security level
-     */
-    getSecurityLevel():number {
-        return this.level;
-    }
-
-    /**
-     * Set the security level
-     * @params securityLevel The security level
-     */
-    setSecurityLevel(securityLevel:number):void {
-        this.level = securityLevel;
-    }
-
-    /**
-     * Get the hash algorithm
-     * @returns {string} The hash algorithm
-     */
-    getHashAlgorithm():string {
-        return this.hashAlgorithm;
-    }
-
-    /**
-     * Set the hash algorithm
-     * @params hashAlgorithm The hash algorithm ('SHA2' or 'SHA3')
-     */
-    setHashAlgorithm(hashAlgorithm:string):void {
-        this.hashAlgorithm = hashAlgorithm;
-    }
-
 
 }  // end Crypto class
 
@@ -721,17 +666,11 @@ function bytesToBits(bytes) {
     return out;
 }
 
-function hexToBytes(hex) {
-    for (var bytes = [], c = 0; c < hex.length; c += 2)
-        bytes.push(parseInt(hex.substr(c, 2), 16));
-    return bytes;
-};
-
-function zeroBuffer(length) {
+function _zeroBuffer(length) {
     var buf = new Buffer(length);
     buf.fill(0);
     return buf
-};
+}
 
 // utility function to convert Node buffers to Javascript arraybuffer
 function _toArrayBuffer(buffer) {
@@ -741,7 +680,7 @@ function _toArrayBuffer(buffer) {
         view[i] = buffer[i];
     }
     return ab;
-};
+}
 
 // utility function to convert Javascript arraybuffer to Node buffers
 function _toBuffer(ab) {
@@ -751,4 +690,4 @@ function _toBuffer(ab) {
         buffer[i] = view[i];
     }
     return buffer;
-};
+}

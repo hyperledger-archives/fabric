@@ -213,11 +213,11 @@ test('Deploy a chaincode by enrolled user', function (t) {
     // Construct the invoke request
     var deployRequest = {
         // Name (hash) required for invoke
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "init",
+        fcn: "init",
         // Parameters for the invoke function
-        arguments: ["a", "100", "b", "200"]
+        args: ["a", "100", "b", "200"]
     };
 
     // Trigger the invoke transaction
@@ -261,11 +261,11 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "query",
+        fcn: "query",
         // Existing state variable to retrieve
-        arguments: ["a"]
+        args: ["a"]
     };
 
     // Trigger the query transaction
@@ -291,11 +291,11 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "query",
+        fcn: "query",
         // Existing state variable to retrieve
-        arguments: ["a"]
+        args: ["a"]
     };
 
     // Trigger the query transaction
@@ -327,11 +327,11 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "query",
+        fcn: "query",
         // Existing state variable to retrieve
-        arguments: ["BOGUS"]
+        args: ["BOGUS"]
     };
 
     // Trigger the query transaction
@@ -360,11 +360,11 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "BOGUS",
+        fcn: "BOGUS",
         // Existing state variable to retrieve
-        arguments: ["a"]
+        args: ["a"]
     };
 
     // Trigger the query transaction
@@ -392,11 +392,11 @@ test('Invoke a chaincode by enrolled user', function (t) {
     // Construct the invoke request
     var invokeRequest = {
         // Name (hash) required for invoke
-        name: testChaincodeHash,
+        chaincodeID: testChaincodeHash,
         // Function to trigger
-        function: "invoke",
+        fcn: "invoke",
         // Parameters for the invoke function
-        arguments: ["a", "b", deltaAB]
+        args: ["a", "b", deltaAB]
     };
 
     // Trigger the invoke transaction
@@ -421,5 +421,3 @@ test('Invoke a chaincode by enrolled user', function (t) {
         t.end(err);
     });
 });
-
-

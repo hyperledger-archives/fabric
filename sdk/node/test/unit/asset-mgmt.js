@@ -34,10 +34,10 @@ function getUser(name, cb) {
         if (user.isEnrolled()) return cb();
         // User is not enrolled yet, so perform both registration and enrollment
         var registrationRequest = {
-            registrar: registrar.user,
             enrollmentID: name,
             account: "bank_a",
-            affiliation: "00001"
+            affiliation: "00001",
+            registrar: registrar.user,
         };
         user.registerAndEnroll(registrationRequest, function (err) {
             if (err) cb(err, null)
@@ -115,9 +115,9 @@ test('Enroll Charlie', function (t) {
 test("Alice deploys chaincode", function (t) {
     console.log('Deploy and assigning administrative rights to Alice [%s]', alicesCert.encode().toString());
     var deployRequest = {
-        name: "assetmgmt",
-        function: 'init',
-        arguments: [],
+        chaincodeID: "assetmgmt",
+        fcn: 'init',
+        args: [],
         confidential: true,
         metadata: alicesCert.encode()
     };
@@ -145,7 +145,7 @@ test("Alice assign ownership", function (t) {
         // Parameters for the invoke function
         args: ['Ferrari', bobAppCert.encode().toString('base64')],
         confidential: true,
-        attrs: ['admin']
+        userCert: alicesCert
     };
 
     var tx = alice.invoke(invokeRequest);
