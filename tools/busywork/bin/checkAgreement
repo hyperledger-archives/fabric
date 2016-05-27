@@ -175,7 +175,9 @@ if {!$p_dir} {
 }
 
 if {[null [parms explicitPeers]]} {
-    busywork::networkToArray ::parms network.
+    if {[catch {busywork::networkToArray ::parms network.} msg]} {
+        errorExit $msg
+    }
     parms peers [parms network.peer.restAddresses]
 } else {
     parms peers [addPortToHosts [parms explicitPeers] [parms port]]
