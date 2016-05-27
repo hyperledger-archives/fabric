@@ -1127,7 +1127,7 @@ func TestReplicaCrash2(t *testing.T) {
 }
 
 // TestReplicaCrash3 simulates the restart requiring a view change
-// to a checkpoint which was restored from the persistance state
+// to a checkpoint which was restored from the persistence state
 // Replicas 0,1,2 participate up to a checkpoint, then all crash
 // Then replicas 0,1,3 start back up, and a view change must be
 // triggered to get vp3 up to speed

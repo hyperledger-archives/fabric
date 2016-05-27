@@ -68,7 +68,7 @@ type nextStateInfo struct {
 	sendToCC bool
 }
 
-// Handler responsbile for managment of Peer's side of chaincode stream
+// Handler responsbile for management of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
 	ChatStream  ccintf.ChaincodeStream
@@ -1386,7 +1386,7 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	return filteredErr
 }
 
-// Filter the Errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil
+// Filter the Errors to allow NoTransitionError and CanceledError to not propagate for cases where embedded Err == nil
 func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {

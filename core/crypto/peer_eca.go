@@ -19,10 +19,11 @@ package crypto
 import (
 	"crypto/x509"
 	"fmt"
+	"strconv"
+
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
-	"strconv"
 )
 
 func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
@@ -65,17 +66,17 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	peer.debug("Reading certificate for hash [% x]", id)
 
 	req := &membersrvc.Hash{Hash: id}
-	responce, err := peer.callECAReadCertificateByHash(context.Background(), req)
+	response, err := peer.callECAReadCertificateByHash(context.Background(), req)
 	if err != nil {
 		peer.error("Failed requesting enrollment certificate [%s].", err.Error())
 
 		return nil, nil, err
 	}
 
-	peer.debug("Certificate for hash [% x] = [% x][% x]", id, responce.Sign, responce.Enc)
+	peer.debug("Certificate for hash [% x] = [% x][% x]", id, response.Sign, response.Enc)
 
-	// Verify responce.Sign
-	x509Cert, err := utils.DERToX509Certificate(responce.Sign)
+	// Verify response.Sign
+	x509Cert, err := utils.DERToX509Certificate(response.Sign)
 	if err != nil {
 		peer.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
@@ -103,7 +104,7 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 		return nil, nil, err
 	}
 
-	return responce.Sign, responce.Enc, nil
+	return response.Sign, response.Enc, nil
 }
 
 func (peer *peerImpl) getNodeEnrollmentCertificate(sid string) *x509.Certificate {

@@ -1467,7 +1467,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	}
 
 	//
-	// Deployment succeded
+	// Deployment succeeded
 	//
 
 	// Clients will need the chaincode name in order to invoke or query it, record it
@@ -1603,7 +1603,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 
 		//
-		// Invocation succeded
+		// Invocation succeeded
 		//
 
 		// Clients will need the txuuid in order to track it after invocation, record it
@@ -1642,7 +1642,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 
 		//
-		// Query succeded
+		// Query succeeded
 		//
 
 		// Clients will need the returned value, record it
@@ -1729,7 +1729,7 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	// The /devops endpoint is now considered deprecated and superceeded by the /chaincode endpoint
+	// The /devops endpoint is now considered deprecated and superseded by the /chaincode endpoint
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)

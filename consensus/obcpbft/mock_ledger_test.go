@@ -285,7 +285,7 @@ func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*p
 
 		if nil != err {
 			n--
-			// To accomodate Sieve, it's possible to ask for a block that hasn't been committed yet
+			// To accommodate Sieve, it's possible to ask for a block that hasn't been committed yet
 			// because Sieve must broadcast the verify set before it is committed
 			fmt.Printf("TEST LEDGER: Block not ready yet")
 			time.Sleep(100 * time.Millisecond)
