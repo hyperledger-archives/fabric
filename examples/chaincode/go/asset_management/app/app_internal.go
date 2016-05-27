@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/platforms"
@@ -15,7 +17,6 @@ import (
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
-	"encoding/base64"
 )
 
 var (
@@ -171,7 +172,7 @@ func assignOwnershipInternal(invoker crypto.Client, invokerCert crypto.Certifica
 
 	chaincodeInput := &pb.ChaincodeInput{
 		Function: "assign",
-		Args: []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
+		Args:     []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
 	}
 	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
 	if err != nil {
@@ -223,7 +224,7 @@ func transferOwnershipInternal(owner crypto.Client, ownerCert crypto.Certificate
 
 	chaincodeInput := &pb.ChaincodeInput{
 		Function: "transfer",
-		Args: []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
+		Args:     []string{asset, base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())},
 	}
 	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
 	if err != nil {
