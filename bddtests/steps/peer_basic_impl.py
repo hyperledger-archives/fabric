@@ -14,109 +14,7 @@
 # limitations under the License.
 #
 
-import os
-import re
-import time
-import copy
-from datetime import datetime, timedelta
-
-import sys, requests, json
-
-import bdd_test_util
-
-CORE_REST_PORT = 5000
-
-class ContainerData:
-    def __init__(self, containerName, ipAddress, envFromInspect, composeService):
-        self.containerName = containerName
-        self.ipAddress = ipAddress
-        self.envFromInspect = envFromInspect
-        self.composeService = composeService
-
-    def getEnv(self, key):
-        envValue = None
-        for val in self.envFromInspect:
-            if val.startswith(key):
-                envValue = val[len(key):]
-                break
-        if envValue == None:
-            raise Exception("ENV key not found ({0}) for container ({1})".format(key, self.containerName))
-        return envValue
-
-def parseComposeOutput(context):
-    """Parses the compose output results and set appropriate values into context.  Merges existing with newly composed."""
-    # Use the prefix to get the container name
-    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-    containerNames = []
-    for l in context.compose_error.splitlines():
-        tokens = l.split()
-        print(tokens)
-        if 1 < len(tokens):
-            thisContainer = tokens[1]
-            if containerNamePrefix not in thisContainer:
-               thisContainer = containerNamePrefix + thisContainer + "_1"
-            if thisContainer not in containerNames:
-               containerNames.append(thisContainer)
-
-    print("Containers started: ")
-    print(containerNames)
-    # Now get the Network Address for each name, and set the ContainerData onto the context.
-    containerDataList = []
-    for containerName in containerNames:
-    	output, error, returncode = \
-        	bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_success=True)
-        #print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
-        ipAddress = output.splitlines()[0]
-
-        # Get the environment array
-        output, error, returncode = \
-            bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Env }}", containerName], expect_success=True)
-        env = output.splitlines()[0][1:-1].split()
-
-        # Get the Labels to access the com.docker.compose.service value
-        output, error, returncode = \
-            bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .Config.Labels }}", containerName], expect_success=True)
-        labels = output.splitlines()[0][4:-1].split()
-        dockerComposeService = [composeService[27:] for composeService in labels if composeService.startswith("com.docker.compose.service:")][0]
-        print("dockerComposeService = {0}".format(dockerComposeService))
-        print("container {0} has env = {1}".format(containerName, env))
-        containerDataList.append(ContainerData(containerName, ipAddress, env, dockerComposeService))
-    # Now merge the new containerData info with existing
-    newContainerDataList = []
-    if "compose_containers" in context:
-        # Need to merge I new list
-        newContainerDataList = context.compose_containers
-    newContainerDataList = newContainerDataList + containerDataList
-
-    setattr(context, "compose_containers", newContainerDataList)
-    print("")
-
-def ipFromContainerNamePart(namePart, containerDataList):
-	"""Returns the IPAddress based upon a name part of the full container name"""
-	ip = None
-	containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-	for containerData in containerDataList:
-	    if containerData.containerName.startswith(containerNamePrefix + namePart):
-	    	ip = containerData.ipAddress
-	if ip == None:
-		raise Exception("Could not find container with namePart = {0}".format(namePart))
-	return ip
-
-def buildUrl(context, ipAddress, path):
-    schema = "http"
-    if 'TLS' in context.tags:
-        schema = "https"
-    return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
-
-def currentTime():
-    return time.strftime("%H:%M:%S")
-
-def getDockerComposeFileArgsFromYamlFile(compose_yaml):
-    parts = compose_yaml.split()
-    args = []
-    for part in parts:
-        args = args + ["-f"] + [part]
-    return args
+from shared.common import *
 
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
@@ -128,7 +26,7 @@ def step_impl(context, composeYamlFile):
     context.compose_yaml = composeYamlFile
     fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     context.compose_output, context.compose_error, context.compose_returncode = \
-        bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
+        cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["up","--force-recreate", "-d"], expect_success=True)
     assert context.compose_returncode == 0, "docker-compose failed to bring up {0}".format(composeYamlFile)
     parseComposeOutput(context)
     time.sleep(10)              # Should be replaced with a definitive interlock guaranteeing that all peers/membersrvc are ready
@@ -541,7 +439,7 @@ def step_impl(context):
     # Loop through services and stop them, and remove from the container data list if stopped successfully.
     for service in services:
        context.compose_output, context.compose_error, context.compose_returncode = \
-           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "stop", service], expect_success=True)
+           cli_call(context, ["docker-compose", "-f", context.compose_yaml, "stop", service], expect_success=True)
        assert context.compose_returncode == 0, "docker-compose failed to stop {0}".format(service)
        #remove from the containerDataList
        context.compose_containers = [containerData for  containerData in context.compose_containers if containerData.composeService != service]
@@ -556,7 +454,7 @@ def step_impl(context):
     # Loop through services and start them
     for service in services:
        context.compose_output, context.compose_error, context.compose_returncode = \
-           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "start", service], expect_success=True)
+           cli_call(context, ["docker-compose", "-f", context.compose_yaml, "start", service], expect_success=True)
        assert context.compose_returncode == 0, "docker-compose failed to start {0}".format(service)
        parseComposeOutput(context)
     print("After starting peers, the container service list is = {0}".format([containerData.composeService + ":" + containerData.ipAddress for  containerData in context.compose_containers]))
