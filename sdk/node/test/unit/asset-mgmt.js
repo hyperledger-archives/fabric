@@ -24,6 +24,7 @@ var chain = hlc.newChain("testChain");
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
+chain.setDevMode(true);
 
 /**
  * Get the user and if not enrolled, register and enroll the user.
@@ -74,11 +75,9 @@ test('Enroll Alice', function (t) {
     getUser('Alice', function (err, user) {
         if (err) return fail(t, "enroll Alice", err);
         alice = user;
-
-        alice.getApplicationCertificate(function (err, appCert) {
+        alice.getUserCert(function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
-            alicesCert = appCert;
-
+            alicesCert = userCert;
             pass(t, "enroll Alice");
         })
     });
@@ -88,11 +87,9 @@ test('Enroll Bob', function (t) {
     getUser('Bob', function (err, user) {
         if (err) return fail(t, "enroll Bob", err);
         bob = user;
-
-        bob.getApplicationCertificate(function (err, appCert) {
+        bob.getUserCert(function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
-            bobAppCert = appCert;
-
+            bobAppCert = userCert;
             pass(t, "enroll Bob");
         })
     });
@@ -102,11 +99,9 @@ test('Enroll Charlie', function (t) {
     getUser('Charlie', function (err, user) {
         if (err) return fail(t, "enroll Charlie", err);
         charlie = user;
-
-        charlie.getApplicationCertificate(function (err, appCert) {
+        charlie.getUserCert(function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
-            charlieAppCert = appCert;
-
+            charlieAppCert = userCert;
             pass(t, "enroll Charlie");
         })
     });
@@ -123,13 +118,11 @@ test("Alice deploys chaincode", function (t) {
     };
     var tx = alice.deploy(deployRequest);
     tx.on('submitted', function (results) {
-        // chaincodeId = results;
-        chaincodeId = "assetmgmt";   // TODO: dev mode
-        // TODO: pass should be in the complete once it is done
-        pass(t, "Alice deploy chaincode. ID " + chaincodeId);
+        chaincodeId = results;
     });
     tx.on('complete', function (results) {
         console.log("deploy complete: %j", results);
+        pass(t, "Alice deploy chaincode. ID " + chaincodeId);
     });
     tx.on('error', function (err) {
         fail(t, "Alice depoy chaincode", err);
@@ -150,12 +143,11 @@ test("Alice assign ownership", function (t) {
 
     var tx = alice.invoke(invokeRequest);
     tx.on('submitted', function () {
-        console.log("query submitted");
-        // TODO: pass should be in the complete once it is done
-        pass(t, "Alice invoke");
+        console.log("invoke submitted");
     });
     tx.on('complete', function (results) {
         console.log("invoke completed");
+        pass(t, "Alice invoke");
     });
     tx.on('error', function (err) {
         fail(t, "Alice invoke", err);
@@ -167,23 +159,20 @@ test("Bob transfers ownership to Charlie", function (t) {
         // Name (hash) required for invoke
         name: chaincodeId,
         // Function to trigger
-        function: "transfer",
+        fcn: "transfer",
         // Parameters for the invoke function
-        arguments: ['Ferrari', charlieAppCert.encode().toString('base64')],
-
-        invoker: {appCert: bobAppCert},
+        args: ['Ferrari', charlieAppCert.encode().toString('base64')],
+        appCert: bobAppCert,
         confidential: true
     };
 
     var tx = bob.invoke(invokeRequest);
     tx.on('submitted', function () {
         console.log("query submitted");
-
-        // TODO: pass should be in the complete once it is done
-        pass(t, "Bob invoke");
     });
     tx.on('complete', function (results) {
         console.log("invoke completed");
+        pass(t, "Bob invoke");
     });
     tx.on('error', function (err) {
         fail(t, "Bob invoke", err);
@@ -191,20 +180,16 @@ test("Bob transfers ownership to Charlie", function (t) {
 });
 
 test("Alice queries chaincode", function (t) {
-    sleep.sleep(5);
     var queryRequest = {
         // Name (hash) required for query
-        name: chaincodeId,
+        chaincodeID: chaincodeId,
         // Function to trigger
-        function: "query",
+        fcn: "query",
         // Existing state variable to retrieve
-        arguments: ["Ferrari"],
+        args: ["Ferrari"],
         confidential: true
     };
     var tx = alice.query(queryRequest);
-    tx.on('submitted', function () {
-        console.log("query submitted");
-    });
     tx.on('complete', function (results) {
         console.log('Results          [%j]', results);
         console.log('Charlie identity [%s]', charlieAppCert.encode().toString('hex'));

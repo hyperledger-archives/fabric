@@ -23,6 +23,7 @@ var chain = hlc.newChain("testChain");
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
+chain.setDevMode(true);
 
 test('Enroll the registrar', function (t) {
     // Get the WebAppAdmin member
@@ -91,7 +92,7 @@ test("Bob invokes chaincode", function (t) {
     var tx = bob.invoke(invokeRequest);
     tx.on('submitted', function () {
         console.log("query submitted");
-        
+
         // TODO: pass should be in the complete once it is done
         pass(t, "Bob invoke");
     });
@@ -155,4 +156,3 @@ function fail(t, msg, err) {
     t.pass("Failure: [" + msg + "]: [" + err + "]");
     t.end(err);
 }
-

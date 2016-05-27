@@ -5,8 +5,48 @@
  * NOTE: This is in pure java script to be compatible with the sjcl.hmac function.
  */
 var sjcl = require('sjcl');
+var jssha = require('jssha');
 var sha3_256 = require('js-sha3').sha3_256;
 var sha3_384 = require('js-sha3').sha3_384;
+
+
+var hash_sha2_256 = function (hash) {
+
+    if (hash) {
+        this._hash = hash._hash;
+    }
+    else {
+        this.reset();
+    }
+};
+
+hash_sha2_256.hash = function (data) {
+    var hashBits = sjcl.codec.hex.toBits(sha2_256(bitsToBytes(data)));
+    return hashBits;
+};
+
+hash_sha2_256.prototype = {
+
+    blockSize: 1088,
+
+    reset: function () {
+        this._hash = jsSHA("SHA-256","TEXT");
+    },
+
+    update: function (data) {
+        this._hash.update(bitsToBytes(data));
+        return this;
+    },
+
+    finalize: function () {
+        var hash = this._hash.getHash('HEX');
+        var hashBits = sjcl.codec.hex.toBits(hash);
+        this.reset();
+        return hashBits;
+
+    }
+};
+
 
 var hash_sha3_256 = function (hash) {
 

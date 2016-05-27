@@ -39,6 +39,7 @@ var registrar = {
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
+chain.setDevMode(true);
 
 //
 // Configure test users
@@ -66,8 +67,7 @@ var test_user_Member1;
 //
 
 var testChaincodePath = "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02";
-//var testChaincodeHash = "300e52c2b2089bc7fe06679f5b1bc5ae6052695089d373697713a0dd89ac51c37e89c45efc59e67743e7da54413bd2dcdb8c5a627ed2d5b1f485377bf76cb227";
-var testChaincodeHash = "mycc";
+var testChaincodeID = "mycc";
 var initA = "100";
 var initB = "200";
 var deltaAB = "1";
@@ -75,7 +75,7 @@ var deltaAB = "1";
 function getUser(name, cb) {
     chain.getUser(name, function (err, user) {
         if (err) return cb(err);
-        if (user.isEnrolled()) return cb();
+        if (user.isEnrolled()) return cb(null,user);
         // User is not enrolled yet, so perform both registration and enrollment
         var registrationRequest = {
             registrar: registrar.user,
@@ -213,7 +213,7 @@ test('Deploy a chaincode by enrolled user', function (t) {
     // Construct the invoke request
     var deployRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeHash,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "init",
         // Parameters for the invoke function

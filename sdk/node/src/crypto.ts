@@ -426,8 +426,8 @@ export class Crypto {
                 hashSize = 48;
                 break;
             case "sha2-256":
-                debug("Using sha3-256");
-                //hash = hash_sha2_256;
+                debug("Using sha2-256");
+                hash = hashPrimitives.hash_sha2_384;
                 hashSize = 32;
                 break;
         }

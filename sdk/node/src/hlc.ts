@@ -47,6 +47,7 @@ let _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
 let _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
 let _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
+let net = require('net');
 
 let DEFAULT_SECURITY_LEVEL = 256;
 let DEFAULT_HASH_ALGORITHM = "SHA3";
@@ -201,6 +202,9 @@ export class Certificate {
     }
 }
 
+/**
+ * Enrollment certificate.
+ */
 export class ECert extends Certificate {
 
     constructor(public cert:Buffer,
@@ -210,6 +214,9 @@ export class ECert extends Certificate {
 
 }
 
+/**
+ * Transaction certificate.
+ */
 export class TCert extends Certificate {
     constructor(public publicKey:any,
                 public privateKey:any) {
@@ -217,9 +224,12 @@ export class TCert extends Certificate {
     }
 }
 
+/**
+ * A base transaction request common for deploy, query, and invoke.
+ */
 export interface TransactionRequest {
     // The chaincode ID as provided by the 'submitted' event emitted by a TransactionContext
-    chaincodeId:string;
+    chaincodeID:string;
     // The name of the function to invoke
     fcn:string;
     // The arguments to pass to the chaincode invocation
@@ -232,19 +242,31 @@ export interface TransactionRequest {
     metadata?:Buffer
 }
 
+/**
+ * Deploy request.
+ */
 export interface DeployRequest extends TransactionRequest {
 }
 
+/**
+ * Query request.
+ */
 export interface QueryRequest extends TransactionRequest {
     // Optionally pass a list of attributes which can be used by chaincode to perform access control
     attrs?:string[];
 }
 
+/**
+ * Invoke request.
+ */
 export interface InvokeRequest extends TransactionRequest {
     // Optionally pass a list of attributes which can be used by chaincode to perform access control
     attrs?:string[];
 }
 
+/**
+ * A transaction.
+ */
 export interface Transaction {
     getType():string;
     setCert(cert:Buffer):void;
@@ -263,13 +285,22 @@ export interface Transaction {
     toBuffer():Buffer;
 }
 
+/**
+ * Common error callback.
+ */
 export interface ErrorCallback { (err:Error):void }
 
+/**
+ * Get a value callback.
+ */
 export interface GetValueCallback { (err:Error, value?:string):void }
 
+/**
+ * The class representing a chain with which the client SDK interacts.
+ */
 export class Chain {
 
-    // Name of the chain is only meaningful to the client (currently)
+    // Name of the chain is only meaningful to the client
     private name:string;
 
     // The peers on this chain to which the client can connect
@@ -293,6 +324,9 @@ export class Chain {
 
     // The key-val store used for this chain
     private keyValStore:KeyValStore;
+
+    // Is in dev mode or network mode
+    private devMode:boolean = false;
 
     // The crypto primitives object
     cryptoPrimitives:crypto.Crypto;
@@ -377,6 +411,20 @@ export class Chain {
     }
 
     /**
+     * Determine if dev mode is enabled.
+     */
+    isDevMode():boolean {
+        return this.devMode
+    }
+
+    /**
+     * Set dev mode to true or false.
+     */
+    setDevMode(devMode:boolean):void {
+        this.devMode = devMode;
+    }
+
+    /**
      * Get the key val store implementation (if any) that is currently associated with this chain.
      * @returns {KeyValStore} Return the current KeyValStore associated with this chain, or undefined if not set.
      */
@@ -445,15 +493,33 @@ export class Chain {
      * @param eventEmitter An event emitter
      */
     sendTransaction(tx:Transaction, eventEmitter:events.EventEmitter) {
-        let self = this;
-        if (self.peers.length === 0) {
-            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", self.getName())));
+        if (this.peers.length === 0) {
+            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", this.getName())));
         }
-        // Always send to 1st peer for now.  TODO: failover
-        let peer = self.peers[0];
-        peer.sendTransaction(tx, eventEmitter);
+        let peers = this.peers;
+        let trySendTransaction = (pidx) => {
+	    if( pidx >= peers.length ) {
+		eventEmitter.emit('error', "None of "+peers.length+" peers reponding");
+		return;
+	    }
+	    let p = urlParser.parse(peers[pidx].getUrl());
+	    let client = new net.Socket();
+	    let tryNext = () => {
+		debug("Skipping unresponsive peer "+peers[pidx].getUrl());
+		client.destroy();
+		trySendTransaction(pidx+1);
+	    }
+	    client.on('timeout', tryNext);
+	    client.on('error', tryNext);
+	    client.connect(p.port, p.hostname, () => {
+		if( pidx > 0  &&  peers === this.peers )
+		    this.peers = peers.slice(pidx).concat(peers.slice(0,pidx));
+		client.destroy();
+		peers[pidx].sendTransaction(tx, eventEmitter);
+	    });
+	}
+	trySendTransaction(0);
     }
-
 }
 
 export class Member {
@@ -727,7 +793,7 @@ export class Member {
         return new TransactionContext(this, tcert);
     }
 
-    getApplicationCertificate(cb:GetTCertCallback):void {
+    getUserCert(cb:GetTCertCallback):void {
         this.getNextTCert(cb);
     }
 
@@ -835,7 +901,6 @@ export class TransactionContext extends events.EventEmitter {
         this.chain = member.getChain();
         this.memberServices = this.chain.getMemberServices();
         this.tcert = tcert;
-
         this.nonce = this.chain.cryptoPrimitives.generateNonce();
     }
 
@@ -1113,7 +1178,7 @@ export class TransactionContext extends events.EventEmitter {
      * Create a deploy transaction.
      * @param request {Object} A BuildRequest or DeployRequest
      */
-    private newBuildOrDeployTransaction(request:any, isBuildRequest:boolean):Transaction {
+    private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean):Transaction {
         let self = this;
         let tx = new _fabricProto.Transaction();
         if (isBuildRequest) {
@@ -1123,7 +1188,7 @@ export class TransactionContext extends events.EventEmitter {
         }
         // Set the chaincodeID
         let chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.name);
+        chaincodeID.setName(request.chaincodeID);
         debug("newBuildOrDeployTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
 
@@ -1135,8 +1200,8 @@ export class TransactionContext extends events.EventEmitter {
         chaincodeSpec.setChaincodeID(chaincodeID);
         // Set ctorMsg
         let chaincodeInput = new _chaincodeProto.ChaincodeInput();
-        chaincodeInput.setFunction(request.function);
-        chaincodeInput.setArgs(request.arguments);
+        chaincodeInput.setFunction(request.fcn);
+        chaincodeInput.setArgs(request.args);
         chaincodeSpec.setCtorMsg(chaincodeInput);
 
         // Construct the ChaincodeDeploymentSpec (i.e. the payload)
@@ -1145,7 +1210,11 @@ export class TransactionContext extends events.EventEmitter {
         tx.setPayload(chaincodeDeploymentSpec.toBuffer());
 
         // Set the transaction UUID
-        tx.setUuid(generateUUID());
+        if (self.chain.isDevMode()) {
+            tx.setUuid(request.chaincodeID);
+        } else {
+            tx.setUuid(generateUUID());
+        }
 
         // Set the transaction timestamp
         tx.setTimestamp(generateTimestamp());
@@ -1306,51 +1375,63 @@ export class Peer {
         // The rpc specification on the peer side is:
         //     rpc ProcessTransaction(Transaction) returns (Response) {}
         self.peerClient.processTransaction(tx, function (err, response) {
-                if (err) {
-                    debug("peer.sendTransaction: error=%j", err);
-                    return eventEmitter.emit('error', err);
-                }
-
-                debug("peer.sendTransaction: received %j", response);
-
-                // Check transaction type here, as deploy/invoke are asynchronous calls,
-                // whereas a query is a synchonous call. As such, deploy/invoke will emit
-                // 'submitted' and 'error', while a query will emit 'complete' and 'error'.
-                let txType = tx.getType();
-                switch (txType) {
-                    case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
-                        if (response.status === "SUCCESS") {
-                            // Deploy transaction has been submitted
-                            eventEmitter.emit('submitted', response.msg);
-                        } else {
-                            // Deploy completed with status "FAILURE" or "UNDEFINED"
-                            eventEmitter.emit('error', response.msg);
-                        }
-                        break;
-                    case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
-                        if (response.status === "SUCCESS") {
-                            // Invoke transaction has been submitted
-                            eventEmitter.emit('submitted', response.msg);
-                        } else {
-                            // Invoke completed with status "FAILURE" or "UNDEFINED"
-                            eventEmitter.emit('error', response.msg);
-                        }
-                        break;
-                    case _fabricProto.Transaction.Type.CHAINCODE_QUERY: // sync
-                        if (response.status === "SUCCESS") {
-                            // Query transaction has been completed
-                            eventEmitter.emit('complete', response.msg);
-                        } else {
-                            // Query completed with status "FAILURE" or "UNDEFINED"
-                            eventEmitter.emit('error', response.msg);
-                        }
-                        break;
-                    default: // not implemented
-                        eventEmitter.emit('error', new Error("processTransaction for this transaction type is not yet implemented!"));
-                }
+            var self = this;
+            if (err) {
+                debug("peer.sendTransaction: error=%j", err);
+                return eventEmitter.emit('error', err);
             }
-        );
+
+            debug("peer.sendTransaction: received %j", response);
+
+            // Check transaction type here, as deploy/invoke are asynchronous calls,
+            // whereas a query is a synchonous call. As such, deploy/invoke will emit
+            // 'submitted' and 'error', while a query will emit 'complete' and 'error'.
+            let txType = tx.getType();
+            switch (txType) {
+                case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
+                    if (response.status === "SUCCESS") {
+                        // Deploy transaction has been submitted
+                       eventEmitter.emit('submitted', response.msg);
+                       self.awaitCompletion(eventEmitter);
+                    } else {
+                        // Deploy completed with status "FAILURE" or "UNDEFINED"
+                        eventEmitter.emit('error', response.msg);
+                    }
+                    break;
+                case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
+                    if (response.status === "SUCCESS") {
+                        // Invoke transaction has been submitted
+                        eventEmitter.emit('submitted', response.msg);
+                        self.awaitCompletion(eventEmitter);
+                    } else {
+                        // Invoke completed with status "FAILURE" or "UNDEFINED"
+                        eventEmitter.emit('error', response.msg);
+                    }
+                    break;
+                case _fabricProto.Transaction.Type.CHAINCODE_QUERY: // sync
+                    if (response.status === "SUCCESS") {
+                        // Query transaction has been completed
+                        eventEmitter.emit('complete', response.msg);
+                    } else {
+                        // Query completed with status "FAILURE" or "UNDEFINED"
+                        eventEmitter.emit('error', response.msg);
+                    }
+                    break;
+                default: // not implemented
+                    eventEmitter.emit('error', new Error("processTransaction for this transaction type is not yet implemented!"));
+             }
+          }
+      );
     };
+
+    /**
+     * For now, just wait 5 seconds and then fire the complete event.
+     * This is a temporary hack until event notification is implemented.
+     * TODO: implement this appropriately.
+     */
+    private awaitCompletion(eventEmitter:events.EventEmitter): void {
+        setTimeout(eventEmitter.emit.bind('complete'),5000);
+    }
 
     /**
      * Remove the peer from the chain.
