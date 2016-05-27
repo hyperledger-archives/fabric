@@ -174,6 +174,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	// Now create the Transactions message and send to Peer.
         var userGivenData = chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0]
         var userGivenBytes []byte
+        var uuid string
         if invoke {
                 var encerr error
                 userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenData)
@@ -181,13 +182,13 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
                         devopsLogger.Info("Failed to decode b64 data.")
                         return nil, encerr
                 }
+                uuid = util.GetTransactionHashAsStr(userGivenBytes)
         } else {
                 devopsLogger.Info("Argument is used for querying, it is not Base64")
                 // For queries, we use UUID instead of TxID, because
                 // in this case the argument is not a Base64 encoded byte sequence
-                userGivenBytes = util.GenerateBytesUUID()
+                uuid = util.GenerateUUID()
         }
-        var uuid = util.GetTransactionHashAsStr(userGivenBytes)
         devopsLogger.Info("Transaction TxID (UUID): %x", uuid)
 	var transaction *pb.Transaction
 	var err error
