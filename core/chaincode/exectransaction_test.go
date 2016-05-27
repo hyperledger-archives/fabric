@@ -362,7 +362,7 @@ func TestGopathExecuteDeployTransaction(t *testing.T) {
 
 // Test deploy of a transaction with a chaincode over HTTP.
 func TestHTTPExecuteDeployTransaction(t *testing.T) {
-	// The chaincode used here cannot be from the hyperledger repo
+	// The chaincode used here cannot be from the fabric repo
 	// itself or it won't be downloaded because it will be found
 	// in GOPATH, which would defeat the test
 	executeDeployTransaction(t, "http://github.com/hyperledger/fabric-test-resources/examples/chaincode/go/chaincode_example01")
