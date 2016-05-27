@@ -50,7 +50,7 @@ let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 let net = require('net');
 
 let DEFAULT_SECURITY_LEVEL = 256;
-let DEFAULT_HASH_ALGORITHM = "SHA3";
+let DEFAULT_HASH_ALGORITHM = "SHA2";
 let CONFIDENTIALITY_1_2_STATE_KD_C6 = 6;
 
 let _chains = {};
