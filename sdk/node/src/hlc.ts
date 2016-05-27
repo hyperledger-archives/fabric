@@ -123,32 +123,47 @@ export interface MemberServices {
      * 'num' is the number of transaction contexts to obtain.
      * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
      */
-    getTCerts(req:{name:string, enrollment:Enrollment, num:number}, cb:GetTCertsCallback):void;
+    getTCertBatch(req:{name:string, enrollment:Enrollment, num:number}, cb:GetTCertBatchCallback):void;
 
 }
 
+/**
+ * A registration request is information required to register a user, peer, or other
+ * type of member.
+ */
 export interface RegistrationRequest {
+    // The enrollment ID of the member
     enrollmentID:string;
-    roles?:string[];
+    // Roles associated with this member.
+    // Fabric roles include: 'user', 'peer', 'validator', 'auditor'
+    // Default value: ['user']
+    memberTypes?:string[];
+    // Account name (TODO: remove when account is removed from member services)
     account:string;
+    // Affiliation for a user
     affiliation:string;
-    // 'registrar' enables this identity to register other members with roles 'roles'
+    // 'registrar' enables this identity to register other members with types
     // and can delegate the 'delegationRoles' roles
-    registrar?:{ roles:string[], delegationRoles?:string[] };
+    registrar?:{
+        // The allowable member types which this member can register
+        memberTypes:string[],
+        // The allowable member types which can be registered by members registered by this member
+        delegationMemberTypes?:string[]
+    };
 }
 
 export interface EnrollmentRequest {
+    // The enrollment ID
     enrollmentID:string;
+    // The enrollment secret (a one-time password)
     enrollmentSecret:string;
 }
 
-export interface GetMemberCallback { (err:Error, member?:Member):void
-}
+export interface GetMemberCallback { (err:Error, member?:Member):void }
 
-export interface RegisterCallback {(err:Error, enrollmentPassword?:string):void
-}
+export interface RegisterCallback {(err:Error, enrollmentPassword?:string):void }
 
-export interface EnrollCallback {(err:Error, enrollment?:Enrollment):void;}
+export interface EnrollCallback {(err:Error, enrollment?:Enrollment):void }
 
 export interface Enrollment {
     key:Buffer;
@@ -156,20 +171,19 @@ export interface Enrollment {
     chainKey:string;
 }
 
-export interface GetTCertsRequest {
+export interface GetTCertBatchRequest {
     name:string;
-    enrollment:Enrollment; // Return value from MemberServices.enroll
-    num:number;       // Number of tcerts to retrieve
+    // Return value from MemberServices.enroll
+    enrollment:Enrollment;
+    // Number of tcerts to retrieve
+    num:number;
 }
 
-export interface GetTCertsCallback { (err:Error, tcerts?:TCert[]):void
-}
+export interface GetTCertBatchCallback { (err:Error, tcerts?:TCert[]):void }
 
-export interface GetTCertCallback { (err:Error, tcert?:TCert):void
-}
+export interface GetTCertCallback { (err:Error, tcert?:TCert):void }
 
-export interface GetTCertCallback { (err:Error, tcert?:TCert):void
-}
+export interface GetTCertCallback { (err:Error, tcert?:TCert):void }
 
 export enum PrivacyLevel {
     Nominal = 0,
@@ -179,7 +193,7 @@ export enum PrivacyLevel {
 export class Certificate {
     constructor(public cert:Buffer,
                 /** Denoting if the Certificate is anonymous or carrying its owner's identity. */
-                public privLevel?:PrivacyLevel) {
+                public privLevel?:PrivacyLevel) {  // TODO: privLevel not currently used?
     }
 
     encode():Buffer {
@@ -203,25 +217,27 @@ export class TCert extends Certificate {
     }
 }
 
-export interface TransactionRequest {
-    getType():string;
+export interface DeployRequest {
+
 }
 
-export interface BuildRequest extends TransactionRequest {
+export interface QueryRequest {
+
 }
 
-export interface DeployRequest extends TransactionRequest {
-}
-
-export interface InvokeRequest extends TransactionRequest {
-    chainCodeId:string;
+export interface InvokeRequest {
+    // The chaincode ID as provided by the 'submitted' event emitted by a TransactionContext
+    chaincodeId:string;
+    // The name of the function to invoke
     fcn:string;
+    // The arguments to pass to the chaincode invocation
     args:string[];
+    // Optionally make the invoke request confidential
     confidential?:boolean;
-    invoker?:Buffer;
-}
-
-export interface QueryRequest extends TransactionRequest {
+    // Optionally provide a certificate which can be used by chaincode to perform access control
+    cert?:Buffer;
+    // Optionally pass a list of attributes which can be used by chaincode to perform access control
+    attrs?:string[];
 }
 
 export interface Transaction {
@@ -242,11 +258,9 @@ export interface Transaction {
     toBuffer():Buffer;
 }
 
-export interface ErrorCallback { (err:Error):void
-}
+export interface ErrorCallback { (err:Error):void }
 
-export interface GetValueCallback { (err:Error, value?:string):void
-}
+export interface GetValueCallback { (err:Error, value?:string):void }
 
 export class Chain {
 
@@ -656,16 +670,12 @@ export class Member {
             debug("previously enrolled, enrollment=%j", enrollment);
             return cb(null);
         }
-
         self.register(registrationRequest, function (err, enrollmentSecret) {
             if (err) return cb(err);
-
             self.enroll(enrollmentSecret, function (err, enrollment) {
                 if (err) return cb(err);
-
                 cb(null);
             });
-
         });
     }
 
@@ -734,7 +744,7 @@ export class Member {
             enrollment: self.enrollment,
             num: self.getTCertBatchSize()
         };
-        self.memberServices.getTCerts(req, function (err, tcerts) {
+        self.memberServices.getTCertBatch(req, function (err, tcerts) {
             if (err) return cb(err);
             self.tcerts = tcerts;
             return cb(null, self.tcerts.shift());
@@ -1439,7 +1449,7 @@ class MemberServicesImpl {
         if (!req.enrollmentID) return cb(new Error("missing req.enrollmentID"));
         var protoReq = new _caProto.RegisterUserReq();
         protoReq.setId({id: req.enrollmentID});
-        protoReq.setRole(rolesToMask(req.roles));
+        protoReq.setRole(memberTypesToMask(req.memberTypes));
         protoReq.setAccount(req.account);
         protoReq.setAffiliation(req.affiliation);
         self.ecaaClient.registerUser(protoReq, function (err, token) {
@@ -1554,7 +1564,7 @@ class MemberServicesImpl {
      * 'num' is the number of transaction contexts to obtain.
      * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
      */
-    getTCerts = function (req:GetTCertsRequest, cb:GetTCertsCallback) {
+    getTCertBatch = function (req:GetTCertBatchRequest, cb:GetTCertBatchCallback) {
         let self = this;
         cb = cb || nullCB;
 
@@ -1585,11 +1595,11 @@ class MemberServicesImpl {
         self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, resp) {
             if (err) return cb(err);
             // debug('tCertCreateSetResp:\n', resp);
-            cb(null, self.processTCerts(req, resp));
+            cb(null, self.processTCertBatch(req, resp));
         });
     }
 
-    private processTCerts(req:GetTCertsRequest, resp:any):TCert[] {
+    private processTCertBatch(req:GetTCertBatchRequest, resp:any):TCert[] {
         let self = this;
 
         //
@@ -1666,11 +1676,11 @@ class MemberServicesImpl {
         }
 
         if (tCertBatch.length == 0) {
-            throw Error('Failed fetching TCerts. No valid TCert received.')
+            throw Error('Failed fetching TCertBatch. No valid TCert received.')
         }
         return tCertBatch;
 
-    } // end processTCerts
+    } // end processTCertBatch
 
 } // end MemberServicesImpl
 
@@ -1777,23 +1787,22 @@ function parseUrl(url:string):any {
     return purl;
 }
 
-// Convert a list of role names to the role mask currently used by the peer
-// See the mapping of role names to the mask values below
-function rolesToMask(roles?:string[]):number {
+// Convert a list of member type names to the role mask currently used by the peer
+function memberTypesToMask(memberTypes?:string[]):number {
     let mask:number = 0;
-    if (roles) {
-        for (let role in roles) {
-            switch (role) {
-                case 'fabric.user':
+    if (memberTypes) {
+        for (let memberType in memberTypes) {
+            switch (memberType) {
+                case 'user':
                     mask |= 1;
                     break;       // Client mask
-                case 'fabric.peer':
+                case 'peer':
                     mask |= 2;
                     break;       // Peer mask
-                case 'fabric.validator':
+                case 'validator':
                     mask |= 4;
                     break;  // Validator mask
-                case 'fabric.auditor':
+                case 'auditor':
                     mask |= 8;
                     break;    // Auditor mask
             }

@@ -15,7 +15,7 @@ var registrar = {
 };
 
 var alice, bob, charlie, chaincodeId;
-var aliceAppCert, bobAppCert, charlieAppCert;
+var alicesCert, bobAppCert, charlieAppCert;
 
 //
 //  Create and configure a test chain
@@ -56,9 +56,6 @@ function fail(t, msg, err) {
     t.end(err);
 }
 
-
-
-
 test('Enroll the registrar', function (t) {
     // Get the WebAppAdmin member
     chain.getUser(registrar.name, function (err, user) {
@@ -77,10 +74,10 @@ test('Enroll Alice', function (t) {
     getUser('Alice', function (err, user) {
         if (err) return fail(t, "enroll Alice", err);
         alice = user;
-        
+
         alice.getApplicationCertificate(function (err, appCert) {
             if (err) fail(t, "Failed getting Application certificate.");
-            aliceAppCert = appCert;
+            alicesCert = appCert;
 
             pass(t, "enroll Alice");
         })
@@ -116,19 +113,18 @@ test('Enroll Charlie', function (t) {
 });
 
 test("Alice deploys chaincode", function (t) {
-    console.log('Deploy and assigning administrative rights to Alice [%s]', aliceAppCert.encode().toString());
+    console.log('Deploy and assigning administrative rights to Alice [%s]', alicesCert.encode().toString());
     var deployRequest = {
         name: "assetmgmt",
         function: 'init',
         arguments: [],
         confidential: true,
-        metadata: aliceAppCert.encode()
+        metadata: alicesCert.encode()
     };
     var tx = alice.deploy(deployRequest);
     tx.on('submitted', function (results) {
         // chaincodeId = results;
         chaincodeId = "assetmgmt";   // TODO: dev mode
-
         // TODO: pass should be in the complete once it is done
         pass(t, "Alice deploy chaincode. ID " + chaincodeId);
     });
@@ -143,20 +139,18 @@ test("Alice deploys chaincode", function (t) {
 test("Alice assign ownership", function (t) {
     var invokeRequest = {
         // Name (hash) required for invoke
-        name: chaincodeId,
+        chaincodeId: chaincodeId,
         // Function to trigger
-        function: "assign",
+        fcn: "assign",
         // Parameters for the invoke function
-        arguments: ['Ferrari', bobAppCert.encode().toString('base64')],
-
-        invoker: {appCert: aliceAppCert},
-        confidential: true
+        args: ['Ferrari', bobAppCert.encode().toString('base64')],
+        confidential: true,
+        attrs: ['admin']
     };
 
     var tx = alice.invoke(invokeRequest);
     tx.on('submitted', function () {
         console.log("query submitted");
-
         // TODO: pass should be in the complete once it is done
         pass(t, "Alice invoke");
     });
@@ -167,7 +161,6 @@ test("Alice assign ownership", function (t) {
         fail(t, "Alice invoke", err);
     });
 });
-
 
 test("Bob transfers ownership to Charlie", function (t) {
     var invokeRequest = {
