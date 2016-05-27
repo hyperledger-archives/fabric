@@ -172,7 +172,23 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	// util.GenerateUUID()
+        var userGivenData = chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0]
+        var userGivenBytes []byte
+        if invoke {
+                var encerr error
+                userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenData)
+                if nil != encerr {
+                        devopsLogger.Info("Failed to decode b64 data.")
+                        return nil, encerr
+                }
+        } else {
+                devopsLogger.Info("Argument is used for querying, it is not Base64")
+                // TODO: In case of query transaction the Tx ID can be anything
+                // but we could have an ID that makes more sense than this
+                userGivenBytes = []byte(userGivenData) 
+        }
+        var uuid = util.GetTransactionHashAsStr(userGivenBytes)
+        devopsLogger.Info("Transaction TxID (UUID): %x", uuid)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -188,7 +204,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-        transaction, err = d.createExecTx(chaincodeInvocationSpec, invoke, sec)
+        transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
@@ -209,25 +225,24 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	return resp, err
 }
 
-func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
-        var temp_uuid = ""
 	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating secure invocation transaction %s", temp_uuid)
+			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
 		}
 		if invokeTx {
-			tx, err = sec.NewChaincodeExecute(spec, temp_uuid)
+			tx, err = sec.NewChaincodeExecute(spec, uuid)
 		} else {
-			tx, err = sec.NewChaincodeQuery(spec, temp_uuid)
+			tx, err = sec.NewChaincodeQuery(spec, uuid)
 		}
 		if nil != err {
 			return nil, err
 		}
 	} else {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating invocation transaction (%s)", temp_uuid)
+			devopsLogger.Debug("Creating invocation transaction (%s)", uuid)
 		}
 		var t pb.Transaction_Type
 		if invokeTx {
@@ -235,28 +250,11 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, invokeTx bool, s
 		} else {
 			t = pb.Transaction_CHAINCODE_QUERY
 		}
-		tx, err = pb.NewChaincodeExecute(spec, temp_uuid, t)
+		tx, err = pb.NewChaincodeExecute(spec, uuid, t)
 		if nil != err {
 			return nil, err
 		}
 	}
-        var userGivenData = spec.ChaincodeSpec.CtorMsg.Args[0]
-        var userGivenBytes []byte
-        if invokeTx {
-                var encerr error
-                userGivenBytes, encerr = base64.StdEncoding.DecodeString(userGivenData)
-                if nil != encerr {
-                        devopsLogger.Info("Failed to decode b64 data.")
-                        return nil, encerr
-                }
-        } else {
-                devopsLogger.Info("Argument is used for querying, it is not Base64")
-                // TODO: In case of query transaction the Tx ID can be anything
-                // but we could have an ID that makes more sense than this
-                userGivenBytes = []byte(userGivenData) 
-        }
-        tx.Uuid = util.GetTransactionHashAsStr(userGivenBytes)
-        devopsLogger.Info("Transaction TxID (UUID): %x", tx.Uuid)
         return tx, nil
 }
 
