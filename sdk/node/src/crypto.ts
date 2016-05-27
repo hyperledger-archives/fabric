@@ -69,26 +69,15 @@ export class Crypto {
     private securityLevel:number;
     private curveName:string;
     private suite:string;
+    private hashFunction:any;
+    private hashFunctionKeyDerivation:any;
+    private hashOutputSize:number;
+    private ecdsaCurve:any;
 
     constructor(hashAlgorithm:string, securityLevel:number) {
-        hashAlgorithm = hashAlgorithm.toUpperCase();
-        if (hashAlgorithm == SHA2) {
-            throw Error("SHA2 is not yet supported");
-        } else if (hashAlgorithm == SHA3) {
-            this.hashAlgorithm = SHA3;
-        } else {
-            throw Error("unknown hash algorithm: " + hashAlgorithm);
-        }
-        this.checkLevel(securityLevel);
+        this.hashAlgorithm = hashAlgorithm;
         this.securityLevel = securityLevel;
-        this.suite = hashAlgorithm.toLowerCase() + '-' + this.securityLevel;
-        if (securityLevel == CURVE_P_256_Size) {
-            this.curveName = "secp256r1"
-        } else if (securityLevel == CURVE_P_384_Size) {
-            this.curveName = "secp384r1";
-        } else {
-            throw new Error("Invalid security level: " + securityLevel);
-        }
+        this.initiliaze()
     }
 
     /**
@@ -105,6 +94,7 @@ export class Crypto {
      */
     setSecurityLevel(securityLevel:number):void {
         this.securityLevel = securityLevel;
+        this.initiliaze();
     }
 
     /**
@@ -121,6 +111,7 @@ export class Crypto {
      */
     setHashAlgorithm(hashAlgorithm:string):void {
         this.hashAlgorithm = hashAlgorithm;
+        this.initiliaze();
     }
 
     generateNonce() {
@@ -128,72 +119,26 @@ export class Crypto {
     }
 
     ecdsaKeyGen() {
-        var curve;
-        // select curve and hash algo based on level
-        switch (this.securityLevel) {
-            case 256:
-                curve = "secp256r1";
-                break;
-            case 384:
-                curve = "secp384r1";
-                break;
-        };
-        return KEYUTIL.generateKeypair("EC", curve);
+        return KEYUTIL.generateKeypair("EC", this.curveName);
     };
 
     ecdsaKeyFromPrivate(key, encoding) {
         // select curve and hash algo based on level
-        var curve;
-        switch (this.securityLevel) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                break;
-        }
-
-        var keypair = new EC(curve).keyFromPrivate(key, encoding);
+        var keypair = new EC(this.ecdsaCurve).keyFromPrivate(key, encoding);
         debug('keypair: ', keypair);
         return keypair;
     };
 
     ecdsaKeyFromPublic(key, encoding) {
-        var curve;
-        //select curve and hash algo based on level
-        switch (this.securityLevel) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                break;
-        }
-
-        var publicKey = new EC(curve).keyFromPublic(key, encoding);
+        var publicKey = new EC(this.ecdsaCurve).keyFromPublic(key, encoding);
         // debug('publicKey: [%j]', publicKey);
         return publicKey;
     };
 
     ecdsaSign(key:Buffer, msg:Buffer) {
-        var curve;
-        var hash;
-
-        // select curve and hash algo based on level
-        switch (this.securityLevel) {
-            case 256:
-                curve = elliptic.curves['p256'];
-                hash = sha3_256;
-                break;
-            case 384:
-                curve = elliptic.curves['p384'];
-                hash = sha3_384;
-                break;
-        }
-
-        var ecdsa = new EC(curve);
+        var ecdsa = new EC(this.ecdsaCurve);
         var signKey = ecdsa.keyFromPrivate(key, 'hex');
-        var sig = ecdsa.sign(new Buffer(hash(msg), 'hex'), signKey);
+        var sig = ecdsa.sign(new Buffer(this.hashFunction(msg), 'hex'), signKey);
         debug('ecdsa signature: ', sig);
         return sig;
     };
@@ -239,17 +184,7 @@ export class Crypto {
     }
 
     eciesKeyGen() {
-        var curve;
-        // select curve and hash algo based on level
-        switch (this.securityLevel) {
-            case 256:
-                curve = "secp256r1";
-                break;
-            case 384:
-                curve = "secp384r1";
-                break;
-        };
-        return KEYUTIL.generateKeypair("EC", curve);
+        return KEYUTIL.generateKeypair("EC", this.curveName);
     }
 
     eciesEncryptECDSA(ecdsaRecipientPublicKey, msg): Buffer {
@@ -308,7 +243,9 @@ export class Crypto {
         var level = recipientPrivateKey.ecparams.keylen;
         var curveName = recipientPrivateKey.curveName;
         // debug("=============> %d", level);
-        self.checkLevel(level);
+        if (this.securityLevel != level) {
+            throw Error("Invalid key. It's security does not match the current security level " +  this.securityLevel + " " + level);
+        }
         //cipherText = ephemeralPubKeyBytes + encryptedTokBytes + macBytes
         //ephemeralPubKeyBytes = first ((384+7)/8)*2 + 1 bytes = first 97 bytes
         //hmac is sha3_384 = 48 bytes or sha3_256 = 32 bytes
@@ -411,35 +348,13 @@ export class Crypto {
 
     hkdf(ikm, keyBitLength, salt, info) {
 
-        var hash;
-        var hashSize;
-
-        switch (this.suite) {
-            case "sha3-256":
-                debug("Using sha3-256");
-                hash = hashPrimitives.hash_sha3_256;
-                hashSize = 32;
-                break;
-            case "sha3-384":
-                debug("Using sha3-384");
-                hash = hashPrimitives.hash_sha3_384;
-                hashSize = 48;
-                break;
-            case "sha2-256":
-                debug("Using sha2-256");
-                hash = hashPrimitives.hash_sha2_384;
-                hashSize = 32;
-                break;
-        }
-        ;
-
         if (!salt)
-            salt = _zeroBuffer(hashSize);
+            salt = _zeroBuffer(this.hashOutputSize);
 
         if (!info)
             info = "";
 
-        var key = this.hkdf2(bytesToBits(new Buffer(ikm)), keyBitLength, bytesToBits(salt), info, hash);
+        var key = this.hkdf2(bytesToBits(new Buffer(ikm)), keyBitLength, bytesToBits(salt), info, this.hashFunctionKeyDerivation);
 
         return bitsToBytes(key);
 
@@ -449,19 +364,8 @@ export class Crypto {
         var self = this;
         debug('key: ', JSON.stringify(key));
         debug('bytes: ', JSON.stringify(bytes));
-        var hash, hashSize;
-        switch (self.securityLevel) {
-            case 256:
-                hash = hashPrimitives.hash_sha3_256;
-                hashSize = 32;
-                break;
-            case 384:
-                hash = hashPrimitives.hash_sha3_384;
-                hashSize = 48;
-                break;
-        }
 
-        var hmac = new sjcl.misc.hmac(bytesToBits(key), hash);
+        var hmac = new sjcl.misc.hmac(bytesToBits(key), this.hashFunctionKeyDerivation);
         hmac.update(bytesToBits(bytes));
         var result = hmac.digest();
         debug("result: ", bitsToBytes(result));
@@ -474,25 +378,65 @@ export class Crypto {
     }
 
     hash(bytes) {
-        var self = this;
         debug('bytes: ', JSON.stringify(bytes));
-        var hashFunction, hashSize;
-        switch (self.securityLevel) {
-            case 256:
-                hashFunction = sha3_256;
-                hashSize = 32;
-                break;
-            case 384:
-                hashFunction = sha3_384;
-                hashSize = 48;
-                break;
-        }
-        return hashFunction(bytes);
+        return this.hashFunction(bytes);
     }
 
-    private checkLevel(level) {
-        if (level != 256 && level != 384)
-            throw new Error("Illegal level: " + level + " - must be either 256 or 384");
+    private checkSecurityLevel() {
+        if (this.securityLevel != 256 && this.securityLevel != 384)
+            throw new Error("Illegal level: " + this.securityLevel + " - must be either 256 or 384");
+    }
+
+    private checkHashFunction() {
+        if (!_isString(this.hashAlgorithm))
+            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
+
+        this.hashAlgorithm = this.hashAlgorithm.toUpperCase();
+        if (this.hashAlgorithm != SHA2 && this.hashAlgorithm != SHA3)
+            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
+    }
+
+    private initiliaze() {
+        this.checkSecurityLevel();
+        this.checkHashFunction();
+
+        this.suite = this.hashAlgorithm.toLowerCase() + '-' + this.securityLevel;
+        if (this.securityLevel == CURVE_P_256_Size) {
+            this.curveName = "secp256r1"
+        } else if (this.securityLevel == CURVE_P_384_Size) {
+            this.curveName = "secp384r1";
+        }
+
+        switch (this.suite) {
+            case "sha3-256":
+                debug("Using sha3-256");
+                this.hashFunction = sha3_256;
+                this.hashFunctionKeyDerivation = hashPrimitives.hash_sha3_256;
+                this.hashOutputSize = 32;
+                break;
+            case "sha3-384":
+                debug("Using sha3-384");
+                this.hashFunction = sha3_384;
+                this.hashFunctionKeyDerivation = hashPrimitives.hash_sha3_384;
+                this.hashOutputSize = 48;
+                break;
+            case "sha2-256":
+                debug("Using sha2-256");
+                this.hashFunction = hashPrimitives.hash_sha2_256;
+                this.hashFunctionKeyDerivation = hashPrimitives.hash_sha2_256;
+                this.hashOutputSize = 32;
+                break;
+        }
+
+        switch (this.securityLevel) {
+            case 256:
+                this.ecdsaCurve = elliptic.curves['p256'];
+                break;
+            case 384:
+                this.ecdsaCurve = elliptic.curves['p384'];
+                break;
+        }
+
     }
 
     /** HKDF with the specified hash function.
@@ -690,4 +634,9 @@ function _toBuffer(ab) {
         buffer[i] = view[i];
     }
     return buffer;
+}
+
+// Determine if an object is a string
+function _isString(obj:any):boolean {
+    return (typeof obj === 'string' || obj instanceof String);
 }

@@ -30,7 +30,7 @@ hash_sha2_256.prototype = {
     blockSize: 1088,
 
     reset: function () {
-        this._hash = jsSHA("SHA-256","TEXT");
+        this._hash = jssha("SHA-256","TEXT");
     },
 
     update: function (data) {
@@ -153,3 +153,4 @@ function bytesToBits(bytes) {
 
 exports.hash_sha3_256 = hash_sha3_256;
 exports.hash_sha3_384 = hash_sha3_384;
+exports.hash_sha2_256 = hash_sha2_256;

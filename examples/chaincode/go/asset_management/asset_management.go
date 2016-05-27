@@ -17,13 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/op/go-logging"
-	"encoding/hex"
-	"encoding/base64"
 )
 
 var myLogger = logging.MustGetLogger("asset_mgm")
@@ -128,7 +128,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	asset := args[0]
-	newOwner, err := hex.DecodeString(args[1])
+	newOwner, err := base64.StdEncoding.DecodeString(args[1])
 	if err != nil {
 		return nil, fmt.Errorf("Failed decoding owner")
 	}
@@ -181,7 +181,6 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	myLogger.Debug("New owner of [%s] is [% x]", asset, newOwner)
-
 
 	myLogger.Debug("Transfer...done")
 
