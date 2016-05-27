@@ -382,7 +382,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[0] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -393,7 +393,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[1] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -404,7 +404,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[2] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -445,7 +445,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[0] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -456,7 +456,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[1] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -467,7 +467,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[2] = &ViewChange{
 		H: 10,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 15,
 				Id:             "fifteen",
 			},
