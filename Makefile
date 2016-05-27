@@ -128,8 +128,8 @@ protos:
 
 .PHONY: sdk
 sdk:
-	cp ./protos/*.proto ./sdk/node/lib
-	cp ./membersrvc/protos/*.proto ./sdk/node/lib
+	cp ./protos/*.proto ./sdk/node/lib/protos
+	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
 	cd ./sdk/node && npm install && typings install
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
