@@ -24,8 +24,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
-	pb "github.com/hyperledger/fabric/protos"
 	gp "google/protobuf"
+
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type noopSecurity struct{}
@@ -104,8 +105,14 @@ func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
 
 type omniProto struct {
 	// Stack methods
-	GetNetworkInfoImpl         func() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error)
-	GetNetworkHandlesImpl      func() (self *pb.PeerID, network []*pb.PeerID, err error)
+	GetOwnIDImpl               func() (id uint64)
+	GetOwnHandleImpl           func() (handle *pb.PeerID)
+	GetValidatorIDImpl         func(handle *pb.PeerID) (id uint64)
+	GetValidatorHandleImpl     func(id uint64) (handle *pb.PeerID)
+	GetValidatorHandlesImpl    func(ids []uint64) (handles []*pb.PeerID)
+	GetConnectedValidatorsImpl func() (handles []*pb.PeerID)
+	CheckWhitelistExistsImpl   func()
+	SetWhitelistCapImpl        func(cap int)
 	BroadcastImpl              func(msg *pb.Message, peerType pb.PeerEndpoint_Type) error
 	UnicastImpl                func(msg *pb.Message, receiverHandle *pb.PeerID) error
 	SignImpl                   func(msg []byte) ([]byte, error)
@@ -136,16 +143,17 @@ type omniProto struct {
 	DelStateImpl               func(key string)
 
 	// Inner Stack methods
-	broadcastImpl    func(msgPayload []byte)
-	unicastImpl      func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl      func(seqNo uint64, txRaw []byte)
-	getStateImpl     func() []byte
-	skipToImpl       func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validateImpl     func(txRaw []byte) error
-	viewChangeImpl   func(curView uint64)
-	signImpl         func(msg []byte) ([]byte, error)
-	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
-	getLastSeqNoImpl func() (uint64, error)
+	broadcastImpl          func(msgPayload []byte)
+	unicastImpl            func(msgPayload []byte, receiverID uint64) (err error)
+	executeImpl            func(seqNo uint64, txRaw []byte)
+	getStateImpl           func() []byte
+	skipToImpl             func(seqNo uint64, snapshotID []byte, peers []uint64)
+	validateImpl           func(txRaw []byte) error
+	viewChangeImpl         func(curView uint64)
+	signImpl               func(msg []byte) ([]byte, error)
+	verifyImpl             func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl       func() (uint64, error)
+	getValidatorHandleImpl func(id uint64) (handle *pb.PeerID)
 
 	// Closable Consenter methods
 	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
@@ -157,20 +165,64 @@ type omniProto struct {
 	SkipToImpl   func(seqNo uint64, id []byte, peers []*pb.PeerID)
 }
 
-func (op *omniProto) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
-	if nil != op.GetNetworkInfoImpl {
-		return op.GetNetworkInfoImpl()
+func (op *omniProto) GetOwnID() (id uint64) {
+	if nil != op.GetOwnIDImpl {
+		return op.GetOwnIDImpl()
 	}
 
 	panic("Unimplemented")
 }
-func (op *omniProto) GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error) {
-	if nil != op.GetNetworkHandlesImpl {
-		return op.GetNetworkHandlesImpl()
+func (op *omniProto) GetOwnHandle() (handle *pb.PeerID) {
+	if nil != op.GetOwnHandleImpl {
+		return op.GetOwnHandleImpl()
 	}
 
 	panic("Unimplemented")
 }
+func (op *omniProto) GetValidatorID(handle *pb.PeerID) (id uint64) {
+	if nil != op.GetValidatorIDImpl {
+		return op.GetValidatorIDImpl(handle)
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetValidatorHandle(id uint64) (handle *pb.PeerID) {
+	if nil != op.GetValidatorHandleImpl {
+		return op.GetValidatorHandleImpl(id)
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetValidatorHandles(ids []uint64) (handles []*pb.PeerID) {
+	if nil != op.GetValidatorHandlesImpl {
+		return op.GetValidatorHandlesImpl(ids)
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetConnectedValidators() (handles []*pb.PeerID) {
+	if nil != op.GetConnectedValidatorsImpl {
+		return op.GetConnectedValidatorsImpl()
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) CheckWhitelistExists() {
+	if nil != op.CheckWhitelistExistsImpl {
+		op.CheckWhitelistExistsImpl()
+	} else {
+		panic("Unimplemented")
+	}
+}
+
+func (op *omniProto) SetWhitelistCap(cap int) {
+	if nil != op.SetWhitelistCapImpl {
+		op.SetWhitelistCapImpl(cap)
+	} else {
+		panic("Unimplemented")
+	}
+}
+
 func (op *omniProto) Broadcast(msg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 	if nil != op.BroadcastImpl {
 		return op.BroadcastImpl(msg, peerType)

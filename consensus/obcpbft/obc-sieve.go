@@ -22,10 +22,11 @@ import (
 	"reflect"
 	"time"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
-	google_protobuf "google/protobuf"
 
 	"github.com/spf13/viper"
 )
@@ -43,6 +44,9 @@ type obcSieve struct {
 
 	lastExecPbftSeqNo uint64
 	execOutstanding   bool
+
+	isSufficientlyConnected chan bool
+	proceedWithConsensus    bool
 
 	verifyStore []*Verify
 
@@ -72,19 +76,16 @@ type msgWithSender struct {
 	sender *pb.PeerID
 }
 
-func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
+func newObcSieve(config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
 		obcGeneric: obcGeneric{stack: stack},
-		id:         id,
 	}
+	op.isSufficientlyConnected = make(chan bool)
+
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 
 	op.restoreBlockNumber()
-
-	op.pbft = newPbftCore(id, config, op)
-	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
-	op.deduplicator = newDeduplicator()
 
 	op.executeChan = make(chan *pbftExecute)
 	op.incomingChan = make(chan *msgWithSender)
@@ -94,9 +95,31 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 
 	op.idleChan = make(chan struct{})
 
+	go op.waitForID(config)
+
 	go op.main()
 
 	return op
+}
+
+//waitForID sets the replica id once the whitelist is created and completes pbft initialization
+func (op *obcSieve) waitForID(config *viper.Viper) {
+	var id uint64
+
+	op.stack.CheckWhitelistExists()
+	id = op.stack.GetOwnID()
+	logger.Debug("Replica ID = %v", id)
+
+	// instantiate pbft-core
+	op.id = id
+	op.pbft = newPbftCore(id, config, op)
+
+	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
+	op.deduplicator = newDeduplicator()
+
+	op.isSufficientlyConnected <- true
+	logger.Debug("waitForID goroutine is done executing")
+
 }
 
 // moreCorrectThanByzantineQuorum returns the number of replicas that
@@ -113,13 +136,10 @@ func (op *obcSieve) recvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 	}
 
 	if ocMsg.Type == pb.Message_CONSENSUS {
-		senderID, err := getValidatorID(senderHandle)
-		if err != nil {
-			panic("Cannot map sender's PeerID to a valid replica ID")
-		}
+		senderID := op.stack.GetValidatorID(senderHandle)
 
 		svMsg := &SieveMessage{}
-		err = proto.Unmarshal(ocMsg.Payload, svMsg)
+		err := proto.Unmarshal(ocMsg.Payload, svMsg)
 		if err != nil {
 			err = fmt.Errorf("Could not unmarshal sieve message: %v", ocMsg)
 			logger.Error(err.Error())
@@ -227,10 +247,7 @@ func (op *obcSieve) sign(msg []byte) ([]byte, error) {
 }
 
 func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) error {
-	senderHandle, err := getValidatorHandle(senderID)
-	if err != nil {
-		return err
-	}
+	senderHandle := op.stack.GetValidatorHandle(senderID)
 	return op.stack.Verify(senderHandle, signature, message)
 }
 
@@ -271,11 +288,8 @@ func (op *obcSieve) unicastMsg(svMsg *SieveMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
+	receiverHandle := op.stack.GetValidatorHandle(receiverID)
 
-	}
 	op.stack.Unicast(ocMsg, receiverHandle)
 }
 
@@ -602,6 +616,11 @@ func (op *obcSieve) validateFlush(flush *Flush) error {
 
 // The main single loop which the sieve thread traverses
 func (op *obcSieve) main() {
+
+	for !op.proceedWithConsensus {
+		op.proceedWithConsensus = <-op.isSufficientlyConnected
+	}
+
 	for {
 		select {
 		case msgWithSender := <-op.incomingChan:

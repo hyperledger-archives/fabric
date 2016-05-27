@@ -29,7 +29,7 @@ type pbftEndpoint struct {
 }
 
 func (pe *pbftEndpoint) deliver(msg []byte, senderHandle *pb.PeerID) {
-	senderID, _ := getValidatorID(senderHandle)
+	senderID := pe.GetValidatorID(senderHandle)
 	pe.pbft.receive(msg, senderID)
 }
 
@@ -75,10 +75,7 @@ func (sc *simpleConsumer) broadcast(msgPayload []byte) {
 	sc.pe.Broadcast(&pb.Message{Payload: msgPayload}, pb.PeerEndpoint_VALIDATOR)
 }
 func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
-	handle, err := getValidatorHandle(receiverID)
-	if nil != err {
-		return err
-	}
+	handle := sc.getValidatorHandle(receiverID)
 	sc.pe.Unicast(&pb.Message{Payload: msgPayload}, handle)
 	return nil
 }
@@ -89,6 +86,10 @@ func (sc *simpleConsumer) Close() {
 
 func (sc *simpleConsumer) validate(txRaw []byte) error {
 	return nil
+}
+
+func (sc *simpleConsumer) getValidatorHandle(id uint64) (handle *pb.PeerID) {
+	return sc.pe.GetValidatorHandle(id)
 }
 
 func (sc *simpleConsumer) sign(msg []byte) ([]byte, error) {

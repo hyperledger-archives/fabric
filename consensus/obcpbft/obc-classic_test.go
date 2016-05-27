@@ -29,9 +29,9 @@ func (op *obcClassic) getPBFTCore() *pbftCore {
 	return op.pbft
 }
 
-func obcClassicHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+func obcClassicHelper(config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcClassic directly
-	return newObcClassic(id, config, stack)
+	return newObcClassic(config, stack)
 }
 
 func TestClassicNetwork(t *testing.T) {
@@ -39,7 +39,7 @@ func TestClassicNetwork(t *testing.T) {
 	net := makeConsumerNetwork(validatorCount, obcClassicHelper)
 	defer net.stop()
 
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 
 	net.process()
@@ -75,7 +75,7 @@ func TestClassicStateTransfer(t *testing.T) {
 	}
 
 	// Advance the network one seqNo past so that Replica 3 will have to do statetransfer
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	net.process()
 
@@ -119,7 +119,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 	}
 
 	// Get the group to advance past seqNo 1, leaving Replica 3 behind
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].GetOwnHandle()
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	net.process()
 

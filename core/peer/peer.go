@@ -112,6 +112,7 @@ type MessageHandlerCoordinator interface {
 	BlockChainModifier
 	BlockChainUtil
 	StateAccessor
+	Gatekeeper
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.Message, pb.PeerEndpoint_Type) []error
@@ -199,6 +200,7 @@ type handlerMap struct {
 	m map[pb.PeerID]MessageHandler
 }
 
+// HandlerFactory generates message handlers for the Peer
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
 type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
@@ -209,8 +211,13 @@ type PeerImpl struct {
 	handlerMap     *handlerMap
 	ledgerWrapper  *ledgerWrapper
 	secHelper      crypto.Peer
-	engine         Engine
-	isValidator    bool
+
+	whitelist        *pb.Whitelist
+	whitelistedMap   map[string]int
+	whitelistCreated chan struct{}
+
+	engine      Engine
+	isValidator bool
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -253,7 +260,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	return peer, nil
 }
 
-// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+// NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
@@ -274,6 +281,9 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
+
+	// on peer start or restart, load white list of validating peers
+	peer.LoadWhitelist()
 
 	peer.engine, err = engFactory(peer)
 	if err != nil {
@@ -348,11 +358,13 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 	p.handlerMap.RLock()
 	defer p.handlerMap.RUnlock()
 	for _, peerEndpoint := range peersMessage.Peers {
-		// Filter out THIS Peer's endpoint
 		if *getHandlerKeyFromPeerEndpoint(thisPeersEndpoint) == *getHandlerKeyFromPeerEndpoint(peerEndpoint) {
-			// NOOP
+			// if this is THIS peer's endpoint do nothing
+		} else if _, ok := p.whitelistedMap[getHandlerKeyFromPeerEndpoint(peerEndpoint).Name]; ok == false && (len(p.whitelistedMap) > 0) { // prevent outgoing connections
+			// if we have a whitelist *and* this PeerEndpoint.ID.Name is not in it, do NOT connect to it
+			peerLogger.Debug("Did not connect to non-whitelisted peer: %v", *getHandlerKeyFromPeerEndpoint(peerEndpoint))
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
-			// Start chat with Peer
+			// start chat with peer
 			go p.chatWithPeer(peerEndpoint.Address)
 		}
 	}
@@ -380,11 +392,23 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 	p.handlerMap.Lock()
 	defer p.handlerMap.Unlock()
 	if _, ok := p.handlerMap.m[*key]; ok == true {
-		// Duplicate, return error
+		// duplicate, return error
 		return newDuplicateHandlerError(messageHandler)
 	}
+	remotePeerEndpoint, _ := messageHandler.To()
+	if _, ok := p.whitelistedMap[getHandlerKeyFromPeerEndpoint(&remotePeerEndpoint).Name]; ok == false && (len(p.whitelistedMap) > 0) { // prevent incoming (& outgoing...) connections
+		// if we have a whitelist *and* this PeerEndpoint.ID.Name is not in it, do NOT accept connections from it
+		err = fmt.Errorf("Did not accept connection from non-whitelisted peeer: %v", remotePeerEndpoint.ID)
+		peerLogger.Debug(err.Error())
+		return fmt.Errorf(err.Error())
+	}
 	p.handlerMap.m[*key] = messageHandler
-	peerLogger.Debug("registered handler with key: %s", key)
+	peerLogger.Debug("Registered handler with key: %s", key)
+	err = p.SaveWhitelist()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -520,6 +544,7 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 }
 
 func (p *PeerImpl) chatWithPeer(peerAddress string) error {
+	var err2 error
 	if len(peerAddress) == 0 {
 		peerLogger.Debug("Starting up the first peer")
 		return nil // nothing to do
@@ -551,6 +576,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		}
 
 	}
+	return err2
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function

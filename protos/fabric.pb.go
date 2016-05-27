@@ -541,6 +541,26 @@ func (m *SyncStateDeltas) GetRange() *SyncBlockRange {
 	return nil
 }
 
+// Whitelist holds the PeerIDs of the whitelisted validating peers
+type Whitelist struct {
+	Cap          int32     `protobuf:"varint,1,opt,name=cap" json:"cap,omitempty"`
+	Persisted    bool      `protobuf:"varint,2,opt,name=persisted" json:"persisted,omitempty"`
+	Security     bool      `protobuf:"varint,3,opt,name=security" json:"security,omitempty"`
+	SortedKeys   []string  `protobuf:"bytes,4,rep,name=sortedKeys" json:"sortedKeys,omitempty"`
+	SortedValues []*PeerID `protobuf:"bytes,5,rep,name=sortedValues" json:"sortedValues,omitempty"`
+}
+
+func (m *Whitelist) Reset()         { *m = Whitelist{} }
+func (m *Whitelist) String() string { return proto.CompactTextString(m) }
+func (*Whitelist) ProtoMessage()    {}
+
+func (m *Whitelist) GetSortedValues() []*PeerID {
+	if m != nil {
+		return m.SortedValues
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("protos.Transaction_Type", Transaction_Type_name, Transaction_Type_value)
 	proto.RegisterEnum("protos.PeerEndpoint_Type", PeerEndpoint_Type_name, PeerEndpoint_Type_value)
