@@ -68,7 +68,6 @@ type AffiliationGroup struct {
 }
 
 // NewCertificateSpec creates a new certificate spec
-//
 func NewCertificateSpec(id string, commonName string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time, opt ...pkix.Extension) *CertificateSpec {
 	spec := new(CertificateSpec)
 	spec.id = id
@@ -182,8 +181,23 @@ func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
 
+type TableInitializer func(*sql.DB) error
+
+func initializeCommonTables(db *sql.DB) error {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB, kdfkey BLOB)"); err != nil {
+		return err
+	}
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), enrollmentId VARCHAR(100), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
+		return err
+	}
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS AffiliationGroups (row INTEGER PRIMARY KEY, name VARCHAR(64), parent INTEGER, FOREIGN KEY(parent) REFERENCES AffiliationGroups(row))"); err != nil {
+		return err
+	}
+	return nil
+}
+
 // NewCA sets up a new CA.
-func NewCA(name string) *CA {
+func NewCA(name string, initTables TableInitializer) *CA {
 	ca := new(CA)
 	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
 
@@ -201,16 +215,11 @@ func NewCA(name string) *CA {
 		Panic.Panicln(err)
 	}
 
-	if err := db.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		Panic.Panicln(err)
 	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Certificates (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, usage INTEGER, cert BLOB, hash BLOB, kdfkey BLOB)"); err != nil {
-		Panic.Panicln(err)
-	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Users (row INTEGER PRIMARY KEY, id VARCHAR(64), enrollmentId VARCHAR(100), role INTEGER, token BLOB, state INTEGER, key BLOB)"); err != nil {
-		Panic.Panicln(err)
-	}
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS AffiliationGroups (row INTEGER PRIMARY KEY, name VARCHAR(64), parent INTEGER, FOREIGN KEY(parent) REFERENCES AffiliationGroups(row))"); err != nil {
+
+	if err = initTables(db); err != nil {
 		Panic.Panicln(err)
 	}
 	ca.db = db
@@ -256,7 +265,7 @@ func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
 				Type:  "ECDSA PRIVATE KEY",
 				Bytes: raw,
 			})
-		err := ioutil.WriteFile(ca.path+"/"+name+".priv", cooked, 0644)
+		err = ioutil.WriteFile(ca.path+"/"+name+".priv", cooked, 0644)
 		if err != nil {
 			Panic.Panicln(err)
 		}

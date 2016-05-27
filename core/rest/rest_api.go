@@ -505,7 +505,9 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		}
 
 		// Obtain the client CertificateHandler
-		handler, err := sec.GetTCertificateHandlerNext()
+		// TODO - Replace empty attributes map
+		attributes := map[string]string{}
+		handler, err := sec.GetTCertificateHandlerNext(attributes)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
@@ -1448,7 +1450,6 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	//
 	// Trigger the chaincode deployment through the devops service
 	//
-
 	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), spec)
 
 	//

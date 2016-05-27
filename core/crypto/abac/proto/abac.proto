@@ -14,17 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package crypto
+syntax = "proto3";
 
-type tCertPool interface {
-	init(client *clientImpl) error
+package protos;
 
-	Start() error
+//ABACMetadataEntry is an entry within the metadata that store an attribute name with its respective key.
+message ABACMetadataEntry {
+    string AttributeName = 1;
+    bytes AttributeKey = 2;
+}
 
-	Stop() error
-
-	GetNextTCert(attributes map[string]string) (*TCertBlock, error)
-	
-	AddTCert(tCertBlock *TCertBlock) (err error) 
-	
+//ABACMetadata hold both the original metadata bytes and the metadata required by the Attribute Based Access Control
+message ABACMetadata {
+    //Original metadata bytes
+    bytes Metadata = 1;
+    //Entries for each attributes considered.
+    repeated ABACMetadataEntry Entries = 2;
 }
