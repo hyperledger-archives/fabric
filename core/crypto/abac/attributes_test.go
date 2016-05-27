@@ -19,11 +19,22 @@ package abac
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
+
+func TestMain(m *testing.M) {
+	if err := primitives.InitSecurityLevel("SHA3", 256); err != nil {
+		fmt.Printf("Failed setting security level: %v", err)
+	}
+
+	ret := m.Run()
+	os.Exit(ret)
+}
 
 func TestEncryptDecryptAttributeValuePK0(t *testing.T) {
 	expected := "ACompany"
@@ -33,10 +44,6 @@ func TestEncryptDecryptAttributeValuePK0(t *testing.T) {
 		84, 135, 9, 70, 160, 138, 89, 163, 240, 223, 83, 164, 58,
 		208, 199, 23, 221, 123, 53, 220, 15, 41, 28, 111, 166,
 		28, 29, 187, 97, 229, 117, 117, 49, 192, 134, 31, 151}
-
-	if err := primitives.InitSecurityLevel("SHA2", 256); err != nil {
-		t.Errorf("Failed setting security level: %v", err)
-	}
 
 	encryptedAttribute, err := EncryptAttributeValuePK0(preK0, "company", []byte(expected))
 	if err != nil {
@@ -56,18 +63,14 @@ func TestEncryptDecryptAttributeValuePK0(t *testing.T) {
 }
 
 func TestGetKAndValueForAttribute(t *testing.T) {
-	expected := "ACompany"
-
-	if err := primitives.InitSecurityLevel("SHA2", 256); err != nil {
-		t.Errorf("Failed setting security level: %v", err)
-	}
+	expected := "Software Engineer"
 
 	tcert, prek0, err := loadTCertAndPreK0()
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, attribute, err := getKAndValueForAttribute("company", prek0, tcert)
+	_, attribute, err := getKAndValueForAttribute("position", prek0, tcert)
 	if err != nil {
 		t.Error(err)
 	}
@@ -78,18 +81,14 @@ func TestGetKAndValueForAttribute(t *testing.T) {
 }
 
 func TestGetValueForAttribute(t *testing.T) {
-	expected := "ACompany"
-
-	if err := primitives.InitSecurityLevel("SHA2", 256); err != nil {
-		t.Errorf("Failed setting security level: %v", err)
-	}
+	expected := "Software Engineer"
 
 	tcert, prek0, err := loadTCertAndPreK0()
 	if err != nil {
 		t.Error(err)
 	}
 
-	value, err := GetValueForAttribute("company", prek0, tcert)
+	value, err := GetValueForAttribute("position", prek0, tcert)
 	if err != nil {
 		t.Error(err)
 	}
@@ -118,12 +117,89 @@ func TestBuildAndParseAttributesHeader(t *testing.T) {
 		t.Error(err)
 	}
 
+	if len(components) != 2 {
+		t.Errorf("Error parsing header. Expecting two entries in header, found %v instead", len(components))
+	}
+
 	if components["company"] != 1 {
 		t.Errorf("Error parsing header. Expected %v with value %v, found %v instead", "company", 1, components["company"])
 	}
 
 	if components["position"] != 2 {
 		t.Errorf("Error parsing header. Expected %v with value %v, found %v instead", "position", 2, components["position"])
+	}
+}
+
+func TestReadAttributeHeader(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	headerKey := getAttributeKey(prek0, HeaderAttributeName)
+
+	header, encrypted, err := ReadAttributeHeader(tcert, headerKey)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !encrypted {
+		t.Errorf("Error parsing header. Expecting encrypted header.")
+	}
+
+	if len(header) != 1 {
+		t.Errorf("Error parsing header. Expecting %v entries in header, found %v instead", 1, len(header))
+	}
+
+	if header["position"] != 1 {
+		t.Errorf("Error parsing header. Expected %v with value %v, found %v instead", "position", 1, header["position"])
+	}
+}
+
+func TestReadTCertAttributeByPosition(t *testing.T) {
+	expected := "Software Engineer"
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	encryptedAttribute, err := ReadTCertAttributeByPosition(tcert, 1)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	attributeKey := getAttributeKey(prek0, "position")
+
+	attribute, err := DecryptAttributeValue(attributeKey, encryptedAttribute)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if string(attribute) != expected {
+		t.Errorf("Failed retrieving attribute value from TCert. Expected: %v, Actual: %v", expected, string(attribute))
+	}
+}
+
+func TestReadTCertAttributeByPosition_InvalidPositions(t *testing.T) {
+	tcert, _, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = ReadTCertAttributeByPosition(tcert, 2)
+
+	if err == nil {
+		t.Error("Test should have failed since there is no attribute in the position 2 of the TCert")
+	}
+
+	_, err = ReadTCertAttributeByPosition(tcert, -2)
+
+	if err == nil {
+		t.Error("Test should have failed since attribute positions should be positive integer values")
 	}
 }
 

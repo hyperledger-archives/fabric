@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -107,6 +108,10 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 
 //ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
 func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
+	if position < 0 {
+		return nil, fmt.Errorf("Invalid attribute position. Received [%v]", position)
+	}
+
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
 	value, err := utils.GetCriticalExtension(tcert, oid)
 	if err != nil {
