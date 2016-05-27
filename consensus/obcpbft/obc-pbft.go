@@ -147,13 +147,3 @@ func (op *obcGeneric) getLastSeqNo() (uint64, error) {
 	proto.Unmarshal(raw, meta)
 	return meta.SeqNo, nil
 }
-
-// StateUpdated is a signal from the stack that it has fast-forwarded its state
-func (op *obcGeneric) StateUpdated(seqNo uint64, id []byte) {
-	op.pbft.stateUpdated(seqNo, id)
-}
-
-// StateUpdating is a signal from the stack that state transfer has started
-func (op *obcGeneric) StateUpdating(seqNo uint64, id []byte) {
-	op.pbft.stateUpdating(seqNo, id)
-}

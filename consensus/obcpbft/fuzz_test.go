@@ -93,8 +93,8 @@ func TestFuzz(t *testing.T) {
 			senderID = nv.ReplicaId
 		}
 
-		primary.recvMsgSync(msg, senderID)
-		backup.recvMsgSync(msg, senderID)
+		primary.manager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
+		backup.manager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
 	}
 
 	logging.Reset()
@@ -160,7 +160,7 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 		for _, ep := range net.endpoints {
-			ep.(*pbftEndpoint).pbft.recvMsgSync(msg, msg.GetRequest().ReplicaId)
+			ep.(*pbftEndpoint).pbft.manager.queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)

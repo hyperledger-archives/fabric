@@ -30,6 +30,8 @@ import (
 
 type obcBatch struct {
 	obcGeneric
+	externalEventReceiver
+	pbft *pbftCore
 
 	batchSize        int
 	batchStore       []*Request
@@ -80,6 +82,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.pbft.newViewTimer.halt()
 	op.pbft.newViewTimer = etf.createTimer()
 	op.pbft.manager.start()
+	op.externalEventReceiver.manager = op.pbft.manager
 
 	op.batchSize = config.GetInt("general.batchSize")
 	op.batchStore = nil
@@ -99,18 +102,6 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	close(op.idleChan) // TODO remove eventually
 
 	return op
-}
-
-// RecvMsg receives both CHAIN_TRANSACTION and CONSENSUS messages from
-// the stack. New transaction requests are broadcast to all replicas,
-// so that the current primary will receive the request.
-func (op *obcBatch) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-	op.pbft.manager.queue() <- batchMessageEvent{
-		msg:    ocMsg,
-		sender: senderHandle,
-	}
-
-	return nil
 }
 
 // Complain is necessary to implement complaintHandler

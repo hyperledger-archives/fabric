@@ -95,6 +95,23 @@ func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	return
 }
 
+// Create a message of type `Message_CHAIN_TRANSACTION`
+func createPbftRequestWithChainTx(iter int64, replica uint64) (msg *Request) {
+	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
+		Timestamp: txTime,
+		Payload:   []byte(fmt.Sprint(iter)),
+	}
+	txPacked, _ := proto.Marshal(tx)
+
+	msg = &Request{
+		Timestamp: txTime,
+		ReplicaId: replica,
+		Payload:   txPacked,
+	}
+	return
+}
+
 func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rndm := rand.New(seed)
