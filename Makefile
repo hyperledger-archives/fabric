@@ -27,16 +27,16 @@
 #   - behave-deps - ensures pre-requisites are availble for running behave manually
 #   - gotools - installs go tools like golint
 #   - linter - runs all code checks
-#   - images - ensures all docker images are available
-#   - peer-image - ensures the peer-image is available (for behave, etc)
-#   - membersrvc-image - ensures the membersrvc-image is available (for behave, etc)
+#   - images[-clean] - ensures all docker images are available[/cleaned]
+#   - peer-image[-clean] - ensures the peer-image is available[/cleaned] (for behave, etc)
+#   - membersrvc-image[-clean] - ensures the membersrvc-image is available[/cleaned] (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
 #   - node-sdk - builds the node.js client-sdk
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
-
-PKGNAME = github.com/hyperledger/fabric
+PROJECT_NAME=hyperledger/fabric
+PKGNAME = github.com/$(PROJECT_NAME)
 CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 
 EXECUTABLES = go docker git
@@ -51,6 +51,7 @@ GOTOOLS = golint govendor goimports protoc-gen-go
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
 
 PROJECT_FILES = $(shell git ls-files)
+IMAGES = base peer membersrvc
 
 # go tool->path mapping
 go.fqp.govendor  := github.com/kardianos/govendor
@@ -63,21 +64,17 @@ checks: unit-test behave linter
 
 .PHONY: peer
 peer: build/bin/peer
+peer-image: build/image/peer/.dummy
 
 .PHONY: membersrvc
 membersrvc: build/bin/membersrvc
+membersrvc-image: build/image/membersrvc/.dummy
 
 unit-test: peer-image gotools
 	@./scripts/goUnitTests.sh
-	@touch .peerimage-dummy
-	@touch .membersrvcimage-dummy
-
-base-image: .baseimage-dummy
-peer-image: .peerimage-dummy
-membersrvc-image: .membersrvcimage-dummy
 
 .PHONY: images
-images: peer-image membersrvc-image
+images: $(patsubst %,build/image/%/.dummy, $(IMAGES))
 
 behave-deps: images peer
 behave: behave-deps
@@ -89,19 +86,6 @@ gotools: $(GOTOOLS_BIN)
 linter: gotools
 	@echo "LINT: Running code checks.."
 	@echo "LINT: No errors found"
-
-.peerimage-dummy: .baseimage-dummy
-	go test $(PKGNAME)/core/container -run=BuildImage_Peer
-	@touch $@
-
-.membersrvcimage-dummy: .baseimage-dummy
-	go test $(PKGNAME)/core/container -run=BuildImage_Obcca
-	@touch $@
-
-.baseimage-dummy: $(BASEIMAGE_DEPS)
-	@echo "Building docker base-image"
-	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
-	@touch $@
 
 # Special override for protoc-gen-go since we want to use the version vendored with the project
 gotool.protoc-gen-go:
@@ -122,15 +106,46 @@ $(GOPATH)/bin/%:
 build/bin:
 	mkdir -p $@
 
-build/bin/%: .base-image-dummy $(PROJECT_FILES)
+build/bin/%: build/image/base/.dummy $(PROJECT_FILES)
 	@mkdir -p $(@D)
 	$(CGO_FLAGS) GOBIN=$(abspath $(@D)) go install $(PKGNAME)/$(@F)
 	@echo "Binary available as $@"
 	@touch $@
 
+build/gopath.tar.bz2: $(PROJECT_FILES)
+	mkdir -p $(@D)
+	git ls-files | tar -zcT - > $@
+
+# Special override for base-image.
+build/image/base/.dummy: $(BASEIMAGE_DEPS)
+	@echo "Building docker base-image"
+	@mkdir -p $(@D)
+	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
+	@touch $@
+
+# Default rule for image creation
+build/image/%/.dummy: build/image/base/.dummy build/gopath.tar.bz2 $(PROJECT_FILES)
+	$(eval TARGET = ${patsubst build/image/%/.dummy,%,${@}})
+	@mkdir -p $(@D)
+	@cat images/app/Dockerfile.in | sed -e 's/_TARGET_/$(TARGET)/g' > $(@D)/Dockerfile
+	@cp build/gopath.tar.bz2 $(@D)
+	docker build -t $(PROJECT_NAME)-$(TARGET):latest $(@D)
+	@touch $@
+
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
+
+base-image-clean:
+	-docker rmi -f $(PROJECT_NAME)-baseimage
+	-@rm -rf build/image/base ||:
+
+%-image-clean:
+	$(eval TARGET = ${patsubst %-image-clean,%,${@}})
+	-@rm -rf build/image/$(TARGET) ||:
+	-docker rmi -f $(PROJECT_NAME)-$(TARGET)
+
+images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
 .PHONY: node-sdk
 node-sdk:
@@ -141,9 +156,8 @@ node-sdk:
 	cd ./sdk/node && ./makedoc.sh
 
 .PHONY: clean
-clean:
+clean: images-clean
 	-@rm -rf build ||:
-	-@rm -f .*image-dummy ||:
 	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean

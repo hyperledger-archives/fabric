@@ -161,12 +161,10 @@ images: docker_fabric_clean
 	$(MAKE) membersrvc_image
 
 membersrvc_image:
-	-docker rmi -f hyperledger/fabric-membersrvc
-	go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
+	cd $(FABRIC); $(MAKE) ca-image-clean ca-image
 
 peer_image:
-	-docker rmi -f hyperledger/fabric-peer
-	go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
+	cd $(FABRIC); $(MAKE) peer-image-clean peer-image
 
 
 ############################################################################
@@ -203,7 +201,7 @@ docker_chaincode_clean: docker_ps_clean
 		awk '{print $$3}' | xargs docker rmi -f
 
 docker_fabric_clean: docker_chaincode_clean
-	-docker rmi -f hyperledger/fabric-peer hyperledger/fabric-membersrvc
+	cd $(FABRIC); $(MAKE) peer-image-clean ca-image-clean
 
 docker_ps_clean:
 	-docker ps -a -q | xargs docker rm -f

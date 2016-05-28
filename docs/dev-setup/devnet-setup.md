@@ -15,8 +15,8 @@ To create a Docker image for the `hyperledger/fabric`, first clean out any activ
 Now we are ready to build a new docker image:
 
 ```
-    cd $GOPATH/src/github.com/hyperledger/fabric/core/container
-    go test -run BuildImage_Peer
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    make peer-image
 ```
 
 Check the available images again with `docker images`, and you should see `hyperledger/fabric-peer` image.
