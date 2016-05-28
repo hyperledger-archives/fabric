@@ -20,8 +20,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type publicKeyImpl struct {
@@ -51,8 +52,6 @@ func (pks *publicKeySerializerImpl) ToBytes(key interface{}) ([]byte, error) {
 	default:
 		return nil, primitives.ErrInvalidPublicKeyType
 	}
-
-	return nil, primitives.ErrInvalidPublicKeyType
 }
 
 func (pks *publicKeySerializerImpl) FromBytes(bytes []byte) (interface{}, error) {

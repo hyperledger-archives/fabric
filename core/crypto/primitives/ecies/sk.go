@@ -20,8 +20,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type secretKeyImpl struct {
@@ -59,8 +60,6 @@ func (sks *secretKeySerializerImpl) ToBytes(key interface{}) ([]byte, error) {
 	default:
 		return nil, primitives.ErrInvalidKeyParameter
 	}
-
-	return nil, primitives.ErrInvalidKeyParameter
 }
 
 func (sks *secretKeySerializerImpl) FromBytes(bytes []byte) (interface{}, error) {
