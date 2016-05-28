@@ -66,7 +66,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0]     // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
+	chaincodeUrl := args[0] // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
 	sum = args[1]
 
 	// Query chaincode_example02

@@ -43,7 +43,9 @@ proc ::busywork::home {{i_home {}}} {
                 [null $::env(BUSYWORK_HOME)]} {
         set ::env(BUSYWORK_HOME) $::env(HOME)/.busywork
     }
-    exec mkdir -p $::env(BUSYWORK_HOME)
+    if {[catch {exec mkdir -p $::env(BUSYWORK_HOME)} why]} {
+        errorExit "Attempt to create $::env(BUSYWORK_HOME) failed : $why"
+    }
     return $::env(BUSYWORK_HOME)
 }
 
@@ -87,8 +89,12 @@ proc ::busywork::bin {} {
 # ::busywork::networkToArray i_array {i_prefix {}}
 
 # Load and parse the $BUSYWORK_HOME/network file into keys in the i_array
-# provided by the caller. This procedure uses "." as a separator for
-# hierarchical keys, so normally the optional prefix should also end in ".".
+# provided by the caller. The procedure uses the normal Tcl 'error' exit only
+# in the event of being unable to read the network file. Other errors invoke
+# the 'errorExit' procedure.
+
+# This procedure uses "." as a separator for hierarchical keys, so normally
+# the optional prefix should also end in ".".
 
 # This routine is typically called from busywork scripts as
 
@@ -119,9 +125,7 @@ proc ::busywork::networkToArray {i_array {i_prefix {}}} {
 
     set networkFile $::env(BUSYWORK_HOME)/network
     if {[catch {open $networkFile r} network]} {
-        errorExit \
-            "The network configuration file $networkFile " \
-            "could not be opened for reading : $::errorCode"
+        error "Can't open $networkFile for reading : $network"
     }
     if {[catch {::json::json2dict [read $network]} dict]} {
         errorExit "Error parsing $networkFile : $::errorCode"

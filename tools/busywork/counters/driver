@@ -25,7 +25,7 @@ driver:
           - Drives a fixed number of transactions into the network
           - Chaincodes, arrays and peers to target are generated randomly
           - However, in the end all arrays get the same count
-    o Finally, validate the final state of all counters
+    o Finally, validates the final state of all counters
 
 By default, the peer network is defined by the $BUSYWORK_HOME/network file.
 However, if one or more peers are provided on the command line, those explicit
@@ -41,6 +41,13 @@ Optional parameters. Default values are given after the colon:
 -h | -help | --help : None
     
     Print this usage message and exit normally.
+
+-home <busywork_home> : See below
+
+    This argument can be used to name a non-default BUSYWORK_HOME directory.
+    network on the command line. If not defined here then BUSYWORK_HOME is
+    taken from the environmnent, or if not present there, defaults to
+    ~/.busywork.
 
 -targetPeers <n> : All
     
@@ -156,6 +163,13 @@ Optional parameters. Default values are given after the colon:
     and all create transactions are generated as quickly as possible by the
     base driver.
 
+-txDelay <duration> : 0
+-peerDelay <duration> : 0
+-netDelay <duration> : 0
+
+    These are delays added after each transaction (-txDelay), each burst to a
+    peer (-peerDelay) and each burst to the network (-netDelay).
+
 -interlock | -noInterlock : -noInterlock
 
     If -interlock is specified, then each client waits after each network
@@ -211,7 +225,31 @@ Optional parameters. Default values are given after the colon:
     the client, or from the consistency check. Even with -force, the script
     will fail with an abnormal exit code if any errors were encountered.
 
--checkAgreement <extraAargs> : Extra arguments (possible empty) for checkAgreement
+-watchdogPoll <duration> : 5s
+
+    By default a busywork 'networkStatus' process is started and runs in the
+    background to monitor the network every 5s and kill the driver if network
+    nodes die. If the -watchdogPoll option is negative, or if -force is
+    specified, or if explicit peers are specified, then the watchdog process
+    is not started. (The final restriction could be removed with some work on
+    the 'networkStatus' script.)
+
+-pprofClient <args> : No profiling
+
+    If the -pprofClient option is provided, then a busywork 'pprofClient'
+    process will be started immediately after the driver threads are started,
+    where the <args> are passed to the pprofClient process. See the
+    pprofClient script for details on parameters to pprofClient. A typical use
+    might look something like
+
+        -pprofClient "-wait 5 0 profile?seconds=60"
+
+    which waits 5 seconds for the network to "warm up" before starting the
+    profile, then collects a 60-second CPU profile of peer 0 into the
+    $BUSYWORK_HOME directory.
+
+-checkAgreement <extraAargs> : Extra arguments (possibly empty) for
+                               checkAgreement
 
     If selected and there are at least 2 peers, the ../bin/checkAgreement
     procedure will be run at the end of the run to ensure that all peers agree
@@ -261,6 +299,7 @@ setLoggingPrefix driver
 
 set options {
     {enum    {-h -help --help}     parms(help)              0 p_help}
+    {key     -home                 parms(home)             {}}
     {key     -targetPeers          parms(targetPeers)       0 p_targetPeers}
     {bool    {-security -noSecurity} parms(security)        0}
     {key     -targetUsers          parms(targetUsers)       0 p_targetUsers}
@@ -277,6 +316,9 @@ set options {
     {key     -transactions         parms(transactions)      1}
     {key     -peerBurst            parms(peerBurst)         1}
     {key     -netBurst             parms(netBurst)          1}
+    {key     -txDelay              parms(txDelay)           0}
+    {key     -peerDelay            parms(peerDelay)         0}
+    {key     -netDelay             parms(netDelay)          0}
     {bool    {-interlock -noInterlock} parms(interlock)     0}
     {bool    -finalInterlock       parms(finalInterlock)    0}
     {key     -interlockTimeout     parms(interlockTimeout)  60s}
@@ -284,6 +326,8 @@ set options {
     {key     -finalWait            parms(finalWait)         10s}
     {bool    {-keepLog -noKeepLog} parms(keepLog)           0}
     {bool    {-force -noForce}     parms(force)             0}
+    {key     -watchdogPoll         parms(watchdogPoll)      5s}
+    {key     -pprofClient          parms(pprofClient)       {} p_pprofClient}
     {key     -checkAgreement       parms(checkAgreementArgs) {} p_checkAgreement}
     {key     -retry                parms(retry)             0}
     {key     -args                 parms(args)              {}}
@@ -303,6 +347,9 @@ parms client driver
 
 note {} "$argv0 $argv"
 
+set BUSYWORK_HOME [busywork::home [parms home]]
+
+
 # Start log timestamping if selected. Do quick consistency checks.
 
 setLoggingTimestamp [parms timestamp]
@@ -320,7 +367,9 @@ if {[parms interlock] && [parms finalInterlock]} {
 # in the network configuration.
 
 if {[null [parms explicitPeers]]} {
-    busywork::networkToArray ::parms network.
+    if {[catch {busywork::networkToArray ::parms network.} msg]} {
+        errorExit $msg
+    }
     parms originalPeers [parms network.peer.restAddresses]
     parms security [? {[parms network.security] eq "true"} 1 0]
 } else {
@@ -412,11 +461,18 @@ if {[string is integer [parms size]]} {
 parms arraySizes $sizes
 
 
+# Normalize delays to milliseconds
+
+parms txDelay [durationToMs [parms txDelay]]
+parms peerDelay [durationToMs [parms peerDelay]]
+parms netDelay [durationToMs [parms netDelay]]
+
 ############################################################################
 # Setup
 ############################################################################
 
-# Start an fabricLogger process, logging to a temporary file.
+# Start a fabricLogger process, logging to a temporary file. Start a polling
+# networkStatus process with a killer-callback (under most conditions).
 
 set logger [::busywork::Logger new \
                 -peers "[parms loggingPeers]" \
@@ -424,7 +480,20 @@ set logger [::busywork::Logger new \
                 -retry [parms retry] \
                 [? [parms timestamp] -timestamp -noTimestamp] \
                 [? [parms force] -noKillOnError -killOnError]]
-                
+
+parms watchdogPoll [durationToMs [parms watchdogPoll]]
+if {[null [parms explicitPeers]] &&
+    ![parms force] && ([parms watchdogPoll] >= 0)} {
+    if {[catch \
+             {exec [busywork::bin]/networkStatus \
+                  -poll [parms watchdogPoll]ms -quiet \
+                  -onError "kill SIGINT [pid]" &} \
+             pid]} {
+        errorExit "Error starting networkStatus : $pid"
+    }
+    killAtExit SIGINT $pid
+}
+
 
 ############################################################################
 # Security
@@ -526,9 +595,11 @@ if {[parms deploy]} {
     foreach id [parms chaincodeIDs] {
         set peer [peerList next]
         set user [peerUser $peer]
-        set name [::fabric::deploy $peer $user $chaincode parms \
-                      [concat [list -id $id] [parms args]]]
+        set args [concat [list -id $id] [parms args]]
+        set name [::fabric::deploy $peer $user $chaincode parms $args]
         note {} "Deployed $id as $name"
+        set args [quote [concat parms $args]]
+        exec echo "$name $chaincode $args" >> $BUSYWORK_HOME/chaincodes
         lappend chaincodeNames $name
     }
     parms chaincodeNames $chaincodeNames
@@ -563,21 +634,22 @@ if {[parms deploy]} {
 
 } else {
 
-    note {} "-noDeploy mode : Getting chaincode names from the Blockchain"
-    set peer [lindex [parms peers] 0]
-    if {[catch {eval exec [parms fabricLogger] [parms loggingPeers] | grep ^d} data]} {
-        errorExit \
-            "Getting chaincode names from the blockchain failed " \
-            "for some reason; Aborting"
+    note {} "-noDeploy mode : Getting chaincode names $BUSYWORK_HOME/chaincodes"
+
+    # Note: The file ends in a newline, hence splitting on \n yields a final
+    # empty string that we eliminate. If this execution fails for any reason
+    # then "lines" contains an error string.
+    if {[catch \
+             {butlast [split [read [open $BUSYWORK_HOME/chaincodes r]] \n]} \
+             lines]} {
+        errorExit "Reading $BUSYWORK_HOME/chaincodes failed : $lines"
     }
-    set lines [split $data \n]
     if {[llength $lines] != [llength [parms chaincodeIDs]]} {
         errorExit \
             "-noDeploy mode : We found [llength $lines] chaincode deployments " \
-            "in the Blockchain, but were expecting " \
-            [llength [parms chaincodeIDs]]
+            "registered but were expecting [llength [parms chaincodeIDs]]"
     }
-    parms chaincodeNames [mapeach line $lines {return [lindex $line 1]}]
+    parms chaincodeNames [mapeach line $lines {return [lindex $line 0]}]
 }
 
 
@@ -723,7 +795,16 @@ proc clientRoutine {i_logger} {
                          $peer [peerUser $peer] \
                          $chaincodeName increment $arrayName \
                          [parms retry]]
+                if {[parms txDelay]} {
+                    after [parms txDelay]
+                }
             }
+            if {[parms peerDelay]} {
+                after [parms peerDelay]
+            }
+        }
+        if {[parms netDelay]} {
+            after [parms netDelay]
         }
     }
 }
@@ -755,6 +836,17 @@ for {set i 0} {$i < [parms clients]} {incr i} {
     }
 }
 
+# Start a 'pprofClient' if requested. 
+
+if {$p_pprofClient} {
+    if {[catch \
+             {eval exec [busywork::bin]/pprofClient [parms pprofClient] &} \
+             pid]} {
+        errorExit "Starting pprofClient failed : $pid"
+    }
+    parms pprofClientPID $pid
+}
+
 # Note that the 'errors' variable is initialized here. We carry on in the
 # event of errors until the final agreement check.
 
@@ -766,6 +858,15 @@ if {!$errors} {
     set rate [format %.2f [expr {$totalTransactions / $seconds}]]
     note {} "Transaction rate : $rate per second ($totalTransactions / $seconds)"
 }
+
+if {$p_pprofClient} {
+    if {[null [wait -nohang [parms pprofClientPID]]]} {
+        warn {} \
+            "The pprofClient process (PID [parms pprofClientPID]) is " \
+            " still running. The profile may be distorted by inactivity."
+    }
+}
+
 
 # Finally, check the results for correctness. For the most accurate completed
 # transaction rates you need to -interlock, as it is likely that not all

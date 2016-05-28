@@ -273,7 +273,7 @@ func (sts *StateTransferState) CompletionChannel() chan struct{} {
 	return complete
 }
 
-// InProgress returns whether state transfer is currently occuring.  Note, this is not a thread safe call, it is expected
+// InProgress returns whether state transfer is currently occurring.  Note, this is not a thread safe call, it is expected
 // that the caller synchronizes around state transfer if it is to be accessed in a non-serial fashion
 func (sts *StateTransferState) InProgress() bool {
 	return sts.asynchronousTransferInProgress

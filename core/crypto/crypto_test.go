@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"crypto/rand"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
@@ -309,7 +310,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
 
-	attributeValue := string(attributeBytes[:len(attributeBytes)])
+	attributeValue := string(attributeBytes[:])
 
 	if attributeValue != "IBM" {
 		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)

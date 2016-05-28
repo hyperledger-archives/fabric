@@ -355,20 +355,18 @@ func TestExecuteDeployTransaction(t *testing.T) {
 func TestGopathExecuteDeployTransaction(t *testing.T) {
 	// add a trailing slash to GOPATH
 	// and a couple of elements - it doesn't matter what they are
-	os.Setenv("GOPATH", os.Getenv("GOPATH") + string(os.PathSeparator) + string(os.PathListSeparator) + "/tmp/foo" + string(os.PathListSeparator) + "/tmp/bar")
+	os.Setenv("GOPATH", os.Getenv("GOPATH")+string(os.PathSeparator)+string(os.PathListSeparator)+"/tmp/foo"+string(os.PathListSeparator)+"/tmp/bar")
 	fmt.Printf("set GOPATH to: \"%s\"\n", os.Getenv("GOPATH"))
 	executeDeployTransaction(t, "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01")
 }
 
 // Test deploy of a transaction with a chaincode over HTTP.
-/*
 func TestHTTPExecuteDeployTransaction(t *testing.T) {
-	// The chaincode used here cannot be from the hyperledger repo
+	// The chaincode used here cannot be from the fabric repo
 	// itself or it won't be downloaded because it will be found
 	// in GOPATH, which would defeat the test
-	executeDeployTransaction(t, "http://github.com/lehors/fabric/examples/chaincode/go/chaincode_example01")
+	executeDeployTransaction(t, "http://github.com/hyperledger/fabric-test-resources/examples/chaincode/go/chaincode_example01")
 }
-*/
 
 // Check the correctness of the final state after transaction execution.
 func checkFinalState(uuid string, chaincodeID string) error {

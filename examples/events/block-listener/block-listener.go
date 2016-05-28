@@ -34,7 +34,7 @@ type adapter struct {
 
 //GetInterestedEvents implements consumer.EventAdapter interface for registering interested events
 func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
-	return []*pb.Interest{&pb.Interest{EventType: "block", ResponseType: pb.Interest_PROTOBUF}}, nil
+	return []*pb.Interest{{EventType: "block", ResponseType: pb.Interest_PROTOBUF}}, nil
 }
 
 //Recv implements consumer.EventAdapter interface for receiving events

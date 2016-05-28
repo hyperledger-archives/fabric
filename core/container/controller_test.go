@@ -125,6 +125,7 @@ func getCodeChainBytesInMem() (io.Reader, error) {
 
 //set to true by providing "-run-controller-tests" command line option... Tests will create a docker image called "simple"
 var runTests bool
+
 func testForSkip(t *testing.T) {
 	//run tests
 	if !runTests {
@@ -149,7 +150,7 @@ func TestVMCBuildImage(t *testing.T) {
 	//creat a CreateImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		cir := CreateImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Reader: tarRdr, AttachStdout: true}
+		cir := CreateImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Reader: tarRdr, AttachStdout: true}
 		_, err := VMCProcess(ctxt, "Docker", cir)
 		if err != nil {
 			t.Fail()
@@ -173,7 +174,7 @@ func TestVMCStartContainer(t *testing.T) {
 	//create a StartImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		sir := StartImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
+		sir := StartImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
 		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
@@ -185,7 +186,7 @@ func TestVMCStartContainer(t *testing.T) {
 	//wait for VMController to complete.
 	fmt.Println("VMCStartContainer-waiting for response")
 	<-c
-	stopr := StopImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0, Dontremove: true}
+	stopr := StopImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0, Dontremove: true}
 	VMCProcess(ctxt, "Docker", stopr)
 }
 
@@ -201,10 +202,10 @@ func TestVMCCreateAndStartContainer(t *testing.T) {
 		defer close(c)
 
 		//stop and delete the container first (if it exists)
-		stopir := StopImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0}
+		stopir := StopImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0}
 		VMCProcess(ctxt, "Docker", stopir)
 
-		startir := StartImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
+		startir := StartImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
 		r, err := VMCProcess(ctxt, "Docker", startir)
 		if err != nil {
 			t.Fail()
@@ -235,14 +236,14 @@ func TestVMCSyncStartContainer(t *testing.T) {
 	var ctxt = context.Background()
 
 	//creat a StartImageReq obj and send it to VMCProcess
-	sir := StartImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
+	sir := StartImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}}
 	_, err := VMCProcess(ctxt, "Docker", sir)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error starting container: %s", err)
 		return
 	}
-	stopr := StopImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0, Dontremove: true}
+	stopr := StopImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0, Dontremove: true}
 	VMCProcess(ctxt, "Docker", stopr)
 }
 
@@ -256,7 +257,7 @@ func TestVMCStopContainer(t *testing.T) {
 	//creat a StopImageReq obj and send it to VMCProcess
 	go func() {
 		defer close(c)
-		sir := StopImageReq{CCID: ccintf.CCID{ ChaincodeSpec: &pb.ChaincodeSpec{ ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0}
+		sir := StopImageReq{CCID: ccintf.CCID{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: &pb.ChaincodeID{Name: "simple"}}}, Timeout: 0}
 		_, err := VMCProcess(ctxt, "Docker", sir)
 		if err != nil {
 			t.Fail()
