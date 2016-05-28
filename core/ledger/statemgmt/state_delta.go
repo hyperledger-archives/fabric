@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/fabric/core/util"
 )
 
-// StateDelta holds the changes to existing state. This struct is used for holding the uncommited changes during execution of a tx-batch
+// StateDelta holds the changes to existing state. This struct is used for holding the uncommitted changes during execution of a tx-batch
 // Also, to be used for transferring the state to another peer in chunks
 type StateDelta struct {
 	ChaincodeStateDeltas map[string]*ChaincodeStateDelta

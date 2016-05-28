@@ -102,7 +102,7 @@ func TestStateImpl_ComputeHash_AllInMemory_2(t *testing.T) {
 func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	// number of buckets at each level 26,9,3,1
 	testHasher, stateImplTestWrapper, stateDelta := createFreshDBAndInitTestStateImplWithCustomHasher(t, 26, 3)
-	// populate hash fucntion such that
+	// populate hash function such that
 	// all keys belong to a single bucket so as to test overwrite/delete scenario
 	testHasher.populate("chaincodeID1", "key1", 3)
 	testHasher.populate("chaincodeID2", "key2", 3)
@@ -323,7 +323,7 @@ func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 func TestStateImpl_DB_Changes(t *testing.T) {
 	// number of buckets at each level 26,9,3,1
 	testHasher, stateImplTestWrapper, stateDelta := createFreshDBAndInitTestStateImplWithCustomHasher(t, 26, 3)
-	// populate hash fucntion such that
+	// populate hash function such that
 	// ["chaincodeID1", "key1"] is bucketized to bucket 1
 	testHasher.populate("chaincodeID1", "key1", 0)
 	testHasher.populate("chaincodeID1", "key2", 0)
