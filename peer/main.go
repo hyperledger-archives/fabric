@@ -328,7 +328,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 
 		//TODO - do we need different SSL material for events ?
 		var opts []grpc.ServerOption
-		if peer.TlsEnabled() {
+		if peer.TLSEnabled() {
 			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to generate credentials %v", err)
@@ -433,7 +433,7 @@ func serve(args []string) error {
 	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
 
 	var opts []grpc.ServerOption
-	if peer.TlsEnabled() {
+	if peer.TLSEnabled() {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
 			grpclog.Fatalf("Failed to generate credentials %v", err)

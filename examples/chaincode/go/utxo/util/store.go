@@ -16,6 +16,9 @@ limitations under the License.
 
 package util
 
+// Store interface describes the storage used by this chaincode. The interface
+// was created so either the state database store can be used or a in memory
+// store can be used for unit testing.
 type Store interface {
 	GetState(Key) (*TX_TXOUT, bool, error)
 	PutState(Key, *TX_TXOUT) error
@@ -24,11 +27,13 @@ type Store interface {
 	PutTran(string, []byte) error
 }
 
+// InMemoryStore used for unit testing
 type InMemoryStore struct {
 	Map     map[Key]*TX_TXOUT
 	TranMap map[string][]byte
 }
 
+// MakeInMemoryStore creates a new in memory store
 func MakeInMemoryStore() Store {
 	ims := &InMemoryStore{}
 	ims.Map = make(map[Key]*TX_TXOUT)
@@ -36,26 +41,31 @@ func MakeInMemoryStore() Store {
 	return ims
 }
 
+// GetState returns the transaction for the given key
 func (ims *InMemoryStore) GetState(key Key) (*TX_TXOUT, bool, error) {
 	value, ok := ims.Map[key]
 	return value, ok, nil
 }
 
+// DelState deletes the given key and corresponding transactions
 func (ims *InMemoryStore) DelState(key Key) error {
 	delete(ims.Map, key)
 	return nil
 }
 
+// PutState saves the key and transaction in memory
 func (ims *InMemoryStore) PutState(key Key, value *TX_TXOUT) error {
 	ims.Map[key] = value
 	return nil
 }
 
+// GetTran returns the transaction for the given hash
 func (ims *InMemoryStore) GetTran(key string) ([]byte, bool, error) {
 	value, ok := ims.TranMap[key]
 	return value, ok, nil
 }
 
+// PutTran saves the hash and transaction in memory
 func (ims *InMemoryStore) PutTran(key string, value []byte) error {
 	ims.TranMap[key] = value
 	return nil

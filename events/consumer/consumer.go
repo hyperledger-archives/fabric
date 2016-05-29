@@ -49,7 +49,7 @@ func NewEventsClient(peerAddress string, adapter EventAdapter) *EventsClient {
 //newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func newEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	if peer.TlsEnabled() {
+	if peer.TLSEnabled() {
 		var sn string
 		if viper.GetString("peer.tls.serverhostoverride") != "" {
 			sn = viper.GetString("peer.tls.serverhostoverride")
