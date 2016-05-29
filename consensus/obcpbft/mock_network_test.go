@@ -253,11 +253,8 @@ func (net *testnet) process() error {
 			case <-time.After(100 * time.Millisecond):
 				continue
 			}
-			return nil
 		}
 	}
-
-	return nil
 }
 
 func (net *testnet) processContinually() {
