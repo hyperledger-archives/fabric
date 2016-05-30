@@ -112,7 +112,7 @@ func printProperties(openchainDB *db.OpenchainDB) {
 		db.GetPropertyCF("rocksdb.cfstats", openchainDB.PersistCF))
 }
 
-func scan(openchainDB *db.OpenchainDB, cfName string, cf *gorocksdb.ColumnFamilyHandle, printer detailPrinter) {
+func scan(openchainDB *db.OpenchainDB, cfName string, cf *gorocksdb.ColumnFamilyHandle, printer detailPrinter) (int, int) {
 	fmt.Printf("------- Printing Key-values larger than [%d] bytes in Column family [%s]--------\n", MaxValueSize, cfName)
 	itr := openchainDB.GetIterator(cf)
 	totalKVs := 0
@@ -138,6 +138,7 @@ func scan(openchainDB *db.OpenchainDB, cfName string, cf *gorocksdb.ColumnFamily
 	}
 	itr.Close()
 	fmt.Printf("totalKVs=[%d], overSizeKVs=[%d]\n", totalKVs, overSizeKVs)
+	return totalKVs, overSizeKVs
 }
 
 func blockDetailPrinter(blockBytes []byte) {
