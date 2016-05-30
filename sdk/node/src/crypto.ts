@@ -63,6 +63,9 @@ var x509schema = merge(true, _x509schema, asn1js);
 var pkijs_1 = merge(true, _pkijs, asn1js);
 var pkijs = merge(true, pkijs_1, x509schema);
 
+/**
+ * The crypto class contains implementations of various crypto primitives.
+ */
 export class Crypto {
 
     private hashAlgorithm:string;
@@ -77,7 +80,7 @@ export class Crypto {
     constructor(hashAlgorithm:string, securityLevel:number) {
         this.hashAlgorithm = hashAlgorithm;
         this.securityLevel = securityLevel;
-        this.initialiaze()
+        this.initialize()
     }
 
     /**
@@ -94,7 +97,7 @@ export class Crypto {
      */
     setSecurityLevel(securityLevel:number):void {
         this.securityLevel = securityLevel;
-        this.initialiaze();
+        this.initialize();
     }
 
     /**
@@ -111,7 +114,7 @@ export class Crypto {
      */
     setHashAlgorithm(hashAlgorithm:string):void {
         this.hashAlgorithm = hashAlgorithm;
-        this.initialiaze();
+        this.initialize();
     }
 
     generateNonce() {
@@ -396,7 +399,7 @@ export class Crypto {
             throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
     }
 
-    private initialiaze() {
+    private initialize() {
         this.checkSecurityLevel();
         this.checkHashFunction();
 

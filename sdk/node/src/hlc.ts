@@ -20,7 +20,7 @@
  *    Call Chain.setMemberService() to override the default implementation.
  *    For the default implementation, see MemberServices.
  *    NOTE: This makes member services pluggable from the client side, but more work is needed to make it compatible on
- *          the server side transaction processing path depending on how different the implementation is.
+ *          the server side transaction processing path.
  */
 
 var debugModule = require('debug');
@@ -157,18 +157,23 @@ export interface EnrollmentRequest {
     enrollmentSecret:string;
 }
 
+// The callback from the Chain.getMember or Chain.getUser methods
 export interface GetMemberCallback { (err:Error, member?:Member):void }
 
+// The callback from the Chain.register method
 export interface RegisterCallback {(err:Error, enrollmentPassword?:string):void }
 
+// The callback from the Chain.enroll method
 export interface EnrollCallback {(err:Error, enrollment?:Enrollment):void }
 
+// Enrollment metadata
 export interface Enrollment {
     key:Buffer;
     cert:string;
     chainKey:string;
 }
 
+// A request to get a batch of TCerts
 export interface GetTCertBatchRequest {
     name:string;
     // Return value from MemberServices.enroll
@@ -177,6 +182,7 @@ export interface GetTCertBatchRequest {
     num:number;
 }
 
+// A callback to the MemberServices.getTCertBatch method
 export interface GetTCertBatchCallback { (err:Error, tcerts?:TCert[]):void }
 
 export interface GetTCertCallback { (err:Error, tcert?:TCert):void }
@@ -188,6 +194,7 @@ export enum PrivacyLevel {
     Anonymous = 1
 }
 
+// The base Certificate class
 export class Certificate {
     constructor(public cert:Buffer,
                 public privateKey:any,
@@ -223,7 +230,7 @@ export class TCert extends Certificate {
 }
 
 /**
- * A base transaction request common for deploy, query, and invoke.
+ * A base transaction request common for DeployRequest, InvokeRequest, and QueryRequest.
  */
 export interface TransactionRequest {
     // The chaincode ID as provided by the 'submitted' event emitted by a TransactionContext
@@ -247,7 +254,7 @@ export interface DeployRequest extends TransactionRequest {
 }
 
 /**
- * Query request.
+ * Invoke or query request.
  */
 export interface InvokeOrQueryRequest extends TransactionRequest {
     // Optionally pass a list of attributes which can be used by chaincode to perform access control
@@ -293,7 +300,7 @@ export interface Transaction {
 export interface ErrorCallback { (err:Error):void }
 
 /**
- * Get a value callback.
+ * A callback for the KeyValStore.getValue method.
  */
 export interface GetValueCallback { (err:Error, value?:string):void }
 
@@ -470,6 +477,11 @@ export class Chain {
         });
     }
 
+    /**
+     * Get a user.
+     * A user is a specific type of member.
+     * Another type of member is a peer.
+     */
     getUser(name:string, cb:GetMemberCallback):void {
         return this.getMember(name, cb);
     }
@@ -500,30 +512,34 @@ export class Chain {
         }
         let peers = this.peers;
         let trySendTransaction = (pidx) => {
-	    if( pidx >= peers.length ) {
-		eventEmitter.emit('error', "None of "+peers.length+" peers reponding");
-		return;
-	    }
-	    let p = urlParser.parse(peers[pidx].getUrl());
-	    let client = new net.Socket();
-	    let tryNext = () => {
-		debug("Skipping unresponsive peer "+peers[pidx].getUrl());
-		client.destroy();
-		trySendTransaction(pidx+1);
-	    }
-	    client.on('timeout', tryNext);
-	    client.on('error', tryNext);
-	    client.connect(p.port, p.hostname, () => {
-		if( pidx > 0  &&  peers === this.peers )
-		    this.peers = peers.slice(pidx).concat(peers.slice(0,pidx));
-		client.destroy();
-		peers[pidx].sendTransaction(tx, eventEmitter);
+	       if( pidx >= peers.length ) {
+		      eventEmitter.emit('error', "None of "+peers.length+" peers reponding");
+		      return;
+	       }
+	       let p = urlParser.parse(peers[pidx].getUrl());
+	       let client = new net.Socket();
+	       let tryNext = () => {
+		      debug("Skipping unresponsive peer "+peers[pidx].getUrl());
+		      client.destroy();
+		      trySendTransaction(pidx+1);
+	       }
+	       client.on('timeout', tryNext);
+	       client.on('error', tryNext);
+	       client.connect(p.port, p.hostname, () => {
+		   if( pidx > 0  &&  peers === this.peers )
+		      this.peers = peers.slice(pidx).concat(peers.slice(0,pidx));
+		   client.destroy();
+		   peers[pidx].sendTransaction(tx, eventEmitter);
 	    });
 	}
 	trySendTransaction(0);
     }
 }
 
+/**
+ * A member is an entity that transacts on a chain.
+ * Types of members include end users, peers, etc.
+ */
 export class Member {
 
     private chain:Chain;
@@ -1241,7 +1257,7 @@ export class TransactionContext extends events.EventEmitter {
     /**
      * Create an invoke or query transaction.
      * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
- */
+     */
     private newInvokeOrQueryTransaction(request:InvokeOrQueryRequest, isInvokeRequest:boolean):Transaction {
         let self = this;
 
@@ -1317,6 +1333,9 @@ export class TransactionContext extends events.EventEmitter {
 
 }  // end TransactionContext
 
+/**
+ * The Peer class represents a peer to which HLC sends deploy, invoke, or query requests.
+ */
 export class Peer {
 
     private url:string;
@@ -1466,7 +1485,10 @@ class Endpoint {
     }
 }
 
-class MemberServicesImpl {
+/**
+ * MemberServicesImpl is the default implementation of a member services client.
+ */
+class MemberServicesImpl implements MemberServices {
 
     private ecaaClient:any;
     private ecapClient:any;
@@ -1685,6 +1707,9 @@ class MemberServicesImpl {
         });
     }
 
+    /**
+     * Process a batch of tcerts after having retrieved them from the TCA.
+     */
     private processTCertBatch(req:GetTCertBatchRequest, resp:any):TCert[] {
         let self = this;
 
@@ -1921,6 +1946,9 @@ export function stop() {
     }
 }
 
+/**
+ * Create an instance of a FileKeyValStore.
+ */
 export function newFileKeyValStore(dir:string):KeyValStore {
     return new FileKeyValStore(dir);
 }
