@@ -9,7 +9,11 @@ The sections in this document are as follows:
 
 * The [Getting Setup](#Getting Setup) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
 
-* The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you better navigate the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).  If this does not display correctly in your browser, try opening the following file in your browser after replacing YOUR-FABRIC-DIR appropriately: `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
+* The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).
+
+   WARNING: To view the reference documentation correctly, you may need to open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
+   `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
+   `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html`
 
 * The [Looking Ahead](#Looking Ahead) section describes some future work to be done.
 
@@ -102,12 +106,16 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
      var tx = user.invoke(invokeRequest);
      // Listen for the 'submitted' event
      tx.on('submitted', function(results) {
-        console.log("submitted: %j",results);
+        console.log("submitted invoke: %j",results);
      });
      // Listen for the 'complete' event.
      tx.on('complete', function(results) {
-        console.log("complete: %j",results; 
+        console.log("completed invoke: %j",results; 
      }); 
+     // Listen for the 'error' event.
+     tx.on('error', function(err) {
+        console.log("error on invoke: %j",err);
+     });
    });
 }
 
@@ -173,6 +181,7 @@ The node package is then located in the `$FABRIC/sdk/node` directory.
 
 HLC includes unit tests implemented with the [tape framework](https://github.com/substack/tape).
 
+
 #### Setting up the environment
 
 We assume the sandbox setting is used as described here: [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
@@ -182,6 +191,7 @@ Build and run the Membership Service (Certificate Authority) as described [here]
 We also assume that the peer is running at security level 256, which is the default value.
 
 Don't forget to enable security and privacy as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
+
 
 #### chain-tests
 
@@ -194,6 +204,7 @@ To run chain-tests, run the following command from the `FABRIC/sdk/node` directo
 node test/unit/chain-tests.js
 ```
 
+
 #### asset-mgmt
 
 This test case exercises chaincode *asset_management*. When running the chaincode as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode), name it *assetmgmt* as this is the name used in unit tests.
@@ -203,6 +214,7 @@ To run this test, run the following command from the *FABRIC/sdk/node* directory
 ```
 node test/unit/asset-mgmt.js
 ```
+
 
 #### Troublingshooting
 
@@ -241,7 +253,7 @@ HLC was designed to support two pluggable components:
 
 2. Pluggable member service which is used to register and enroll members.  Member services enables hyperledger to be a permissioned blockchain, providing security services such as anonymity, unlinkability of transactions, and confidentiality
 
-#### Main objects and viewing reference documentation
+#### HLC objects and reference documentation
 
 HLC is written primarily in typescript and is object-oriented.  The source can be found in the `fabric/sdk/node/src` directory.
 
