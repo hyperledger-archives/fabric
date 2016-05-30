@@ -37,6 +37,9 @@ general:
     # Whether the replica should act as a byzantine one; useful for debugging on testnets
     byzantine: false
 
+    # After how many requests the primary gets cycled automatically.  Set to 0 to disable.
+    viewchangeperiod: 0
+
     # Timeouts
     timeout:
 

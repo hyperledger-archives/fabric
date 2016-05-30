@@ -131,6 +131,8 @@ type pbftCore struct {
 
 	nullRequestTimer   eventTimer    // timeout triggering a null request
 	nullRequestTimeout time.Duration // duration for this timeout
+	viewChangePeriod   uint64        // period between automatic view changes
+	viewChangeSeqNo    uint64        // next seqNo to perform view change
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -219,6 +221,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 		panic("Log multiplier must be greater than or equal to 2")
 	}
 	instance.L = instance.logMultiplier * instance.K // log size
+	instance.viewChangePeriod = uint64(config.GetInt("general.viewchangeperiod"))
 
 	instance.byzantine = config.GetBool("general.byzantine")
 
@@ -252,6 +255,11 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	} else {
 		logger.Info("PBFT null requests disabled")
 	}
+	if instance.viewChangePeriod > 0 {
+		logger.Info("PBFT view change period = %v", instance.viewChangePeriod)
+	} else {
+		logger.Info("PBFT automatic view change disabled")
+	}
 
 	// init the logs
 	instance.certStore = make(map[msgID]*msgCert)
@@ -273,6 +281,9 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.missingReqs = make(map[string]bool)
 
 	instance.restoreState()
+
+	instance.viewChangeSeqNo = ^uint64(0) // infinity
+	instance.updateViewChangeSeqNo()
 
 	return instance
 }
@@ -626,6 +637,11 @@ func (instance *pbftCore) sendPrePrepare(req *Request, digest string) {
 		return
 	}
 
+	if n > instance.viewChangeSeqNo {
+		logger.Info("Primary %d about to switch to next primary, not sending pre-prepare with seqno=%d", instance.id, n)
+		return
+	}
+
 	logger.Debug("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
 		instance.id, instance.view, n, digest)
 	instance.seqNo = n
@@ -688,6 +704,12 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		}
 
+		return nil
+	}
+
+	if preprep.SequenceNumber > instance.viewChangeSeqNo {
+		logger.Info("Replica %d received pre-prepare for %d, which should be from the next primary", instance.id, preprep.SequenceNumber)
+		instance.sendViewChange()
 		return nil
 	}
 
@@ -827,6 +849,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 		instance.lastNewViewTimeout = instance.newViewTimeout
 		delete(instance.outstandingReqs, commit.RequestDigest)
 		instance.startTimerIfOutstandingRequests()
+		if commit.SequenceNumber == instance.viewChangeSeqNo {
+			logger.Info("Replica %d cycling view", instance.id)
+			instance.sendViewChange()
+		}
 
 		instance.executeOutstanding()
 	}
@@ -1210,8 +1236,14 @@ func (instance *pbftCore) innerBroadcast(msg *Message) error {
 	return nil
 }
 
-func (instance *pbftCore) startTimerIfOutstandingRequests() {
+func (instance *pbftCore) updateViewChangeSeqNo() {
+	if instance.viewChangePeriod <= 0 {
+		return
+	}
+	instance.viewChangeSeqNo = instance.seqNo + instance.viewChangePeriod
+}
 
+func (instance *pbftCore) startTimerIfOutstandingRequests() {
 	if len(instance.outstandingReqs) > 0 {
 		reqs := func() []string {
 			var r []string

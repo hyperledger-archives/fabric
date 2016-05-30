@@ -413,6 +413,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		instance.persistQSet()
 	}
 
+	instance.updateViewChangeSeqNo()
+
 	if instance.primary(instance.view) != instance.id {
 		for n, d := range nv.Xset {
 			prep := &Prepare{

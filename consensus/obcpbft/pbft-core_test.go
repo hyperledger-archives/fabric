@@ -1336,3 +1336,62 @@ func TestNetworkNullRequestMissing(t *testing.T) {
 		}
 	}
 }
+
+func TestNetworkPeriodicViewChange(t *testing.T) {
+	validatorCount := 4
+	config := loadConfig()
+	config.Set("general.K", "2")
+	config.Set("general.logmultiplier", "2")
+	config.Set("general.timeout.request", "500ms")
+	config.Set("general.viewchangeperiod", "2")
+	net := makePBFTNetwork(validatorCount, config)
+	defer net.stop()
+
+	for n := 1; n < 6; n++ {
+		msg := createPbftRequestWithChainTx(int64(n), 0)
+		for _, pe := range net.pbftEndpoints {
+			pe.pbft.manager.queue() <- msg
+		}
+		net.process()
+	}
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 5 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
+		}
+		if pep.pbft.view != 2 {
+			t.Errorf("Instance %d: expected view=2", pep.id)
+		}
+	}
+}
+
+func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
+	validatorCount := 4
+	config := loadConfig()
+	config.Set("general.K", "2")
+	config.Set("general.logmultiplier", "2")
+	config.Set("general.timeout.request", "500ms")
+	config.Set("general.viewchangeperiod", "2")
+	net := makePBFTNetwork(validatorCount, config)
+	defer net.stop()
+
+	net.pbftEndpoints[0].pbft.viewChangePeriod = 0
+	net.pbftEndpoints[0].pbft.viewChangeSeqNo = ^uint64(0)
+
+	for n := 1; n < 3; n++ {
+		msg := createPbftRequestWithChainTx(int64(n), 0)
+		for _, pe := range net.pbftEndpoints {
+			pe.pbft.manager.queue() <- msg
+		}
+		net.process()
+	}
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 2 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
+		}
+		if pep.pbft.view != 1 {
+			t.Errorf("Instance %d: expected view=1", pep.id)
+		}
+	}
+}
