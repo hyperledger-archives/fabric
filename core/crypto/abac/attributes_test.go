@@ -20,11 +20,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io/ioutil"
 	"os"
 	"testing"
-
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestMain(m *testing.M) {
@@ -95,6 +94,34 @@ func TestGetValueForAttribute(t *testing.T) {
 
 	if string(value) != expected {
 		t.Errorf("Failed retrieving attribute value from TCert. Expected: %v, Actual: %v", expected, string(value))
+	}
+}
+
+func TestGetKForAttribute(t *testing.T) {
+	expected := "Software Engineer"
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	key, err := GetKForAttribute("position", prek0, tcert)
+	if err != nil {
+		t.Error(err)
+	}
+
+	encryptedValue, err := EncryptAttributeValuePK0(prek0, "position", []byte(expected))
+	if err != nil {
+		t.Error(err)
+	}
+
+	decryptedValue, err := DecryptAttributeValue(key, encryptedValue)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if string(decryptedValue) != expected {
+		t.Errorf("Failed decrypting attribute used calculated key. Expected: %v, Actual: %v", expected, string(decryptedValue))
 	}
 }
 
