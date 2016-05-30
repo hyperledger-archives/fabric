@@ -94,7 +94,7 @@ message ChaincodeInvocationSpec {
 
     ChaincodeSpec chaincodeSpec = 1;
     //ChaincodeInput message = 2;
-
+    string userGivenID = 2;
 }
 
 // This structure contain transaction data that we send to the chaincode

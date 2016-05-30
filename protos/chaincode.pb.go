@@ -250,6 +250,8 @@ func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp 
 // Carries the chaincode function and its arguments.
 type ChaincodeInvocationSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
+	// ChaincodeInput message = 2;
+	UserGivenID string `protobuf:"bytes,2,opt,name=userGivenID" json:"userGivenID,omitempty"`
 }
 
 func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
