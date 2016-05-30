@@ -171,7 +171,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-        var userGivenID string = chaincodeInvocationSpec.UserGivenID
+        var userGivenID = chaincodeInvocationSpec.UserGivenID
         var uuid string
         if userGivenID != "" {
                 uuid = userGivenID
