@@ -69,14 +69,15 @@ chain.setMemberServicesUrl("grpc://localhost:50051");
 // Add a peer's URL
 chain.addPeer("grpc://localhost:30303");
 
-// Enroll "WebAppAdmin", which is already registered because it is
+// Enroll "WebAppAdmin" which is already registered because it is
 // listed in fabric/membersrvc/membersrvc.yaml.
-enrollRegistrar("WebAppAdmin", function(err) {
+enrollRegistrar("WebAppAdmin", "DJY27pEnl16d", function(err) {
    if (err) return console.log("ERROR: failed to register %s: %s",err);
    // Successfully enrolled WebAppAdmin during initialization
    listenForUserRequests();
 });
 
+// Main web app function to listen for and handle requests
 function listenForUserRequests() {
    for (;;) {
       // WebApp-specific logic goes here to await the next request.
@@ -88,6 +89,7 @@ function listenForUserRequests() {
    }
 }
 
+// Handle a user request
 function handleUserRequest(userName, chaincodeID, fcn, args) {
    getUserForChain(userName, function(err,user) {
       if (err) return console.log("ERROR: %s",err);
@@ -117,21 +119,19 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
    });
 }
 
-   
 // Enroll the web app and set it as the registrar to register and enroll
 // web app users.
-function enrollRegistrar(userName,cb) {
+function enrollRegistrar(userName,password,cb) {
    // Get the "WebAppAdmin" user, which is already registered because
    // it is listed in fabric/membersrvc/membersrvc.yaml.
    chain.getUser(userName, function (err, user) {
       if (err) return cb(err);
       // Enroll with the one-time password listed in membersrvc.yaml.
-      // If the user has already been registered, user.enroll does
-      // not throw an error.  It keeps this state in the KeyValStore.
-      var pw = "DJY27pEnl16d";
+      // If the user has already been registered, user.enroll recognizes
+      // and handles it appropriately.
       user.enroll(pw,function(err) {
          if (err) return cb(err);
-         // Successfully enrolled WebAppAdmin, so set it as the
+         // Successfully enrolled the user, so set it as the
          // registrar to register & enroll other users.
          chain.setRegistrar(user);
          return cb();
@@ -139,6 +139,7 @@ function enrollRegistrar(userName,cb) {
    }
 }
 
+// Get a user object to transact with on the chain
 function getUserForChain(userName, cb) {
    chain.getUser(userName, function(err,user) {
       if (err) return cb(err);
