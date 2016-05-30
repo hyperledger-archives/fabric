@@ -17,13 +17,15 @@ limitations under the License.
 package ledger
 
 import (
+	"testing"
+
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/testutil"
-	"testing"
 )
 
 var testDBWrapper = db.NewTestDBWrapper()
 
+//InitTestLedger provides a ledger for testing. This method creates a fresh db and constructs a ledger instance on that.
 func InitTestLedger(t *testing.T) *Ledger {
 	testDBWrapper.CreateFreshDB(t)
 	_, err := GetLedger()

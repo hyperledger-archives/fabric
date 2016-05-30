@@ -23,19 +23,9 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// IsNil returns true if b is either nil or zero-length array
-func IsNil(b []byte) bool {
-	return b == nil || len(b) == 0
-}
-
-// NotNil returns true if b is a non-zero length array
-func NotNil(b []byte) bool {
-	return !IsNil(b)
-}
-
 // EncodeOrderPreservingVarUint64 returns a byte-representation for a uint64 number such that
 // all zero-bits starting bytes are trimmed in order to reduce the length of the array
-// For preserving the order in a default bytes-comparision, first byte contains the number of remaining bytes.
+// For preserving the order in a default bytes-comparison, first byte contains the number of remaining bytes.
 // The presence of first byte also allows to use the returned bytes as part of other larger byte array such as a
 // composite-key representation in db
 func EncodeOrderPreservingVarUint64(number uint64) []byte {

@@ -30,7 +30,7 @@ var stateImplConfigs map[string]interface{}
 var deltaHistorySize int
 
 func initConfig() {
-	loadConfigOnce.Do(func(){loadConfig()})
+	loadConfigOnce.Do(func() { loadConfig() })
 }
 
 func loadConfig() {

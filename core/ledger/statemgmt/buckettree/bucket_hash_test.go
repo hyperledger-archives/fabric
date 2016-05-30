@@ -17,8 +17,9 @@ limitations under the License.
 package buckettree
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestBucketHashCalculator(t *testing.T) {

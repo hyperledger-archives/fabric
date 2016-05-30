@@ -76,8 +76,6 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
-
-	return nil, nil
 }
 
 // Query callback representing the query of a chaincode

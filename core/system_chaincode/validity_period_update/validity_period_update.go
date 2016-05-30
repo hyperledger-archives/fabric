@@ -65,7 +65,7 @@ func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 // Transaction updates system validity period on the ledger
 func (t *systemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	// FIXME: this chaincode needs to be executed by an authorized party. In order to guarantee this, two verifications
-	// need to be perfomed:
+	// need to be performed:
 	// 1. The identity of the caller should be available somehow for the chaincode to perform a check.
 	// 2. The ability to determine if the chaincode is executed directly or as a part of a nested execution of chaincodes.
 

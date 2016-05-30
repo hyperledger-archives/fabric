@@ -16,9 +16,7 @@ limitations under the License.
 
 package trie
 
-import (
-	"github.com/hyperledger/fabric/core/db"
-)
+import "github.com/hyperledger/fabric/core/db"
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
 	stateTrieLogger.Debug("Enter fetchTrieNodeFromDB() for trieKey [%s]", key)

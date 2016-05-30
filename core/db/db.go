@@ -203,7 +203,7 @@ func openDB() (*OpenchainDB, error) {
 	cfNames := []string{"default"}
 	cfNames = append(cfNames, columnfamilies...)
 	var cfOpts []*gorocksdb.Options
-	for _ = range cfNames {
+	for range cfNames {
 		cfOpts = append(cfOpts, opts)
 	}
 
@@ -267,7 +267,10 @@ func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 		return nil, err
 	}
 	defer slice.Free()
-	data := append([]byte(nil), slice.Data()...)
+	if slice.Data() == nil {
+		return nil, nil
+	}
+	data := makeCopy(slice.Data())
 	return data, nil
 }
 
@@ -364,4 +367,10 @@ func dirEmpty(path string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func makeCopy(src []byte) []byte {
+	dest := make([]byte, len(src))
+	copy(dest, src)
+	return dest
 }

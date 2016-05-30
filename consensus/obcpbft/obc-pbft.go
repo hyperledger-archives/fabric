@@ -134,6 +134,14 @@ func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
 }
 
+func (op *obcGeneric) invalidateState() {
+	op.stack.InvalidateState()
+}
+
+func (op *obcGeneric) validateState() {
+	op.stack.ValidateState()
+}
+
 func (op *obcGeneric) getState() []byte {
 	return op.stack.GetBlockchainInfoBlob()
 }
@@ -146,14 +154,4 @@ func (op *obcGeneric) getLastSeqNo() (uint64, error) {
 	meta := &Metadata{}
 	proto.Unmarshal(raw, meta)
 	return meta.SeqNo, nil
-}
-
-// StateUpdated is a signal from the stack that it has fast-forwarded its state
-func (op *obcGeneric) StateUpdated(seqNo uint64, id []byte) {
-	op.pbft.stateUpdated(seqNo, id)
-}
-
-// StateUpdating is a signal from the stack that state transfer has started
-func (op *obcGeneric) StateUpdating(seqNo uint64, id []byte) {
-	op.pbft.stateUpdating(seqNo, id)
 }

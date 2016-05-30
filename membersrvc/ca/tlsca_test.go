@@ -46,9 +46,9 @@ import (
 )
 
 var (
-	eca_s   *ECA
-	tlsca_s *TLSCA
-	srv     *grpc.Server
+	ecaS   *ECA
+	tlscaS *TLSCA
+	srv    *grpc.Server
 )
 
 func TestTLS(t *testing.T) {
@@ -67,8 +67,8 @@ func TestTLS(t *testing.T) {
 func startTLSCA(t *testing.T) {
 	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
 
-	eca_s = NewECA()
-	tlsca_s = NewTLSCA(eca_s)
+	ecaS = NewECA()
+	tlscaS = NewTLSCA(ecaS)
 
 	var opts []grpc.ServerOption
 	creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
@@ -81,8 +81,8 @@ func startTLSCA(t *testing.T) {
 
 	srv = grpc.NewServer(opts...)
 
-	eca_s.Start(srv)
-	tlsca_s.Start(srv)
+	ecaS.Start(srv)
+	tlscaS.Start(srv)
 
 	sock, err := net.Listen("tcp", viper.GetString("server.port"))
 	if err != nil {

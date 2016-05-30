@@ -68,7 +68,7 @@ type nextStateInfo struct {
 	sendToCC bool
 }
 
-// Handler responsbile for managment of Peer's side of chaincode stream
+// Handler responsbile for management of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
 	ChatStream  ccintf.ChaincodeStream
@@ -157,6 +157,32 @@ func (handler *Handler) deleteRangeQueryIterator(txContext *transactionContext, 
 	handler.Lock()
 	defer handler.Unlock()
 	delete(txContext.rangeQueryIteratorMap, uuid)
+}
+
+//THIS CAN BE REMOVED ONCE WE SUPPORT CONFIDENTIALITY WITH CC-CALLING-CC
+//we dissallow chaincode-chaincode interactions till confidentiality implications are understood
+func (handler *Handler) canCallChaincode(uuid string) *pb.ChaincodeMessage {
+	secHelper := handler.chaincodeSupport.getSecHelper()
+	if secHelper == nil {
+		return nil
+	}
+
+	var errMsg string
+	txctx := handler.getTxContext(uuid)
+	if txctx == nil {
+		errMsg = fmt.Sprintf("[%s]Error no context while checking for confidentiality. Sending %s", shortuuid(uuid), pb.ChaincodeMessage_ERROR)
+	} else if txctx.transactionSecContext == nil {
+		errMsg = fmt.Sprintf("[%s]Error transaction context is nil while checking for confidentiality. Sending %s", shortuuid(uuid), pb.ChaincodeMessage_ERROR)
+	} else if txctx.transactionSecContext.ConfidentialityLevel != pb.ConfidentialityLevel_PUBLIC {
+		errMsg = fmt.Sprintf("[%s]Error chaincode-chaincode interactions not supported for with privacy enabled. Sending %s", shortuuid(uuid), pb.ChaincodeMessage_ERROR)
+	}
+
+	if errMsg != "" {
+		return &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: []byte(errMsg), Uuid: uuid}
+	}
+
+	//not CONFIDENTIAL transaction, OK to call CC
+	return nil
 }
 
 func (handler *Handler) encryptOrDecrypt(encrypt bool, uuid string, payload []byte) ([]byte, error) {
@@ -979,6 +1005,10 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			key := string(msg.Payload)
 			err = ledgerObj.DeleteState(chaincodeID, key)
 		} else if msg.Type.String() == pb.ChaincodeMessage_INVOKE_CHAINCODE.String() {
+			//check and prohibit C-call-C for CONFIDENTIAL txs
+			if triggerNextStateMsg = handler.canCallChaincode(msg.Uuid); triggerNextStateMsg != nil {
+				return
+			}
 			chaincodeSpec := &pb.ChaincodeSpec{}
 			unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
 			if unmarshalErr != nil {
@@ -1010,8 +1040,8 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
 
 			// Execute the chaincode
-			//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
-			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
+			//NOTE: when confidential C-call-C is understood, transaction should have the correct sec context for enc/dec
+			response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, transaction)
 
 			//payload is marshalled and send to the calling chaincode's shim which unmarshals and
 			//sends it to chaincode
@@ -1242,6 +1272,11 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 			handler.serialSend(serialSendMsg)
 		}()
 
+		//check and prohibit C-call-C for CONFIDENTIAL txs
+		if serialSendMsg = handler.canCallChaincode(msg.Uuid); serialSendMsg != nil {
+			return
+		}
+
 		chaincodeSpec := &pb.ChaincodeSpec{}
 		unmarshalErr := proto.Unmarshal(msg.Payload, chaincodeSpec)
 		if unmarshalErr != nil {
@@ -1273,8 +1308,8 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		ccMsg, _ := createQueryMessage(transaction.Uuid, chaincodeInput)
 
 		// Query the chaincode
-		//TODOOOOOOOOOOOOOOOOOOOOOOOOO - pass transaction to Execute
-		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, nil)
+		//NOTE: when confidential C-call-C is understood, transaction should have the correct sec context for enc/dec
+		response, execErr := handler.chaincodeSupport.Execute(context.Background(), newChaincodeID, ccMsg, timeout, transaction)
 
 		if execErr != nil {
 			// Send error msg back to chaincode and trigger event
@@ -1351,7 +1386,7 @@ func (handler *Handler) HandleMessage(msg *pb.ChaincodeMessage) error {
 	return filteredErr
 }
 
-// Filter the Errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil
+// Filter the Errors to allow NoTransitionError and CanceledError to not propagate for cases where embedded Err == nil
 func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {

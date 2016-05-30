@@ -18,7 +18,6 @@ package ledger
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -37,12 +36,43 @@ import (
 
 var ledgerLogger = logging.MustGetLogger("ledger")
 
+//ErrorType represents the type of a ledger error
+type ErrorType string
+
+const (
+	//ErrorTypeInvalidArgument used to indicate the invalid input to ledger method
+	ErrorTypeInvalidArgument = ErrorType("InvalidArgument")
+	//ErrorTypeOutOfBounds used to indicate that a request is out of bounds
+	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
+	//ErrorTypeResourceNotFound used to indicate if a resource is not found
+	ErrorTypeResourceNotFound = ErrorType("ResourceNotFound")
+)
+
+//Error can be used for throwing an error from ledger code.
+type Error struct {
+	errType ErrorType
+	msg     string
+}
+
+func (ledgerError *Error) Error() string {
+	return fmt.Sprintf("LedgerError - %s: %s", ledgerError.errType, ledgerError.msg)
+}
+
+//Type returns the type of the error
+func (ledgerError *Error) Type() ErrorType {
+	return ledgerError.errType
+}
+
+func newLedgerError(errType ErrorType, msg string) *Error {
+	return &Error{errType, msg}
+}
+
 var (
 	// ErrOutOfBounds is returned if a request is out of bounds
-	ErrOutOfBounds = errors.New("ledger: out of bounds")
+	ErrOutOfBounds = newLedgerError(ErrorTypeOutOfBounds, "ledger: out of bounds")
 
 	// ErrResourceNotFound is returned if a resource is not found
-	ErrResourceNotFound = errors.New("ledger: resource not found")
+	ErrResourceNotFound = newLedgerError(ErrorTypeResourceNotFound, "ledger: resource not found")
 )
 
 // Ledger - the struct for openchain ledger
@@ -198,7 +228,7 @@ func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) (
 
 // GetStateRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
 // (assuming lexical order of the keys) for a chaincodeID.
-// If committed is true, the key-values are retrived only from the db. If committed is false, the results from db
+// If committed is true, the key-values are retrieved only from the db. If committed is false, the results from db
 // are mergerd with the results in memory (giving preference to in-memory data)
 // The key-values in the returned iterator are not guaranteed to be in any specific order
 func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey string, endKey string, committed bool) (statemgmt.RangeScanIterator, error) {
@@ -207,6 +237,10 @@ func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey str
 
 // SetState sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) error {
+	if key == "" || value == nil {
+		return newLedgerError(ErrorTypeInvalidArgument,
+			fmt.Sprintf("An empty string key or a nil value is not supported. Method invoked with key='%s', value='%#v'", key, value))
+	}
 	return ledger.state.Set(chaincodeID, key, value)
 }
 
@@ -233,7 +267,7 @@ func (ledger *Ledger) SetStateMultipleKeys(chaincodeID string, kvs map[string][]
 }
 
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
-// should be used when transfering the state from one peer to another peer. You must call
+// should be used when transferring the state from one peer to another peer. You must call
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
 func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 	dbSnapshot := db.GetDBHandle().GetSnapshot()
@@ -274,7 +308,7 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // It's possible to roll the state forwards or backwards using
 // stateDelta.RollBackwards. By default, a delta retrieved for block 3 can
 // be used to roll forwards from state at block 2 to state at block 3. If
-// stateDelta.RollBackwards=false, the delta retrived for block 3 can be
+// stateDelta.RollBackwards=false, the delta retrieved for block 3 can be
 // used to roll backwards from the state at block 3 to the state at block 2.
 func (ledger *Ledger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	err := ledger.checkValidIDBegin()

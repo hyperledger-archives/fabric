@@ -31,7 +31,7 @@ import (
 )
 
 type obcSieve struct {
-	obcGeneric
+	legacyGenericShim
 
 	id             uint64
 	epoch          uint64
@@ -74,15 +74,18 @@ type msgWithSender struct {
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
-		obcGeneric: obcGeneric{stack: stack},
-		id:         id,
+		legacyGenericShim: legacyGenericShim{
+			obcGeneric: obcGeneric{stack: stack},
+		},
+		id: id,
 	}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 
 	op.restoreBlockNumber()
 
-	op.pbft = newPbftCore(id, config, op)
+	op.pbft = legacyPbftShim{newPbftCore(id, config, op)}
+	op.pbft.manager.start()
 	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
 	op.deduplicator = newDeduplicator()
 
@@ -788,12 +791,10 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 		op.rollback()
 	}
 
-	reqs := op.complainer.Restart()
-	if op.pbft.primary(op.pbft.view) == op.id {
-		for hash, req := range reqs {
-			logger.Info("Replica %d queueing request under custody: %s", op.id, hash)
-			op.queuedTx = append(op.queuedTx, req)
-		}
+	op.complainer.Restart()
+	for _, pair := range op.complainer.CustodyElements() {
+		logger.Info("Replica %d resubmitting request under custody: %s", op.id, pair.Hash)
+		op.submitToLeader(pair.Request)
 	}
 }
 
@@ -821,6 +822,7 @@ func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
 	if op.currentReq != "" {
 		op.rollback()
 	}
+	op.stack.InvalidateState()
 	op.obcGeneric.skipTo(seqNo, id, peers)
 }
 
