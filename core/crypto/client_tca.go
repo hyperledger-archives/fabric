@@ -26,15 +26,16 @@ import (
 
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
-	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/utils"
+	"golang.org/x/net/context"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -108,7 +109,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Handle Critical Extension TCertEncTCertIndex
-	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex);
+	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex)
 	if err != nil {
 		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", der, err)
 
@@ -143,7 +144,6 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 
 	// Try to extract the signing key from the TCert by decrypting the TCertIndex
 
-
 	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
 	// Let TCertIndex = Timestamp, RandValue, 1,2,…
 	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
@@ -164,7 +164,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -190,10 +190,10 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Compute temporary public key
 		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
 		tempSK.PublicKey.X, tempSK.PublicKey.Y =
-		tempSK.PublicKey.Add(
-			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-			tempX, tempY,
-		)
+			tempSK.PublicKey.Add(
+				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
+				tempX, tempY,
+			)
 
 		// Verify temporary public key is a valid point on the reference curve
 		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
@@ -301,7 +301,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
 
-	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+	// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -465,7 +465,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 

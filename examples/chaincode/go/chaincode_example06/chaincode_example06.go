@@ -19,6 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -26,14 +27,14 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub,  function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	attributes, err := stub.CertAttributes()
 	if err != nil {
 		return nil, err
 	}
 
-	for _,att := range attributes {
-		fmt.Println("Writting attribute "+att)
+	for _, att := range attributes {
+		fmt.Println("Writting attribute " + att)
 		var att_val []byte
 		att_val, err = stub.ReadCertAttribute(att)
 		if err != nil {
@@ -49,11 +50,9 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub,  function string, args 
 }
 
 // Transaction makes payment of X units from A to B
-func (t *SimpleChaincode)Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var A string    // Entities
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	var A string // Entities
 	var err error
-
-
 
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")

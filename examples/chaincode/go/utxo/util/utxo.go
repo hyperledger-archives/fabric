@@ -81,9 +81,9 @@ func (u *UTXO) Execute(txData []byte) (*ExecResult, error) {
 		}
 		if ok == true {
 			// COLLISION
-			return nil, fmt.Errorf("COLLISION detected for key = %v, with output script length = ", currKey, len(output.Script))
+			return nil, fmt.Errorf("COLLISION detected for key = %v, with output script length = %d", currKey, len(output.Script))
 		}
-		// Store the ouput in utxo
+		// Store the output in utxo
 		u.Store.PutState(*currKey, &TX_TXOUT{Script: output.Script, Value: output.Value})
 		execResult.SumCurrentOutputs += output.Value
 	}

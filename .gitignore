@@ -19,3 +19,5 @@ membersrvc/membersrvc
 *.log
 # Makefile dummy artifacts
 .*-dummy
+# go-carpet output files
+go-carpet-coverage*

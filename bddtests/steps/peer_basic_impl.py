@@ -231,6 +231,10 @@ def step_impl(context):
     assert context.transactionID != ""
     pass
 
+@when(u'I unconditionally query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, containerName):
+    invokeChaincode(context, "query", functionName, containerName)
+
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     invokeChaincode(context, "query", functionName, containerName)
@@ -411,9 +415,15 @@ def step_impl(context, chaincodeName, functionName):
         responses.append(resp)
     context.responses = responses
 
+@when(u'I unconditionally query chaincode "{chaincodeName}" function name "{functionName}" with value "{value}" on peers')
+def step_impl(context, chaincodeName, functionName, value):
+    query_common(context, chaincodeName, functionName, value, False)
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" with value "{value}" on peers')
 def step_impl(context, chaincodeName, functionName, value):
+    query_common(context, chaincodeName, functionName, value, True)
+
+def query_common(context, chaincodeName, functionName, value, failOnError):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     assert 'compose_containers' in context, "compose_containers not found in context"
     assert 'table' in context, "table (of peers) not found in context"
@@ -438,14 +448,12 @@ def step_impl(context, chaincodeName, functionName, value):
         request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
         print("{0} POSTing path = {1}".format(currentTime(), request_url))
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=30, verify=False)
-        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
+        if failOnError:
+            assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))
         responses.append(resp)
     context.responses = responses
-
-
-
 
 @then(u'I should get a JSON response from all peers with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):

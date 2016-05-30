@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"crypto/rand"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
@@ -159,11 +160,11 @@ func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
 	}
 
 	if err := RegisterValidator(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err == nil {
-		t.Fatalf("Reusing the same enrollment id must be forbidden", err)
+		t.Fatal("Reusing the same enrollment id must be forbidden", err)
 	}
 
 	if err := RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err == nil {
-		t.Fatalf("Reusing the same enrollment id must be forbidden", err)
+		t.Fatal("Reusing the same enrollment id must be forbidden", err)
 	}
 }
 
@@ -309,7 +310,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
 
-	attributeValue := string(attributeBytes[:len(attributeBytes)])
+	attributeValue := string(attributeBytes[:])
 
 	if attributeValue != "IBM" {
 		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
@@ -627,27 +628,27 @@ func TestPeerVerify(t *testing.T) {
 
 	err = peer.Verify(nil, signature, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an empty id.", err)
+		t.Fatal("Verify should fail when given an empty id.", err)
 	}
 
 	err = peer.Verify(msg, signature, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid id.", err)
+		t.Fatal("Verify should fail when given an invalid id.", err)
 	}
 
 	err = peer.Verify(validator.GetID(), nil, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid signature.", err)
+		t.Fatal("Verify should fail when given an invalid signature.", err)
 	}
 
 	err = peer.Verify(validator.GetID(), msg, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid signature.", err)
+		t.Fatal("Verify should fail when given an invalid signature.", err)
 	}
 
 	err = peer.Verify(validator.GetID(), signature, nil)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid messahe.", err)
+		t.Fatal("Verify should fail when given an invalid messahe.", err)
 	}
 }
 
@@ -964,27 +965,27 @@ func TestValidatorVerify(t *testing.T) {
 
 	err = validator.Verify(nil, signature, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an empty id.", err)
+		t.Fatal("Verify should fail when given an empty id.", err)
 	}
 
 	err = validator.Verify(msg, signature, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid id.", err)
+		t.Fatal("Verify should fail when given an invalid id.", err)
 	}
 
 	err = validator.Verify(validator.GetID(), nil, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid signature.", err)
+		t.Fatal("Verify should fail when given an invalid signature.", err)
 	}
 
 	err = validator.Verify(validator.GetID(), msg, msg)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid signature.", err)
+		t.Fatal("Verify should fail when given an invalid signature.", err)
 	}
 
 	err = validator.Verify(validator.GetID(), signature, nil)
 	if err == nil {
-		t.Fatalf("Verify should fail when given an invalid messahe.", err)
+		t.Fatal("Verify should fail when given an invalid messahe.", err)
 	}
 }
 
