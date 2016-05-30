@@ -12,7 +12,9 @@ The sections in this document are as follows:
 * The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).
 
    WARNING: To view the reference documentation correctly, you may need to open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
+   
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
+   
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html`
 
 * The [Looking Ahead](#Looking Ahead) section describes some future work to be done.
