@@ -25,19 +25,17 @@ This purpose of this section is to help you quickly get a feel for HLC and how y
 
 ### Some basic terminology
 
-First, there is some basic terminology you should understand.
+First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
 
-In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
+Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a user name (also called an *enrollment ID*).  This can be done programatically with the **Member.register** method, or by adding the enrollment ID to the member services configuration file in `fabric/membersrvc/membersrvc.yaml`. 
 
-First, think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a user name (also called an *enrollment ID*).  This can be done programatically with the **User.enroll** HLC API, or by adding the enrollment ID to the member services configuration file in `fabric/membersrvc/membersrvc.yaml`. 
-
-Furthermore, think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain. 
+Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the **Member.enroll** method.
 
 ### Learn by example
 
 The best way to quickly learn HLC is by example.
 
-The following sample demonstrates a common scenario in which users log into a web app and the web app transacts on the blockchain on behalf of those users.
+The following example demonstrates a typical web app.  The web app authenticates a user and then transacts on a blockchain on behalf of that user.
 
 ```
 /**
