@@ -106,7 +106,7 @@ echo "PS1=\"\u@hyperledger-devenv:v$BASEIMAGE_RELEASE-$DEVENV_REVISION:\w$ \"" >
 # configure vagrant specific environment
 cat <<EOF >/etc/profile.d/vagrant-devenv.sh
 # Expose the devenv/tools in the $PATH
-export PATH=\$PATH:/hyperledger/devenv/tools
+export PATH=\$PATH:/hyperledger/devenv/tools:/hyperledger/build/bin
 export VAGRANT=1
 export CGO_CFLAGS=" "
 export CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"

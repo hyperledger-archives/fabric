@@ -72,6 +72,8 @@ The `node start` command will initiate a peer process, with which one can intera
       help        Help about any command
 ```
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 

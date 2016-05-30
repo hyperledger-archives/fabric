@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"crypto/rand"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
