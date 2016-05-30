@@ -9,7 +9,7 @@ The sections in this document are as follows:
 
 * The [Getting Setup](#Getting Setup) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
 
-* The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you better navigate the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).
+* The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you better navigate the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).  If this does not display correctly in your browser, try opening the following file in your browser after replacing YOUR-FABRIC-DIR appropriately: `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
 
 * The [Looking Ahead](#Looking Ahead) section describes some future work to be done.
 
