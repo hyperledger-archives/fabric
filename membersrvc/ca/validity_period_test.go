@@ -98,17 +98,17 @@ func TestValidityPeriod(t *testing.T) {
 
 	// 6. Compare the values
 	if validityPeriodA != validityPeriodFromLedgerA {
-		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriodA, validityPeriodFromLedgerA)
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %d, Actual: %d", validityPeriodA, validityPeriodFromLedgerA)
 		t.Fail()
 	}
 
 	if validityPeriodB != validityPeriodFromLedgerB {
-		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %s, Actual: %s", validityPeriodB, validityPeriodFromLedgerB)
+		t.Logf("Validity period read from ledger must be equals tothe one obtained by querying the Openchain. Expected: %d, Actual: %d", validityPeriodB, validityPeriodFromLedgerB)
 		t.Fail()
 	}
 
 	if validityPeriodB-validityPeriodA != updateInterval {
-		t.Logf("Validity period difference must be equal to the update interval. Expected: %s, Actual: %s", updateInterval, validityPeriodB-validityPeriodA)
+		t.Logf("Validity period difference must be equal to the update interval. Expected: %d, Actual: %d", updateInterval, validityPeriodB-validityPeriodA)
 		t.Fail()
 	}
 
