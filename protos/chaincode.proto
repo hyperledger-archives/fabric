@@ -94,7 +94,10 @@ message ChaincodeInvocationSpec {
 
     ChaincodeSpec chaincodeSpec = 1;
     //ChaincodeInput message = 2;
-    string userGivenID = 2;
+    // This field can contain a user-specified TxID
+    // If supplied, this will be used as the ID of a transaction
+    // If not supplied (left empty), a UUID will be generated
+    string userGivenTxID = 2;
 }
 
 // This structure contain transaction data that we send to the chaincode

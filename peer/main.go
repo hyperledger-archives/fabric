@@ -178,7 +178,7 @@ var (
 	chaincodeUsr      string
 	chaincodeQueryRaw bool
 	chaincodeQueryHex bool
-	txUserGivenID     string
+	userGivenTxID     string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -293,7 +293,7 @@ func main() {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
-	chaincodeCmd.PersistentFlags().StringVarP(&txUserGivenID, "tid", "t", undefinedParamValue, fmt.Sprintf("A user-given ID for the transaction created by the chaincode"))
+	chaincodeCmd.PersistentFlags().StringVarP(&userGivenTxID, "tid", "t", undefinedParamValue, fmt.Sprintf("A user-given ID for the transaction created by the chaincode"))
 
 	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryRaw, "raw", "r", false, "If true, output the query value as raw bytes, otherwise format as a printable string")
 	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryHex, "hex", "x", false, "If true, output the query value byte array in hexadecimal. Incompatible with --raw")
@@ -925,8 +925,8 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-	if txUserGivenID != undefinedParamValue {
-		invocation.UserGivenID = txUserGivenID
+	if userGivenTxID != undefinedParamValue {
+		invocation.UserGivenTxID = userGivenTxID
 	}
 
 	var resp *pb.Response

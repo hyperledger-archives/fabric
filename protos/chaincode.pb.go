@@ -251,7 +251,10 @@ func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp 
 type ChaincodeInvocationSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
 	// ChaincodeInput message = 2;
-	UserGivenID string `protobuf:"bytes,2,opt,name=userGivenID" json:"userGivenID,omitempty"`
+	// This field can contain a user-specified TxID
+	// If supplied, this will be used as the ID of a transaction
+	// If not supplied (left empty), a UUID will be generated
+	UserGivenTxID string `protobuf:"bytes,2,opt,name=userGivenTxID" json:"userGivenTxID,omitempty"`
 }
 
 func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
