@@ -836,7 +836,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
-		logger.Debug("Replica %d not attempting to executeOutstanding because a it is currently executing", instance.id)
+		logger.Debug("Replica %d not attempting to executeOutstanding because it is currently executing %d", instance.id, *instance.currentExec)
 		return
 	}
 	logger.Debug("Replica %d attempting to executeOutstanding", instance.id)
