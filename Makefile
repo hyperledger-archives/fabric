@@ -51,7 +51,7 @@ GOTOOLS = golint govendor goimports protoc-gen-go
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
 
 PROJECT_FILES = $(shell git ls-files)
-IMAGES = base src peer membersrvc
+IMAGES = base src ccenv peer membersrvc
 
 # go tool->path mapping
 go.fqp.govendor  := github.com/kardianos/govendor
@@ -103,8 +103,28 @@ $(GOPATH)/bin/%:
 	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
 	$(MAKE) gotool.$(TOOL)
 
+# We (re)build protoc-gen-go from within docker context so that
+# we may later inject the binary into a different docker environment
+# This is necessary since we cannot guarantee that binaries built
+# on the host natively will be compatible with the docker env.
+%/bin/protoc-gen-go: build/image/base/.dummy Makefile
+	@echo "Building $@"
+	@mkdir -p $(@D)
+	@docker run -i \
+		-v $(abspath vendor/github.com/golang/protobuf):/opt/gopath/src/github.com/golang/protobuf \
+		-v $(abspath $(@D)):/opt/gopath/bin \
+		hyperledger/fabric-baseimage go install github.com/golang/protobuf/protoc-gen-go
+
+%/bin/chaintool:
+	@echo "Installing chaintool"
+	@cp devenv/tools/chaintool $@
+
 build/bin:
 	mkdir -p $@
+
+# Both peer and peer-image depend on ccenv-image
+build/bin/peer: build/image/ccenv/.dummy
+build/image/peer/.dummy: build/image/ccenv/.dummy
 
 build/bin/%: build/image/base/.dummy $(PROJECT_FILES)
 	@mkdir -p $(@D)
@@ -126,6 +146,13 @@ build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
 	@cat images/src/Dockerfile.in > $(@D)/Dockerfile
 	@git ls-files | tar -zcT - > $(@D)/gopath.tar.bz2
 	docker build -t $(PROJECT_NAME)-src:latest $(@D)
+	@touch $@
+
+# Special override for ccenv-image (chaincode-environment)
+build/image/ccenv/.dummy: build/image/src/.dummy build/image/ccenv/bin/protoc-gen-go build/image/ccenv/bin/chaintool Makefile
+	@echo "Building docker ccenv-image"
+	@cat images/ccenv/Dockerfile.in > $(@D)/Dockerfile
+	docker build -t $(PROJECT_NAME)-ccenv:latest $(@D)
 	@touch $@
 
 # Default rule for image creation
