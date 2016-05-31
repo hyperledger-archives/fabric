@@ -29,12 +29,23 @@ import (
 
 var logger = shim.NewLogger("noop")
 
+type ledgerHandler interface {
+	GetTransactionByUUID(txUUID string) (*protos.Transaction, error)
+}
+
+// SystemChaincode is type representing the chaincode
+// It has a ledgerHandler to be able to get TXs by ID
 type SystemChaincode struct {
+	ledgerH ledgerHandler
 }
 
 // Init initailizes the system chaincode
 func (t *SystemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	// do nothing
+	var ledger, err = ld.GetLedger()
+	if nil != err {
+		return nil, err
+	}
+	t.ledgerH = ledger
 	logger.SetLevel(shim.LogDebug)
 	logger.Debugf("NOOP INIT")
 	return nil, nil
@@ -72,13 +83,9 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		logger.Infof("--> %x", args[0])
 
 		var txHashHex = args[0]
-		var ledger, err = ld.GetLedger()
-		if nil != err {
-			return nil, err
-		}
-		var tx, txerr = ledger.GetTransactionByUUID(txHashHex)
+		var tx, txerr = t.ledgerH.GetTransactionByUUID(txHashHex)
 		if nil != txerr || nil == tx {
-			return nil, err
+			return nil, txerr
 		}
 		newCCIS := &protos.ChaincodeInvocationSpec{}
 		var merr = proto.Unmarshal(tx.Payload, newCCIS)
