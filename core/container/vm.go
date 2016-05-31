@@ -142,7 +142,7 @@ func (vm *VM) BuildPeerContainer() error {
 	}
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
-		Name:         "hyperledger-peer",
+		Name:         "hyperledger/fabric-peer",
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}
@@ -162,7 +162,7 @@ func (vm *VM) BuildObccaContainer() error {
 	}
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
-		Name:         "membersrvc",
+		Name:         "hyperledger/fabric-membersrvc",
 		InputStream:  inputbuf,
 		OutputStream: outputbuf,
 	}

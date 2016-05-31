@@ -16,7 +16,7 @@
 # your private fork. If 'private.mk' exists in this directory it will be
 # included by this Makefile.
 
-# TODO: Make image (re-)building contingent on all GO code being up-to-date. 
+# TODO: Make image (re-)building contingent on all GO code being up-to-date.
 
 ############################################################################
 # Documentation
@@ -44,7 +44,7 @@ rebuild new
 
 images peer_image membersrvc_image
 
-    The 'images' target builds the hyperledger-peer and membersrvc images from
+    The 'images' target builds the peer and membersrvc images from
     a clean slate. The 'peer_image' and 'membersrvc_image' targets rebuild
     individual images. NB: If you are using use-mode peer networks
     (userModeNetwork) you _do not_ need to build these images.
@@ -131,7 +131,7 @@ null:
 	@echo "* There is no default make target                                    *"
 	@echo "* The defined make targets are documented at the top of the Makefile *"
 	@echo "**********************************************************************"
-	@exit 1		
+	@exit 1
 
 
 
@@ -161,11 +161,11 @@ images: docker_fabric_clean
 	$(MAKE) membersrvc_image
 
 membersrvc_image:
-	-docker rmi -f membersrvc
+	-docker rmi -f hyperledger/fabric-membersrvc
 	go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 
 peer_image:
-	-docker rmi -f hyperledger-peer
+	-docker rmi -f hyperledger/fabric-peer
 	go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 
 
@@ -203,7 +203,7 @@ docker_chaincode_clean: docker_ps_clean
 		awk '{print $$3}' | xargs docker rmi -f
 
 docker_fabric_clean: docker_chaincode_clean
-	-docker rmi -f hyperledger-peer membersrvc
+	-docker rmi -f hyperledger/fabric-peer hyperledger/fabric-membersrvc
 
 docker_ps_clean:
 	-docker ps -a -q | xargs docker rm -f
@@ -227,7 +227,7 @@ fabric_reset: fabric_clean docker_chaincode_clean
 .PHONY: docker_ips cclogs
 
 docker_ips:
-	@docker ps -a -q | xargs -n 1 ./docker_ip	
+	@docker ps -a -q | xargs -n 1 ./docker_ip
 
 cclogs:
 	@rm -rf $(BUSYWORK_HOME)/dev-vp*
