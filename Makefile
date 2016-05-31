@@ -29,7 +29,7 @@
 #   - linter - runs all code checks
 #   - images - ensures all docker images are available
 #   - peer-image - ensures the peer-image is available (for behave, etc)
-#   - ca-image - ensures the ca-image is available (for behave, etc)
+#   - membersrvc-image - ensures the membersrvc-image is available (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
 #   - node-sdk - builds the node.js client-sdk
 #   - clean - cleans the build area
@@ -70,14 +70,14 @@ membersrvc: build/bin/membersrvc
 unit-test: peer-image gotools
 	@./scripts/goUnitTests.sh
 	@touch .peerimage-dummy
-	@touch .caimage-dummy
+	@touch .membersrvcimage-dummy
 
 base-image: .baseimage-dummy
 peer-image: .peerimage-dummy
-ca-image: .caimage-dummy
+membersrvc-image: .membersrvcimage-dummy
 
 .PHONY: images
-images: peer-image ca-image
+images: peer-image membersrvc-image
 
 behave-deps: images peer
 behave: behave-deps
@@ -94,7 +94,7 @@ linter: gotools
 	go test $(PKGNAME)/core/container -run=BuildImage_Peer
 	@touch $@
 
-.caimage-dummy: .baseimage-dummy
+.membersrvcimage-dummy: .baseimage-dummy
 	go test $(PKGNAME)/core/container -run=BuildImage_Obcca
 	@touch $@
 
