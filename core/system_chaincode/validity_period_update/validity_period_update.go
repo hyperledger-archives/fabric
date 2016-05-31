@@ -51,7 +51,7 @@ const systemValidityPeriodKey = "system.validity.period"
 
 // Initialize the in the ledger (this needs to be run only once!!!!)
 func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var vp int64 // 0 is default value
+	var vp int64 = 0 // ignore golint warning. Dropping '= 0' makes assignment less clear
 
 	// Initialize the validity period in the ledger (this needs to be run only once!!!!)
 	err := stub.PutState(systemValidityPeriodKey, []byte(strconv.FormatInt(vp, 10)))
