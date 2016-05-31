@@ -1,5 +1,4 @@
-from hyperledger/fabric-baseimage:latest
+FROM hyperledger/fabric-src:latest
 RUN mkdir -p /var/hyperledger/db
-ADD gopath.tar.bz2 $GOPATH/src/github.com/hyperledger/fabric
 RUN go install github.com/hyperledger/fabric/_TARGET_
 WORKDIR $GOPATH/src/github.com/hyperledger/fabric
