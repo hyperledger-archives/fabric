@@ -198,10 +198,20 @@ Don't forget to enable security and privacy as described in [SanboxSetup.md](htt
 
 This test case exercises chaincode *chaincode_example02* as described in in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
 
-To run chain-tests, run the following command from the `FABRIC/sdk/node` directory:
+In particular, you must first start the chaincode as follows:
 
 
 ```
+cd $FABRIC/examples/chaincode/go/chaincode_example02
+go build
+CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+```
+
+And run chain-tests as follows:
+
+
+```
+cd $FABRIC/sdk/node
 node test/unit/chain-tests.js
 ```
 
@@ -210,9 +220,20 @@ node test/unit/chain-tests.js
 
 This test case exercises chaincode *asset_management*. When running the chaincode as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode), name it *assetmgmt* as this is the name used in unit tests.
 
-To run this test, run the following command from the *FABRIC/sdk/node* directory:
+In particular, you must first start the chaincode as follows:
+
 
 ```
+cd $FABRIC/examples/chaincode/go/asset_management
+go build
+CORE_CHAINCODE_ID_NAME=assetmgmt CORE_PEER_ADDRESS=0.0.0.0:30303 ./asset_management
+```
+
+
+And run the asset management tests as follows:
+
+```
+cd $FABRIC/sdk/node
 node test/unit/asset-mgmt.js
 ```
 
