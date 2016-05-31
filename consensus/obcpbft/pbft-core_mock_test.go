@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/spf13/viper"
 
 	pb "github.com/hyperledger/fabric/protos"
 )
@@ -138,8 +139,13 @@ func (sc *simpleConsumer) getLastSeqNo() (uint64, error) {
 	return sc.lastSeqNo, nil
 }
 
-func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
+func makePBFTNetwork(N int, config *viper.Viper) *pbftNetwork {
+	if config == nil {
+		config = loadConfig()
+	}
 
+	config.Set("general.N", N)
+	config.Set("general.f", (N-1)/3)
 	endpointFunc := func(id uint64, net *testnet) endpoint {
 		tep := makeTestEndpoint(id, net)
 		pe := &pbftEndpoint{
@@ -150,13 +156,7 @@ func makePBFTNetwork(N int, initFNs ...func(pe *pbftEndpoint)) *pbftNetwork {
 			pe: pe,
 		}
 
-		pe.pbft = newPbftCore(id, loadConfig(), pe.sc)
-		pe.pbft.N = N
-		pe.pbft.f = (N - 1) / 3
-
-		for _, fn := range initFNs {
-			fn(pe)
-		}
+		pe.pbft = newPbftCore(id, config, pe.sc)
 
 		pe.pbft.manager.start()
 
