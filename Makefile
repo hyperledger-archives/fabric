@@ -51,7 +51,7 @@ GOTOOLS = golint govendor goimports protoc-gen-go
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
 
 PROJECT_FILES = $(shell git ls-files)
-IMAGES = base peer membersrvc
+IMAGES = base src peer membersrvc
 
 # go tool->path mapping
 go.fqp.govendor  := github.com/kardianos/govendor
@@ -112,10 +112,6 @@ build/bin/%: build/image/base/.dummy $(PROJECT_FILES)
 	@echo "Binary available as $@"
 	@touch $@
 
-build/gopath.tar.bz2: $(PROJECT_FILES)
-	mkdir -p $(@D)
-	git ls-files | tar -zcT - > $@
-
 # Special override for base-image.
 build/image/base/.dummy: $(BASEIMAGE_DEPS)
 	@echo "Building docker base-image"
@@ -123,12 +119,21 @@ build/image/base/.dummy: $(BASEIMAGE_DEPS)
 	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
 	@touch $@
 
+# Special override for src-image
+build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
+	@echo "Building docker src-image"
+	@mkdir -p $(@D)
+	@cat images/src/Dockerfile.in > $(@D)/Dockerfile
+	@git ls-files | tar -zcT - > $(@D)/gopath.tar.bz2
+	docker build -t $(PROJECT_NAME)-src:latest $(@D)
+	@touch $@
+
 # Default rule for image creation
-build/image/%/.dummy: build/image/base/.dummy build/gopath.tar.bz2 $(PROJECT_FILES)
+build/image/%/.dummy: build/image/src/.dummy
 	$(eval TARGET = ${patsubst build/image/%/.dummy,%,${@}})
+	@echo "Building docker $(TARGET)-image"
 	@mkdir -p $(@D)
 	@cat images/app/Dockerfile.in | sed -e 's/_TARGET_/$(TARGET)/g' > $(@D)/Dockerfile
-	@cp build/gopath.tar.bz2 $(@D)
 	docker build -t $(PROJECT_NAME)-$(TARGET):latest $(@D)
 	@touch $@
 
