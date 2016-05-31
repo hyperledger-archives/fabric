@@ -250,7 +250,7 @@ func queryChaincode(chaincodeInvSpec *pb.ChaincodeInvocationSpec, t *testing.T) 
 		return nil, fmt.Errorf("Error invoking validity period update system chaincode: %s", err)
 	}
 
-	t.Logf("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	t.Logf("Successfully invoked validity period update: %v(%s)", chaincodeInvSpec, string(resp.Msg))
 
 	return resp, nil
 }

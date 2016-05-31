@@ -32,17 +32,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	"google/protobuf"
+	google_protobuf "google/protobuf"
 	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
-
-	_ "fmt"
-
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+
+	_ "fmt"
 )
 
 var (
@@ -126,7 +125,7 @@ func requestTLSCertificate(t *testing.T) {
 
 	pubraw, _ := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	now := time.Now()
-	timestamp := google_protobuf.Timestamp{int64(now.Second()), int32(now.Nanosecond())}
+	timestamp := google_protobuf.Timestamp{ Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
 	req := &membersrvc.TLSCertCreateReq{
 		&timestamp,
