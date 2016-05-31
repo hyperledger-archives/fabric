@@ -659,16 +659,12 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
-	millisUntilTimeout := time.Duration(100)
-
-	if testing.Short() {
-		t.Skip("Skipping timeout test")
-	}
+	millisUntilTimeout := time.Duration(800)
 
 	validatorCount := 4
 	config := loadConfig()
-	config.Set("general.timeout.request", "100ms")
-	config.Set("general.timeout.viewchange", "100ms")
+	config.Set("general.timeout.request", "400ms")
+	config.Set("general.timeout.viewchange", "800ms")
 	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
