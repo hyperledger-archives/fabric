@@ -178,7 +178,7 @@ var (
 	chaincodeUsr      string
 	chaincodeQueryRaw bool
 	chaincodeQueryHex bool
-        txUserGivenID     string
+	txUserGivenID     string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -925,9 +925,9 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-        if txUserGivenID != undefinedParamValue {
-                invocation.UserGivenID = txUserGivenID
-        }
+	if txUserGivenID != undefinedParamValue {
+		invocation.UserGivenID = txUserGivenID
+	}
 
 	var resp *pb.Response
 	if invoke {

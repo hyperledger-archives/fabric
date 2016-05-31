@@ -19,8 +19,8 @@ package system_chaincode
 import (
 	//import system chain codes here
 	"github.com/hyperledger/fabric/core/system_chaincode/api"
-	"github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
 	"github.com/hyperledger/fabric/core/system_chaincode/noop"
+	"github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
 )
 
 //RegisterSysCCs is the hook for system chaincodes where system chaincodes are registered with the fabric

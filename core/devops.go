@@ -171,14 +171,14 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-        var userGivenID = chaincodeInvocationSpec.UserGivenID
-        var uuid string
-        if userGivenID != "" {
-                uuid = userGivenID
-        } else {
-                uuid = util.GenerateUUID()
-        }
-        devopsLogger.Info("Transaction ID: %v", uuid)
+	var userGivenID = chaincodeInvocationSpec.UserGivenID
+	var uuid string
+	if userGivenID != "" {
+		uuid = userGivenID
+	} else {
+		uuid = util.GenerateUUID()
+	}
+	devopsLogger.Info("Transaction ID: %v", uuid)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -194,7 +194,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-        transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
+	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 			return nil, err
 		}
 	}
-        return tx, nil
+	return tx, nil
 }
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
