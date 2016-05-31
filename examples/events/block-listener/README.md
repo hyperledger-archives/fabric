@@ -9,13 +9,13 @@ block-listener.go will connect to a peer and recieve blocks. For every transacti
 # Example with PBFT
 
 ## Run 4 docker peers with PBFT
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger/fabric-peer peer peer
 
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger/fabric-peer peer peer
 
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp2 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp2 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger/fabric-peer peer peer
 
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp3 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger-peer peer peer
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp3 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 -e CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft hyperledger/fabric-peer peer peer
 
 ## Attach event client to a Peer
 ./block-listener -event-address=172.17.0.2:31315

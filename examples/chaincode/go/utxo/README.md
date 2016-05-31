@@ -52,7 +52,7 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 
 Using the Docker image that we just built, start a peer within a container in `chaincodedev` mode.
 ```
-docker run -it -p 30303:30303 -p 31315:31315 hyperledger-peer peer peer --peer-chaincodedev
+docker run -it -p 30303:30303 -p 31315:31315 hyperledger/fabric-peer peer peer --peer-chaincodedev
 ```
 
 
