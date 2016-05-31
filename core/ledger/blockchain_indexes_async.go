@@ -109,7 +109,7 @@ func (indexer *blockchainIndexerAsync) createIndexesAsync(block *protos.Block, b
 	return nil
 }
 
-// createIndexes adds entries into db for creating indexes on various atributes
+// createIndexes adds entries into db for creating indexes on various attributes
 func (indexer *blockchainIndexerAsync) createIndexesInternal(block *protos.Block, blockNumber uint64, blockHash []byte) error {
 	openchainDB := db.GetDBHandle()
 	writeBatch := gorocksdb.NewWriteBatch()
@@ -185,7 +185,7 @@ func (indexer *blockchainIndexerAsync) stop() {
 // a client query arrives before a block has been indexed.
 //
 // Do we really need strict symantics such that an index query results
-// should include upto block number (or higher) that may have been committed
+// should include up to block number (or higher) that may have been committed
 // when user query arrives?
 // If a delay of a couple of blocks are allowed, we can get rid of this synchronization stuff
 type blockchainIndexerState struct {
