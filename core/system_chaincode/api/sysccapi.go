@@ -26,6 +26,7 @@ import (
 
 var sysccLogger = logging.MustGetLogger("sysccapi")
 
+// RegisterSysCC registers the given system chaincode with the peer
 func RegisterSysCC(path string, o interface{}) error {
 	syscc := o.(shim.Chaincode)
 	if syscc == nil {

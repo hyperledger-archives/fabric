@@ -26,6 +26,7 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+// Platform for chaincodes written in Go
 type Platform struct {
 }
 
@@ -41,7 +42,8 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
+// ValidateSpec validates Go chaincodes
+func (goPlatform *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	url, err := url.Parse(spec.ChaincodeID.Path)
 	if err != nil || url == nil {
 		return fmt.Errorf("invalid path: %s", err)
@@ -66,7 +68,8 @@ func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	return nil
 }
 
-func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
+// WritePackage writes the Go chaincode package
+func (goPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	var err error
 	spec.ChaincodeID.Name, err = generateHashcode(spec, tw)

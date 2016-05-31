@@ -240,9 +240,9 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		}
 
 		return &tCertImpl{client, x509Cert, tempSK}, nil
-	} else {
-		client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	}
+
+	client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 
 	return &tCertImpl{client, x509Cert, nil}, nil
 }

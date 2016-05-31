@@ -86,8 +86,8 @@ func (c *complainer) Custody(req *Request) string {
 
 // custodyTimeout is the callback from the Custodian for requests that
 // are in custody.
-func (c *complainer) custodyTimeout(hash string, req_ interface{}) {
-	req := req_.(*Request)
+func (c *complainer) custodyTimeout(hash string, reqParam interface{}) {
+	req := reqParam.(*Request)
 	c.custody.Register(hash, req)
 	c.h.Complain(hash, req, false)
 }
@@ -104,8 +104,8 @@ func (c *complainer) Complaint(req *Request) string {
 
 // complaintTimeout is the callback from the Custodian for requests
 // that are in the complaint queue.
-func (c *complainer) complaintTimeout(hash string, req_ interface{}) {
-	req := req_.(*Request)
+func (c *complainer) complaintTimeout(hash string, reqParam interface{}) {
+	req := reqParam.(*Request)
 	c.h.Complain(hash, req, true)
 }
 
