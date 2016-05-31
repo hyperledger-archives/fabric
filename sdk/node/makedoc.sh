@@ -20,12 +20,12 @@ if [[ "${tv%.*}" < "1.0" ]]; then
     exit 1
 fi
 
-mkdir -p tsdoc
-rm -rf tsdoc/*
+mkdir -p doc
+rm -rf doc/*
 
 typedoc -m amd \
 	--name 'Hyperledger OpenBlockChain' \
-	--out tsdoc \
+	--out doc \
 	typedoc-special.d.ts \
 	src/crypto.ts \
 	src/hlc.ts
