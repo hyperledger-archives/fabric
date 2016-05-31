@@ -407,7 +407,7 @@ func startOpenchain(t *testing.T) error {
 func stopOpenchain(t *testing.T) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		t.Log(fmt.Errorf("Error trying to connect to local peer:", err))
+		t.Log(fmt.Errorf("Error trying to connect to local peer: %v", err))
 		t.Fail()
 	}
 
