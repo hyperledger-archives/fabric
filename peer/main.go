@@ -308,7 +308,7 @@ func main() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer: %s", err))
+		panic(fmt.Errorf("Failed to initialize the crypto layer: %s", err))
 	}
 
 	// On failure Cobra prints the usage message and error string, so we only
@@ -436,7 +436,7 @@ func serve(args []string) error {
 		if core.SecurityEnabled() {
 			logger.Info("Privacy enabled status: true")
 		} else {
-			logger.Error("Privacy cannot be enabled as requested because security is disabled")
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
 		}
 	} else {
 		logger.Info("Privacy enabled status: false")
@@ -844,7 +844,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 			logger.Warning("Username supplied but security is disabled.")
 		}
 		if viper.GetBool("security.privacy") {
-			logger.Error("Privacy cannot be enabled as requested because security is disabled")
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
 		}
 	}
 
