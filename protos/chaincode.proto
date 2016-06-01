@@ -95,8 +95,14 @@ message ChaincodeDeploymentSpec {
 message ChaincodeInvocationSpec {
 
     ChaincodeSpec chaincodeSpec = 1;
-    //ChaincodeInput message = 2;
-
+    // This field can contain a user-specified UUID generation algorithm
+    // If supplied, this will be used to generate a UUID
+    // If not supplied (left empty), a random UUID will be generated
+    // The algorithm consists of two parts:
+    //  1, a hash function
+    //  2, a decoding used to decode user (string) input to bytes
+    // Currently, SHA256 with BASE64 is supported (e.g. uuidGenerationAlg='sha256base64')
+    string uuidGenerationAlg = 2;
 }
 
 // This structure contain transaction data that we send to the chaincode
