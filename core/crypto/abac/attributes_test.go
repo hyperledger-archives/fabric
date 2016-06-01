@@ -21,13 +21,15 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
+
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/golang/protobuf/proto"
+	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestMain(m *testing.M) {
@@ -83,6 +85,18 @@ func TestGetKAndValueForAttribute(t *testing.T) {
 	}
 }
 
+func TestGetKAndValueForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _, err = getKAndValueForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to read an attribute that is not part of the TCert should produce an error")
+	}
+}
+
 func TestGetValueForAttribute(t *testing.T) {
 	expected := "Software Engineer"
 
@@ -98,6 +112,18 @@ func TestGetValueForAttribute(t *testing.T) {
 
 	if string(value) != expected {
 		t.Errorf("Failed retrieving attribute value from TCert. Expected: %v, Actual: %v", expected, string(value))
+	}
+}
+
+func TestGetValueForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = GetValueForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to read an attribute that is not part of the TCert should produce an error")
 	}
 }
 
@@ -126,6 +152,18 @@ func TestGetKForAttribute(t *testing.T) {
 
 	if string(decryptedValue) != expected {
 		t.Errorf("Failed decrypting attribute used calculated key. Expected: %v, Actual: %v", expected, string(decryptedValue))
+	}
+}
+
+func TestGetKForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = GetKForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to get a key for an attribute that is not part of the TCert should produce an error")
 	}
 }
 
