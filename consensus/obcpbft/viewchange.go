@@ -438,7 +438,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
-	instance.manager.inject(viewChangedEvent{})
+	instance.sendViewChangedEvent = true
 
 	return nil
 }

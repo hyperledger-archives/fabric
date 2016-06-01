@@ -28,15 +28,41 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/spf13/viper"
 )
 
 type legacyGenericShim struct {
-	obcGeneric
+	*obcGeneric
 	pbft legacyPbftShim
 }
 
 type legacyPbftShim struct {
 	*pbftCore
+	manager eventManager // Used to give the pbft core work
+}
+
+func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer innerStack) {
+	shim.pbft.manager = newEventManagerImpl()
+	shim.pbft.pbftCore = newPbftCore(id, config, consumer, newEventTimerFactoryImpl(shim.pbft.manager))
+	shim.pbft.manager.setReceiver(shim.pbft)
+	shim.pbft.manager.start()
+	logger.Debug("Replica %d legacyGenericShim now initialized: %v", id, shim)
+}
+
+// Close releases the resources created by newLegacyGenericShim
+func (shim *legacyGenericShim) Close() {
+	shim.pbft.manager.halt()
+	shim.pbft.pbftCore.close()
+}
+
+// TODO, temporary measure until mock network gets more sophisticated
+func (shim *legacyGenericShim) getManager() eventManager {
+	return shim.pbft.manager
+}
+
+// execDone is an event telling us that the last execution has completed
+func (instance legacyPbftShim) execDone() {
+	instance.manager.queue() <- execDoneEvent{}
 }
 
 // stateUpdated is an event telling us that the application fast-forwarded its state
@@ -91,4 +117,10 @@ func (instance legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err e
 		sender: senderID,
 	}
 	return nil
+}
+
+// Allows the caller to inject work onto the main thread
+// This is useful when the caller wants to safely manipulate PBFT state
+func (instance legacyPbftShim) inject(work func()) {
+	instance.manager.queue() <- workEvent(work)
 }

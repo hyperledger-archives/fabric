@@ -122,7 +122,6 @@ type pbftCore struct {
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
 	newViewTimer       eventTimer          // timeout triggering a view change
-	manager            eventManager        // TODO, remove eventually, the event manager which sends events to pbft
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	newViewTimerReason string              // what triggered the timer
@@ -142,6 +141,8 @@ type pbftCore struct {
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
+
+	sendViewChangedEvent bool // TODO _very_ hacky, the view change code sets this flag when a new view is accepted, signaling that a view change event should be generated
 }
 
 type qidx struct {
@@ -188,7 +189,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf eventTimerFactory) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -201,10 +202,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
 
-	// TODO Ultimately, the timer factory will be passed in, and the existence of the manager
-	// will be hidden from pbftCore, but in the interest of a small PR, leaving it here for now
-	instance.manager = newEventManagerImpl(instance)
-	etf := newEventTimerFactoryImpl(instance.manager)
 	instance.newViewTimer = etf.createTimer()
 	instance.nullRequestTimer = etf.createTimer()
 
@@ -290,7 +287,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.manager.halt()
 	instance.newViewTimer.halt()
 	instance.nullRequestTimer.halt()
 }
@@ -364,13 +360,12 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	if err != nil {
 		logger.Warning(err.Error())
 	}
-	return nil
-}
 
-// Allows the caller to inject work onto the main thread
-// This is useful when the caller wants to safely manipulate PBFT state
-func (instance *pbftCore) inject(work func()) {
-	instance.manager.queue() <- workEvent(work)
+	if instance.sendViewChangedEvent { // TODO, pass this back through stack unwinding, rather than hacky method
+		instance.sendViewChangedEvent = false
+		return viewChangedEvent{}
+	}
+	return nil
 }
 
 // =============================================================================
@@ -499,17 +494,6 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // receive methods
 // =============================================================================
 
-// handle new consensus requests
-func (instance *pbftCore) requestSync(msgPayload []byte, senderID uint64) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
-		ReplicaId: senderID}}}
-	instance.manager.inject(pbftMessageEvent{
-		sender: senderID,
-		msg:    msg,
-	})
-	return nil
-}
-
 func (instance *pbftCore) nullRequestHandler() {
 	if !instance.activeView {
 		return
@@ -525,22 +509,6 @@ func (instance *pbftCore) nullRequestHandler() {
 		logger.Info("Primary %d null request timer expired, sending null request", instance.id)
 		instance.sendPrePrepare(nil, "")
 	}
-}
-
-// handle internal consensus messages
-func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error {
-	msg := &Message{}
-	err := proto.Unmarshal(msgPayload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-
-	instance.manager.inject(pbftMessageEvent{
-		msg:    msg,
-		sender: senderID,
-	})
-
-	return nil
 }
 
 func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, error) {
@@ -941,11 +909,6 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	instance.persistCheckpoint(seqNo, id)
 	instance.recvCheckpoint(chkpt)
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
-}
-
-// execDone is an event telling us that the last execution has completed
-func (instance *pbftCore) execDone() {
-	instance.manager.queue() <- execDoneEvent{}
 }
 
 func (instance *pbftCore) execDoneSync() {
