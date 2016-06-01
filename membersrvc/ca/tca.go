@@ -322,7 +322,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		set = append(set, &pb.TCert{raw, ks})
 	}
 
-	return &pb.TCertCreateSetResp{Certs: &pb.CertSet{ Ts: in.Ts, Id: in.Id, Key: kdfKey, Certs: set}}, nil
+	return &pb.TCertCreateSetResp{Certs: &pb.CertSet{Ts: in.Ts, Id: in.Id, Key: kdfKey, Certs: set}}, nil
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
