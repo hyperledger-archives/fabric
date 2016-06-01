@@ -24,10 +24,10 @@ import (
 // ConfigNumBuckets - config name 'numBuckets' as it appears in yaml file
 const ConfigNumBuckets = "numBuckets"
 
-// ConfigNumBuckets - config name 'maxGroupingAtEachLevel' as it appears in yaml file
+// ConfigMaxGroupingAtEachLevel - config name 'maxGroupingAtEachLevel' as it appears in yaml file
 const ConfigMaxGroupingAtEachLevel = "maxGroupingAtEachLevel"
 
-// ConfigNumBuckets - config name 'hashFunction'. This is not exposed in yaml file. This configuration is used for testing with custom hash-function
+// ConfigHashFunction - config name 'hashFunction'. This is not exposed in yaml file. This configuration is used for testing with custom hash-function
 const ConfigHashFunction = "hashFunction"
 
 // DefaultNumBuckets - total buckets

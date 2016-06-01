@@ -38,6 +38,7 @@ func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, 
 	return chainCodeToCall, nil
 }
 
+// Init takes two arguements, a string and int. These are stored in the key/value pair in the state
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var event string // Indicates whether event has happened. Initially 0
 	var eventVal int // State of event
@@ -63,7 +64,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
-// This chaincode invokes another chaincode - chaincode_example02, upon receipt of an event and changes event state
+// Invoke invokes another chaincode - chaincode_example02, upon receipt of an event and changes event state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var event string // Event entity
 	var eventVal int // State of event

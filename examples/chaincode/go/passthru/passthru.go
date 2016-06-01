@@ -56,15 +56,16 @@ func (p *PassthruChaincode) iq(invoke bool, stub *shim.ChaincodeStub, function s
 
 	if invoke {
 		return stub.InvokeChaincode(chaincodeID, f, cargs)
-	} else {
-		return stub.QueryChaincode(chaincodeID, f, cargs)
 	}
+	return stub.QueryChaincode(chaincodeID, f, cargs)
 }
 
+// Invoke passes through the invoke call
 func (p *PassthruChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return p.iq(true, stub, function, args)
 }
 
+// Query passes through the query call
 func (p *PassthruChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return p.iq(false, stub, function, args)
 }

@@ -119,7 +119,7 @@ func invokeChaincode(chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
 		return err
 	}
 
-	Info.Println("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	Info.Println(fmt.Sprintf("Successfully invoked validity period update: %v(%s)", chaincodeInvSpec, string(resp.Msg)))
 
 	return nil
 }

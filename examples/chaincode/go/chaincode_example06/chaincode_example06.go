@@ -27,6 +27,8 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init intializes the chaincode by reading the transaction attributes and storing
+// the attrbute values in the state
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	attributes, err := stub.CertAttributes()
 	if err != nil {
@@ -35,12 +37,12 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 	for _, att := range attributes {
 		fmt.Println("Writting attribute " + att)
-		var att_val []byte
-		att_val, err = stub.ReadCertAttribute(att)
+		var attVal []byte
+		attVal, err = stub.ReadCertAttribute(att)
 		if err != nil {
 			return nil, err
 		}
-		err = stub.PutState(att, att_val)
+		err = stub.PutState(att, attVal)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +51,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
-// Transaction makes payment of X units from A to B
+// Invoke takes two arguements, a key and value, and stores these in the state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var A string // Entities
 	var err error
@@ -84,25 +86,6 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 	}
 
 	return nil, nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize the entities and their asset holdings
-		return t.Init(stub, function, args)
-	} else if function == "invoke" {
-		// Transaction makes payment of X units from A to B
-		return t.Invoke(stub, function, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
-	}
-
-	return nil, errors.New("Received unknown function invocation")
 }
 
 // Query callback representing the query of a chaincode

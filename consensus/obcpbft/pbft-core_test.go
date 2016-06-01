@@ -1233,9 +1233,8 @@ func TestReplicaPersistQSet(t *testing.T) {
 		ReadStateImpl: func(key string) ([]byte, error) {
 			if val, ok := persist[key]; ok {
 				return val, nil
-			} else {
-				return nil, fmt.Errorf("key not found")
 			}
+			return nil, fmt.Errorf("key not found")
 		},
 		ReadStateSetImpl: func(prefix string) (map[string][]byte, error) {
 			r := make(map[string][]byte)

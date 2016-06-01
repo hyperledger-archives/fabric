@@ -30,6 +30,8 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init takes two arguments, a string and int. The string will be a key with
+// the int as a value.
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string // Sum of asset holdings across accounts. Initially 0
 	var sumVal int // Sum of holdings
@@ -56,7 +58,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
-// Transaction queries another chaincode and updates its own state
+// Invoke queries another chaincode and updates its own state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string             // Sum entity
 	var Aval, Bval, sumVal int // value of sum entity - to be computed
@@ -66,13 +68,13 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0] // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
+	chaincodeURL := args[0] // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
 	sum = args[1]
 
 	// Query chaincode_example02
 	f := "query"
 	queryArgs := []string{"a"}
-	response, err := stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -86,7 +88,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	}
 
 	queryArgs = []string{"b"}
-	response, err = stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -126,13 +128,13 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0]
+	chaincodeURL := args[0]
 	sum = args[1]
 
 	// Query chaincode_example02
 	f := "query"
 	queryArgs := []string{"a"}
-	response, err := stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -146,7 +148,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	}
 
 	queryArgs = []string{"b"}
-	response, err = stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)

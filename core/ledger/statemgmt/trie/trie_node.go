@@ -134,7 +134,7 @@ func (trieNode *trieNode) marshal() ([]byte, error) {
 	buffer := proto.NewBuffer([]byte{})
 
 	// write value marker explicitly because rocksdb apis convertes a nil into an empty array and protobuf does it other-way around
-	var valueMarker uint64 = 0
+	var valueMarker uint64 = 0 // ignore golint warning. Dropping '= 0' makes assignment less clear
 	if trieNode.value != nil {
 		valueMarker = 1
 	}
