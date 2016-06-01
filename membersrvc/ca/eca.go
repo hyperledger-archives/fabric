@@ -418,7 +418,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 			var role int
 
 			err = rows.Scan(&id, &role)
-			users = append(users, &pb.User{&pb.Identity{Id : id}, pb.Role(role)})
+			users = append(users, &pb.User{&pb.Identity{Id: id}, pb.Role(role)})
 		}
 		err = rows.Err()
 	}
