@@ -500,7 +500,10 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 
 	// Append the attributes header if there was attributes to include in the TCert
 	if len(attributes) > 0 {
-		headerValue := abac.BuildAttributesHeader(attributesHeader)
+		headerValue, err := abac.BuildAttributesHeader(attributesHeader)
+		if err != nil {
+			return nil, nil, err
+		}
 		if viper.GetBool("tca.attribute-encryption.enabled") {
 			headerValue, err = abac.EncryptAttributeValuePK0(preK0, abac.HeaderAttributeName, headerValue)
 			if err != nil {
