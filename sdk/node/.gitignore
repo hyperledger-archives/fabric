@@ -1,2 +1,10 @@
 .project
 node_modules/*
+/.idea/
+/node.iml
+/lib/crypto.js.map
+/lib/hlc.js.map
+/lib/hlc.js
+/lib/crypto.js
+/typings/
+doc
