@@ -255,13 +255,20 @@ func GetABACMetadata(metadata []byte) (*pb.ABACMetadata, error) {
 }
 
 //BuildAttributesHeader builds a header attribute from a map of attribute names and positions.
-func BuildAttributesHeader(attributesHeader map[string]int) []byte {
+func BuildAttributesHeader(attributesHeader map[string]int) ([]byte, error) {
 	var header []byte
 	var headerString string
+	var positions map[int]bool = make(map[int]bool)
+
 	for k, v := range attributesHeader {
+		if positions[v] {
+			return nil, errors.New("Duplicated position found in attributes header")
+		}
+		positions[v] = true
+
 		vStr := strconv.Itoa(v)
 		headerString = headerString + k + "->" + vStr + "#"
 	}
 	header = []byte(headerPrefix + headerString)
-	return header
+	return header, nil
 }

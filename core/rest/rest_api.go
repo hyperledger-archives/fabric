@@ -1467,7 +1467,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	}
 
 	//
-	// Deployment succeded
+	// Deployment succeeded
 	//
 
 	// Clients will need the chaincode name in order to invoke or query it, record it
@@ -1603,7 +1603,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 
 		//
-		// Invocation succeded
+		// Invocation succeeded
 		//
 
 		// Clients will need the txuuid in order to track it after invocation, record it
@@ -1642,7 +1642,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		}
 
 		//
-		// Query succeded
+		// Query succeeded
 		//
 
 		// Clients will need the returned value, record it
@@ -1708,7 +1708,7 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 // middleware and routes.
 func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	// Initialize the REST service object
-	restLogger.Info("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[peer.TlsEnabled()])
+	restLogger.Info("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[peer.TLSEnabled()])
 	router := web.New(ServerOpenchainREST{})
 
 	// Record the pointer to the underlying ServerOpenchain and Devops objects.
@@ -1729,7 +1729,7 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	router.Get("/chain", (*ServerOpenchainREST).GetBlockchainInfo)
 	router.Get("/chain/blocks/:id", (*ServerOpenchainREST).GetBlockByNumber)
 
-	// The /devops endpoint is now considered deprecated and superceeded by the /chaincode endpoint
+	// The /devops endpoint is now considered deprecated and superseded by the /chaincode endpoint
 	router.Post("/devops/deploy", (*ServerOpenchainREST).Deploy)
 	router.Post("/devops/invoke", (*ServerOpenchainREST).Invoke)
 	router.Post("/devops/query", (*ServerOpenchainREST).Query)
@@ -1745,7 +1745,7 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	router.NotFound((*ServerOpenchainREST).NotFound)
 
 	// Start server
-	if peer.TlsEnabled() {
+	if peer.TLSEnabled() {
 		err := http.ListenAndServeTLS(viper.GetString("rest.address"), viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"), router)
 		if err != nil {
 			restLogger.Error(fmt.Sprintf("ListenAndServeTLS: %s", err))

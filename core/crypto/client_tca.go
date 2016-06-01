@@ -163,7 +163,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -239,9 +239,9 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		}
 
 		return &tCertImpl{client, x509Cert, tempSK}, nil
-	} else {
-		client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	}
+
+	client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 
 	return &tCertImpl{client, x509Cert, nil}, nil
 }
@@ -300,7 +300,7 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
 
-	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+	// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -464,7 +464,7 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 

@@ -382,7 +382,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[0] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -393,7 +393,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[1] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -404,7 +404,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 	vset[2] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -445,7 +445,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[0] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -456,7 +456,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[1] = &ViewChange{
 		H: 5,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 10,
 				Id:             "ten",
 			},
@@ -467,7 +467,7 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 	vset[2] = &ViewChange{
 		H: 10,
 		Cset: []*ViewChange_C{
-			&ViewChange_C{
+			{
 				SequenceNumber: 15,
 				Id:             "fifteen",
 			},
@@ -1127,7 +1127,7 @@ func TestReplicaCrash2(t *testing.T) {
 }
 
 // TestReplicaCrash3 simulates the restart requiring a view change
-// to a checkpoint which was restored from the persistance state
+// to a checkpoint which was restored from the persistence state
 // Replicas 0,1,2 participate up to a checkpoint, then all crash
 // Then replicas 0,1,3 start back up, and a view change must be
 // triggered to get vp3 up to speed
@@ -1233,9 +1233,8 @@ func TestReplicaPersistQSet(t *testing.T) {
 		ReadStateImpl: func(key string) ([]byte, error) {
 			if val, ok := persist[key]; ok {
 				return val, nil
-			} else {
-				return nil, fmt.Errorf("key not found")
 			}
+			return nil, fmt.Errorf("key not found")
 		},
 		ReadStateSetImpl: func(prefix string) (map[string][]byte, error) {
 			r := make(map[string][]byte)

@@ -17,13 +17,18 @@ limitations under the License.
 package abac
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
@@ -80,6 +85,18 @@ func TestGetKAndValueForAttribute(t *testing.T) {
 	}
 }
 
+func TestGetKAndValueForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _, err = getKAndValueForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to read an attribute that is not part of the TCert should produce an error")
+	}
+}
+
 func TestGetValueForAttribute(t *testing.T) {
 	expected := "Software Engineer"
 
@@ -98,6 +115,58 @@ func TestGetValueForAttribute(t *testing.T) {
 	}
 }
 
+func TestGetValueForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = GetValueForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to read an attribute that is not part of the TCert should produce an error")
+	}
+}
+
+func TestGetKForAttribute(t *testing.T) {
+	expected := "Software Engineer"
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	key, err := GetKForAttribute("position", prek0, tcert)
+	if err != nil {
+		t.Error(err)
+	}
+
+	encryptedValue, err := EncryptAttributeValuePK0(prek0, "position", []byte(expected))
+	if err != nil {
+		t.Error(err)
+	}
+
+	decryptedValue, err := DecryptAttributeValue(key, encryptedValue)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if string(decryptedValue) != expected {
+		t.Errorf("Failed decrypting attribute used calculated key. Expected: %v, Actual: %v", expected, string(decryptedValue))
+	}
+}
+
+func TestGetKForAttribute_MissingAttribute(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = GetKForAttribute("business_unit", prek0, tcert)
+	if err == nil {
+		t.Errorf("Trying to get a key for an attribute that is not part of the TCert should produce an error")
+	}
+}
+
 func TestParseEmptyAttributesHeader(t *testing.T) {
 	_, err := ParseAttributesHeader("")
 	if err == nil {
@@ -110,7 +179,11 @@ func TestBuildAndParseAttributesHeader(t *testing.T) {
 	attributes["company"] = 1
 	attributes["position"] = 2
 
-	header := string(BuildAttributesHeader(attributes)[:])
+	headerRaw, err := BuildAttributesHeader(attributes)
+	if err != nil {
+		t.Error(err)
+	}
+	header := string(headerRaw[:])
 
 	components, err := ParseAttributesHeader(header)
 	if err != nil {
@@ -200,6 +273,187 @@ func TestReadTCertAttributeByPosition_InvalidPositions(t *testing.T) {
 
 	if err == nil {
 		t.Error("Test should have failed since attribute positions should be positive integer values")
+	}
+}
+
+func TestCreateABACMetadataObjectFromCert(t *testing.T) {
+	tcert, preK0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	attributeKeys := []string{"position"}
+	metadataObj := CreateABACMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
+	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
+		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
+	}
+
+	entries := metadataObj.GetEntries()
+	if len(entries) != 2 {
+		t.Errorf("Invalid entries in metadata result %v but expected %v", len(entries), 3)
+	}
+
+	firstEntry := entries[0]
+	if firstEntry.AttributeName != "position" {
+		t.Errorf("Invalid first attribute name, this has to be %v but is %v", "position", firstEntry.AttributeName)
+	}
+	firstKey, err := GetKForAttribute("position", preK0, tcert)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(firstKey, firstEntry.AttributeKey) != 0 {
+		t.Errorf("Invalid K for first attribute expected %v but returned %v", firstKey, firstEntry.AttributeKey)
+	}
+}
+
+func TestCreateABACMetadata(t *testing.T) {
+	tcert, preK0, err := loadTCertAndPreK0()
+
+	if err != nil {
+		t.Error(err)
+	}
+	tcertRaw := tcert.Raw
+	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	attributeKeys := []string{"position"}
+	metadataObjRaw, err := CreateABACMetadata(tcertRaw, metadata, preK0, attributeKeys)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var metadataObj pb.ABACMetadata
+	err = proto.Unmarshal(metadataObjRaw, &metadataObj)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
+		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
+	}
+
+	entries := metadataObj.GetEntries()
+	if len(entries) != 2 {
+		t.Errorf("Invalid entries in metadata result %v but expected %v", len(entries), 3)
+	}
+
+	firstEntry := entries[0]
+	if firstEntry.AttributeName != "position" {
+		t.Errorf("Invalid first attribute name, this has to be %v but is %v", "position", firstEntry.AttributeName)
+	}
+	firstKey, err := GetKForAttribute("position", preK0, tcert)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(firstKey, firstEntry.AttributeKey) != 0 {
+		t.Errorf("Invalid K for first attribute expected %v but returned %v", firstKey, firstEntry.AttributeKey)
+	}
+}
+
+func TestCreateABACMetadata_AttributeNotFound(t *testing.T) {
+	tcert, preK0, err := loadTCertAndPreK0()
+
+	if err != nil {
+		t.Error(err)
+	}
+	tcertRaw := tcert.Raw
+	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	attributeKeys := []string{"company"}
+	metadataObjRaw, err := CreateABACMetadata(tcertRaw, metadata, preK0, attributeKeys)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var metadataObj pb.ABACMetadata
+	err = proto.Unmarshal(metadataObjRaw, &metadataObj)
+	if err != nil {
+		t.Error(err)
+	}
+	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
+		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
+	}
+
+	entries := metadataObj.GetEntries()
+	if len(entries) != 2 {
+		t.Errorf("Invalid entries in metadata result %v but expected %v", len(entries), 3)
+	}
+
+	firstEntry := entries[0]
+	if firstEntry.AttributeName != "company" {
+		t.Errorf("Invalid first attribute name, this has to be %v but is %v", "position", firstEntry.AttributeName)
+	}
+	_, err = GetKForAttribute("company", preK0, tcert)
+	if err == nil {
+		t.Fatalf("Test should faild because company is not included within the TCert.")
+	}
+}
+
+func TestCreateABACMetadataObjectFromCert_AttributeNotFound(t *testing.T) {
+	tcert, preK0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	attributeKeys := []string{"company"}
+	metadataObj := CreateABACMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
+	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
+		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
+	}
+
+	entries := metadataObj.GetEntries()
+	if len(entries) != 2 {
+		t.Errorf("Invalid entries in metadata result %v but expected %v", len(entries), 3)
+	}
+
+	firstEntry := entries[0]
+	if firstEntry.AttributeName != "company" {
+		t.Errorf("Invalid first attribute name, this has to be %v but is %v", "position", firstEntry.AttributeName)
+	}
+	_, err = GetKForAttribute("company", preK0, tcert)
+	if err == nil {
+		t.Fatalf("Test should faild because company is not included within the TCert.")
+	}
+}
+
+func TestBuildAttributesHeader(t *testing.T) {
+	attributes := make(map[string]int)
+	attributes["company"] = 0
+	attributes["position"] = 1
+	attributes["country"] = 2
+	result, err := BuildAttributesHeader(attributes)
+	if err != nil {
+		t.Error(err)
+	}
+
+	resultStr := string(result)
+
+	if !strings.HasPrefix(resultStr, headerPrefix) {
+		t.Fatalf("Invalid header prefix expected %v result %v", headerPrefix, resultStr)
+	}
+
+	if !strings.Contains(resultStr, "company->0#") {
+		t.Fatalf("Invalid header shoud include '%v'", "company->0#")
+	}
+
+	if !strings.Contains(resultStr, "position->1#") {
+		t.Fatalf("Invalid header shoud include '%v'", "position->1#")
+	}
+
+	if !strings.Contains(resultStr, "country->2#") {
+		t.Fatalf("Invalid header shoud include '%v'", "country->2#")
+	}
+}
+
+func TestBuildAttributesHeader_DuplicatedPosition(t *testing.T) {
+	attributes := make(map[string]int)
+	attributes["company"] = 0
+	attributes["position"] = 0
+	attributes["country"] = 1
+	_, err := BuildAttributesHeader(attributes)
+	if err == nil {
+		t.Fatalf("Error this tests should fail because header has two attributes with the same position")
 	}
 }
 

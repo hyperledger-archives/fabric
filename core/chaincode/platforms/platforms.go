@@ -19,16 +19,20 @@ package platforms
 import (
 	"archive/tar"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/chaincode/platforms/car"
 	"github.com/hyperledger/fabric/core/chaincode/platforms/golang"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+// Interface for validating the specification and and writing the package for
+// the given platform
 type Platform interface {
 	ValidateSpec(spec *pb.ChaincodeSpec) error
 	WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error
 }
 
+// Find returns the platform interface for the given platform type
 func Find(chaincodeType pb.ChaincodeSpec_Type) (Platform, error) {
 
 	switch chaincodeType {

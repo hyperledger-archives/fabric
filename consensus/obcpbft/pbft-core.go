@@ -1023,7 +1023,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	if instance.skipInProgress {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		// The view should not be set to active, this should be handled by the yet unimplimented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
+		// The view should not be set to active, this should be handled by the yet unimplemented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
 	}
 }

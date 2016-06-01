@@ -77,7 +77,7 @@ func main() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
 
 	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
