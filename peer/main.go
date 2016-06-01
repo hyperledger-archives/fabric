@@ -941,7 +941,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			logger.Warning("Username supplied but security is disabled.")
 		}
 		if viper.GetBool("security.privacy") {
-			logger.Error("Privacy cannot be enabled as requested because security is disabled")
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
 		}
 	}
 
