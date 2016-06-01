@@ -125,10 +125,10 @@ func (op *obcBatch) submitToLeader(req *Request) event {
 	leader := op.pbft.primary(op.pbft.view)
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
-	} else {
-		op.unicastMsg(&BatchMessage{&BatchMessage_Request{req}}, leader)
-		return nil
 	}
+
+	op.unicastMsg(&BatchMessage{&BatchMessage_Request{req}}, leader)
+	return nil
 }
 
 func (op *obcBatch) broadcastMsg(msg *BatchMessage) {
@@ -364,9 +364,9 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		logger.Debug("Batch replica %d received complaint %s", op.pbft.id, hash)
 
 		return op.submitToLeader(complaint)
-	} else {
-		logger.Error("Unknown request: %+v", batchMsg)
 	}
+
+	logger.Error("Unknown request: %+v", batchMsg)
 
 	return nil
 }
