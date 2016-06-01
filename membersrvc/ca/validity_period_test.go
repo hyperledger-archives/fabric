@@ -415,8 +415,11 @@ func stopOpenchain(t *testing.T) {
 	serverClient := pb.NewAdminClient(clientConn)
 
 	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+	if err != nil {
+		t.Logf("Failed to stop: %v", err)
+		t.Fail()
+	}
 	t.Logf("Current status: %s", status)
-
 }
 
 func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Server, secHelper crypto.Peer) {
