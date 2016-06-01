@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -171,10 +172,14 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	var userGivenTxID = chaincodeInvocationSpec.UserGivenTxID
+	var customUUIDgenAlg = strings.ToLower(chaincodeInvocationSpec.UuidGenerationAlg)
 	var uuid string
-	if userGivenTxID != "" {
-		uuid = userGivenTxID
+	var generr error
+	if customUUIDgenAlg != "" {
+		uuid, generr = util.GenerateUUIDWithAlg(customUUIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+		if generr != nil {
+			return nil, generr
+		}
 	} else {
 		uuid = util.GenerateUUID()
 	}
