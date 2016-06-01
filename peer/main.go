@@ -155,10 +155,10 @@ var networkLoginCmd = &cobra.Command{
 // }
 
 var networkListCmd = &cobra.Command{
-	Use:   "list",
+	Use:     "list",
 	Aliases: []string{"ls"},
-	Short: "Lists all network peers.",
-	Long:  `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
+	Short:   "Lists all network peers.",
+	Long:    `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return networkList()
 	},
