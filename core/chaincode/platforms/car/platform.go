@@ -20,16 +20,13 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+// Platform for the CAR type
 type Platform struct {
 }
 
-//----------------------------------------------------------------
-// Platform::ValidateSpec
-//----------------------------------------------------------------
-// Validates the chaincode specification for CAR types to satisfy
+// ValidateSpec validates the chaincode specification for CAR types to satisfy
 // the platform interface.  This chaincode type currently doesn't
 // require anything specific so we just implicitly approve any spec
-//----------------------------------------------------------------
-func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
+func (carPlatform *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	return nil
 }

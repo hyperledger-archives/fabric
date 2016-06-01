@@ -31,6 +31,7 @@
 #   - peer-image - ensures the peer-image is available (for behave, etc)
 #   - ca-image - ensures the ca-image is available (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
+#   - node-sdk - builds the node.js client-sdk
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
@@ -124,6 +125,14 @@ build/bin:
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
+
+.PHONY: node-sdk
+node-sdk:
+	cp ./protos/*.proto ./sdk/node/lib/protos
+	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
+	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && tsc
+	cd ./sdk/node && ./makedoc.sh
 
 .PHONY: clean
 clean:

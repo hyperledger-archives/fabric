@@ -322,7 +322,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		set = append(set, &pb.TCert{raw, ks})
 	}
 
-	return &pb.TCertCreateSetResp{&pb.CertSet{in.Ts, in.Id, kdfKey, set}}, nil
+	return &pb.TCertCreateSetResp{Certs: &pb.CertSet{Ts: in.Ts, Id: in.Id, Key: kdfKey, Certs: set}}, nil
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
@@ -605,7 +605,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 			}
 
 			if ts != timestamp {
-				sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
+				sets = append(sets, &pb.CertSet{Ts: &protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, Id: &pb.Identity{Id: id}, Key: kdfKey, Certs: certs})
 
 				timestamp = ts
 				certs = nil
@@ -618,7 +618,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 			return nil, err
 		}
 
-		sets = append(sets, &pb.CertSet{&protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, &pb.Identity{id}, kdfKey, certs})
+		sets = append(sets, &pb.CertSet{Ts: &protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, Id: &pb.Identity{Id: id}, Key: kdfKey, Certs: certs})
 	}
 	if err = users.Err(); err != nil {
 		return nil, err

@@ -74,7 +74,7 @@ type BlockChainAccessor interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 }
 
-// BlockchainModifier interface for applying changes to the block chain
+// BlockChainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
 	RollbackStateDelta(id interface{}) error
@@ -83,7 +83,7 @@ type BlockChainModifier interface {
 	PutBlock(blockNumber uint64, block *pb.Block) error
 }
 
-// BlockchainUtil interface for interrogating the block chain
+// BlockChainUtil interface for interrogating the block chain
 type BlockChainUtil interface {
 	HashBlock(block *pb.Block) ([]byte, error)
 	VerifyBlockchain(start, finish uint64) (uint64, error)
@@ -160,7 +160,7 @@ func GetLocalIP() string {
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
-	if TlsEnabled() {
+	if TLSEnabled() {
 		var sn string
 		if viper.GetString("peer.tls.serverhostoverride") != "" {
 			sn = viper.GetString("peer.tls.serverhostoverride")
@@ -199,8 +199,10 @@ type handlerMap struct {
 	m map[pb.PeerID]MessageHandler
 }
 
+// HandlerFactory for creating new MessageHandlers
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
+// EngineFactory for creating new engines
 type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
 
 // PeerImpl implementation of the Peer service
@@ -253,7 +255,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	return peer, nil
 }
 
-// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+// NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
