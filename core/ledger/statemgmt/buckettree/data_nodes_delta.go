@@ -65,7 +65,7 @@ func (dataNodesDelta *dataNodesDelta) add(chaincodeID string, key string, value 
 	dataKey := newDataKey(chaincodeID, key)
 	bucketKey := dataKey.getBucketKey()
 	dataNode := newDataNode(dataKey, value)
-	logger.Debug("Adding dataNode=[%s] against bucketKey=[%s]", dataNode, bucketKey)
+	logger.Debugf("Adding dataNode=[%s] against bucketKey=[%s]", dataNode, bucketKey)
 	dataNodesDelta.byBucket[*bucketKey] = append(dataNodesDelta.byBucket[*bucketKey], dataNode)
 }
 
@@ -73,10 +73,10 @@ func (dataNodesDelta *dataNodesDelta) getAffectedBuckets() []*bucketKey {
 	changedBuckets := []*bucketKey{}
 	for bucketKey := range dataNodesDelta.byBucket {
 		copyOfBucketKey := bucketKey.clone()
-		logger.Debug("Adding changed bucket [%s]", copyOfBucketKey)
+		logger.Debugf("Adding changed bucket [%s]", copyOfBucketKey)
 		changedBuckets = append(changedBuckets, copyOfBucketKey)
 	}
-	logger.Debug("Changed buckets are = [%s]", changedBuckets)
+	logger.Debugf("Changed buckets are = [%s]", changedBuckets)
 	return changedBuckets
 }
 

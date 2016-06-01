@@ -88,7 +88,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
+	logger.Debugf("Replica %d obtaining startup information", id)
 
 	op.manager = events.NewManagerImpl() // TODO, this is hacky, eventually rip it out
 	op.manager.SetReceiver(op)
@@ -206,11 +206,11 @@ func (op *obcBatch) validate(txRaw []byte) error {
 func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 	reqs := &RequestBlock{}
 	if err := proto.Unmarshal(raw, reqs); err != nil {
-		logger.Warning("Batch replica %d could not unmarshal request block: %s", op.pbft.id, err)
+		logger.Warningf("Batch replica %d could not unmarshal request block: %s", op.pbft.id, err)
 		return
 	}
 
-	logger.Debug("Batch replica %d received exec for seqNo %d", op.pbft.id, seqNo)
+	logger.Debugf("Batch replica %d received exec for seqNo %d", op.pbft.id, seqNo)
 
 	var txs []*pb.Transaction
 
@@ -218,14 +218,14 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 		op.complainer.Success(req)
 
 		if !op.deduplicator.Execute(req) {
-			logger.Debug("Batch replica %d received exec of stale request from %d via %d",
+			logger.Debugf("Batch replica %d received exec of stale request from %d via %d",
 				op.pbft.id, req.ReplicaId, req.ReplicaId)
 			continue
 		}
 
 		tx := &pb.Transaction{}
 		if err := proto.Unmarshal(req.Payload, tx); err != nil {
-			logger.Warning("Batch replica %d could not unmarshal transaction: %s", op.pbft.id, err)
+			logger.Warningf("Batch replica %d could not unmarshal transaction: %s", op.pbft.id, err)
 			continue
 		}
 		txs = append(txs, tx)
@@ -255,14 +255,14 @@ func (op *obcBatch) leaderProcReq(req *Request) events.Event {
 	// XXX check req sig
 
 	if !op.deduplicator.Request(req) {
-		logger.Debug("Batch replica %d received stale request from %d",
+		logger.Debugf("Batch replica %d received stale request from %d",
 			op.pbft.id, req.ReplicaId)
 		return nil
 	}
 
 	hash := hashReq(req)
 
-	logger.Debug("Batch primary %d queueing new request %s", op.pbft.id, hash)
+	logger.Debugf("Batch primary %d queueing new request %s", op.pbft.id, hash)
 	op.batchStore = append(op.batchStore, req)
 
 	if !op.batchTimerActive {
@@ -296,7 +296,7 @@ func (op *obcBatch) sendBatch() events.Event {
 	}
 
 	// process internally
-	logger.Info("Creating batch with %d requests", len(reqBlock.Requests))
+	logger.Infof("Creating batch with %d requests", len(reqBlock.Requests))
 	return pbftMessageEvent{
 		msg: &Message{&Message_Request{&Request{
 			Payload:   reqsPacked,
@@ -326,7 +326,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		req := op.txToReq(ocMsg.Payload)
 		hash := op.complainer.Custody(req)
 
-		logger.Info("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
+		logger.Infof("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
 
 		return op.submitToLeader(req)
 	}
@@ -369,13 +369,13 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 
 		// XXX check req sig
 		if !op.deduplicator.IsNew(complaint) {
-			logger.Debug("Batch replica %d received stale complaint from %d",
+			logger.Debugf("Batch replica %d received stale complaint from %d",
 				op.pbft.id, complaint.ReplicaId)
 			return nil
 		}
 
 		hash := op.complainer.Complaint(complaint)
-		logger.Debug("Batch replica %d received complaint %s", op.pbft.id, hash)
+		logger.Debugf("Batch replica %d received complaint %s", op.pbft.id, hash)
 
 		return op.submitToLeader(complaint)
 	}
@@ -394,14 +394,14 @@ func (op *obcBatch) resubmitStaleRequest(c complaintEvent) events.Event {
 	oldReq := c.req.(*Request)
 
 	if !op.complainer.InCustody(oldReq) {
-		logger.Debug("Batch replica %d custody expired for stale request: %s",
+		logger.Debugf("Batch replica %d custody expired for stale request: %s",
 			op.pbft.id, c.hash)
 		return nil
 	}
 
 	newReq := op.txToReq(oldReq.Payload)
 
-	logger.Info("Batch replica %d custody expired for skipped request %s, resubmitting as %s",
+	logger.Infof("Batch replica %d custody expired for skipped request %s, resubmitting as %s",
 		op.pbft.id, hashReq(oldReq), hashReq(newReq))
 	op.complainer.Success(oldReq)
 	op.complainer.Custody(newReq)
@@ -410,13 +410,13 @@ func (op *obcBatch) resubmitStaleRequest(c complaintEvent) events.Event {
 
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
-	logger.Debug("Replica %d batch main thread looping", op.pbft.id)
+	logger.Debugf("Replica %d batch main thread looping", op.pbft.id)
 	switch et := event.(type) {
 	case batchMessageEvent:
 		ocMsg := et
 		return op.processMessage(ocMsg.msg, ocMsg.sender)
 	case batchTimerEvent:
-		logger.Info("Replica %d batch timer expired", op.pbft.id)
+		logger.Infof("Replica %d batch timer expired", op.pbft.id)
 		if op.pbft.activeView && (len(op.batchStore) > 0) {
 			return op.sendBatch()
 		}
@@ -427,7 +427,7 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		// and instead zero the outstandingReqs map ourselves
 		op.pbft.outstandingReqs = make(map[string]*Request)
 
-		logger.Debug("Replica %d batch thread recognizing new view", op.pbft.id)
+		logger.Debugf("Replica %d batch thread recognizing new view", op.pbft.id)
 		op.inViewChange = false
 		if op.batchTimerActive {
 			op.stopBatchTimer()
@@ -435,27 +435,27 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 
 		op.complainer.Restart()
 		for _, pair := range op.complainer.CustodyElements() {
-			logger.Info("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
+			logger.Infof("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
 			return op.submitToLeader(pair.Request)
 		}
 	case complaintEvent:
 		c := et
-		logger.Debug("Replica %d processing complaint from custodian", op.pbft.id)
+		logger.Debugf("Replica %d processing complaint from custodian", op.pbft.id)
 		if !op.deduplicator.IsNew(c.req.(*Request)) {
 			op.resubmitStaleRequest(c)
 			break
 		}
 
 		if !c.complaint {
-			logger.Warning("Batch replica %d custody expired, complaining: %s", op.pbft.id, c.hash)
+			logger.Warningf("Batch replica %d custody expired, complaining: %s", op.pbft.id, c.hash)
 			op.broadcastMsg(&BatchMessage{&BatchMessage_Complaint{c.req.(*Request)}})
 		} else {
 			if !op.inViewChange && op.pbft.activeView {
-				logger.Debug("Batch replica %d complaint timeout expired for %s", op.pbft.id, c.hash)
+				logger.Debugf("Batch replica %d complaint timeout expired for %s", op.pbft.id, c.hash)
 				op.inViewChange = true
 				op.pbft.sendViewChange()
 			} else {
-				logger.Debug("Batch replica %d complaint timeout expired for %s while in view change", op.pbft.id, c.hash)
+				logger.Debugf("Batch replica %d complaint timeout expired for %s while in view change", op.pbft.id, c.hash)
 			}
 		}
 	default:
@@ -467,13 +467,13 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 
 func (op *obcBatch) startBatchTimer() {
 	op.batchTimer.Reset(op.batchTimeout, batchTimerEvent{})
-	logger.Debug("Replica %d started the batch timer", op.pbft.id)
+	logger.Debugf("Replica %d started the batch timer", op.pbft.id)
 	op.batchTimerActive = true
 }
 
 func (op *obcBatch) stopBatchTimer() {
 	op.batchTimer.Stop()
-	logger.Debug("Replica %d stopped the batch timer", op.pbft.id)
+	logger.Debugf("Replica %d stopped the batch timer", op.pbft.id)
 	op.batchTimerActive = false
 }
 

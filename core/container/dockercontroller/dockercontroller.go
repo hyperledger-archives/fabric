@@ -39,12 +39,12 @@ type DockerVM struct {
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	config := docker.Config{Cmd: args, Image: imageID, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
 	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
-	dockerLogger.Debug("Create container: %s", containerID)
+	dockerLogger.Debugf("Create container: %s", containerID)
 	_, err := client.CreateContainer(copts)
 	if err != nil {
 		return err
 	}
-	dockerLogger.Debug("Created container: %s", imageID)
+	dockerLogger.Debugf("Created container: %s", imageID)
 	return nil
 }
 
@@ -90,49 +90,49 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 	imageID, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Debug("start - cannot create client %s", err)
+		dockerLogger.Debugf("start - cannot create client %s", err)
 		return err
 	}
 
 	containerID := strings.Replace(imageID, ":", "_", -1)
 
 	//stop,force remove if necessary
-	dockerLogger.Debug("Cleanup container %s", containerID)
+	dockerLogger.Debugf("Cleanup container %s", containerID)
 	vm.stopInternal(ctxt, client, containerID, 0, false, false)
 
-	dockerLogger.Debug("Start container %s", containerID)
+	dockerLogger.Debugf("Start container %s", containerID)
 	err = vm.createContainer(ctxt, client, imageID, containerID, args, env, attachstdin, attachstdout)
 	if err != nil {
 		//if image not found try to create image and retry
 		if err == docker.ErrNoSuchImage {
 			if reader != nil {
-				dockerLogger.Debug("start-could not find image ...attempt to recreate image %s", err)
+				dockerLogger.Debugf("start-could not find image ...attempt to recreate image %s", err)
 				if err = vm.deployImage(client, ccid, args, env, attachstdin, attachstdout, reader); err != nil {
 					return err
 				}
 
 				dockerLogger.Debug("start-recreated image successfully")
 				if err = vm.createContainer(ctxt, client, imageID, containerID, args, env, attachstdin, attachstdout); err != nil {
-					dockerLogger.Error(fmt.Sprintf("start-could not recreate container post recreate image: %s", err))
+					dockerLogger.Errorf("start-could not recreate container post recreate image: %s", err)
 					return err
 				}
 			} else {
-				dockerLogger.Error(fmt.Sprintf("start-could not find image: %s", err))
+				dockerLogger.Errorf("start-could not find image: %s", err)
 				return err
 			}
 		} else {
-			dockerLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
+			dockerLogger.Errorf("start-could not recreate container %s", err)
 			return err
 		}
 	}
 
 	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("start-could not start container %s", err))
+		dockerLogger.Errorf("start-could not start container %s", err)
 		return err
 	}
 
-	dockerLogger.Debug("Started container %s", containerID)
+	dockerLogger.Debugf("Started container %s", containerID)
 	return nil
 }
 
@@ -141,7 +141,7 @@ func (vm *DockerVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 	id, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Debug("start - cannot create client %s", err)
+		dockerLogger.Debugf("start - cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
@@ -154,24 +154,24 @@ func (vm *DockerVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id string, timeout uint, dontkill bool, dontremove bool) error {
 	err := client.StopContainer(id, timeout)
 	if err != nil {
-		dockerLogger.Debug("Stop container %s(%s)", id, err)
+		dockerLogger.Debugf("Stop container %s(%s)", id, err)
 	} else {
-		dockerLogger.Debug("Stopped container %s", id)
+		dockerLogger.Debugf("Stopped container %s", id)
 	}
 	if !dontkill {
 		err = client.KillContainer(docker.KillContainerOptions{ID: id})
 		if err != nil {
-			dockerLogger.Debug("Kill container %s (%s)", id, err)
+			dockerLogger.Debugf("Kill container %s (%s)", id, err)
 		} else {
-			dockerLogger.Debug("Killed container %s", id)
+			dockerLogger.Debugf("Killed container %s", id)
 		}
 	}
 	if !dontremove {
 		err = client.RemoveContainer(docker.RemoveContainerOptions{ID: id, Force: true})
 		if err != nil {
-			dockerLogger.Debug("Remove container %s (%s)", id, err)
+			dockerLogger.Debugf("Remove container %s (%s)", id, err)
 		} else {
-			dockerLogger.Debug("Removed container %s", id)
+			dockerLogger.Debugf("Removed container %s", id)
 		}
 	}
 	return err

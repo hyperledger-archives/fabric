@@ -1119,7 +1119,7 @@ func TestReplicaCrash2(t *testing.T) {
 		// filter commits to all but 1
 		commit := pm.GetCommit()
 		if filterMsg && dst != -1 && dst != 1 && commit != nil && commit.View < 2 {
-			logger.Info("filtering commit message from %d to %d", src, dst)
+			logger.Infof("filtering commit message from %d to %d", src, dst)
 			return nil
 		}
 		return msg

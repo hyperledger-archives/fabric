@@ -45,10 +45,10 @@ func worker(id int, die chan struct{}) {
 	for {
 		select {
 		case <-die:
-			log.Debug("worker %d terminating", id)
+			log.Debugf("worker %d terminating", id)
 			return
 		default:
-			log.Debug("%d is working...", id)
+			log.Debugf("%d is working...", id)
 			runtime.Gosched()
 		}
 	}
@@ -57,24 +57,24 @@ func worker(id int, die chan struct{}) {
 // GetStatus reports the status of the server
 func (*ServerAdmin) GetStatus(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STARTED}
-	log.Debug("returning status: %s", status)
+	log.Debugf("returning status: %s", status)
 	return status, nil
 }
 
 // StartServer starts the server
 func (*ServerAdmin) StartServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STARTED}
-	log.Debug("returning status: %s", status)
+	log.Debugf("returning status: %s", status)
 	return status, nil
 }
 
 // StopServer stops the server
 func (*ServerAdmin) StopServer(context.Context, *google_protobuf.Empty) (*pb.ServerStatus, error) {
 	status := &pb.ServerStatus{Status: pb.ServerStatus_STOPPED}
-	log.Debug("returning status: %s", status)
+	log.Debugf("returning status: %s", status)
 
 	pidFile := viper.GetString("peer.fileSystemPath") + "/peer.pid"
-	log.Debug("Remove pid file  %s", pidFile)
+	log.Debugf("Remove pid file  %s", pidFile)
 	os.Remove(pidFile)
 	defer os.Exit(0)
 	return status, nil

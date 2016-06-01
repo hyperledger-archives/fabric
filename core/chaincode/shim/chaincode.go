@@ -93,16 +93,16 @@ func Start(cc Chaincode) error {
 
 	flag.Parse()
 
-	chaincodeLogger.Debug("Peer address: %s", getPeerAddress())
+	chaincodeLogger.Debugf("Peer address: %s", getPeerAddress())
 
 	// Establish connection with validating peer
 	clientConn, err := newPeerClientConnection()
 	if err != nil {
-		chaincodeLogger.Error(fmt.Sprintf("Error trying to connect to local peer: %s", err))
+		chaincodeLogger.Errorf("Error trying to connect to local peer: %s", err)
 		return fmt.Errorf("Error trying to connect to local peer: %s", err)
 	}
 
-	chaincodeLogger.Debug("os.Args returns: %s", os.Args)
+	chaincodeLogger.Debugf("os.Args returns: %s", os.Args)
 
 	chaincodeSupportClient := pb.NewChaincodeSupportClient(clientConn)
 
@@ -122,7 +122,7 @@ func Start(cc Chaincode) error {
 // API for chaincodes.
 func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
 	logging.SetLevel(logging.DEBUG, "chaincode")
-	chaincodeLogger.Debug("in proc %v", args)
+	chaincodeLogger.Debugf("in proc %v", args)
 
 	var chaincodename string
 	for _, v := range env {
@@ -135,7 +135,7 @@ func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.Chai
 	if chaincodename == "" {
 		return fmt.Errorf("Error chaincode id not provided")
 	}
-	chaincodeLogger.Debug("starting chat with peer using name=%s", chaincodename)
+	chaincodeLogger.Debugf("starting chat with peer using name=%s", chaincodename)
 	stream := newInProcStream(recv, send)
 	err := chatWithPeer(chaincodename, stream, cc)
 	return err
@@ -174,7 +174,7 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 		return fmt.Errorf("Error marshalling chaincodeID during chaincode registration: %s", err)
 	}
 	// Register on the stream
-	chaincodeLogger.Debug("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
+	chaincodeLogger.Debugf("Registering.. sending %s", pb.ChaincodeMessage_REGISTER)
 	handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_REGISTER, Payload: payload})
 	waitc := make(chan struct{})
 	go func() {
@@ -198,24 +198,24 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 			select {
 			case in = <-msgAvail:
 				if err == io.EOF {
-					chaincodeLogger.Debug("Received EOF, ending chaincode stream, %s", err)
+					chaincodeLogger.Debugf("Received EOF, ending chaincode stream, %s", err)
 					return
 				} else if err != nil {
-					chaincodeLogger.Error(fmt.Sprintf("Received error from server: %s, ending chaincode stream", err))
+					chaincodeLogger.Errorf("Received error from server: %s, ending chaincode stream", err)
 					return
 				} else if in == nil {
 					err = fmt.Errorf("Received nil message, ending chaincode stream")
 					chaincodeLogger.Debug("Received nil message, ending chaincode stream")
 					return
 				}
-				chaincodeLogger.Debug("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
+				chaincodeLogger.Debugf("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
 				recv = true
 			case nsInfo = <-handler.nextState:
 				in = nsInfo.msg
 				if in == nil {
 					panic("nil msg")
 				}
-				chaincodeLogger.Debug("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
+				chaincodeLogger.Debugf("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
 			}
 
 			// Call FSM.handleMessage()
@@ -225,7 +225,7 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 				return
 			}
 			if nsInfo != nil && nsInfo.sendToCC {
-				chaincodeLogger.Debug("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
+				chaincodeLogger.Debugf("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
 				if err = handler.serialSend(in); err != nil {
 					err = fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
 					return
@@ -910,44 +910,37 @@ func (c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool {
 	return c.logger.IsEnabledFor(logging.Level(level))
 }
 
-// Note: We're only creating the 'f' forms of the logging functions here for
-// consistency with Go language conventions around formatted I/O routines, and
-// to avoid confusion with the conventions used in the core code. It is
-// possible that some day the core code will also change from using
-// logger.Debug() to logger.Debugf() etc., and we want to protect chaincode
-// writers from that hiccup if it occurs.
-
 // Debugf logs will only appear if the ChaincodeLogger LoggingLevel is set to
 // LogDebug.
 func (c *ChaincodeLogger) Debugf(format string, args ...interface{}) {
-	c.logger.Debug(format, args...)
+	c.logger.Debugf(format, args...)
 }
 
 // Infof logs will appear if the ChaincodeLogger LoggingLevel is set to
 // LogInfo or LogDebug.
 func (c *ChaincodeLogger) Infof(format string, args ...interface{}) {
-	c.logger.Info(format, args...)
+	c.logger.Infof(format, args...)
 }
 
 // Noticef logs will appear if the ChaincodeLogger LoggingLevel is set to
 // LogNotice, LogInfo or LogDebug.
 func (c *ChaincodeLogger) Noticef(format string, args ...interface{}) {
-	c.logger.Notice(format, args...)
+	c.logger.Noticef(format, args...)
 }
 
 // Warningf logs will appear if the ChaincodeLogger LoggingLevel is set to
 // LogWarning, LogNotice, LogInfo or LogDebug.
 func (c *ChaincodeLogger) Warningf(format string, args ...interface{}) {
-	c.logger.Warning(format, args...)
+	c.logger.Warningf(format, args...)
 }
 
 // Errorf logs will appear if the ChaincodeLogger LoggingLevel is set to
 // LogError, LogWarning, LogNotice, LogInfo or LogDebug.
 func (c *ChaincodeLogger) Errorf(format string, args ...interface{}) {
-	c.logger.Error(format, args...)
+	c.logger.Errorf(format, args...)
 }
 
 // Criticalf logs always appear; They can not be disabled.
 func (c *ChaincodeLogger) Criticalf(format string, args ...interface{}) {
-	c.logger.Critical(format, args...)
+	c.logger.Criticalf(format, args...)
 }

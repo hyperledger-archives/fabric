@@ -72,11 +72,11 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 
 	key := primitives.HMAC(enrollChainKey, clone.Nonce)
 
-	//	validator.log.Info("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
-	//	validator.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	validator.log.Info("Derived key  ", utils.EncodeBase64(key))
-	//	validator.log.Info("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
-	//	validator.log.Info("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
+	//	validator.log.Infof("Deriving from  ", utils.EncodeBase64(validator.peer.node.enrollChainKey))
+	//	validator.log.Infof("Nonce  ", utils.EncodeBase64(tx.Nonce))
+	//	validator.log.Infof("Derived key  ", utils.EncodeBase64(key))
+	//	validator.log.Infof("Encrypted Payload  ", utils.EncodeBase64(tx.EncryptedPayload))
+	//	validator.log.Infof("Encrypted ChaincodeID  ", utils.EncodeBase64(tx.EncryptedChaincodeID))
 
 	// Decrypt Payload
 	payloadKey := primitives.HMACAESTruncated(key, []byte{1})

@@ -43,7 +43,7 @@ func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcCl
 
 	op.persistForward.persistor = stack
 
-	logger.Debug("Replica %d obtaining startup information", id)
+	logger.Debugf("Replica %d obtaining startup information", id)
 	op.legacyGenericShim.init(id, config, op)
 
 	op.idleChan = make(chan struct{})
@@ -133,7 +133,7 @@ func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
 		tx := &pb.Transaction{}
 		err := proto.Unmarshal(txRaw, tx)
 		if err != nil {
-			logger.Error("Unable to unmarshal transaction: %v", err)
+			logger.Errorf("Unable to unmarshal transaction: %v", err)
 			return
 		}
 

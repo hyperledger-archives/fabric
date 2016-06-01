@@ -82,20 +82,20 @@ func (bucketNode *bucketNode) computeCryptoHash() []byte {
 	for i, childCryptoHash := range bucketNode.childrenCryptoHash {
 		if childCryptoHash != nil {
 			numChildren++
-			logger.Debug("Appending crypto-hash for child bucket = [%s]", bucketNode.bucketKey.getChildKey(i))
+			logger.Debugf("Appending crypto-hash for child bucket = [%s]", bucketNode.bucketKey.getChildKey(i))
 			cryptoHashContent = append(cryptoHashContent, childCryptoHash...)
 		}
 	}
 	if numChildren == 0 {
-		logger.Debug("Returning <nil> crypto-hash of bucket = [%s] - because, it has not children", bucketNode.bucketKey)
+		logger.Debugf("Returning <nil> crypto-hash of bucket = [%s] - because, it has not children", bucketNode.bucketKey)
 		bucketNode.markedForDeletion = true
 		return nil
 	}
 	if numChildren == 1 {
-		logger.Debug("Propagating crypto-hash of single child node for bucket = [%s]", bucketNode.bucketKey)
+		logger.Debugf("Propagating crypto-hash of single child node for bucket = [%s]", bucketNode.bucketKey)
 		return cryptoHashContent
 	}
-	logger.Debug("Computing crypto-hash for bucket [%s] by merging [%d] children", bucketNode.bucketKey, numChildren)
+	logger.Debugf("Computing crypto-hash for bucket [%s] by merging [%d] children", bucketNode.bucketKey, numChildren)
 	return openchainUtil.ComputeCryptoHash(cryptoHashContent)
 }
 

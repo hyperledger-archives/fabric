@@ -91,7 +91,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	}
 
 	// Register assignment
-	myLogger.Debug("New owner of [%s] is [% x]", asset, owner)
+	myLogger.Debugf("New owner of [%s] is [% x]", asset, owner)
 
 	ok, err := stub.InsertRow("AssetsOwnership", shim.Row{
 		Columns: []*shim.Column{
@@ -126,7 +126,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	prvOwner := row.Columns[1].GetBytes()
-	myLogger.Debug("Previous owener of [%s] is [% x]", asset, prvOwner)
+	myLogger.Debugf("Previous owener of [%s] is [% x]", asset, prvOwner)
 	if len(prvOwner) == 0 {
 		return nil, fmt.Errorf("Invalid previous owner. Nil")
 	}
@@ -187,10 +187,10 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 		return false, errors.New("Failed getting binding")
 	}
 
-	myLogger.Debug("passed certificate [% x]", certificate)
-	myLogger.Debug("passed sigma [% x]", sigma)
-	myLogger.Debug("passed payload [% x]", payload)
-	myLogger.Debug("passed binding [% x]", binding)
+	myLogger.Debugf("passed certificate [% x]", certificate)
+	myLogger.Debugf("passed sigma [% x]", sigma)
+	myLogger.Debugf("passed payload [% x]", payload)
+	myLogger.Debugf("passed binding [% x]", binding)
 
 	return stub.VerifySignature(
 		certificate,

@@ -94,7 +94,7 @@ func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
 		return stateTrie.lastComputedCryptoHash, nil
 	}
 	lowestLevel := stateTrie.trieDelta.getLowestLevel()
-	stateTrieLogger.Debug("Lowest level in trieDelta = [%d]", lowestLevel)
+	stateTrieLogger.Debugf("Lowest level in trieDelta = [%d]", lowestLevel)
 	for level := lowestLevel; level > 0; level-- {
 		changedNodes := stateTrie.trieDelta.deltaMap[level]
 		for _, changedNode := range changedNodes {
@@ -116,13 +116,13 @@ func (stateTrie *StateTrie) ComputeCryptoHash() ([]byte, error) {
 }
 
 func (stateTrie *StateTrie) processChangedNode(changedNode *trieNode) error {
-	stateTrieLogger.Debug("Enter - processChangedNode() for node [%s]", changedNode)
+	stateTrieLogger.Debugf("Enter - processChangedNode() for node [%s]", changedNode)
 	dbNode, err := fetchTrieNodeFromDB(changedNode.trieKey)
 	if err != nil {
 		return err
 	}
 	if dbNode != nil {
-		stateTrieLogger.Debug("processChangedNode() - merging attributes from db node [%s]", dbNode)
+		stateTrieLogger.Debugf("processChangedNode() - merging attributes from db node [%s]", dbNode)
 		changedNode.mergeMissingAttributesFrom(dbNode)
 	}
 	newCryptoHash := changedNode.computeCryptoHash()
@@ -133,10 +133,10 @@ func (stateTrie *StateTrie) processChangedNode(changedNode *trieNode) error {
 	}
 	parentNode.setChildCryptoHash(changedNode.getIndexInParent(), newCryptoHash)
 	if logHashOfEveryNode {
-		stateTrieLogger.Debug("Hash for changedNode[%s]", changedNode)
-		stateTrieLogger.Debug("%#v", newCryptoHash)
+		stateTrieLogger.Debugf("Hash for changedNode[%s]", changedNode)
+		stateTrieLogger.Debugf("%#v", newCryptoHash)
 	}
-	stateTrieLogger.Debug("Exit - processChangedNode() for node [%s]", changedNode)
+	stateTrieLogger.Debugf("Exit - processChangedNode() for node [%s]", changedNode)
 	return nil
 }
 

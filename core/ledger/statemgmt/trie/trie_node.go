@@ -76,7 +76,7 @@ func (trieNode *trieNode) getIndexInParent() int {
 }
 
 func (trieNode *trieNode) mergeMissingAttributesFrom(dbTrieNode *trieNode) {
-	stateTrieLogger.Debug("Enter mergeMissingAttributesFrom() baseNode=[%s], mergeNode=[%s]", trieNode, dbTrieNode)
+	stateTrieLogger.Debugf("Enter mergeMissingAttributesFrom() baseNode=[%s], mergeNode=[%s]", trieNode, dbTrieNode)
 	if !trieNode.valueUpdated {
 		trieNode.value = dbTrieNode.value
 	}
@@ -85,14 +85,14 @@ func (trieNode *trieNode) mergeMissingAttributesFrom(dbTrieNode *trieNode) {
 			trieNode.childrenCryptoHashes[k] = v
 		}
 	}
-	stateTrieLogger.Debug("Exit mergeMissingAttributesFrom() mergedNode=[%s]", trieNode)
+	stateTrieLogger.Debugf("Exit mergeMissingAttributesFrom() mergedNode=[%s]", trieNode)
 }
 
 func (trieNode *trieNode) computeCryptoHash() []byte {
-	stateTrieLogger.Debug("Enter computeCryptoHash() for trieNode [%s]", trieNode)
+	stateTrieLogger.Debugf("Enter computeCryptoHash() for trieNode [%s]", trieNode)
 	var cryptoHashContent []byte
 	if trieNode.containsValue() {
-		stateTrieLogger.Debug("Adding value to hash computation for trieNode [%s]", trieNode)
+		stateTrieLogger.Debugf("Adding value to hash computation for trieNode [%s]", trieNode)
 		key := trieNode.trieKey.getEncodedBytes()
 		cryptoHashContent = append(cryptoHashContent, proto.EncodeVarint(uint64(len(key)))...)
 		cryptoHashContent = append(cryptoHashContent, key...)
@@ -102,24 +102,24 @@ func (trieNode *trieNode) computeCryptoHash() []byte {
 	sortedChildrenIndexes := trieNode.getSortedChildrenIndex()
 	for _, index := range sortedChildrenIndexes {
 		childCryptoHash := trieNode.childrenCryptoHashes[index]
-		stateTrieLogger.Debug("Adding hash [%#v] for child number [%d] to hash computation for trieNode [%s]", childCryptoHash, index, trieNode)
+		stateTrieLogger.Debugf("Adding hash [%#v] for child number [%d] to hash computation for trieNode [%s]", childCryptoHash, index, trieNode)
 		cryptoHashContent = append(cryptoHashContent, childCryptoHash...)
 	}
 
 	if cryptoHashContent == nil {
 		// node has no associated value and no associated children.
-		stateTrieLogger.Debug("Returning nil as hash for trieNode = [%s]. Also, marking this key for deletion.", trieNode)
+		stateTrieLogger.Debugf("Returning nil as hash for trieNode = [%s]. Also, marking this key for deletion.", trieNode)
 		trieNode.markedForDeletion = true
 		return nil
 	}
 
 	if !trieNode.containsValue() && trieNode.getNumChildren() == 1 {
 		// node has no associated value and has a single child. Propagate the child hash up
-		stateTrieLogger.Debug("Returning hash as of a single child for trieKey = [%s]", trieNode.trieKey)
+		stateTrieLogger.Debugf("Returning hash as of a single child for trieKey = [%s]", trieNode.trieKey)
 		return cryptoHashContent
 	}
 
-	stateTrieLogger.Debug("Recomputing hash for trieKey = [%s]", trieNode)
+	stateTrieLogger.Debugf("Recomputing hash for trieKey = [%s]", trieNode)
 	return util.ComputeCryptoHash(cryptoHashContent)
 }
 
@@ -173,18 +173,18 @@ func (trieNode *trieNode) marshal() ([]byte, error) {
 		}
 	}
 	serializedBytes := buffer.Bytes()
-	stateTrieLogger.Debug("Marshalled trieNode [%s]. Serialized bytes size = %d", trieNode.trieKey, len(serializedBytes))
+	stateTrieLogger.Debugf("Marshalled trieNode [%s]. Serialized bytes size = %d", trieNode.trieKey, len(serializedBytes))
 	return serializedBytes, nil
 }
 
 func unmarshalTrieNode(key *trieKey, serializedContent []byte) (*trieNode, error) {
-	stateTrieLogger.Debug("key = [%s], len(serializedContent) = %d", key, len(serializedContent))
+	stateTrieLogger.Debugf("key = [%s], len(serializedContent) = %d", key, len(serializedContent))
 	trieNode := newTrieNode(key, nil, false)
 	buffer := proto.NewBuffer(serializedContent)
 	trieNode.value = unmarshalTrieNodeValueFromBuffer(buffer)
 
 	numCryptoHashes, err := buffer.DecodeVarint()
-	stateTrieLogger.Debug("numCryptoHashes = [%d]", numCryptoHashes)
+	stateTrieLogger.Debugf("numCryptoHashes = [%d]", numCryptoHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func unmarshalTrieNode(key *trieKey, serializedContent []byte) (*trieNode, error
 		}
 		trieNode.childrenCryptoHashes[int(index)] = cryptoHash
 	}
-	stateTrieLogger.Debug("unmarshalled trieNode = [%s]", trieNode)
+	stateTrieLogger.Debugf("unmarshalled trieNode = [%s]", trieNode)
 	return trieNode, nil
 }
 

@@ -63,7 +63,7 @@ func (itr *RangeScanIterator) Next() bool {
 		dataKey := dataNode.dataKey
 		chaincodeID, key := statemgmt.DecodeCompositeKey(dataNode.getCompositeKey())
 		value := dataNode.value
-		logger.Debug("Evaluating data-key = %s", dataKey)
+		logger.Debugf("Evaluating data-key = %s", dataKey)
 
 		bucketNumber := dataKey.bucketKey.bucketNumber
 		if bucketNumber > itr.currentBucketNumber {
@@ -72,7 +72,7 @@ func (itr *RangeScanIterator) Next() bool {
 		}
 
 		if chaincodeID == itr.chaincodeID && (itr.endKey == "" || key <= itr.endKey) {
-			logger.Debug("including data-key = %s", dataKey)
+			logger.Debugf("including data-key = %s", dataKey)
 			itr.currentKey = key
 			itr.currentValue = value
 			itr.dbItr.Next()

@@ -66,7 +66,7 @@ func NewConsensusHandler(coord peer.MessageHandlerCoordinator,
 	consensusQueueSize := viper.GetInt("peer.validator.consensus.buffersize")
 
 	if consensusQueueSize <= 0 {
-		logger.Error("peer.validator.consensus.buffersize is set to %d, but this must be a positive integer, defaulting to %d", consensusQueueSize, DefaultConsensusQueueSize)
+		logger.Errorf("peer.validator.consensus.buffersize is set to %d, but this must be a positive integer, defaulting to %d", consensusQueueSize, DefaultConsensusQueueSize)
 		consensusQueueSize = DefaultConsensusQueueSize
 	}
 
@@ -90,13 +90,13 @@ func (handler *ConsensusHandler) HandleMessage(msg *pb.Message) error {
 			return nil
 		default:
 			err := fmt.Errorf("Message channel for %v full, rejecting", senderPE.ID)
-			logger.Error("Failed to queue consensus message because: %v", err)
+			logger.Errorf("Failed to queue consensus message because: %v", err)
 			return err
 		}
 	}
 
 	if logger.IsEnabledFor(logging.DEBUG) {
-		logger.Debug("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
+		logger.Debugf("Did not handle message of type %s, passing on to next MessageHandler", msg.Type)
 	}
 	return handler.MessageHandler.HandleMessage(msg)
 }

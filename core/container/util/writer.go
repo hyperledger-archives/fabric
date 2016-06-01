@@ -46,7 +46,7 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath = filepath.SplitList(gopath)[0]
 
 	rootDirectory := filepath.Join(gopath, "src")
-	vmLogger.Info("rootDirectory = %s", rootDirectory)
+	vmLogger.Infof("rootDirectory = %s", rootDirectory)
 
 	//append "/" if necessary
 	if excludeDir != "" && strings.LastIndex(excludeDir, "/") < len(excludeDir)-1 {
@@ -93,7 +93,7 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	}
 
 	if err := filepath.Walk(rootDirectory, walkFn); err != nil {
-		vmLogger.Info("Error walking rootDirectory: %s", err)
+		vmLogger.Infof("Error walking rootDirectory: %s", err)
 		return err
 	}
 	// Write the tar file out
