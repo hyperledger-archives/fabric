@@ -59,7 +59,7 @@ After your pull request has been reviewed and signed off, a maintainer will merg
 ## Coding guidelines
 
 ### Coding Golang <a name="coding-go"></a>
-- We require a file [header](headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
+- We require a file [header](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
 - We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
 and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
   - [golint](https://github.com/golang/lint)

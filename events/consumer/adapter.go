@@ -24,6 +24,6 @@ import (
 //receives messages from the openchain event Server
 type EventAdapter interface {
 	GetInterestedEvents() ([]*ehpb.Interest, error)
-	Recv(msg *ehpb.Event) (bool,error)
+	Recv(msg *ehpb.Event) (bool, error)
 	Disconnected(err error)
 }

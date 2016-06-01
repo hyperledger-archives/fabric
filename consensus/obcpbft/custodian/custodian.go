@@ -41,8 +41,6 @@ type custody struct {
 
 // Custodian provides a timeout service for objects.  The timeout is
 // the same for all enqueued objects.  Order is retained.
-// When a timeout expires, the object is re-registered automatically
-// so that the timeout fires once every timeout duration until removed
 type Custodian struct {
 	lock     sync.Mutex
 	timeout  time.Duration
@@ -75,6 +73,7 @@ func New(timeout time.Duration, notifyCb CustodyNotify) *Custodian {
 	c.timer = time.NewTimer(time.Hour)
 	c.timer.Stop()
 	c.stopCh = make(chan struct{})
+	go c.notifyRoutine()
 	return c
 }
 
@@ -114,6 +113,14 @@ func (c *Custodian) Remove(id string) bool {
 		obj.canceled = true
 		obj.data = nil
 	}
+	return ok
+}
+
+// InCustody returns true if an object is in custody
+func (c *Custodian) InCustody(id string) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, ok := c.requests[id]
 	return ok
 }
 
@@ -160,56 +167,35 @@ func (c *Custodian) resetTimer() {
 		diff = 0
 	}
 	c.timer.Reset(diff)
-	logger.Debug("Resetting timer to %v for req %s", diff, next.id)
-	go c.notifyRoutine()
 }
 
 func (c *Custodian) notifyRoutine() {
-	select {
-	case <-c.timer.C:
-		logger.Debug("Custodian timer expired")
-		break
-	case <-c.stopCh:
-		c.stopCh = nil
-		return
-	}
-	c.lock.Lock()
+	for {
+		select {
+		case <-c.timer.C:
+			break
+		case <-c.stopCh:
+			c.stopCh = nil
+			return
+		}
 
-	var expired *CustodyPair
+		var obj *custody
 
-	if len(c.seq) == 0 {
-		return
-	}
-
-	obj := c.seq[0]
-
-	if obj.deadline.After(time.Now()) {
-		// Timers are always in order in seq
-		logger.Debug("Timer expired, but first timer in the future")
-		return
-	}
-
-	delete(c.requests, obj.id)
-	c.seq = c.seq[1:]
-
-	if !obj.canceled {
-		logger.Debug("Found %s was not expired", obj.id)
-		expired = &CustodyPair{obj.id, obj.data}
-	} else {
+		c.lock.Lock()
+		if len(c.seq) > 0 {
+			obj = c.seq[0]
+			if obj.deadline.After(time.Now()) {
+				obj = nil
+			} else {
+				delete(c.requests, obj.id)
+				c.seq = c.seq[1:]
+			}
+		}
 		c.resetTimer()
-		logger.Debug("Found %s was already expired", obj.id)
-	}
+		c.lock.Unlock()
 
-	c.lock.Unlock()
-
-	if expired != nil {
-		logger.Debug("Determined timer expiration was for %s", expired.ID)
-
-		// re-Register the expired request so that it remains in the store until manually removed
-		c.Register(expired.ID, expired.Data)
-
-		c.notifyCb(expired.ID, expired.Data)
-	} else {
-		logger.Debug("Timer expired, but first timer had already been canceled")
+		if obj != nil && !obj.canceled {
+			c.notifyCb(obj.id, obj.data)
+		}
 	}
 }

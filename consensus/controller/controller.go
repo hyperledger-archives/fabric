@@ -17,9 +17,10 @@ limitations under the License.
 package controller
 
 import (
+	"strings"
+
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
-	"strings"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/noops"
@@ -40,9 +41,8 @@ func NewConsenter(stack consensus.Stack) consensus.Consenter {
 	if plugin == "pbft" {
 		logger.Info("Creating consensus plugin %s", plugin)
 		return obcpbft.GetPlugin(stack)
-	} else {
-		logger.Info("Creating default consensus plugin (noops)")
-		return noops.GetNoops(stack)
 	}
+	logger.Info("Creating default consensus plugin (noops)")
+	return noops.GetNoops(stack)
 
 }

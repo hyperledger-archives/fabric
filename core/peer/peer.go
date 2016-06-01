@@ -172,10 +172,10 @@ type handlerMap struct {
 	m map[pb.PeerID]MessageHandler
 }
 
-// HandlerFactory used to create message handler
+// HandlerFactory for creating new MessageHandlers
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
-// EngineFactory used to create new engine
+// EngineFactory for creating new engines
 type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
 
 // PeerImpl implementation of the Peer service

@@ -72,6 +72,8 @@ The `node start` command will initiate a peer process, with which one can intera
       help        Help about any command
 ```
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
@@ -108,12 +110,29 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
 ## Building outside of Vagrant <a name="vagrant"></a>
-While not recommended, it is possible to build the project outside of Vagrant (e.g., for using an editor with built-in Go toolking). In such cases:
+It is possible to build the project and run peers outside of Vagrant. Generally speaking, one has to 'translate' the vagrant [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh) to the platform of your choice.
 
-- Follow all steps required to setup and run a Vagrant image:
-  - Make sure you you have [Go 1.6](https://golang.org/) installed
-  - Set the maximum number of open files to 10000 or greater for your OS
-  - Install [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and its dependencies
+### Prerequisites
+* [Git client](https://git-scm.com/downloads)
+* [Go](https://golang.org/) - 1.6 or later
+* [RocksDB](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) version 4.1 and its dependencies
+* [Docker](https://docs.docker.com/engine/installation/)
+* [Pip](https://pip.pypa.io/en/stable/installing/)
+* Set the maximum number of open files to 10000 or greater for your OS
+
+### Docker
+Make sure that the Docker daemon initialization includes the options
+```
+-H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock
+```
+
+Typically, docker runs as a `service` task, with configuration file at `/etc/default/docker`.
+
+Be aware that the Docker bridge (the `CORE_VM_ENDPOINT`) may not come
+up at the IP address currently assumed by the test environment
+(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
+
+### Building RocksDB
 ```
 apt-get install -y libsnappy-dev zlib1g-dev libbz2-dev
 cd /tmp
@@ -123,19 +142,32 @@ git checkout v4.1
 PORTABLE=1 make shared_lib
 INSTALL_PATH=/usr/local make install-shared
 ```
-- Execute the following commands:
+
+### `pip`, `behave` and `docker-compose`
+```
+pip install --upgrade pip
+pip install behave nose docker-compose
+pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couchdb==1.0 flask-cors==2.0.1 requests==2.4.3
+```
+
+### Building on Z
+To make building on Z easier and faster, [this script](https://github.com/hyperledger/fabric/tree/master/devenv/setupRHELonZ.sh) is provided (which is similar to the [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh) provided for vagrant). This script has been tested only on RHEL 7.2 and has some assumptions one might want to re-visit (firewall settings, development as root user, etc.). It is however sufficient for development in a personally-assigned VM instance.
+
+To get started, from a freshly installed OS:
+```
+sudo su
+yum install git
+mkdir -p $HOME/git/src/github.com/hyperledger
+cd $HOME/git/src/github.com/hyperledger
+git clone https://github.com/hyperledger/fabric.git
+source fabric/devenv/setupRHELonZ.sh
+```
+From there, follow instructions at [Installation](install.md):
+
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
-make
+make peer unit-test behave
 ```
-- Make sure that the Docker daemon initialization includes the options
-```
--H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock
-```
-- Be aware that the Docker bridge (the `CORE_VM_ENDPOINT`) may not come
-up at the IP address currently assumed by the test environment
-(`172.17.0.1`). Use `ifconfig` or `ip addr` to find the docker bridge.
-
 
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.

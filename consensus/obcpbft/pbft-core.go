@@ -66,6 +66,9 @@ type innerStack interface {
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
 
+	invalidateState()
+	validateState()
+
 	consensus.StatePersistor
 }
 
@@ -117,13 +120,13 @@ type pbftCore struct {
 	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
 
 	currentExec        *uint64             // currently executing request
-	newViewTimer       *time.Timer         // timeout triggering a view change
 	timerActive        bool                // is the timer running?
+	newViewTimer       eventTimer          // timeout triggering a view change
+	manager            eventManager        // TODO, remove eventually, the event manager which sends events to pbft
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
-	newViewTimerReason string              // what triggered the timer
 
 	missingReqs map[string]bool // for all the assigned, non-checkpointed requests we might be missing during view-change
 
@@ -192,6 +195,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
 
+	// TODO Ultimately, the timer factory will be passed in, and the existence of the manager
+	// will be hidden from pbftCore, but in the interest of a small PR, leaving it here for now
+	instance.manager = newEventManagerImpl(instance)
+	etf := newEventTimerFactoryImpl(instance.manager)
+	instance.newViewTimer = etf.createTimer()
+
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
 	if instance.f*3+1 > instance.N {
@@ -249,67 +258,92 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.outstandingReqs = make(map[string]*Request)
 	instance.missingReqs = make(map[string]bool)
 
-	instance.stopTimer()
 	instance.restoreState()
-
-	go instance.main()
 
 	return instance
 }
 
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	select { // Prevent closing multiple times
-	case <-instance.closed:
-	default:
-		close(instance.closed)
-	}
-	instance.stopTimer()
+	instance.manager.halt()
+	instance.newViewTimer.halt()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
-func (instance *pbftCore) main() {
+func (instance *pbftCore) processEvent(e interface{}) interface{} {
 
-	for {
-		logger.Debug("Replica %d service thread looping", instance.id)
+	var err error
 
-		select {
-		case <-instance.closed:
-			close(instance.idleChan)
-			return
-		case <-instance.newViewTimer.C:
-			logger.Info("Replica %d view change timer expired, sending view change", instance.id)
-			instance.sendViewChange()
-		case msg := <-instance.incomingChan:
-			logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
-			instance.recvMsg(msg.msg, msg.sender)
-		case update := <-instance.stateUpdatingChan:
-			instance.skipInProgress = true
-			instance.lastExec = update.seqNo
-			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
-		case update := <-instance.stateUpdatedChan:
-			seqNo := update.seqNo
-			logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
-			// XXX create checkpoint
-			instance.lastExec = seqNo
-			instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
-			instance.skipInProgress = false
-			instance.executeOutstanding()
-		case <-instance.execCompleteChan:
-			instance.execDoneSync()
-		case work := <-instance.injectChan:
-			work() // Used to allow the caller to steal use of the main thread
-		case instance.idleChan <- struct{}{}:
-			// Used to detect when this thread is idle for testing
+	logger.Debug("Replica %d processing event", instance.id)
+
+	switch et := e.(type) {
+	case viewChangeTimerEvent:
+		logger.Info("Replica %d view change timer expired, sending view change", instance.id)
+		instance.timerActive = false
+		instance.sendViewChange()
+	case *pbftMessage:
+		return pbftMessageEvent(*et)
+	case pbftMessageEvent:
+		msg := et
+		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
+		next, err := instance.recvMsg(msg.msg, msg.sender)
+		if err != nil {
+			break
 		}
+		return next
+	case *Request:
+		err = instance.recvRequest(et)
+	case *PrePrepare:
+		err = instance.recvPrePrepare(et)
+	case *Prepare:
+		err = instance.recvPrepare(et)
+	case *Commit:
+		err = instance.recvCommit(et)
+	case *Checkpoint:
+		err = instance.recvCheckpoint(et)
+	case *ViewChange:
+		err = instance.recvViewChange(et)
+	case *NewView:
+		err = instance.recvNewView(et)
+	case *FetchRequest:
+		err = instance.recvFetchRequest(et)
+	case returnRequestEvent:
+		err = instance.recvReturnRequest(et)
+	case stateUpdatingEvent:
+		update := et
+		instance.skipInProgress = true
+		instance.lastExec = update.seqNo
+		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+	case stateUpdatedEvent:
+		update := et
+		seqNo := update.seqNo
+		logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+		// XXX create checkpoint
+		instance.lastExec = seqNo
+		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
+		instance.skipInProgress = false
+		instance.consumer.validateState()
+		instance.executeOutstanding()
+	case execDoneEvent:
+		instance.execDoneSync()
+	case workEvent:
+		et() // Used to allow the caller to steal use of the main thread, to be removed
+	case viewChangedEvent:
+		instance.consumer.viewChange(instance.view)
+	default:
+		logger.Warning("Replica %d received an unknown message type %T", instance.id, et)
 	}
+
+	if err != nil {
+		logger.Warning(err.Error())
+	}
+	return nil
 }
 
 // Allows the caller to inject work onto the main thread
 // This is useful when the caller wants to safely manipulate PBFT state
 func (instance *pbftCore) inject(work func()) {
-	instance.injectChan <- work
-	<-instance.idleChan
+	instance.manager.queue() <- workEvent(work)
 }
 
 // =============================================================================
@@ -439,126 +473,80 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // =============================================================================
 
 // handle new consensus requests
-func (instance *pbftCore) request(msgPayload []byte, senderID uint64) error {
+func (instance *pbftCore) requestSync(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.incomingChan <- &pbftMessage{
+	instance.manager.inject(pbftMessageEvent{
 		sender: senderID,
 		msg:    msg,
-	}
+	})
 	return nil
 }
 
 // handle internal consensus messages
-func (instance *pbftCore) receive(msgPayload []byte, senderID uint64) error {
+func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.incomingChan <- &pbftMessage{
+	instance.manager.inject(pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
-	}
+	})
 
 	return nil
 }
 
-// stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdated(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.stateUpdatedChan <- &checkpointMessage{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
-// stateUpdate is an event telling us that the application fast-forwarded its state
-func (instance *pbftCore) stateUpdating(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
-	instance.stateUpdatingChan <- &checkpointMessage{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
-// TODO, this should not return an error
-func (instance *pbftCore) recvMsgSync(msg *Message, senderID uint64) (err error) {
-	instance.incomingChan <- &pbftMessage{
-		msg:    msg,
-		sender: senderID,
-	}
-	return nil
-}
-
-func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (err error) {
+func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, error) {
 
 	if req := msg.GetRequest(); req != nil {
 		if senderID != req.ReplicaId {
-			err = fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in request message (%v) doesn't match ID corresponding to the receiving stream (%v)", req.ReplicaId, senderID)
 		}
-		err = instance.recvRequest(req)
+		return req, nil
 	} else if preprep := msg.GetPrePrepare(); preprep != nil {
 		if senderID != preprep.ReplicaId {
-			err = fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in pre-prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", preprep.ReplicaId, senderID)
 		}
-		err = instance.recvPrePrepare(preprep)
+		return preprep, nil
 	} else if prep := msg.GetPrepare(); prep != nil {
 		if senderID != prep.ReplicaId {
-			err = fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in prepare message (%v) doesn't match ID corresponding to the receiving stream (%v)", prep.ReplicaId, senderID)
 		}
-		err = instance.recvPrepare(prep)
+		return prep, nil
 	} else if commit := msg.GetCommit(); commit != nil {
 		if senderID != commit.ReplicaId {
-			err = fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in commit message (%v) doesn't match ID corresponding to the receiving stream (%v)", commit.ReplicaId, senderID)
 		}
-		err = instance.recvCommit(commit)
+		return commit, nil
 	} else if chkpt := msg.GetCheckpoint(); chkpt != nil {
 		if senderID != chkpt.ReplicaId {
-			err = fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in checkpoint message (%v) doesn't match ID corresponding to the receiving stream (%v)", chkpt.ReplicaId, senderID)
 		}
-		err = instance.recvCheckpoint(chkpt)
+		return chkpt, nil
 	} else if vc := msg.GetViewChange(); vc != nil {
 		if senderID != vc.ReplicaId {
-			err = fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in view-change message (%v) doesn't match ID corresponding to the receiving stream (%v)", vc.ReplicaId, senderID)
 		}
-		err = instance.recvViewChange(vc)
+		return vc, nil
 	} else if nv := msg.GetNewView(); nv != nil {
 		if senderID != nv.ReplicaId {
-			err = fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in new-view message (%v) doesn't match ID corresponding to the receiving stream (%v)", nv.ReplicaId, senderID)
 		}
-		err = instance.recvNewView(nv)
+		return nv, nil
 	} else if fr := msg.GetFetchRequest(); fr != nil {
 		if senderID != fr.ReplicaId {
-			err = fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
-			logger.Warning(err.Error())
-			return
+			return nil, fmt.Errorf("Sender ID included in fetch-request message (%v) doesn't match ID corresponding to the receiving stream (%v)", fr.ReplicaId, senderID)
 		}
-		err = instance.recvFetchRequest(fr)
+		return fr, nil
 	} else if req := msg.GetReturnRequest(); req != nil {
 		// it's ok for sender ID and replica ID to differ; we're sending the original request message
-		err = instance.recvReturnRequest(req)
-	} else {
-		err = fmt.Errorf("Invalid message: %v", msg)
-		logger.Error(err.Error())
+		return returnRequestEvent(req), nil
 	}
 
-	return
+	return nil, fmt.Errorf("Invalid message: %v", msg)
 }
 
 func (instance *pbftCore) recvRequest(req *Request) error {
@@ -573,8 +561,8 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	instance.reqStore[digest] = req
 	instance.outstandingReqs[digest] = req
 	instance.persistRequest(digest)
-	if !instance.timerActive && instance.activeView {
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
+	if instance.activeView {
+		instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new request %s", digest))
 	}
 
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
@@ -671,11 +659,11 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
 		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
 		instance.sendViewChange()
-	} else {
-		cert.prePrepare = preprep
-		cert.digest = preprep.RequestDigest
-		instance.persistQSet()
+		return nil
 	}
+
+	cert.prePrepare = preprep
+	cert.digest = preprep.RequestDigest
 
 	// Store the request if, for whatever reason, haven't received it from an earlier broadcast.
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok {
@@ -696,9 +684,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		instance.persistRequest(digest)
 	}
 
-	if !instance.timerActive {
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
-	}
+	instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
 
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
@@ -712,6 +698,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		}
 
 		cert.sentPrepare = true
+		instance.persistQSet()
 		instance.recvPrepare(prep)
 		return instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 	}
@@ -895,18 +882,23 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 
 // execDone is an event telling us that the last execution has completed
 func (instance *pbftCore) execDone() {
-	instance.execCompleteChan <- struct{}{}
+	instance.manager.queue() <- execDoneEvent{}
 }
 
 func (instance *pbftCore) execDoneSync() {
-	logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+	if instance.currentExec != nil {
+		logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+		instance.lastExec = *instance.currentExec
+		if instance.lastExec%instance.K == 0 {
+			instance.Checkpoint(instance.lastExec, instance.consumer.getState())
+		}
 
-	instance.lastExec = *instance.currentExec
-	instance.currentExec = nil
-
-	if instance.lastExec%instance.K == 0 {
-		instance.Checkpoint(instance.lastExec, instance.consumer.getState())
+	} else {
+		// XXX This masks a bug, this should not be called when currentExec is nil
+		logger.Warning("Replica %d had execDoneSync called, flagging ourselves as out of date", instance.id)
+		instance.skipInProgress = true
 	}
+	instance.currentExec = nil
 
 	instance.executeOutstanding()
 }
@@ -997,6 +989,7 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 				instance.moveWatermarks(m)
 				instance.outstandingReqs = make(map[string]*Request)
 				instance.skipInProgress = true
+				instance.consumer.invalidateState()
 				instance.stopTimer()
 
 				// TODO, reprocess the already gathered checkpoints, this will make recovery faster, though it is presently correct
@@ -1030,7 +1023,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	if instance.skipInProgress {
 		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
-		// The view should not be set to active, this should be handled by the yet unimplimented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
+		// The view should not be set to active, this should be handled by the yet unimplemented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
 	}
 }
@@ -1181,9 +1174,6 @@ func (instance *pbftCore) innerBroadcast(msg *Message) error {
 }
 
 func (instance *pbftCore) startTimerIfOutstandingRequests() {
-	if instance.timerActive {
-		return
-	}
 
 	if len(instance.outstandingReqs) > 0 {
 		reqs := func() []string {
@@ -1193,20 +1183,24 @@ func (instance *pbftCore) startTimerIfOutstandingRequests() {
 			}
 			return r
 		}()
-		instance.startTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
+		instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("outstanding requests %v", reqs))
 	}
 }
 
-func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
-	instance.newViewTimer = time.NewTimer(timeout) // Create a new timer, if it has already fired, it will still read on the channel
-	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
-	instance.newViewTimerReason = reason
+func (instance *pbftCore) softStartTimer(timeout time.Duration, reason string) {
+	logger.Debug("Replica %d soft starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.timerActive = true
+	instance.newViewTimer.softReset(timeout, viewChangeTimerEvent{})
+}
+
+func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
+	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
+	instance.timerActive = true
+	instance.newViewTimer.reset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) stopTimer() {
-	instance.newViewTimer = time.NewTimer(UnreasonableTimeout) // Create a new timer, then stop it, if it has already fired, it will still read on the channel
-	instance.newViewTimer.Stop()
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
+	instance.newViewTimer.stop()
 }

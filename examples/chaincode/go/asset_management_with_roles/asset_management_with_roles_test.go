@@ -22,6 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -36,9 +40,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"reflect"
 )
@@ -366,7 +367,7 @@ func setup() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
 
 	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "hyperledger", "production"))
