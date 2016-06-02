@@ -24,10 +24,12 @@ import (
 	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/util"
 )
 
+// Store struct uses a chaincode stub for state access
 type Store struct {
 	stub *shim.ChaincodeStub
 }
 
+// MakeChaincodeStore returns a store for storing keys in the state
 func MakeChaincodeStore(stub *shim.ChaincodeStub) util.Store {
 	store := &Store{}
 	store.stub = stub
@@ -38,6 +40,7 @@ func keyToString(key *util.Key) string {
 	return key.TxHashAsHex + ":" + string(key.TxIndex)
 }
 
+// GetState returns the transaction for a given key
 func (s *Store) GetState(key util.Key) (*util.TX_TXOUT, bool, error) {
 	keyToFetch := keyToString(&key)
 	data, err := s.stub.GetState(keyToFetch)
@@ -56,10 +59,12 @@ func (s *Store) GetState(key util.Key) (*util.TX_TXOUT, bool, error) {
 	return value, true, nil
 }
 
+// DelState deletes the transaction for the given key
 func (s *Store) DelState(key util.Key) error {
 	return s.stub.DelState(keyToString(&key))
 }
 
+// PutState stores the given transaction and key
 func (s *Store) PutState(key util.Key, value *util.TX_TXOUT) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
@@ -68,6 +73,7 @@ func (s *Store) PutState(key util.Key, value *util.TX_TXOUT) error {
 	return s.stub.PutState(keyToString(&key), data)
 }
 
+// GetTran returns a transaction for the given hash
 func (s *Store) GetTran(key string) ([]byte, bool, error) {
 	data, err := s.stub.GetState(key)
 	if err != nil {
@@ -79,6 +85,7 @@ func (s *Store) GetTran(key string) ([]byte, bool, error) {
 	return data, true, nil
 }
 
+// PutTran adds a transaction to the state with the hash as a key
 func (s *Store) PutTran(key string, value []byte) error {
 	return s.stub.PutState(key, value)
 }

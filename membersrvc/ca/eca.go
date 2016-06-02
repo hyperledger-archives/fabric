@@ -254,7 +254,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		out, err := ecies.Process(tok)
-		return &pb.ECertCreateResp{nil, nil, nil, &pb.Token{out}}, err
+		return &pb.ECertCreateResp{Certs: nil, Chain: nil, Pkchain: nil, Tok: &pb.Token{Tok: out}}, err
 
 	case state == 1:
 		// ensure that the same encryption key is signed that has been used for the challenge
@@ -317,7 +317,8 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			obcECKey = ecap.eca.obcPub
 		}
 
-		return &pb.ECertCreateResp{&pb.CertPair{sraw, eraw}, &pb.Token{ecap.eca.obcKey}, obcECKey, nil}, nil
+		return &pb.ECertCreateResp{Certs: &pb.CertPair{Sign: sraw, Enc: eraw}, Chain: &pb.Token{Tok: ecap.eca.obcKey}, Pkchain: obcECKey, Tok: nil}, nil
+
 	}
 
 	return nil, errors.New("Invalid (=expired) certificate creation token provided.")
@@ -417,7 +418,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 			var role int
 
 			err = rows.Scan(&id, &role)
-			users = append(users, &pb.User{&pb.Identity{id}, pb.Role(role)})
+			users = append(users, &pb.User{&pb.Identity{Id: id}, pb.Role(role)})
 		}
 		err = rows.Err()
 	}

@@ -116,7 +116,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 		return nil, err
 	}
 
-	return &pb.TLSCertCreateResp{&pb.Cert{raw}, &pb.Cert{tlscap.tlsca.raw}}, nil
+	return &pb.TLSCertCreateResp{Cert: &pb.Cert{Cert: raw}, RootCert: &pb.Cert{Cert: tlscap.tlsca.raw}}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the TLSCA.

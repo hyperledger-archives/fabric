@@ -258,6 +258,7 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 	return nil
 }
 
+// Get returns the valud for the given column family and key
 func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
@@ -274,6 +275,7 @@ func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	return data, nil
 }
 
+// Put saves the key/value in the given column family
 func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte, value []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
@@ -285,6 +287,7 @@ func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	return nil
 }
 
+// Delete delets the given key in the specified column family
 func (openchainDB *OpenchainDB) Delete(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
@@ -310,6 +313,7 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 	return data, nil
 }
 
+// GetIterator returns an iterator for the given column family
 func (openchainDB *OpenchainDB) GetIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	opt.SetFillCache(true)

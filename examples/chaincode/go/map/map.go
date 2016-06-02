@@ -39,11 +39,14 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init is a no-op
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke has two functions
+// put - takes two arguements, a key and value, and stores them in the state
+// remove - takes one argument, a key, and removes if from the state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
@@ -78,7 +81,9 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	}
 }
 
-// Query callback representing the query of a chaincode
+// Query has two functions
+// get - takes one argument, a key, and returns the value for the key
+// keys - returns all keys stored in this chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
@@ -104,8 +109,8 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 		var keys []string
 		for keysIter.HasNext() {
-			key, _, err := keysIter.Next()
-			if err != nil {
+			key, _, iterErr := keysIter.Next()
+			if iterErr != nil {
 				return nil, fmt.Errorf("keys operation failed. Error accessing state: %s", err)
 			}
 			keys = append(keys, key)

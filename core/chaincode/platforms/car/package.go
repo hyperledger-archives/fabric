@@ -19,9 +19,6 @@ package car
 import (
 	"archive/tar"
 	"fmt"
-	cutil "github.com/hyperledger/fabric/core/container/util"
-	pb "github.com/hyperledger/fabric/protos"
-	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +26,10 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	cutil "github.com/hyperledger/fabric/core/container/util"
+	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 )
 
 // Find the instance of "name" installed on the host's $PATH and inject it into the package
@@ -78,13 +79,9 @@ func download(path string) (string, error) {
 	return path, nil
 }
 
-//----------------------------------------------------------------
-// Platform::WritePackage
-//----------------------------------------------------------------
-// Satisfies the platform interface for generating a docker package
+// WritePackage satisfies the platform interface for generating a docker package
 // that encapsulates the environment for a CAR based chaincode
-//----------------------------------------------------------------
-func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
+func (carPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	path, err := download(spec.ChaincodeID.Path)
 	if err != nil {
@@ -96,7 +93,7 @@ func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error
 		return fmt.Errorf("Error generating hashcode: %s", err)
 	}
 
-	buf := make([]string, 0)
+	var buf []string
 
 	//let the executable's name be chaincode ID's name
 	buf = append(buf, viper.GetString("chaincode.car.Dockerfile"))
