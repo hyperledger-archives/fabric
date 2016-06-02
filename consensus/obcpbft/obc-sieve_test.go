@@ -31,7 +31,7 @@ import (
 )
 
 func (op *obcSieve) getPBFTCore() *pbftCore {
-	return op.pbft
+	return op.legacyGenericShim.pbft.pbftCore
 }
 
 func obcSieveHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
@@ -43,6 +43,8 @@ func TestSieveNetwork(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper)
 	defer net.stop()
+
+	net.debug = true
 
 	req1 := createOcMsgWithChainTx(1)
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(req1, net.endpoints[generateBroadcaster(validatorCount)].getHandle())

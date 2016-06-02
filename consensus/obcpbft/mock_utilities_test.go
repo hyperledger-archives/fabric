@@ -95,6 +95,23 @@ func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	return
 }
 
+// Create a message of type `Message_CHAIN_TRANSACTION`
+func createPbftRequestWithChainTx(iter int64, replica uint64) (msg *Request) {
+	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
+	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
+		Timestamp: txTime,
+		Payload:   []byte(fmt.Sprint(iter)),
+	}
+	txPacked, _ := proto.Marshal(tx)
+
+	msg = &Request{
+		Timestamp: txTime,
+		ReplicaId: replica,
+		Payload:   txPacked,
+	}
+	return
+}
+
 func generateBroadcaster(validatorCount int) (requestBroadcaster int) {
 	seed := rand.NewSource(time.Now().UnixNano())
 	rndm := rand.New(seed)
@@ -112,7 +129,9 @@ type omniProto struct {
 	VerifyImpl                 func(peerID *pb.PeerID, signature []byte, message []byte) error
 	GetBlockImpl               func(id uint64) (block *pb.Block, err error)
 	GetCurrentStateHashImpl    func() (stateHash []byte, err error)
-	GetBlockchainSizeImpl      func() (uint64, error)
+	GetBlockchainSizeImpl      func() uint64
+	GetBlockHeadMetadataImpl   func() ([]byte, error)
+	GetBlockchainInfoBlobImpl  func() []byte
 	HashBlockImpl              func(block *pb.Block) ([]byte, error)
 	VerifyBlockchainImpl       func(start, finish uint64) (uint64, error)
 	PutBlockImpl               func(blockNumber uint64, block *pb.Block) error
@@ -132,18 +151,22 @@ type omniProto struct {
 	ReadStateSetImpl           func(prefix string) (map[string][]byte, error)
 	StoreStateImpl             func(key string, value []byte) error
 	DelStateImpl               func(key string)
+	ValidateStateImpl          func()
+	InvalidateStateImpl        func()
 
 	// Inner Stack methods
-	broadcastImpl    func(msgPayload []byte)
-	unicastImpl      func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl      func(seqNo uint64, txRaw []byte)
-	getStateImpl     func() []byte
-	skipToImpl       func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validateImpl     func(txRaw []byte) error
-	viewChangeImpl   func(curView uint64)
-	signImpl         func(msg []byte) ([]byte, error)
-	verifyImpl       func(senderID uint64, signature []byte, message []byte) error
-	getLastSeqNoImpl func() (uint64, error)
+	broadcastImpl       func(msgPayload []byte)
+	unicastImpl         func(msgPayload []byte, receiverID uint64) (err error)
+	executeImpl         func(seqNo uint64, txRaw []byte)
+	getStateImpl        func() []byte
+	skipToImpl          func(seqNo uint64, snapshotID []byte, peers []uint64)
+	validateImpl        func(txRaw []byte) error
+	viewChangeImpl      func(curView uint64)
+	signImpl            func(msg []byte) ([]byte, error)
+	verifyImpl          func(senderID uint64, signature []byte, message []byte) error
+	getLastSeqNoImpl    func() (uint64, error)
+	validateStateImpl   func()
+	invalidateStateImpl func()
 
 	// Closable Consenter methods
 	RecvMsgImpl func(ocMsg *pb.Message, senderHandle *pb.PeerID) error
@@ -152,6 +175,7 @@ type omniProto struct {
 
 	// Orderer methods
 	ValidateImpl func(seqNo uint64, id []byte) (commit bool, correctedID []byte, peerIDs []*pb.PeerID)
+	SkipToImpl   func(seqNo uint64, id []byte, peers []*pb.PeerID)
 }
 
 func (op *omniProto) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {
@@ -210,9 +234,23 @@ func (op *omniProto) GetCurrentStateHash() (stateHash []byte, err error) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) GetBlockchainSize() (uint64, error) {
+func (op *omniProto) GetBlockchainSize() uint64 {
 	if nil != op.GetBlockchainSizeImpl {
 		return op.GetBlockchainSizeImpl()
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetBlockHeadMetadata() ([]byte, error) {
+	if nil != op.GetBlockHeadMetadataImpl {
+		return op.GetBlockHeadMetadataImpl()
+	}
+
+	return nil, nil
+}
+func (op *omniProto) GetBlockchainInfoBlob() []byte {
+	if nil != op.GetBlockchainInfoBlobImpl {
+		return op.GetBlockchainInfoBlobImpl()
 	}
 
 	panic("Unimplemented")
@@ -418,6 +456,15 @@ func (op *omniProto) Validate(seqNo uint64, id []byte) (commit bool, correctedID
 
 }
 
+func (op *omniProto) SkipTo(seqNo uint64, meta []byte, id []*pb.PeerID) {
+	if nil != op.SkipToImpl {
+		op.SkipToImpl(seqNo, meta, id)
+		return
+	}
+
+	panic("Unimplemented")
+}
+
 func (op *omniProto) deliver(msg []byte, target *pb.PeerID) {
 	if nil != op.deliverImpl {
 		op.deliverImpl(msg, target)
@@ -455,10 +502,42 @@ func (op *omniProto) DelState(key string) {
 }
 
 func (op *omniProto) StoreState(key string, value []byte) error {
-	if nil != op.ReadStateImpl {
+	if nil != op.StoreStateImpl {
 		return op.StoreStateImpl(key, value)
 	}
 	return fmt.Errorf("unimplemented")
+}
+
+func (op *omniProto) ValidateState() {
+	if nil != op.ValidateStateImpl {
+		op.ValidateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) InvalidateState() {
+	if nil != op.InvalidateStateImpl {
+		op.InvalidateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) validateState() {
+	if nil != op.validateStateImpl {
+		op.validateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+
+func (op *omniProto) invalidateState() {
+	if nil != op.invalidateStateImpl {
+		op.invalidateStateImpl()
+		return
+	}
+	panic("unimplemented")
 }
 
 /*

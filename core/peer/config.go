@@ -51,8 +51,8 @@ var peerEndpointError error
 // Cached values of commonly used configuration constants.
 var syncStateSnapshotChannelSize int
 var syncStateDeltasChannelSize int
+var syncBlocksChannelSize int
 var validatorEnabled bool
-var tlsEnabled bool
 
 // Note: There is some kind of circular import issue that prevents us from
 // importing the "core" package into the "peer" package. The
@@ -103,8 +103,8 @@ func CacheConfiguration() (err error) {
 
 	syncStateSnapshotChannelSize = viper.GetInt("peer.sync.state.snapshot.channelSize")
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
+	syncBlocksChannelSize = viper.GetInt("peer.sync.blocks.channelSize")
 	validatorEnabled = viper.GetBool("peer.validator.enabled")
-	tlsEnabled = viper.GetBool("peer.tls.enabled")
 
 	securityEnabled = viper.GetBool("security.enabled")
 
@@ -127,6 +127,7 @@ func cacheConfiguration() {
 
 //Functional forms
 
+// GetLocalAddress returns the peer.address property
 func GetLocalAddress() (string, error) {
 	if !configurationCached {
 		cacheConfiguration()
@@ -141,6 +142,7 @@ func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	return peerEndpoint, peerEndpointError
 }
 
+// SyncStateSnapshotChannelSize returns the peer.sync.state.snapshot.channelSize property
 func SyncStateSnapshotChannelSize() int {
 	if !configurationCached {
 		cacheConfiguration()
@@ -148,6 +150,7 @@ func SyncStateSnapshotChannelSize() int {
 	return syncStateSnapshotChannelSize
 }
 
+// SyncStateDeltasChannelSize returns the peer.sync.state.deltas.channelSize property
 func SyncStateDeltasChannelSize() int {
 	if !configurationCached {
 		cacheConfiguration()
@@ -155,18 +158,20 @@ func SyncStateDeltasChannelSize() int {
 	return syncStateDeltasChannelSize
 }
 
+// SyncBlocksChannelSize returns the peer.sync.blocks.channelSize property
+func SyncBlocksChannelSize() int {
+	if !configurationCached {
+		cacheConfiguration()
+	}
+	return syncBlocksChannelSize
+}
+
+// ValidatorEnabled returns the peer.validator.enabled property
 func ValidatorEnabled() bool {
 	if !configurationCached {
 		cacheConfiguration()
 	}
 	return validatorEnabled
-}
-
-func TlsEnabled() bool {
-	if !configurationCached {
-		cacheConfiguration()
-	}
-	return tlsEnabled
 }
 
 func SecurityEnabled() bool {

@@ -877,7 +877,7 @@ func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	return filterError(err)
 }
 
-// filterError filters the errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil.
+// filterError filters the errors to allow NoTransitionError and CanceledError to not propagate for cases where embedded Err == nil.
 func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {

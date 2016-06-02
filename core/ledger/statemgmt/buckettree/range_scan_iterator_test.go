@@ -120,3 +120,30 @@ func TestRangeScanIterator(t *testing.T) {
 	testutil.AssertEquals(t, results["key7"], []byte("value7"))
 	rangeScanItr.Close()
 }
+
+func TestRangeScanIteratorEmptyArray(t *testing.T) {
+	testDBWrapper.CreateFreshDB(t)
+	stateImplTestWrapper := newStateImplTestWrapper(t)
+	stateDelta := statemgmt.NewStateDelta()
+
+	// insert keys
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte{}, nil)
+	stateDelta.Set("chaincodeID1", "key3", []byte{}, nil)
+
+	stateImplTestWrapper.prepareWorkingSet(stateDelta)
+	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+
+	// test range scan for chaincodeID2
+	rangeScanItr := stateImplTestWrapper.getRangeScanIterator("chaincodeID1", "key1", "key3")
+
+	var results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 3)
+	testutil.AssertEquals(t, results["key3"], []byte{})
+	rangeScanItr.Close()
+}

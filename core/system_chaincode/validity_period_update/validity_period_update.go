@@ -47,14 +47,14 @@ This is the flow for this to work:
 type systemChaincode struct {
 }
 
-const system_validity_period_key = "system.validity.period"
+const systemValidityPeriodKey = "system.validity.period"
 
 // Initialize the in the ledger (this needs to be run only once!!!!)
 func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var vp int64 = 0
+	var vp int64 = 0 // ignore golint warning. Dropping '= 0' makes assignment less clear
 
 	// Initialize the validity period in the ledger (this needs to be run only once!!!!)
-	err := stub.PutState(system_validity_period_key, []byte(strconv.FormatInt(vp, 10)))
+	err := stub.PutState(systemValidityPeriodKey, []byte(strconv.FormatInt(vp, 10)))
 	if err != nil {
 		return nil, err
 	}
@@ -65,21 +65,21 @@ func (t *systemChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 // Transaction updates system validity period on the ledger
 func (t *systemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	// FIXME: this chaincode needs to be executed by an authorized party. In order to guarantee this, two verifications
-	// need to be perfomed:
+	// need to be performed:
 	// 1. The identity of the caller should be available somehow for the chaincode to perform a check.
 	// 2. The ability to determine if the chaincode is executed directly or as a part of a nested execution of chaincodes.
 
 	// We need to verify identity of caller and that this is not a nested chaincode invocation
-	directly_called_by_TCA := true // stub.ValidateCaller(expectedCaller, stub.GetActualCaller()) && stub.StackDepth() == 0
+	directlyCalledByTCA := true // stub.ValidateCaller(expectedCaller, stub.GetActualCaller()) && stub.StackDepth() == 0
 
-	if directly_called_by_TCA {
+	if directlyCalledByTCA {
 		if len(args) != 1 {
 			return nil, errors.New("Incorrect number of arguments. Expecting 1")
 		}
 
 		vp := args[0]
 
-		err := stub.PutState(system_validity_period_key, []byte(vp))
+		err := stub.PutState(systemValidityPeriodKey, []byte(vp))
 		if err != nil {
 			return nil, err
 		}
@@ -100,8 +100,8 @@ func (t *systemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 	key := args[0]
 
-	if key != system_validity_period_key {
-		return nil, errors.New("Incorrect key. Expecting " + system_validity_period_key)
+	if key != systemValidityPeriodKey {
+		return nil, errors.New("Incorrect key. Expecting " + systemValidityPeriodKey)
 	}
 
 	// Get the state from the ledger

@@ -29,6 +29,7 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init takes a string and int. These are stored as a key/value pair in the state
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var A string // Entity
 	var Aval int // Asset holding
@@ -55,6 +56,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
+// Invoke is a no-op
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }

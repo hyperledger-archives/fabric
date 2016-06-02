@@ -56,7 +56,7 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 	state.Delete("chaincode1", "key4")
 	state.Set("chaincode1", "key9", []byte("value9_new_new"))
 
-	// Test with commited=false //////////////////////////
+	// Test with committed=false //////////////////////////
 	/////////////////////////////////////////////////////
 	// test keys between key2 and key8
 	itr, _ := state.GetRangeScanIterator("chaincode1", "key2", "key8", false)
@@ -69,7 +69,7 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 			"key5": []byte("value5_new"),
 			"key8": []byte("value8_new"),
 
-			// from commited results
+			// from committed results
 			"key2": []byte("value2"),
 			"key7": []byte("value7"),
 		})
@@ -86,7 +86,7 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 			"key5": []byte("value5_new"),
 			"key8": []byte("value8_new"),
 
-			// from commited results
+			// from committed results
 			"key1": []byte("value1"),
 			"key2": []byte("value2"),
 			"key7": []byte("value7"),
@@ -105,20 +105,20 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 			"key5": []byte("value5_new"),
 			"key8": []byte("value8_new"),
 
-			// from commited results
+			// from committed results
 			"key1": []byte("value1"),
 			"key2": []byte("value2"),
 			"key7": []byte("value7"),
 		})
 	itr.Close()
 
-	// Test with commited=true //////////////////////////
+	// Test with committed=true //////////////////////////
 	/////////////////////////////////////////////////////
 	// test keys between key2 and key8
 	itr, _ = state.GetRangeScanIterator("chaincode1", "key2", "key8", true)
 	statemgmt.AssertIteratorContains(t, itr,
 		map[string][]byte{
-			// from commited results
+			// from committed results
 			"key2": []byte("value2"),
 			"key3": []byte("value3"),
 			"key4": []byte("value4"),
@@ -132,7 +132,7 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 	itr, _ = state.GetRangeScanIterator("chaincode1", "", "key8", true)
 	statemgmt.AssertIteratorContains(t, itr,
 		map[string][]byte{
-			// from commited results
+			// from committed results
 			"key1": []byte("value1"),
 			"key2": []byte("value2"),
 			"key3": []byte("value3"),
@@ -147,7 +147,7 @@ func TestCompositeRangeScanIterator(t *testing.T) {
 	itr, _ = state.GetRangeScanIterator("chaincode1", "", "", true)
 	statemgmt.AssertIteratorContains(t, itr,
 		map[string][]byte{
-			// from commited results
+			// from committed results
 			"key1": []byte("value1"),
 			"key2": []byte("value2"),
 			"key3": []byte("value3"),

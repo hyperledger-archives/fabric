@@ -19,7 +19,6 @@ package trie
 import (
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	"github.com/tecbot/gorocksdb"
 )
 
@@ -48,7 +47,7 @@ func (snapshotItr *StateSnapshotIterator) Next() bool {
 		trieKeyBytes := statemgmt.Copy(snapshotItr.dbItr.Key().Data())
 		trieNodeBytes := statemgmt.Copy(snapshotItr.dbItr.Value().Data())
 		value := unmarshalTrieNodeValue(trieNodeBytes)
-		if util.NotNil(value) {
+		if value != nil {
 			snapshotItr.currentKey = trieKeyEncoderImpl.decodeTrieKeyBytes(statemgmt.Copy(trieKeyBytes))
 			snapshotItr.currentValue = value
 			available = true

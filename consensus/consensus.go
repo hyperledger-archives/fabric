@@ -67,8 +67,13 @@ type Executor interface {
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
 	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
+}
 
-	SkipTo(tag uint64, id []byte, peers []*pb.PeerID)
+// LedgerManager is used to manipulate the state of the ledger
+type LedgerManager interface {
+	SkipTo(tag uint64, id []byte, peers []*pb.PeerID) // SkipTo tells state transfer to bring the ledger to a particular state, it should generally be preceeded/proceeded by Invalidate/Validate
+	InvalidateState()                                 // Invalidate informs the ledger that it is out of date and should reject queries
+	ValidateState()                                   // Validate informs the ledger that it is back up to date and should resume replying to queries
 }
 
 // StatePersistor is used to store consensus state which should survive a process crash
@@ -84,6 +89,7 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	Executor
+	LedgerManager
 	ReadOnlyLedger
 	StatePersistor
 }

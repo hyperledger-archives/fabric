@@ -20,19 +20,21 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	protobuf "google/protobuf"
 	"time"
 
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+
 	"encoding/asn1"
 	"errors"
+	"io/ioutil"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"io/ioutil"
 )
 
 var (
@@ -51,7 +53,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 	node.debug("ECA certificate [% x].", ecaCertRaw)
 
 	// TODO: Test ECA cert againt root CA
-	// TODO: check responce.Cert against rootCA
+	// TODO: check response.Cert against rootCA
 	x509ECACert, err := utils.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
 		node.error("Failed parsing ECA certificate [%s].", err.Error())

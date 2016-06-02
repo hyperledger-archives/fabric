@@ -203,7 +203,7 @@ func openDB() (*OpenchainDB, error) {
 	cfNames := []string{"default"}
 	cfNames = append(cfNames, columnfamilies...)
 	var cfOpts []*gorocksdb.Options
-	for _ = range cfNames {
+	for range cfNames {
 		cfOpts = append(cfOpts, opts)
 	}
 
@@ -258,6 +258,7 @@ func (openchainDB *OpenchainDB) DeleteState() error {
 	return nil
 }
 
+// Get returns the valud for the given column family and key
 func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) ([]byte, error) {
 	opt := gorocksdb.NewDefaultReadOptions()
 	defer opt.Destroy()
@@ -267,10 +268,14 @@ func (openchainDB *OpenchainDB) Get(cfHandler *gorocksdb.ColumnFamilyHandle, key
 		return nil, err
 	}
 	defer slice.Free()
-	data := append([]byte(nil), slice.Data()...)
+	if slice.Data() == nil {
+		return nil, nil
+	}
+	data := makeCopy(slice.Data())
 	return data, nil
 }
 
+// Put saves the key/value in the given column family
 func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte, value []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
@@ -282,6 +287,7 @@ func (openchainDB *OpenchainDB) Put(cfHandler *gorocksdb.ColumnFamilyHandle, key
 	return nil
 }
 
+// Delete delets the given key in the specified column family
 func (openchainDB *OpenchainDB) Delete(cfHandler *gorocksdb.ColumnFamilyHandle, key []byte) error {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
@@ -307,6 +313,7 @@ func (openchainDB *OpenchainDB) getFromSnapshot(snapshot *gorocksdb.Snapshot, cf
 	return data, nil
 }
 
+// GetIterator returns an iterator for the given column family
 func (openchainDB *OpenchainDB) GetIterator(cfHandler *gorocksdb.ColumnFamilyHandle) *gorocksdb.Iterator {
 	opt := gorocksdb.NewDefaultReadOptions()
 	opt.SetFillCache(true)
@@ -364,4 +371,10 @@ func dirEmpty(path string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func makeCopy(src []byte) []byte {
+	dest := make([]byte, len(src))
+	copy(dest, src)
+	return dest
 }

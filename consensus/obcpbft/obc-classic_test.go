@@ -26,7 +26,7 @@ import (
 )
 
 func (op *obcClassic) getPBFTCore() *pbftCore {
-	return op.pbft
+	return op.legacyGenericShim.pbft.pbftCore
 }
 
 func obcClassicHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
@@ -64,7 +64,7 @@ func TestClassicStateTransfer(t *testing.T) {
 		ce.consumer.(*obcClassic).pbft.L = 4
 	})
 	defer net.stop()
-	net.debug = true
+	// net.debug = true
 
 	filterMsg := true
 	net.filterFn = func(src int, dst int, msg []byte) []byte {
@@ -108,7 +108,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 		ce.consumer.(*obcClassic).pbft.requestTimeout = time.Hour // We do not want any view changes
 	})
 	defer net.stop()
-	net.debug = true
+	// net.debug = true
 
 	filterMsg := true
 	net.filterFn = func(src int, dst int, msg []byte) []byte {

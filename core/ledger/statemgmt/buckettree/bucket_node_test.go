@@ -44,7 +44,9 @@ func TestBucketNodeMerge(t *testing.T) {
 	conf = newConfig(26, 3, fnvHash)
 	bucketNode := newBucketNode(newBucketKey(2, 7))
 	bucketNode.childrenCryptoHash[0] = []byte("cryptoHashChild1")
+	bucketNode.childrenUpdated[0] = true
 	bucketNode.childrenCryptoHash[2] = []byte("cryptoHashChild3")
+	bucketNode.childrenUpdated[2] = true
 
 	dbBucketNode := newBucketNode(newBucketKey(2, 7))
 	dbBucketNode.childrenCryptoHash[0] = []byte("DBcryptoHashChild1")

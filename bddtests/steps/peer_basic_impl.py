@@ -49,9 +49,16 @@ def parseComposeOutput(context):
     containerNamePrefix = os.path.basename(os.getcwd()) + "_"
     containerNames = []
     for l in context.compose_error.splitlines():
-    	print(l.split())
-    	containerNames.append(l.split()[1])
+        tokens = l.split()
+        print(tokens)
+        if 1 < len(tokens):
+            thisContainer = tokens[1]
+            if containerNamePrefix not in thisContainer:
+               thisContainer = containerNamePrefix + thisContainer + "_1"
+            if thisContainer not in containerNames:
+               containerNames.append(thisContainer)
 
+    print("Containers started: ")
     print(containerNames)
     # Now get the Network Address for each name, and set the ContainerData onto the context.
     containerDataList = []
@@ -100,6 +107,9 @@ def buildUrl(context, ipAddress, path):
     if 'TLS' in context.tags:
         schema = "https"
     return "{0}://{1}:{2}{3}".format(schema, ipAddress, CORE_REST_PORT, path)
+
+def currentTime():
+    return time.strftime("%H:%M:%S")
 
 def getDockerComposeFileArgsFromYamlFile(compose_yaml):
     parts = compose_yaml.split()
@@ -221,6 +231,10 @@ def step_impl(context):
     assert context.transactionID != ""
     pass
 
+@when(u'I unconditionally query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, containerName):
+    invokeChaincode(context, "query", functionName, containerName)
+
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     invokeChaincode(context, "query", functionName, containerName)
@@ -240,7 +254,7 @@ def invokeChaincode(context, devopsFunc, functionName, containerName):
     }
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
-    print("POSTing path = {0}".format(request_url))
+    print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -266,7 +280,7 @@ def step_impl(context, seconds, containerName):
     assert 'transactionID' in context, "transactionID not found in context"
     ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
-    print("GETing path = {0}".format(request_url))
+    print("{0} GETing path = {1}".format(currentTime(), request_url))
 
     resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -284,7 +298,7 @@ def multiRequest(context, seconds, containerDataList, pathBuilderFunc):
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
-            print("GETing path = {0}".format(request_url))
+            print("{0} GETing path = {1}".format(currentTime(), request_url))
             resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             respMap[container.containerName] = resp
         else:
@@ -306,7 +320,7 @@ def step_impl(context, seconds):
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
-            print("GETing path = {0}".format(request_url))
+            print("{0} GETing path = {1}".format(currentTime(), request_url))
             resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             if resp.status_code == 404:
                 # Pause then try again
@@ -357,7 +371,7 @@ def step_impl(context, seconds):
 
         # Loop unless failure or time exceeded
         while (datetime.now() < maxTime):
-            print("GETing path = {0}".format(request_url))
+            print("{0} GETing path = {1}".format(currentTime(), request_url))
             resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
             if resp.status_code == 404:
                 # Pause then try again
@@ -395,15 +409,21 @@ def step_impl(context, chaincodeName, functionName):
     responses = []
     for container in context.compose_containers:
         request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
-        print("POSTing path = {0}".format(request_url))
+        print("{0} POSTing path = {1}".format(currentTime(), request_url))
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         responses.append(resp)
     context.responses = responses
 
+@when(u'I unconditionally query chaincode "{chaincodeName}" function name "{functionName}" with value "{value}" on peers')
+def step_impl(context, chaincodeName, functionName, value):
+    query_common(context, chaincodeName, functionName, value, False)
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" with value "{value}" on peers')
 def step_impl(context, chaincodeName, functionName, value):
+    query_common(context, chaincodeName, functionName, value, True)
+
+def query_common(context, chaincodeName, functionName, value, failOnError):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     assert 'compose_containers' in context, "compose_containers not found in context"
     assert 'table' in context, "table (of peers) not found in context"
@@ -426,16 +446,14 @@ def step_impl(context, chaincodeName, functionName, value):
         chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
         print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
         request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
-        print("POSTing path = {0}".format(request_url))
+        print("{0} POSTing path = {1}".format(currentTime(), request_url))
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=30, verify=False)
-        assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
+        if failOnError:
+            assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         print("RESULT from {0} of chaincode from peer {1}".format(functionName, container.containerName))
         print(json.dumps(resp.json(), indent = 4))
         responses.append(resp)
     context.responses = responses
-
-
-
 
 @then(u'I should get a JSON response from all peers with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
@@ -473,7 +491,7 @@ def step_impl(context, userName, secret):
     # Login to each container specified
     for ipAddress in ipAddressList:
         request_url = buildUrl(context, ipAddress, "/registrar")
-        print("POSTing path = {0}".format(request_url))
+        print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -527,7 +545,7 @@ def step_impl(context):
        assert context.compose_returncode == 0, "docker-compose failed to stop {0}".format(service)
        #remove from the containerDataList
        context.compose_containers = [containerData for  containerData in context.compose_containers if containerData.composeService != service]
-    print("After stopping, the container serive list is = {0}".format([containerData.composeService for  containerData in context.compose_containers]))
+    print("After stopping, the container service list is = {0}".format([containerData.composeService for  containerData in context.compose_containers]))
 
 @given(u'I start peers')
 def step_impl(context):

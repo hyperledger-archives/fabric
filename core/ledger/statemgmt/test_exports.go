@@ -43,6 +43,7 @@ func AssertIteratorContains(t *testing.T, itr RangeScanIterator, expected map[st
 	}
 }
 
+// ConstructRandomStateDelta creates a random state delta for testing
 func ConstructRandomStateDelta(
 	t testing.TB,
 	chaincodeIDPrefix string,

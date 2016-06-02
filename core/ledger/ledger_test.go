@@ -205,6 +205,9 @@ func TestLedgerPutRawBlock(t *testing.T) {
 	if !bytes.Equal(newBlock.PreviousBlockHash, previousHash) {
 		t.Fatalf("Expected new block to properly set its previous hash")
 	}
+
+	// Assert that a non-existent block is nil
+	testutil.AssertNil(t, ledgerTestWrapper.GetBlockByNumber(2))
 }
 
 func TestLedgerSetRawState(t *testing.T) {
@@ -901,4 +904,55 @@ func TestCopyState(t *testing.T) {
 
 	values, _ := l.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2", "key3"}, true)
 	testutil.AssertEquals(t, values, [][]byte{[]byte("value1"), []byte("value2"), []byte("value3")})
+}
+
+func TestLedgerEmptyArrayValue(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+	l.SetState("chaincodeID1", "key1", []byte{})
+	l.TxFinished("txUUID", true)
+	tx, _ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+
+	value, _ := l.GetState("chaincodeID1", "key1", true)
+	if value == nil || len(value) != 0 {
+		t.Fatalf("An empty array expected in value. Found = %#v", value)
+	}
+
+	value, _ = l.GetState("chaincodeID1", "non-existing-key", true)
+	if value != nil {
+		t.Fatalf("A nil value expected. Found = %#v", value)
+	}
+}
+
+func TestLedgerInvalidInput(t *testing.T) {
+	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
+	l := ledgerTestWrapper.ledger
+	l.BeginTxBatch(1)
+	l.TxBegin("txUUID")
+
+	// nil value input
+	err := l.SetState("chaincodeID1", "key1", nil)
+	ledgerErr, ok := err.(*Error)
+	if !(ok && ledgerErr.Type() == ErrorTypeInvalidArgument) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeInvalidArgument' should have been thrown")
+	} else {
+		t.Logf("An expected error [%s] is received", err)
+	}
+
+	// empty string key
+	err = l.SetState("chaincodeID1", "", []byte("value1"))
+	ledgerErr, ok = err.(*Error)
+	if !(ok && ledgerErr.Type() == ErrorTypeInvalidArgument) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeInvalidArgument' should have been thrown")
+	}
+
+	l.SetState("chaincodeID1", "key1", []byte("value1"))
+	l.TxFinished("txUUID", true)
+	tx, _ := buildTestTx(t)
+	l.CommitTxBatch(1, []*protos.Transaction{tx}, nil, nil)
+	value, _ := l.GetState("chaincodeID1", "key1", true)
+	testutil.AssertEquals(t, value, []byte("value1"))
 }

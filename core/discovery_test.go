@@ -41,7 +41,7 @@ func TestDiscovery_GetSinglePeer(t *testing.T) {
 
 func TestDiscovery_GetAllPeers(t *testing.T) {
 	s := "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
-	discovery := (NewStaticDiscovery(s))
+	discovery := NewStaticDiscovery(s)
 	rootNodes := discovery.GetRootNodes()
 
 	expectedArrSize := strings.Count(s, ",") + 1

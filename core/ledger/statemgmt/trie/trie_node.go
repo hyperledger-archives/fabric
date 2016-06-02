@@ -21,7 +21,6 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
 	"github.com/hyperledger/fabric/core/util"
 )
 
@@ -128,21 +127,30 @@ func (trieNode *trieNode) containsValue() bool {
 	if trieNode.isRootNode() {
 		return false
 	}
-	return ledgerUtil.NotNil(trieNode.value)
+	return trieNode.value != nil
 }
 
 func (trieNode *trieNode) marshal() ([]byte, error) {
 	buffer := proto.NewBuffer([]byte{})
 
-	// write value
-	err := buffer.EncodeRawBytes(trieNode.value)
+	// write value marker explicitly because rocksdb apis convertes a nil into an empty array and protobuf does it other-way around
+	var valueMarker uint64 = 0 // ignore golint warning. Dropping '= 0' makes assignment less clear
+	if trieNode.value != nil {
+		valueMarker = 1
+	}
+	err := buffer.EncodeVarint(valueMarker)
 	if err != nil {
 		return nil, err
 	}
-
-	numCryptoHashes := trieNode.getNumChildren()
-
+	if trieNode.value != nil {
+		// write value
+		err = buffer.EncodeRawBytes(trieNode.value)
+		if err != nil {
+			return nil, err
+		}
+	}
 	//write number of crypto-hashes
+	numCryptoHashes := trieNode.getNumChildren()
 	err = buffer.EncodeVarint(uint64(numCryptoHashes))
 	if err != nil {
 		return nil, err
@@ -164,23 +172,22 @@ func (trieNode *trieNode) marshal() ([]byte, error) {
 			return nil, err
 		}
 	}
-	return buffer.Bytes(), nil
+	serializedBytes := buffer.Bytes()
+	stateTrieLogger.Debug("Marshalled trieNode [%s]. Serialized bytes size = %d", trieNode.trieKey, len(serializedBytes))
+	return serializedBytes, nil
 }
 
 func unmarshalTrieNode(key *trieKey, serializedContent []byte) (*trieNode, error) {
+	stateTrieLogger.Debug("key = [%s], len(serializedContent) = %d", key, len(serializedContent))
 	trieNode := newTrieNode(key, nil, false)
 	buffer := proto.NewBuffer(serializedContent)
-	value, err := buffer.DecodeRawBytes(false)
-	if err != nil {
-		return nil, err
-	}
-	trieNode.value = value
+	trieNode.value = unmarshalTrieNodeValueFromBuffer(buffer)
 
 	numCryptoHashes, err := buffer.DecodeVarint()
+	stateTrieLogger.Debug("numCryptoHashes = [%d]", numCryptoHashes)
 	if err != nil {
 		return nil, err
 	}
-
 	for i := uint64(0); i < numCryptoHashes; i++ {
 		index, err := buffer.DecodeVarint()
 		if err != nil {
@@ -192,11 +199,22 @@ func unmarshalTrieNode(key *trieKey, serializedContent []byte) (*trieNode, error
 		}
 		trieNode.childrenCryptoHashes[int(index)] = cryptoHash
 	}
+	stateTrieLogger.Debug("unmarshalled trieNode = [%s]", trieNode)
 	return trieNode, nil
 }
 
 func unmarshalTrieNodeValue(serializedContent []byte) []byte {
-	buffer := proto.NewBuffer(serializedContent)
+	return unmarshalTrieNodeValueFromBuffer(proto.NewBuffer(serializedContent))
+}
+
+func unmarshalTrieNodeValueFromBuffer(buffer *proto.Buffer) []byte {
+	valueMarker, err := buffer.DecodeVarint()
+	if err != nil {
+		panic(fmt.Errorf("This error is not excpected: %s", err))
+	}
+	if valueMarker == 0 {
+		return nil
+	}
 	value, err := buffer.DecodeRawBytes(false)
 	if err != nil {
 		panic(fmt.Errorf("This error is not excpected: %s", err))

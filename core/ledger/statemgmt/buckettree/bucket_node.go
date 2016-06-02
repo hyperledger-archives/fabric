@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	openchainUtil "github.com/hyperledger/fabric/core/util"
 )
 
@@ -44,7 +43,8 @@ func unmarshalBucketNode(bucketKey *bucketKey, serializedBytes []byte) *bucketNo
 		if err != nil {
 			panic(fmt.Errorf("this error should not occur: %s", err))
 		}
-		if !util.IsNil(childCryptoHash) {
+		//protobuf's buffer.EncodeRawBytes/buffer.DecodeRawBytes convert a nil into a zero length byte-array, so nil check would not work
+		if len(childCryptoHash) != 0 {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
 		}
 	}
@@ -70,7 +70,7 @@ func (bucketNode *bucketNode) mergeBucketNode(anotherBucketNode *bucketNode) {
 		panic(fmt.Errorf("Nodes with different keys can not be merged. BaseKey=[%#v], MergeKey=[%#v]", bucketNode.bucketKey, anotherBucketNode.bucketKey))
 	}
 	for i, childCryptoHash := range anotherBucketNode.childrenCryptoHash {
-		if !bucketNode.childrenUpdated[i] && util.IsNil(bucketNode.childrenCryptoHash[i]) {
+		if !bucketNode.childrenUpdated[i] {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
 		}
 	}
@@ -80,7 +80,7 @@ func (bucketNode *bucketNode) computeCryptoHash() []byte {
 	cryptoHashContent := []byte{}
 	numChildren := 0
 	for i, childCryptoHash := range bucketNode.childrenCryptoHash {
-		if util.NotNil(childCryptoHash) {
+		if childCryptoHash != nil {
 			numChildren++
 			logger.Debug("Appending crypto-hash for child bucket = [%s]", bucketNode.bucketKey.getChildKey(i))
 			cryptoHashContent = append(cryptoHashContent, childCryptoHash...)
@@ -102,7 +102,7 @@ func (bucketNode *bucketNode) computeCryptoHash() []byte {
 func (bucketNode *bucketNode) String() string {
 	numChildren := 0
 	for i := range bucketNode.childrenCryptoHash {
-		if util.NotNil(bucketNode.childrenCryptoHash[i]) {
+		if bucketNode.childrenCryptoHash[i] != nil {
 			numChildren++
 		}
 	}
@@ -114,7 +114,7 @@ func (bucketNode *bucketNode) String() string {
 	str = str + "Childern crypto-hashes:\n"
 	for i := range bucketNode.childrenCryptoHash {
 		childCryptoHash := bucketNode.childrenCryptoHash[i]
-		if util.NotNil(childCryptoHash) {
+		if childCryptoHash != nil {
 			str = str + fmt.Sprintf("childNumber={%d}, cryptoHash={%x}\n", i, childCryptoHash)
 		}
 	}

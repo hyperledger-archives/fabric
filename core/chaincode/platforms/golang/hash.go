@@ -25,9 +25,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
 	cutil "github.com/hyperledger/fabric/core/container/util"
@@ -35,17 +37,21 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+var logger = logging.MustGetLogger("golang/hash")
+
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
+	currentDir := filepath.Join(rootDir, dir)
+	logger.Debug("hashFiles %s", currentDir)
 	//ReadDir returns sorted list of files in dir
-	fis, err := ioutil.ReadDir(rootDir + "/" + dir)
+	fis, err := ioutil.ReadDir(currentDir)
 	if err != nil {
 		return hash, fmt.Errorf("ReadDir failed %s\n", err)
 	}
 	for _, fi := range fis {
-		name := fmt.Sprintf("%s/%s", dir, fi.Name())
+		name := filepath.Join(dir, fi.Name())
 		if fi.IsDir() {
 			var err error
 			hash, err = hashFilesInDir(rootDir, name, hash, tw)
@@ -54,7 +60,7 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			}
 			continue
 		}
-		fqp := rootDir + "/" + name
+		fqp := filepath.Join(rootDir, name)
 		buf, err := ioutil.ReadFile(fqp)
 		if err != nil {
 			fmt.Printf("Error reading %s\n", err)
@@ -68,7 +74,7 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 
 		if tw != nil {
 			is := bytes.NewReader(buf)
-			if err = cutil.WriteStreamToPackage(is, fqp, "src/"+name, tw); err != nil {
+			if err = cutil.WriteStreamToPackage(is, fqp, filepath.Join("src", name), tw); err != nil {
 				return hash, fmt.Errorf("Error adding file to tar %s", err)
 			}
 		}
@@ -79,16 +85,16 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 func isCodeExist(tmppath string) error {
 	file, err := os.Open(tmppath)
 	if err != nil {
-		return fmt.Errorf("Download failer %s", err)
+		return fmt.Errorf("Download failed %s", err)
 	}
 
 	fi, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("could not stat file %s", err)
+		return fmt.Errorf("Could not stat file %s", err)
 	}
 
 	if !fi.IsDir() {
-		return fmt.Errorf("file %s is not dir\n", file.Name())
+		return fmt.Errorf("File %s is not dir\n", file.Name())
 	}
 
 	return nil
@@ -97,25 +103,29 @@ func isCodeExist(tmppath string) error {
 func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
+	logger.Debug("getCodeFromHTTP %s", path)
 
+	// The following could be done with os.Getenv("GOPATH") but we need to change it later so this prepares for that next step
 	env := os.Environ()
-	var newgopath string
 	var origgopath string
 	var gopathenvIndex int
 	for i, v := range env {
 		if strings.Index(v, "GOPATH=") == 0 {
 			p := strings.SplitAfter(v, "GOPATH=")
 			origgopath = p[1]
-			newgopath = origgopath + "/_usercode_"
 			gopathenvIndex = i
 			break
 		}
 	}
-
-	if newgopath == "" {
+	if origgopath == "" {
 		err = fmt.Errorf("GOPATH not defined")
 		return
 	}
+	// Only take the first element of GOPATH
+	gopath := filepath.SplitList(origgopath)[0]
+
+	// Define a new gopath in which to download the code
+	newgopath := filepath.Join(gopath, "_usercode_")
 
 	//ignore errors.. _usercode_ might exist. TempDir will catch any other errors
 	os.Mkdir(newgopath, 0755)
@@ -136,13 +146,16 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	//     . more secure
 	//     . as we are not downloading OBC, private, password-protected OBC repo's become non-issue
 
-	env[gopathenvIndex] = "GOPATH=" + codegopath + ":" + origgopath
+	env[gopathenvIndex] = "GOPATH=" + codegopath + string(os.PathListSeparator) + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
+	logger.Debug("go get %s", path)
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf //capture Stderr and print it on error
 	err = cmd.Start()
 
 	// Create a go routine that will wait for the command to finish
@@ -163,28 +176,21 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	case err = <-done:
 		// If we're here, the 'go get' command must have finished
 		if err != nil {
-			err = fmt.Errorf("process done with error = %v", err)
+			err = fmt.Errorf("'go get' failed with error: \"%s\"\n%s", err, string(errBuf.Bytes()))
 		}
 	}
 	return
 }
 
 func getCodeFromFS(path string) (codegopath string, err error) {
-	env := os.Environ()
-	var gopath string
-	for _, v := range env {
-		if strings.Index(v, "GOPATH=") == 0 {
-			p := strings.SplitAfter(v, "GOPATH=")
-			gopath = p[1]
-			break
-		}
-	}
-
+	logger.Debug("getCodeFromFS %s", path)
+	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
+		err = fmt.Errorf("GOPATH not defined")
 		return
 	}
-
-	codegopath = gopath
+	// Only take the first element of GOPATH
+	codegopath = filepath.SplitList(gopath)[0]
 
 	return
 }
@@ -243,14 +249,14 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 		return "", fmt.Errorf("Error getting code %s", err)
 	}
 
-	tmppath := codegopath + "/src/" + actualcodepath
+	tmppath := filepath.Join(codegopath, "src", actualcodepath)
 	if err = isCodeExist(tmppath); err != nil {
 		return "", fmt.Errorf("code does not exist %s", err)
 	}
 
 	hash := util.GenerateHashFromSignature(actualcodepath, ctor.Function, ctor.Args)
 
-	hash, err = hashFilesInDir(codegopath+"/src/", actualcodepath, hash, tw)
+	hash, err = hashFilesInDir(filepath.Join(codegopath, "src"), actualcodepath, hash, tw)
 	if err != nil {
 		return "", fmt.Errorf("Could not get hashcode for %s - %s\n", path, err)
 	}
