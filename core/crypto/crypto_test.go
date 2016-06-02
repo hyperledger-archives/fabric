@@ -17,10 +17,9 @@ limitations under the License.
 package crypto
 
 import (
-	obc "github.com/hyperledger/fabric/protos"
-
 	"bytes"
 	"fmt"
+	obc "github.com/hyperledger/fabric/protos"
 	"io/ioutil"
 	"net"
 	"os"
@@ -51,6 +50,7 @@ var (
 	invoker  Client
 
 	server *grpc.Server
+	aca    *ca.ACA
 	eca    *ca.ECA
 	tca    *ca.TCA
 	tlsca  *ca.TLSCA
@@ -312,7 +312,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "IBM" {
+	if attributeValue != "ACompany" {
 		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
 	}
 }
@@ -1106,7 +1106,7 @@ func setup() {
 
 func initPKI() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
 	tlsca = ca.NewTLSCA(eca)
@@ -1134,7 +1134,7 @@ func startPKI() {
 	fmt.Printf("open socket...done\n")
 
 	server = grpc.NewServer(opts...)
-
+	aca.Start(server)
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
@@ -1649,6 +1649,7 @@ func cleanup() {
 }
 
 func stopPKI() {
+	aca.Close()
 	eca.Close()
 	tca.Close()
 	tlsca.Close()
