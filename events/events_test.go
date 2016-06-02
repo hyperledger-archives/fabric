@@ -44,15 +44,17 @@ var adapter *Adapter
 var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
-	return []*ehpb.Interest{{"block", ehpb.Interest_PROTOBUF}}, nil
-	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
+	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF}, &ehpb.Interest{EventType: "generic", ResponseType: ehpb.Interest_PROTOBUF}}, nil
+	return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChainEvent: &ehpb.Chaincode{Uuid: "0xffffffff", Eventname: "event1"}}}, nil
+	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
 
 func (a *Adapter) Recv(msg *ehpb.Event) (bool, error) {
-	//fmt.Printf("Adapter received %v\n", msg.Event)
+	//fmt.Printf("Adapter received %+v\n", msg.Event)
 	switch x := msg.Event.(type) {
 	case *ehpb.Event_Block:
 	case *ehpb.Event_Generic:
+	case *ehpb.Event_Chaincode:
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
@@ -81,6 +83,16 @@ func createTestBlock() *ehpb.Event {
 	return emsg
 }
 
+func createTestChaincodeEvent() *ehpb.Event {
+	emsg := producer.CreateChaincodeEvent(&ehpb.Chaincode{Uuid: "0xffffffff", Eventname: "event1"})
+	return emsg
+}
+
+func createTestGenericEvent() *ehpb.Event {
+	emsg := producer.CreateGenericEvent(&ehpb.Generic{EventType: "uuid#ccEventName", Payload: []byte("event data")})
+	return emsg
+}
+
 func closeListenerAndSleep(l net.Listener) {
 	l.Close()
 	time.Sleep(2 * time.Second)
@@ -89,9 +101,11 @@ func closeListenerAndSleep(l net.Listener) {
 // Test the invocation of a transaction.
 func TestReceiveMessage(t *testing.T) {
 	var err error
+	fmt.Printf("TestReceiveMessage:\n")
 
 	adapter.count = 1
-	emsg := createTestBlock()
+	//emsg := createTestBlock()
+	emsg := createTestChaincodeEvent()
 	if err = producer.Send(emsg); err != nil {
 		t.Fail()
 		t.Logf("Error sending message %s", err)
@@ -115,7 +129,9 @@ func BenchmarkMessages(b *testing.B) {
 
 	for i := 0; i < numMessages; i++ {
 		go func() {
-			emsg := createTestBlock()
+			//emsg := createTestGenericEvent()
+			//emsg := createTestBlock()
+			emsg := createTestChaincodeEvent()
 			if err = producer.Send(emsg); err != nil {
 				b.Fail()
 				b.Logf("Error sending message %s", err)

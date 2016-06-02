@@ -23,10 +23,11 @@ import (
 )
 
 type handler struct {
-	ChatStream       pb.Events_ChatServer
-	doneChan         chan bool
-	registered       bool
-	interestedEvents map[string]*pb.Interest
+	ChatStream pb.Events_ChatServer
+	doneChan   chan bool
+	registered bool
+	// PM: this should be a list, add/del, iterate
+	interestedEvents []*pb.Interest
 }
 
 func newEventHandler(stream pb.Events_ChatServer) (*handler, error) {
@@ -34,8 +35,20 @@ func newEventHandler(stream pb.Events_ChatServer) (*handler, error) {
 		ChatStream: stream,
 	}
 	d.doneChan = make(chan bool)
-
 	return d, nil
+}
+
+func (h *handler) addInterest(interest *pb.Interest) {
+	n := len(h.interestedEvents)
+	if n == cap(h.interestedEvents) {
+		// Slice is full; must grow.
+		// We double its size and add 1, so if the size is zero we still grow.
+		newSlice := make([]*pb.Interest, len(h.interestedEvents), 2*len(h.interestedEvents)+1)
+		copy(newSlice, h.interestedEvents)
+		h.interestedEvents = newSlice
+	}
+	h.interestedEvents = h.interestedEvents[0 : n+1]
+	h.interestedEvents[n] = interest
 }
 
 // Stop stops this handler
@@ -46,42 +59,33 @@ func (d *handler) Stop() error {
 	return nil
 }
 
-func (d *handler) register(iEvents []*pb.Interest) error {
+func (d *handler) register(iMsg []*pb.Interest) error {
 	//TODO add the handler to the map for the interested events
 	//if successfully done, continue....
-	d.interestedEvents = make(map[string]*pb.Interest)
-	for _, v := range iEvents {
-		if ie, ok := d.interestedEvents[v.EventType]; ok {
-			producerLogger.Error(fmt.Sprintf("event %s already registered", v.EventType))
-			ie.ResponseType = v.ResponseType
-			continue
-		}
+	for _, v := range iMsg {
 		if err := registerHandler(v, d); err != nil {
 			producerLogger.Error(fmt.Sprintf("could not register %s", v))
 			continue
 		}
-
-		d.interestedEvents[v.EventType] = v
+		d.addInterest(v)
 	}
+
 	return nil
 }
 
 func (d *handler) deregister() {
-	for k, v := range d.interestedEvents {
-		var ie *pb.Interest
-		var ok bool
-		if ie, ok = d.interestedEvents[k]; !ok {
-			continue
-		}
+	for _, v := range d.interestedEvents {
 		if err := deRegisterHandler(v, d); err != nil {
-			producerLogger.Error(fmt.Sprintf("could not register %s", k))
+			producerLogger.Error(fmt.Sprintf("could not deregister %s", v))
 			continue
 		}
-		delete(d.interestedEvents, ie.EventType)
+		v = nil
 	}
+	// PM the following should release slice and its elements for GC?
+	d.interestedEvents = nil
 }
 
-func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
+/*func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
 	rType := pb.Interest_DONTSEND
 	if d.registered {
 		if ie, _ := d.interestedEvents[eventType]; ie != nil {
@@ -89,7 +93,7 @@ func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
 		}
 	}
 	return rType
-}
+}*/
 
 // HandleMessage handles the Openchain messages for the Peer.
 func (d *handler) HandleMessage(msg *pb.Event) error {

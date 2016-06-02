@@ -17,7 +17,7 @@ limitations under the License.
 package producer
 
 import (
-	"encoding/json"
+	//	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -34,9 +34,83 @@ import (
 //will be called only when a new consumer chat starts/ends respectively
 //and the big lock should have no performance impact
 //
-type handlerList struct {
+type handlerList interface {
+	//find() *handler
+	add(ie *pb.Interest, h *handler) bool
+	del(ie *pb.Interest, h *handler) bool
+	foreach(ie *pb.Event, action func(h *handler))
+}
+
+type genericHandlerList struct {
 	sync.RWMutex
+	// this map used as a list - add/del/iterate
 	handlers map[*handler]bool
+}
+
+type chaincodeHandlerList struct {
+	sync.RWMutex
+	// this map used as a list - add/del/iterate
+	handlers map[string]map[string]*handler
+}
+
+func (hl *chaincodeHandlerList) add(ie *pb.Interest, h *handler) bool {
+	hl.Lock()
+	emap, ok := hl.handlers[ie.GetChainEvent().Uuid]
+	if !ok {
+		emap = make(map[string]*handler)
+		hl.handlers[ie.GetChainEvent().Uuid] = emap
+	}
+	emap[ie.GetChainEvent().Eventname] = h
+	hl.Unlock()
+	return true
+}
+func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) bool {
+	hl.Lock()
+	emap, ok := hl.handlers[ie.GetChainEvent().Uuid]
+	if !ok {
+		hl.Unlock()
+		return false
+	}
+	delete(emap, ie.GetChainEvent().Eventname)
+	hl.Unlock()
+	return true
+}
+
+func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
+	hl.Lock()
+	for _, h := range hl.handlers[e.GetChaincode().Uuid] {
+		action(h)
+	}
+	hl.Unlock()
+}
+
+func (hl *genericHandlerList) add(ie *pb.Interest, h *handler) bool {
+	hl.Lock()
+	if _, ok := hl.handlers[h]; ok {
+		hl.Unlock()
+		return false
+	}
+	hl.handlers[h] = true
+	hl.Unlock()
+	return true
+}
+func (hl *genericHandlerList) del(ie *pb.Interest, h *handler) bool {
+	hl.Lock()
+	if _, ok := hl.handlers[h]; !ok {
+		hl.Unlock()
+		return false
+	}
+	delete(hl.handlers, h)
+	hl.Unlock()
+	return true
+}
+
+func (hl *genericHandlerList) foreach(e *pb.Event, action func(h *handler)) {
+	hl.Lock()
+	for h := range hl.handlers {
+		action(h)
+	}
+	hl.Unlock()
 }
 
 //eventProcessor has a map of event type to handlers interested in that
@@ -46,7 +120,7 @@ type handlerList struct {
 //
 type eventProcessor struct {
 	sync.RWMutex
-	eventConsumers map[string]*handlerList
+	eventConsumers map[pb.EventType]handlerList
 
 	//we could generalize this with mutiple channels each with its own size
 	eventChannel chan *pb.Event
@@ -68,7 +142,7 @@ func (ep *eventProcessor) start() {
 		//wait for event
 		e := <-ep.eventChannel
 
-		var hl *handlerList
+		var hl handlerList
 		eType := getMessageType(e)
 		ep.Lock()
 		if hl, _ = ep.eventConsumers[eType]; hl == nil {
@@ -76,32 +150,38 @@ func (ep *eventProcessor) start() {
 			ep.Unlock()
 			continue
 		}
+		ghl := hl.(*genericHandlerList)
 		//lock the handler map lock
-		hl.Lock()
 		ep.Unlock()
 
-		for h := range hl.handlers {
-			if rType := h.responseType(eType); rType != pb.Interest_DONTSEND {
-				//if Message is already a generic message, producer must have already converted
-				if eType != "generic" {
-					switch rType {
-					case pb.Interest_JSON:
-						if b, err := json.Marshal(e.Event); err != nil {
-							producerLogger.Error(fmt.Sprintf("could not marshall JSON for eObject %v(%s)", e.Event, eType))
-						} else {
-							e.Event = &pb.Event_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
-						}
-					case pb.Interest_PROTOBUF:
-					}
-				}
-				if e.Event != nil {
-					h.SendMessage(e)
-				}
+		ghl.foreach(e, func(h *handler) {
+			if e.Event != nil {
+				h.SendMessage(e)
 			}
-		}
-		hl.Unlock()
+		})
+
 	}
 }
+
+/*func oldaction(h *handler) {
+	if rType := h.responseType(eType); rType != pb.Interest_DONTSEND {
+		//if Message is already a generic message, producer must have already converted
+		if eType != "generic" {
+			switch rType {
+			case pb.Interest_JSON:
+				if b, err := json.Marshal(e.Event); err != nil {
+					producerLogger.Error(fmt.Sprintf("could not marshall JSON for eObject %v(%s)", e.Event, eType))
+				} else {
+					e.Event = &pb.Event_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
+				}
+			case pb.Interest_PROTOBUF:
+			}
+		}
+		if e.Event != nil {
+			h.SendMessage(e)
+		}
+	}
+}*/
 
 //initialize and start
 func initializeEvents(bufferSize uint, tout int) {
@@ -109,7 +189,7 @@ func initializeEvents(bufferSize uint, tout int) {
 		panic("should not be called twice")
 	}
 
-	gEventProcessor = &eventProcessor{eventConsumers: make(map[string]*handlerList), eventChannel: make(chan *pb.Event, bufferSize), timeout: tout}
+	gEventProcessor = &eventProcessor{eventConsumers: make(map[pb.EventType]handlerList), eventChannel: make(chan *pb.Event, bufferSize), timeout: tout}
 
 	addInternalEventTypes()
 
@@ -118,15 +198,15 @@ func initializeEvents(bufferSize uint, tout int) {
 }
 
 //AddEventType supported event
-func AddEventType(eventType string) error {
+func AddEventType(eventType pb.EventType) error {
 	gEventProcessor.Lock()
-	producerLogger.Debug("registering %s", eventType)
+	producerLogger.Debug("registering %s", pb.EventType_name[int32(eventType)])
 	if _, ok := gEventProcessor.eventConsumers[eventType]; ok {
 		gEventProcessor.Unlock()
-		return fmt.Errorf("event type exists %s", eventType)
+		return fmt.Errorf("event type exists %s", pb.EventType_name[int32(eventType)])
 	}
 
-	gEventProcessor.eventConsumers[eventType] = &handlerList{handlers: make(map[*handler]bool)}
+	gEventProcessor.eventConsumers[eventType] = &genericHandlerList{handlers: make(map[*handler]bool)}
 	gEventProcessor.Unlock()
 
 	return nil
@@ -139,16 +219,12 @@ func registerHandler(ie *pb.Interest, h *handler) error {
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
 		gEventProcessor.Unlock()
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
-	} else if _, ok = hl.handlers[h]; ok {
+	} else if ok = hl.add(ie, h); !ok {
 		gEventProcessor.Unlock()
 		return fmt.Errorf("handler already registered for  %s", ie.EventType)
-	} else {
-		hl.Lock()
-		gEventProcessor.Unlock()
-		hl.handlers[h] = true
-		hl.Unlock()
 	}
 
+	gEventProcessor.Unlock()
 	return nil
 }
 
@@ -159,15 +235,9 @@ func deRegisterHandler(ie *pb.Interest, h *handler) error {
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
 		gEventProcessor.Unlock()
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
-	} else if _, ok = hl.handlers[h]; !ok {
+	} else if ok = hl.del(ie, h); !ok {
 		gEventProcessor.Unlock()
 		return fmt.Errorf("handler already deregistered for  %s", ie.EventType)
-	} else {
-		hl.Lock()
-		gEventProcessor.Unlock()
-
-		delete(hl.handlers, h)
-		hl.Unlock()
 	}
 
 	return nil
