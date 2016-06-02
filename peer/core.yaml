@@ -355,7 +355,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.
@@ -418,9 +418,14 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-      attributes:
-        company: IBM
-        position: "Software Engineer"
+    # Enable the release of keys needed to decrypt attributes from TCerts in 
+    # the chaincode using the metadata field of the transaction (requires 
+    # security to be enabled).
+    abac:
+      enabled: false
+    multithreading:
+      enabled: false
+
 
 
 ################################################################################

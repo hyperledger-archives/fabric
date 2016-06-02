@@ -22,19 +22,19 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/hmac"
-	"encoding/asn1"
 
 	"errors"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"golang.org/x/net/context"
+
 	"google/protobuf"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -108,7 +108,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Handle Critical Extension TCertEncTCertIndex
-	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex);
+	tCertIndexCT, err := utils.GetCriticalExtension(x509Cert, utils.TCertEncTCertIndex)
 	if err != nil {
 		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", der, err)
 
@@ -142,7 +142,6 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	}
 
 	// Try to extract the signing key from the TCert by decrypting the TCertIndex
-
 
 	// 384-bit ExpansionValue = HMAC(Expansion_Key, TCertIndex)
 	// Let TCertIndex = Timestamp, RandValue, 1,2,…
@@ -190,17 +189,17 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Compute temporary public key
 		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
 		tempSK.PublicKey.X, tempSK.PublicKey.Y =
-		tempSK.PublicKey.Add(
-			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-			tempX, tempY,
-		)
+			tempSK.PublicKey.Add(
+				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
+				tempX, tempY,
+			)
 
 		// Verify temporary public key is a valid point on the reference curve
 		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
 		if !isOn {
 			client.warning("Failed temporary public key IsOnCurve check. This is an foreign certificate.")
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		// Check that the derived public key is the same as the one in the certificate
@@ -209,13 +208,13 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
 			client.warning("Derived public key is different on X. This is an foreign certificate.")
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
 			client.warning("Derived public key is different on Y. This is an foreign certificate.")
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		// Verify the signing capability of tempSK
@@ -223,31 +222,31 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		if err != nil {
 			client.warning("Failed verifing signing capability [%s]. This is an foreign certificate.", err.Error())
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		// Marshall certificate and secret key to be stored in the database
 		if err != nil {
 			client.warning("Failed marshalling private key [%s]. This is an foreign certificate.", err.Error())
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		if err = utils.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
 			client.warning("Failed checking TCA cert PK against private key [%s]. This is an foreign certificate.", err.Error())
 
-			return &tCertImpl{client, x509Cert, nil}, nil
+			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
-		return &tCertImpl{client, x509Cert, tempSK}, nil
+		return &tCertImpl{client, x509Cert, tempSK, []byte{}}, nil
 	} else {
 		client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	}
 
-	return &tCertImpl{client, x509Cert, nil}, nil
+	return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 }
 
-func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
+func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCertBlock, err error) {
 	if client.tCertOwnerKDFKey == nil {
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
@@ -256,9 +255,9 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
-	x509Cert, err := utils.DERToX509Certificate(der)
+	x509Cert, err := utils.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", der, err)
+		client.debug("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
 		return
 	}
@@ -376,16 +375,16 @@ func (client *clientImpl) getTCertFromDER(der []byte) (tCert tCert, err error) {
 		return
 	}
 
-	tCert = &tCertImpl{client, x509Cert, tempSK}
+	certBlock = &TCertBlock{&tCertImpl{client, x509Cert, tempSK, certBlk.preK0}, certBlk.attributesHash}
 
 	return
 }
 
-func (client *clientImpl) getTCertsFromTCA(num int) error {
+func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[string]string, num int) error {
 	client.debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
-	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num)
+	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num, attributes)
 	if err != nil {
 		client.debug("Failed contacting TCA [%s].", err.Error())
 
@@ -421,6 +420,8 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	for i := 0; i < num; i++ {
 		// DER to x509
 		x509Cert, err := utils.DERToX509Certificate(certDERs[i].Cert)
+		prek0 := certDERs[i].Prek0
+
 		if err != nil {
 			client.debug("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
@@ -544,7 +545,15 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 		j++
 		client.debug("Certificate [%d] validated.", i)
 
-		client.tCertPool.AddTCert(&tCertImpl{client, x509Cert, tempSK})
+		prek0Cp := make([]byte, len(prek0))
+		copy(prek0Cp, prek0)
+
+		tcertBlk := new(TCertBlock)
+
+		tcertBlk.tCert = &tCertImpl{client, x509Cert, tempSK, prek0Cp}
+		tcertBlk.attributesHash = attrhash
+
+		client.tCertPool.AddTCert(tcertBlk)
 	}
 
 	if j == 0 {
@@ -556,10 +565,20 @@ func (client *clientImpl) getTCertsFromTCA(num int) error {
 	return nil
 }
 
-func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membersrvc.TCert, error) {
+func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[string]string) ([]byte, []*membersrvc.TCert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
+
+	attributesList := make([]*membersrvc.TCertAttribute, 0)
+
+	for k, value := range attributes {
+		tcertAttr := new(membersrvc.TCertAttribute)
+		tcertAttr.AttributeName = k
+		tcertAttr.AttributeValue = value
+
+		attributesList = append(attributesList, tcertAttr)
+	}
 
 	// Execute the protocol
 	now := time.Now()
@@ -568,7 +587,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 		Ts:         &timestamp,
 		Id:         &membersrvc.Identity{Id: client.enrollID},
 		Num:        uint32(num),
-		Attributes: client.conf.getTCertAttributes(),
+		Attributes: attributesList,
 		Sig:        nil,
 	}
 
@@ -600,67 +619,4 @@ func (client *clientImpl) callTCACreateCertificateSet(num int) ([]byte, []*membe
 	}
 
 	return certSet.Certs.Key, certSet.Certs.Certs, nil
-}
-
-func (client *clientImpl) parseHeader(header string) (map[string]int, error) {
-	tokens := strings.Split(header, "#")
-	answer := make(map[string]int)
-
-	for _, token := range tokens {
-		pair := strings.Split(token, "->")
-
-		if len(pair) == 2 {
-			key := pair[0]
-			valueStr := pair[1]
-			value, err := strconv.Atoi(valueStr)
-			if err != nil {
-				return nil, err
-			}
-			answer[key] = value
-		}
-	}
-
-	return answer, nil
-
-}
-
-// Read the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) ([]byte, error) {
-	tcert, err := utils.DERToX509Certificate(tcertder)
-	if err != nil {
-		client.debug("Failed parsing certificate [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-
-	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
-		client.error("Failed getting extension TCERT_ATTRIBUTES_HEADER [% x]: [%s].", tcertder, err)
-
-		return nil, err
-	}
-
-	headerStr := string(headerRaw)
-	var header map[string]int
-	header, err = client.parseHeader(headerStr)
-
-	if err != nil {
-		return nil, err
-	}
-
-	position := header[attributeName]
-
-	if position == 0 {
-		return nil, errors.New("Failed attribute doesn't exists in the TCert.")
-	}
-
-	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-
-	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
-		client.error("Failed getting extension Attribute Value [% x]: [%s].", tcertder, err)
-		return nil, err
-	}
-
-	return value, nil
 }
