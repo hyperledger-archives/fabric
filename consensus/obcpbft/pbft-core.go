@@ -1240,7 +1240,7 @@ func (instance *pbftCore) updateViewChangeSeqNo() {
 	if instance.viewChangePeriod <= 0 {
 		return
 	}
-	instance.viewChangeSeqNo = instance.seqNo + instance.viewChangePeriod
+	instance.viewChangeSeqNo = instance.seqNo + instance.viewChangePeriod*instance.K
 }
 
 func (instance *pbftCore) startTimerIfOutstandingRequests() {

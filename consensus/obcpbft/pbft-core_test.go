@@ -1339,7 +1339,7 @@ func TestNetworkPeriodicViewChange(t *testing.T) {
 	config.Set("general.K", "2")
 	config.Set("general.logmultiplier", "2")
 	config.Set("general.timeout.request", "500ms")
-	config.Set("general.viewchangeperiod", "2")
+	config.Set("general.viewchangeperiod", "1")
 	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
@@ -1367,7 +1367,7 @@ func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
 	config.Set("general.K", "2")
 	config.Set("general.logmultiplier", "2")
 	config.Set("general.timeout.request", "500ms")
-	config.Set("general.viewchangeperiod", "2")
+	config.Set("general.viewchangeperiod", "1")
 	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
