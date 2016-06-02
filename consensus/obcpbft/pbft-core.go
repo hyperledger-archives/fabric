@@ -61,7 +61,6 @@ type innerStack interface {
 	getLastSeqNo() (uint64, error)
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
-	viewChange(curView uint64)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -357,7 +356,7 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 
 		return instance.processNewView()
 	case viewChangedEvent:
-		instance.consumer.viewChange(instance.view)
+		// No-op, processed by plugins if needed
 	default:
 		logger.Warning("Replica %d received an unknown message type %T", instance.id, et)
 	}

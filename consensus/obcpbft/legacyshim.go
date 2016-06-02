@@ -31,20 +31,30 @@ import (
 	"github.com/spf13/viper"
 )
 
+type legacyInnerStack interface {
+	innerStack
+	viewChange(curView uint64)
+}
+
 type legacyGenericShim struct {
 	*obcGeneric
-	pbft legacyPbftShim
+	pbft *legacyPbftShim
 }
 
 type legacyPbftShim struct {
 	*pbftCore
-	manager eventManager // Used to give the pbft core work
+	consumer legacyInnerStack
+	manager  eventManager // Used to give the pbft core work
 }
 
-func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer innerStack) {
-	shim.pbft.manager = newEventManagerImpl()
+func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer legacyInnerStack) {
+	shim.pbft = &legacyPbftShim{
+		manager:  newEventManagerImpl(),
+		consumer: consumer,
+	}
 	shim.pbft.pbftCore = newPbftCore(id, config, consumer, newEventTimerFactoryImpl(shim.pbft.manager))
 	shim.pbft.manager.setReceiver(shim.pbft)
+	logger.Debug("Replica %d Consumer is %p", shim.pbft.id, shim.pbft.consumer)
 	shim.pbft.manager.start()
 	logger.Debug("Replica %d legacyGenericShim now initialized: %v", id, shim)
 }
@@ -60,13 +70,25 @@ func (shim *legacyGenericShim) getManager() eventManager {
 	return shim.pbft.manager
 }
 
+// processEvent intercepts the events bound for PBFT to implement the legacy innerStack methods
+func (instance *legacyPbftShim) processEvent(e interface{}) interface{} {
+	switch e.(type) {
+	case viewChangedEvent:
+		logger.Debug("ASDF Replica %d Consumer is %p", instance.id, instance.consumer)
+		instance.consumer.viewChange(instance.view)
+	default:
+		return instance.pbftCore.processEvent(e)
+	}
+	return nil
+}
+
 // execDone is an event telling us that the last execution has completed
-func (instance legacyPbftShim) execDone() {
+func (instance *legacyPbftShim) execDone() {
 	instance.manager.queue() <- execDoneEvent{}
 }
 
 // stateUpdated is an event telling us that the application fast-forwarded its state
-func (instance legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
+func (instance *legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
 	instance.manager.queue() <- stateUpdatedEvent{
 		seqNo: seqNo,
@@ -75,7 +97,7 @@ func (instance legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
 }
 
 // stateUpdating is an event telling us that the application is fast-forwarding its state
-func (instance legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
+func (instance *legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
 	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
 	instance.manager.queue() <- stateUpdatingEvent{
 		seqNo: seqNo,
@@ -84,7 +106,7 @@ func (instance legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
 }
 
 // handle new consensus requests
-func (instance legacyPbftShim) request(msgPayload []byte, senderID uint64) error {
+func (instance *legacyPbftShim) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
 	instance.manager.queue() <- pbftMessageEvent{
@@ -95,7 +117,7 @@ func (instance legacyPbftShim) request(msgPayload []byte, senderID uint64) error
 }
 
 // handle internal consensus messages
-func (instance legacyPbftShim) receive(msgPayload []byte, senderID uint64) error {
+func (instance *legacyPbftShim) receive(msgPayload []byte, senderID uint64) error {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
@@ -111,7 +133,7 @@ func (instance legacyPbftShim) receive(msgPayload []byte, senderID uint64) error
 }
 
 // TODO, this should not return an error
-func (instance legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err error) {
+func (instance *legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err error) {
 	instance.manager.queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
@@ -121,6 +143,6 @@ func (instance legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err e
 
 // Allows the caller to inject work onto the main thread
 // This is useful when the caller wants to safely manipulate PBFT state
-func (instance legacyPbftShim) inject(work func()) {
+func (instance *legacyPbftShim) inject(work func()) {
 	instance.manager.queue() <- workEvent(work)
 }

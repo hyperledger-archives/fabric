@@ -240,10 +240,6 @@ func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 	op.pbft.execDoneSync()
 }
 
-func (op *obcBatch) viewChange(curView uint64) {
-	// TODO, remove
-}
-
 // =============================================================================
 // functions specific to batch mode
 // =============================================================================
