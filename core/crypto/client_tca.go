@@ -28,7 +28,7 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/abac"
+	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
@@ -619,7 +619,7 @@ func (client *clientImpl) ReadAttribute(attributeName string, tcertder []byte) (
 
 	headerStr := string(headerRaw)
 	var header map[string]int
-	header, err = abac.ParseAttributesHeader(headerStr)
+	header, err = attributes.ParseAttributesHeader(headerStr)
 
 	if err != nil {
 		return nil, err
