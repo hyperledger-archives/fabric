@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package abac
+package attributes
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
+	pb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io/ioutil"
 	"os"
@@ -136,6 +136,13 @@ func TestParseEmptyAttributesHeader(t *testing.T) {
 	}
 }
 
+func TestParseAttributesHeader_NotNumberPosition(t *testing.T) {
+	_, err := ParseAttributesHeader(headerPrefix + "position->a#")
+	if err == nil {
+		t.Error("Not number position in the header should produce a parsing error")
+	}
+}
+
 func TestBuildAndParseAttributesHeader(t *testing.T) {
 	attributes := make(map[string]int)
 	attributes["company"] = 1
@@ -192,6 +199,34 @@ func TestReadAttributeHeader(t *testing.T) {
 	}
 }
 
+func TestReadAttributeHeader_WithoutHeaderKey(t *testing.T) {
+	tcert, _, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, _, err = ReadAttributeHeader(tcert, nil)
+
+	if err == nil {
+		t.Error(err)
+	}
+}
+
+func TestReadAttributeHeader_InvalidHeaderKey(t *testing.T) {
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	headerKey := getAttributeKey(prek0, HeaderAttributeName+"_invalid")
+
+	_, _, err = ReadAttributeHeader(tcert, headerKey)
+
+	if err == nil {
+		t.Error(err)
+	}
+}
+
 func TestReadTCertAttributeByPosition(t *testing.T) {
 	expected := "Software Engineer"
 
@@ -219,6 +254,33 @@ func TestReadTCertAttributeByPosition(t *testing.T) {
 	}
 }
 
+func TestGetAttributesMetadata(t *testing.T) {
+	metadata := []byte{255, 255, 255, 255}
+	entries := make([]*pb.AttributesMetadataEntry, 1)
+	var entry pb.AttributesMetadataEntry
+	entry.AttributeName = "position"
+	entry.AttributeKey = []byte{0, 0, 0, 0}
+	entries[0] = &entry
+	attributesMetadata := pb.AttributesMetadata{Metadata: metadata, Entries: entries}
+	raw, err := proto.Marshal(&attributesMetadata)
+	if err != nil {
+		t.Error(err)
+	}
+	resultMetadata, err := GetAttributesMetadata(raw)
+	if err != nil {
+		t.Error(err)
+	}
+	if bytes.Compare(resultMetadata.Metadata, attributesMetadata.Metadata) != 0 {
+		t.Fatalf("Invalid metadata expected %v result %v", attributesMetadata.Metadata, resultMetadata.Metadata)
+	}
+	if resultMetadata.Entries[0].AttributeName != attributesMetadata.Entries[0].AttributeName {
+		t.Fatalf("Invalid first entry attribute name expected %v result %v", attributesMetadata.Entries[0].AttributeName, resultMetadata.Entries[0].AttributeName)
+	}
+	if bytes.Compare(resultMetadata.Entries[0].AttributeKey, attributesMetadata.Entries[0].AttributeKey) != 0 {
+		t.Fatalf("Invalid first entry attribute key expected %v result %v", attributesMetadata.Entries[0].AttributeKey, resultMetadata.Entries[0].AttributeKey)
+	}
+}
+
 func TestReadTCertAttributeByPosition_InvalidPositions(t *testing.T) {
 	tcert, _, err := loadTCertAndPreK0()
 	if err != nil {
@@ -238,7 +300,7 @@ func TestReadTCertAttributeByPosition_InvalidPositions(t *testing.T) {
 	}
 }
 
-func TestCreateABACMetadataObjectFromCert(t *testing.T) {
+func TestCreateAttributesMetadataObjectFromCert(t *testing.T) {
 	tcert, preK0, err := loadTCertAndPreK0()
 	if err != nil {
 		t.Error(err)
@@ -246,7 +308,7 @@ func TestCreateABACMetadataObjectFromCert(t *testing.T) {
 
 	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 	attributeKeys := []string{"position"}
-	metadataObj := CreateABACMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
+	metadataObj := CreateAttributesMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
 	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
 		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
 	}
@@ -270,7 +332,7 @@ func TestCreateABACMetadataObjectFromCert(t *testing.T) {
 	}
 }
 
-func TestCreateABACMetadata(t *testing.T) {
+func TestCreateAttributesMetadata(t *testing.T) {
 	tcert, preK0, err := loadTCertAndPreK0()
 
 	if err != nil {
@@ -279,12 +341,12 @@ func TestCreateABACMetadata(t *testing.T) {
 	tcertRaw := tcert.Raw
 	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 	attributeKeys := []string{"position"}
-	metadataObjRaw, err := CreateABACMetadata(tcertRaw, metadata, preK0, attributeKeys)
+	metadataObjRaw, err := CreateAttributesMetadata(tcertRaw, metadata, preK0, attributeKeys)
 	if err != nil {
 		t.Error(err)
 	}
 
-	var metadataObj pb.ABACMetadata
+	var metadataObj pb.AttributesMetadata
 	err = proto.Unmarshal(metadataObjRaw, &metadataObj)
 	if err != nil {
 		t.Error(err)
@@ -313,7 +375,7 @@ func TestCreateABACMetadata(t *testing.T) {
 	}
 }
 
-func TestCreateABACMetadata_AttributeNotFound(t *testing.T) {
+func TestCreateAttributesMetadata_AttributeNotFound(t *testing.T) {
 	tcert, preK0, err := loadTCertAndPreK0()
 
 	if err != nil {
@@ -322,12 +384,12 @@ func TestCreateABACMetadata_AttributeNotFound(t *testing.T) {
 	tcertRaw := tcert.Raw
 	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 	attributeKeys := []string{"company"}
-	metadataObjRaw, err := CreateABACMetadata(tcertRaw, metadata, preK0, attributeKeys)
+	metadataObjRaw, err := CreateAttributesMetadata(tcertRaw, metadata, preK0, attributeKeys)
 	if err != nil {
 		t.Error(err)
 	}
 
-	var metadataObj pb.ABACMetadata
+	var metadataObj pb.AttributesMetadata
 	err = proto.Unmarshal(metadataObjRaw, &metadataObj)
 	if err != nil {
 		t.Error(err)
@@ -351,7 +413,7 @@ func TestCreateABACMetadata_AttributeNotFound(t *testing.T) {
 	}
 }
 
-func TestCreateABACMetadataObjectFromCert_AttributeNotFound(t *testing.T) {
+func TestCreateAttributesMetadataObjectFromCert_AttributeNotFound(t *testing.T) {
 	tcert, preK0, err := loadTCertAndPreK0()
 	if err != nil {
 		t.Error(err)
@@ -359,7 +421,7 @@ func TestCreateABACMetadataObjectFromCert_AttributeNotFound(t *testing.T) {
 
 	metadata := []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 	attributeKeys := []string{"company"}
-	metadataObj := CreateABACMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
+	metadataObj := CreateAttributesMetadataObjectFromCert(tcert, metadata, preK0, attributeKeys)
 	if bytes.Compare(metadataObj.Metadata, metadata) != 0 {
 		t.Errorf("Invalid metadata result %v but expected %v", metadataObj.Metadata, metadata)
 	}

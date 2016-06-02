@@ -18,16 +18,16 @@ syntax = "proto3";
 
 package protos;
 
-//ABACMetadataEntry is an entry within the metadata that store an attribute name with its respective key.
-message ABACMetadataEntry {
+//AttributesMetadataEntry is an entry within the metadata that store an attribute name with its respective key.
+message AttributesMetadataEntry {
     string AttributeName = 1;
     bytes AttributeKey = 2;
 }
 
-//ABACMetadata hold both the original metadata bytes and the metadata required by the Attribute Based Access Control
-message ABACMetadata {
+//AttributesMetadata holds both the original metadata bytes and the metadata required to access attributes.
+message AttributesMetadata {
     //Original metadata bytes
     bytes Metadata = 1;
     //Entries for each attributes considered.
-    repeated ABACMetadataEntry Entries = 2;
+    repeated AttributesMetadataEntry Entries = 2;
 }
