@@ -54,7 +54,6 @@ var syncStateSnapshotChannelSize int
 var syncStateDeltasChannelSize int
 var syncBlocksChannelSize int
 var validatorEnabled bool
-var tlsEnabled bool
 
 // Note: There is some kind of circular import issue that prevents us from
 // importing the "core" package into the "peer" package. The
@@ -119,7 +118,6 @@ func CacheConfiguration() (err error) {
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
 	syncBlocksChannelSize = viper.GetInt("peer.sync.blocks.channelSize")
 	validatorEnabled = viper.GetBool("peer.validator.enabled")
-	tlsEnabled = viper.GetBool("peer.tls.enabled")
 
 	securityEnabled = viper.GetBool("security.enabled")
 
@@ -197,15 +195,6 @@ func ValidatorEnabled() bool {
 	return validatorEnabled
 }
 
-// TLSEnabled returns the peer.tls.enabled property
-func TLSEnabled() bool {
-	if !configurationCached {
-		cacheConfiguration()
-	}
-	return tlsEnabled
-}
-
-// SecurityEnabled returns the security.enabled property
 func SecurityEnabled() bool {
 	if !configurationCached {
 		cacheConfiguration()
