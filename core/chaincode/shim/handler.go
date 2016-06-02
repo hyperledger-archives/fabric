@@ -46,7 +46,7 @@ func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
 type Handler struct {
 	sync.RWMutex
 	//shim to peer grpc serializer. User only in serialSend
-	serialLock sync.RWMutex
+	serialLock sync.Mutex
 	To         string
 	ChatStream PeerChaincodeStream
 	FSM        *fsm.FSM

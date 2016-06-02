@@ -72,7 +72,7 @@ type nextStateInfo struct {
 type Handler struct {
 	sync.RWMutex
 	//peer to shim grpc serializer. User only in serialSend
-	serialLock  sync.RWMutex
+	serialLock  sync.Mutex
 	ChatStream  ccintf.ChaincodeStream
 	FSM         *fsm.FSM
 	ChaincodeID *pb.ChaincodeID
