@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/discovery"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -51,6 +52,8 @@ type Peer interface {
 type BlocksRetriever interface {
 	RequestBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
 }
+
+type token struct{}
 
 // StateRetriever interface for retrieving state deltas, etc.
 type StateRetriever interface {
@@ -186,6 +189,7 @@ type PeerImpl struct {
 	secHelper      crypto.Peer
 	engine         Engine
 	isValidator    bool
+	discoverySvc   discovery.Discovery
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -202,8 +206,11 @@ type Engine interface {
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory) (*PeerImpl, error) {
+func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory, discInstance discovery.Discovery) (*PeerImpl, error) {
 	peer := new(PeerImpl)
+
+	peer.discoverySvc = discInstance
+
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
@@ -224,13 +231,17 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 		return nil, fmt.Errorf("Error constructing NewPeerWithHandler: %s", err)
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
-	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
+
+	peer.chatWithSomePeers(peer.discoverySvc.GetRootNodes())
 	return peer, nil
 }
 
-// NewPeerWithEngine returns a Peer which uses the supplied engine factory function for creating new peer engine and getting handler factory from it for creating new handlers on new Chat service invocations.
-func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
+// NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory, discInstance discovery.Discovery) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
+
+	peer.discoverySvc = discInstance
+
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
 	peer.isValidator = ValidatorEnabled()
@@ -258,9 +269,10 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	if peer.handlerFactory == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
-
-	go peer.chatWithPeer(viper.GetString("peer.discovery.rootnode"))
+	rootNodes := peer.discoverySvc.GetRootNodes()
+	peer.chatWithSomePeers(rootNodes)
 	return peer, nil
+
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
@@ -328,7 +340,7 @@ func (p *PeerImpl) PeersDiscovered(peersMessage *pb.PeersMessage) error {
 			// NOOP
 		} else if _, ok := p.handlerMap.m[*getHandlerKeyFromPeerEndpoint(peerEndpoint)]; ok == false {
 			// Start chat with Peer
-			go p.chatWithPeer(peerEndpoint.Address)
+			p.chatWithSomePeers([]string{peerEndpoint.Address})
 		}
 	}
 	return nil
@@ -494,18 +506,50 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 	return response
 }
 
-func (p *PeerImpl) chatWithPeer(peerAddress string) error {
-	if len(peerAddress) == 0 {
-		peerLogger.Debug("Starting up the first peer")
-		return nil // nothing to do
+// chatWithSomePeers initiates chat with 1 or all peers according to whether the node is a validator or not
+func (p *PeerImpl) chatWithSomePeers(peers []string) {
+
+	peerCountToChatWith := 1
+
+	if p.isValidator {
+		peerCountToChatWith = len(peers)
 	}
+
+	chatTokens := make(chan token, peerCountToChatWith)
+	for _, rootNode := range peers {
+		if len(rootNode) == 0 {
+			peerLogger.Debug("Starting up the first peer")
+			return // nothing to do
+		}
+		// Skip ourselves
+		if pe, err := GetPeerEndpoint(); err == nil {
+			if rootNode == pe.Address {
+				peerLogger.Debug(fmt.Sprintf("Skipping my own address(%v)", rootNode))
+				continue
+			}
+		} else {
+			peerLogger.Error("Failed obtaining peer endpoint, %v", err)
+			return
+		}
+
+		go p.chatWithPeer(rootNode, chatTokens)
+	}
+}
+
+func (p *PeerImpl) chatWithPeer(peerAddress string, chatTokens chan token) error {
 	for {
 		time.Sleep(1 * time.Second)
+
+		// acquire token
+		chatTokens <- token{}
+
 		peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
 		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 		if err != nil {
 			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
 			peerLogger.Error(e.Error())
+			// relinquish token
+			<-chatTokens
 			continue
 		}
 		serverClient := pb.NewPeerClient(conn)
@@ -514,9 +558,12 @@ func (p *PeerImpl) chatWithPeer(peerAddress string) error {
 		if err != nil {
 			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
 			peerLogger.Error(fmt.Sprintf("%s", e.Error()))
+			// relinquish token
+			<-chatTokens
 			continue
 		}
 		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
+
 		err = p.handleChat(ctx, stream, true)
 		stream.CloseSend()
 		if err != nil {
@@ -561,7 +608,7 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 	if p.isValidator {
 		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
-		peerAddress := getValidatorStreamAddress()
+		peerAddress := p.discoverySvc.GetRandomNode()
 		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
 	return response
