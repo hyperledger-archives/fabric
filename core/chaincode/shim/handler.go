@@ -45,6 +45,8 @@ func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
 // Handler handler implementation for shim side of chaincode.
 type Handler struct {
 	sync.RWMutex
+	//shim to peer grpc serializer. User only in serialSend
+	serialLock sync.Mutex
 	To         string
 	ChatStream PeerChaincodeStream
 	FSM        *fsm.FSM
@@ -65,8 +67,8 @@ func shortuuid(uuid string) string {
 }
 
 func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
-	handler.Lock()
-	defer handler.Unlock()
+	handler.serialLock.Lock()
+	defer handler.serialLock.Unlock()
 	if err := handler.ChatStream.Send(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]Error sending %s: %s", shortuuid(msg.Uuid), msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)

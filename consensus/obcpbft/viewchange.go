@@ -392,6 +392,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.stopTimer()
+	instance.nullRequestTimer.stop()
+
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 

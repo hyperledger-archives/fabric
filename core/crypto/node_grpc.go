@@ -20,10 +20,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger/fabric/core/comm"
 )
 
 func (node *nodeImpl) initTLS() error {
@@ -55,14 +56,9 @@ func (node *nodeImpl) initTLS() error {
 func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
 	node.debug("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
 
-	var conn *grpc.ClientConn
-	var err error
-
 	if node.conf.isTLSEnabled() {
 		node.debug("TLS enabled...")
 
-		// setup tls options
-		var opts []grpc.DialOption
 		config := tls.Config{
 			InsecureSkipVerify: false,
 			RootCAs:            node.tlsCertPool,
@@ -72,28 +68,8 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 
 		}
 
-		creds := credentials.NewTLS(&config)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
-	} else {
-		node.debug("TLS disabled...")
-
-		var opts []grpc.DialOption
-		opts = append(opts, grpc.WithInsecure())
-		opts = append(opts, grpc.WithTimeout(time.Second*3))
-
-		conn, err = grpc.Dial(address, opts...)
+		return comm.NewClientConnectionWithAddress(address, false, true, credentials.NewTLS(&config))
 	}
-
-	if err != nil {
-		node.error("Failed dailing in [%s].", err.Error())
-
-		return nil, err
-	}
-
-	node.debug("Dial to addr:[%s], with serverName:[%s]...done!", address, serverName)
-
-	return conn, nil
+	node.debug("TLS disabled...")
+	return comm.NewClientConnectionWithAddress(address, false, false, nil)
 }
