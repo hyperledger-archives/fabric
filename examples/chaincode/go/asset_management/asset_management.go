@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/op/go-logging"
@@ -44,8 +46,8 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 
 	// Create ownership table
 	err := stub.CreateTable("AssetsOwnership", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{"Asset", shim.ColumnDefinition_STRING, true},
-		&shim.ColumnDefinition{"Owner", shim.ColumnDefinition_BYTES, false},
+		&shim.ColumnDefinition{Name: "Asset", Type: shim.ColumnDefinition_STRING, Key: true},
+		&shim.ColumnDefinition{Name: "Owner", Type: shim.ColumnDefinition_BYTES, Key: false},
 	})
 	if err != nil {
 		return nil, errors.New("Failed creating AssetsOnwership table.")
@@ -55,11 +57,15 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 	// The metadata will contain the certificate of the administrator
 	adminCert, err := stub.GetCallerMetadata()
 	if err != nil {
+		myLogger.Debug("Failed getting metadata")
 		return nil, errors.New("Failed getting metadata.")
 	}
 	if len(adminCert) == 0 {
+		myLogger.Debug("Invalid admin certificate. Empty.")
 		return nil, errors.New("Invalid admin certificate. Empty.")
 	}
+
+	myLogger.Debug("The administrator is [%x]", adminCert)
 
 	stub.PutState("admin", adminCert)
 
@@ -76,7 +82,10 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	}
 
 	asset := args[0]
-	owner := []byte(args[1])
+	owner, err := base64.StdEncoding.DecodeString(args[1])
+	if err != nil {
+		return nil, errors.New("Failed decodinf owner")
+	}
 
 	// Verify the identity of the caller
 	// Only an administrator can invoker assign
@@ -119,7 +128,10 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	asset := args[0]
-	newOwner := []byte(args[1])
+	newOwner, err := base64.StdEncoding.DecodeString(args[1])
+	if err != nil {
+		return nil, fmt.Errorf("Failed decoding owner")
+	}
 
 	// Verify the identity of the caller
 	// Only the owner can transfer one of his assets
@@ -167,6 +179,8 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	if err != nil {
 		return nil, errors.New("Failed inserting row.")
 	}
+
+	myLogger.Debug("New owner of [%s] is [% x]", asset, newOwner)
 
 	myLogger.Debug("Transfer...done")
 
