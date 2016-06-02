@@ -1,4 +1,4 @@
 FROM hyperledger/fabric-src:latest
 RUN mkdir -p /var/hyperledger/db
-RUN go install github.com/hyperledger/fabric/_TARGET_
+COPY bin/* $GOPATH/bin/
 WORKDIR $GOPATH/src/github.com/hyperledger/fabric
