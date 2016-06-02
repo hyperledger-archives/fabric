@@ -45,7 +45,6 @@ var configurationCached = false
 // getValidatorStreamAddress(), and getPeerEndpoint()
 var localAddress string
 var localAddressError error
-var validatorStreamAddress string
 var peerEndpoint *pb.PeerEndpoint
 var peerEndpointError error
 
@@ -83,17 +82,6 @@ func CacheConfiguration() (err error) {
 		return
 	}
 
-	// getValidatorStreamAddress returns the address to stream requests to
-	getValidatorStreamAddress := func() string {
-		localaddr, _ := getLocalAddress()
-		if viper.GetBool("peer.validator.enabled") { // in validator mode, send your own address
-			return localaddr
-		} else if valaddr := viper.GetString("peer.discovery.rootnode"); valaddr != "" {
-			return valaddr
-		}
-		return localaddr
-	}
-
 	// getPeerEndpoint returns the PeerEndpoint for this Peer instance.  Affected by env:peer.addressAutoDetect
 	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
 		var peerAddress string
@@ -112,7 +100,6 @@ func CacheConfiguration() (err error) {
 
 	localAddress, localAddressError = getLocalAddress()
 	peerEndpoint, peerEndpointError = getPeerEndpoint()
-	validatorStreamAddress = getValidatorStreamAddress()
 
 	syncStateSnapshotChannelSize = viper.GetInt("peer.sync.state.snapshot.channelSize")
 	syncStateDeltasChannelSize = viper.GetInt("peer.sync.state.deltas.channelSize")
@@ -148,14 +135,6 @@ func GetLocalAddress() (string, error) {
 	return localAddress, localAddressError
 }
 
-func getValidatorStreamAddress() string {
-	if !configurationCached {
-		cacheConfiguration()
-	}
-	return validatorStreamAddress
-}
-
-// GetPeerEndpoint returns the PeerEndpoint for this peer
 func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	if !configurationCached {
 		cacheConfiguration()
