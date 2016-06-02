@@ -119,6 +119,17 @@ $(GOPATH)/bin/%:
 	@echo "Installing chaintool"
 	@cp devenv/tools/chaintool $@
 
+# We (re)build a package within a docker context but persist the $GOPATH/pkg
+# directory so that subsequent builds are faster
+build/docker/bin/%: build/image/src/.dummy $(PROJECT_FILES)
+	$(eval TARGET = ${patsubst build/docker/bin/%,%,${@}})
+	@echo "Building $@"
+	@mkdir -p build/docker/bin build/docker/pkg
+	@docker run -i \
+		-v $(abspath build/docker/bin):/opt/gopath/bin \
+		-v $(abspath build/docker/pkg):/opt/gopath/pkg \
+		hyperledger/fabric-src go install github.com/hyperledger/fabric/$(TARGET)
+
 build/bin:
 	mkdir -p $@
 
@@ -156,11 +167,12 @@ build/image/ccenv/.dummy: build/image/src/.dummy build/image/ccenv/bin/protoc-ge
 	@touch $@
 
 # Default rule for image creation
-build/image/%/.dummy: build/image/src/.dummy
+build/image/%/.dummy: build/image/src/.dummy build/docker/bin/%
 	$(eval TARGET = ${patsubst build/image/%/.dummy,%,${@}})
 	@echo "Building docker $(TARGET)-image"
-	@mkdir -p $(@D)
+	@mkdir -p $(@D)/bin
 	@cat images/app/Dockerfile.in | sed -e 's/_TARGET_/$(TARGET)/g' > $(@D)/Dockerfile
+	cp build/docker/bin/$(TARGET) $(@D)/bin
 	docker build -t $(PROJECT_NAME)-$(TARGET):latest $(@D)
 	@touch $@
 
