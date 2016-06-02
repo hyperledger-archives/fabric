@@ -17,18 +17,18 @@ limitations under the License.
 package ca
 
 import (
-	"github.com/golang/protobuf/proto"
-	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"io/ioutil"
+	"math/big"
 	"testing"
+	"time"
 
 	"crypto/x509"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-
+	"github.com/hyperledger/fabric/core/crypto/utils"
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
 	"google/protobuf"
-	"math/big"
-	"time"
 )
 
 func loadECert() (*x509.Certificate, error) {
@@ -94,8 +94,6 @@ func TestFetchAttributes(t *testing.T) {
 
 func TestRequestAttributes(t *testing.T) {
 
-	//To execute a request we have to execute a request before.
-	TestFetchAttributes(t)
 	cert, err := loadECert()
 	if err != nil {
 		t.Fatalf("Error loading ECert: %v", err)
@@ -154,6 +152,27 @@ func TestRequestAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
+	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	if err != nil {
+		t.Fatalf("Error executiong test: %v", err)
+	}
+
+	valueMap := make(map[string]string)
+	for _, eachExtension := range aCert.Extensions {
+		if IsAttributeOID(eachExtension.Id) {
+			var attribute pb.ACAAttribute
+			proto.Unmarshal(eachExtension.Value, &attribute)
+			valueMap[attribute.AttributeName] = string(attribute.AttributeValue)
+		}
+	}
+
+	if valueMap["company"] != "ACompany" {
+		t.Fatal("Test failed 'company' attribute don't found.")
+	}
+
+	if valueMap["position"] != "Software Engineer" {
+		t.Fatal("Test failed 'position' attribute don't found.")
+	}
 }
 
 func contains(s []string, e string) bool {
