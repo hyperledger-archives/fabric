@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"time"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -61,6 +62,7 @@ var (
 	queryTxCreators   []createTxFunc
 
 	ksPwd = []byte("This is a very very very long pw")
+
 )
 
 func TestMain(m *testing.M) {
@@ -188,49 +190,66 @@ func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenari
 
 func TestParallelInitClose(t *testing.T) {
 	// TODO: complete this
-	conf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
-	RegisterClient(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	clientConf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
+	RegisterClient(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD())
+
+	peerConf := utils.NodeConfiguration{Type: "peer", Name: "peerthread"}
+	RegisterPeer(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD())
+
+	validatorConf := utils.NodeConfiguration{Type: "validator", Name: "validatorthread"}
+	RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD())
 
 	done := make(chan bool)
 
 	n := 10
+	var peer Peer
+	var validator Peer
+	var err error
 	for i := 0; i < n; i++ {
 		go func() {
+			peer, err = InitPeer(peerConf.Name, nil)
+			if err != nil {
+				t.Logf("Failed peer initialization [%s]", err)
+			}
+
+			validator, err = InitValidator(validatorConf.Name, nil)
+			if err != nil {
+				t.Logf("Failed validator initialization [%s]", err)
+			}
+
 			for i := 0; i < 5; i++ {
-				client, err := InitClient(conf.Name, nil)
+				client, err := InitClient(clientConf.Name, nil)
 				if err != nil {
-					t.Log("Init failed")
+					t.Logf("Failed client initialization [%s]", err)
 				}
 
-				cis := &obc.ChaincodeInvocationSpec{
-					ChaincodeSpec: &obc.ChaincodeSpec{
-						Type:                 obc.ChaincodeSpec_GOLANG,
-						ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-						CtorMsg:              nil,
-						ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
-					},
-				}
-				for i := 0; i < 20; i++ {
-					uuid := util.GenerateUUID()
-					client.NewChaincodeExecute(cis, uuid)
-				}
+				time.Sleep(500 * time.Millisecond)
 
 				err = CloseClient(client)
 				if err != nil {
-					t.Log("Close failed")
+					t.Logf("Failed client closing [%s]", err)
 				}
 			}
 			done <- true
-
 		}()
 	}
+
 	for i := 0; i < n; i++ {
 		log.Info("Waiting")
 		<-done
 		log.Info("+1")
 	}
-	log.Info("Test Finished!")
-	//
+
+	// Close Peer n times
+	for i := 0; i < n; i++ {
+		if err := ClosePeer(peer); err != nil {
+			t.Fatalf("Peer should be still closable. [%d][%d]", i, n)
+		}
+
+		if err := CloseValidator(validator); err != nil {
+			t.Fatalf("Validator should be still closable. [%d][%d]", i, n)
+		}
+	}
 }
 
 func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
@@ -1756,9 +1775,24 @@ func isEqual(src, dst *obc.Transaction) error {
 
 func cleanup() {
 	fmt.Println("Cleanup...")
-	CloseAllClients()
-	CloseAllPeers()
-	CloseAllValidators()
+	ok, errs := CloseAllClients()
+	if !ok {
+		for _, err := range errs {
+			log.Error("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllPeers()
+	if !ok {
+		for _, err := range errs {
+			log.Error("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllValidators()
+	if !ok {
+		for _, err := range errs {
+			log.Error("Failed closing clients [%s]", err)
+		}
+	}
 	stopPKI()
 	removeFolders()
 	fmt.Println("Cleanup...done!")
