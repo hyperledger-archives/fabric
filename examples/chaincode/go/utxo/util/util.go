@@ -28,6 +28,8 @@ func decodeInt32(input []byte) (int32, []byte, error) {
 	return myint32, input, nil
 }
 
+// ReadVarInt reads an int that is formatted in the Bitcoin style
+// variable int format
 func ReadVarInt(buffer *bytes.Buffer) uint64 {
 	var finalResult uint64
 
@@ -52,6 +54,7 @@ func ReadVarInt(buffer *bytes.Buffer) uint64 {
 	return finalResult
 }
 
+// ParseUTXOBytes parses a bitcoin sytle transaction
 func ParseUTXOBytes(txAsUTXOBytes []byte) *TX {
 	buffer := bytes.NewBuffer(txAsUTXOBytes)
 	var version int32

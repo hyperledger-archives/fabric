@@ -18,13 +18,15 @@ package api
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	inproc "github.com/hyperledger/fabric/core/container/inproccontroller"
+	"github.com/op/go-logging"
 )
 
 var sysccLogger = logging.MustGetLogger("sysccapi")
 
+// RegisterSysCC registers the given system chaincode with the peer
 func RegisterSysCC(path string, o interface{}) error {
 	syscc := o.(shim.Chaincode)
 	if syscc == nil {

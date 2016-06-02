@@ -253,11 +253,8 @@ func (net *testnet) process() error {
 			case <-time.After(100 * time.Millisecond):
 				continue
 			}
-			return nil
 		}
 	}
-
-	return nil
 }
 
 func (net *testnet) processContinually() {
@@ -279,7 +276,7 @@ func makeTestnet(N int, initFn func(id uint64, network *testnet) endpoint) *test
 	net.closed = make(chan struct{})
 	net.endpoints = make([]endpoint, N)
 
-	for i, _ := range net.endpoints {
+	for i := range net.endpoints {
 		net.endpoints[i] = initFn(uint64(i), net)
 	}
 

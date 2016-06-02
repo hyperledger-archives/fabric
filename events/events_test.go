@@ -44,7 +44,7 @@ var adapter *Adapter
 var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
-	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}, nil
+	return []*ehpb.Interest{{"block", ehpb.Interest_PROTOBUF}}, nil
 	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
 }
 

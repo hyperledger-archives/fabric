@@ -228,7 +228,7 @@ func (ledger *Ledger) GetState(chaincodeID string, key string, committed bool) (
 
 // GetStateRangeScanIterator returns an iterator to get all the keys (and values) between startKey and endKey
 // (assuming lexical order of the keys) for a chaincodeID.
-// If committed is true, the key-values are retrived only from the db. If committed is false, the results from db
+// If committed is true, the key-values are retrieved only from the db. If committed is false, the results from db
 // are mergerd with the results in memory (giving preference to in-memory data)
 // The key-values in the returned iterator are not guaranteed to be in any specific order
 func (ledger *Ledger) GetStateRangeScanIterator(chaincodeID string, startKey string, endKey string, committed bool) (statemgmt.RangeScanIterator, error) {
@@ -267,7 +267,7 @@ func (ledger *Ledger) SetStateMultipleKeys(chaincodeID string, kvs map[string][]
 }
 
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
-// should be used when transfering the state from one peer to another peer. You must call
+// should be used when transferring the state from one peer to another peer. You must call
 // stateSnapshot.Release() once you are done with the snapsnot to free up resources.
 func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 	dbSnapshot := db.GetDBHandle().GetSnapshot()
@@ -308,7 +308,7 @@ func (ledger *Ledger) GetStateDelta(blockNumber uint64) (*statemgmt.StateDelta, 
 // It's possible to roll the state forwards or backwards using
 // stateDelta.RollBackwards. By default, a delta retrieved for block 3 can
 // be used to roll forwards from state at block 2 to state at block 3. If
-// stateDelta.RollBackwards=false, the delta retrived for block 3 can be
+// stateDelta.RollBackwards=false, the delta retrieved for block 3 can be
 // used to roll backwards from the state at block 3 to the state at block 2.
 func (ledger *Ledger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
 	err := ledger.checkValidIDBegin()

@@ -37,7 +37,7 @@ func TestBucketCache(t *testing.T) {
 func testGetRootHashes(t *testing.T, enableBlockCache bool) ([]byte, []byte, []byte, []byte) {
 	// number of buckets at each level 26,9,3,1
 	testHasher, stateImplTestWrapper, stateDelta := createFreshDBAndInitTestStateImplWithCustomHasher(t, 26, 3)
-	// populate hash fucntion such that they intersect at higher level buckets
+	// populate hash function such that they intersect at higher level buckets
 	testHasher.populate("chaincodeID1", "key1", 1)
 	testHasher.populate("chaincodeID2", "key2", 15)
 	testHasher.populate("chaincodeID3", "key3", 26)

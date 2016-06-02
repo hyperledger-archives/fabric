@@ -147,7 +147,9 @@ debug {} "$argv0 $argv"
 parms followPoll [durationToMs [parms followPoll]]
 
 if {[null [parms explicitPeers]]} {
-    busywork::networkToArray ::parms network.
+    if {[catch {busywork::networkToArray ::parms network.} msg]} {
+        errorExit $msg
+    }
     parms peers [parms network.peer.restAddresses]
     if {[parms network.consensus] eq "noops"} {
         parms peers [first [parms peers]]
@@ -192,6 +194,15 @@ atErrorExit {killPIDs}
 
 # TODO : Move block access to ::fabric package procedures
 
+proc forceBreakOrErrorExit {i_token} {
+    if {[parms force]} {
+        err {} "Continuing after error (-force mode)"
+        return -code break
+    } else {
+        httpErrorExit $i_token
+    }
+}
+
 set log [parms log]
 set follow [parms follow]
 set block [parms block]
@@ -203,21 +214,19 @@ while {1} {
 
         set peer [peerList next]
 
-        if {[catch {
-            http::geturl http://$peer/chain/blocks/$block
-        } token]} {
+        if {[catch {http::geturl http://$peer/chain/blocks/$block} token]} {
             if {$retry > 0} {
                 if {$retry == [parms retry]} {
-                    warn warn \
-                        "$peer @ block $block : " \
+                    warn {} \
+                        "$peer @ block $block: " \
                         "Retrying after catastrophic HTTP error"
+                }
+                http::cleanup $token
+                continue
             }
-            continue
-        }
-        errorExit \
-                "$peer @ block $block : ::http::geturl failed " \
-                "with [parms retry] retries\n" \
-                $::errorInfo
+            errorExit \
+                "$peer @ block $block: ::http::geturl failed " \
+                "with [parms retry] retries : $token"
         }
     
         if {[http::ncode $token] == 404} {
@@ -236,130 +245,82 @@ while {1} {
             
             if {$retry > 0} {
                 if {$retry == [parms retry]} {
-                    warn warn \
-                        "$peer @ block $block : " \
+                    warn {} \
+                        "$peer @ block $block: " \
                         "Retrying after HTTP error return"
                 }
+                http::cleanup $token
                 continue
             }
             
-            err err \
+            err {} \
                 "REST API call to $peer for block $block failed " \
                 "with [parms retry] retries"
-            err err "HTTP 'ncode' = '[http::ncode $token]'"
-            err err "Full HTTP token dump below; Aborting"
-            foreach {k v} [array get $token] {err err "    $k $v"}
-            exit 1
+            httpErrorExit $token
         }
         
-        set parse [json::json2dict [http::data $token]]
-        
+        if {[catch {json::json2dict [http::data $token]} parse]} {
+            err {} "$peer @ block $block: JSON response does not parse: $parse"
+            forceBreakOrErrorExit $token
+        }
+            
         if {$block != 0} {
             
-            set force 0
             if {[catch {dict get $parse transactions} transactions]} {
-                
-                if {[parms force]} {
-
-                    err {} \
-                        "Block $block JSON response does not parse; " \
-                        "Continuing (-force mode)."
-                    set force 1
-
-                } else {
-
-                    err {} "Block $block JSON response does not parse"
-                    err {} "HTTP 'ncode' = '[http::ncode $token]'"
-                    err {} "Full HTTP token dump below; Aborting"
-                    foreach {k v} [array get $token] {
-                        err {} "    $k $v"
-                    }
-                    exit 1
-                }
+                err {} \
+                    "$peer @ block $block: " \
+                    "Error getting transactions: $transactions"
+                forceBreakOrErrorExit $token
             }
 
-            if {!$force} {
-
-                if {[null $transactions]} {
-
-                    err {} "Block $block contains no transactions"
-                    err {} "HTTP 'ncode' = '[http::ncode $token]'"
-                    err {} "Full HTTP token dump below; Aborting"
-                    foreach {k v} [array get $token] {
-                        err {} "    $k $v"
-                    }
-                    exit 1
-                }
-
-                foreach tx $transactions {
+            foreach tx $transactions {
                 
-                    # The chaincodeID comes back as bytes so that it can be
-                    # encrypted. We don't log it or the timestamp now. The
-                    # "UUID" for type 1 (deploy) transactions is actually the
-                    # chaincode name.
-                    
-                    if {[catch {
-                        set type [dict get $tx type]
-                        set uuid [dict get $tx uuid]}]} {
-                        
-                        if {[parms force]} {
-
-                            err {} \
-                                "Block $block contains a malformed " \
-                                "transaction; Continuing (-force mode)"
-
-                        } else {
-
-                            errorExit \
-                                "Error: Block $block contains a malformed " \
-                                "transaction!\n" \
-                                "Transaction JSON keys : [dict keys $tx]"
-                        }
-
-                    } else {
-                    
-                        switch $type {
-                            1 {
-                                puts $log "d $uuid"
-                            }
-                            2 {
-                                puts $log "i $uuid"
-                            }
-                            default {
-                                if {[parms force]} {
-
-                                    err {} \
-                                        "Block $block has a transaction " \
-                                        "with an illegal type $d; " \
-                                        "Continuing (-force mode)"
-
-                                } else {
-                                    
-                                    errorExit \
-                                        "Block $block has a transaction with " \
-                                        "an illegal type $d"
-                                }
-                            }
-                        }
+                # The chaincodeID comes back as bytes so that it can be
+                # encrypted. We don't log it or the timestamp now. The
+                # "UUID" for type 1 (deploy) transactions is actually the
+                # chaincode name.
+                
+                if {[catch {dict get $tx type} type]} {
+                    err {} \
+                        "$peer @ block $block: " \
+                        "Error parsing type field: $type"
+                    forceBreakOrErrorExit $token
+                }
+                if {[catch {dict get $tx uuid} uuid]} {
+                    err {} "$peer @ block $block: " \
+                        "Error parsing uuid field: $uuid"
+                    forceBreakOrErrorExit $token
+                }
+                switch $type {
+                    1 {
+                        puts $log "d $uuid"
+                    }
+                    2 {
+                        puts $log "i $uuid"
+                    }
+                    default {
+                        err {} "$peer @ block $block: " \
+                            "Illegal transaction type: $type"
+                        forceBreakOrErrorExit $token
                     }
                 }
             }
         }
-        
+
         http::cleanup $token
         puts $log "b $block"
-        
+
         if {$follow} {flush $log}
-        
+
         set lastBlock $block
         incr block
-        
+
         break
     }
-    
+
     if {$retry != [parms retry]} {
         note note \
-            "$peer @ block $lastBlock : " \
-            "Success after [expr {[parms retry] - $retry}] HTTP retries"
+        "$peer @ block $lastBlock: " \
+        "Success after [expr {[parms retry] - $retry}] HTTP retries"
     }
 }

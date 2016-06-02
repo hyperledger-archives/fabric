@@ -27,13 +27,12 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 
+	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
@@ -41,8 +40,6 @@ import (
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 )
-
-const defaultTimeout = time.Second * 3
 
 // Peer provides interface for a peer
 type Peer interface {
@@ -74,7 +71,7 @@ type BlockChainAccessor interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 }
 
-// BlockchainModifier interface for applying changes to the block chain
+// BlockChainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
 	RollbackStateDelta(id interface{}) error
@@ -83,7 +80,7 @@ type BlockChainModifier interface {
 	PutBlock(blockNumber uint64, block *pb.Block) error
 }
 
-// BlockchainUtil interface for interrogating the block chain
+// BlockChainUtil interface for interrogating the block chain
 type BlockChainUtil interface {
 	HashBlock(block *pb.Block) ([]byte, error)
 	VerifyBlockchain(start, finish uint64) (uint64, error)
@@ -159,34 +156,10 @@ func GetLocalIP() string {
 
 // NewPeerClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
 func NewPeerClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	if TlsEnabled() {
-		var sn string
-		if viper.GetString("peer.tls.serverhostoverride") != "" {
-			sn = viper.GetString("peer.tls.serverhostoverride")
-		}
-		var creds credentials.TransportAuthenticator
-		if viper.GetString("peer.tls.cert.file") != "" {
-			var err error
-			creds, err = credentials.NewClientTLSFromFile(viper.GetString("peer.tls.cert.file"), sn)
-			if err != nil {
-				grpclog.Fatalf("Failed to create TLS credentials %v", err)
-			}
-		} else {
-			creds = credentials.NewClientTLSFromCert(nil, sn)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		// No security, disable in grpc
-		opts = append(opts, grpc.WithInsecure())
+	if comm.TLSEnabled() {
+		return comm.NewClientConnectionWithAddress(peerAddress, true, true, comm.InitTLSForPeer())
 	}
-	opts = append(opts, grpc.WithTimeout(defaultTimeout))
-	opts = append(opts, grpc.WithBlock())
-	conn, err := grpc.Dial(peerAddress, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return conn, err
+	return comm.NewClientConnectionWithAddress(peerAddress, true, false, nil)
 }
 
 type ledgerWrapper struct {
@@ -199,8 +172,10 @@ type handlerMap struct {
 	m map[pb.PeerID]MessageHandler
 }
 
+// HandlerFactory for creating new MessageHandlers
 type HandlerFactory func(MessageHandlerCoordinator, ChatStream, bool, MessageHandler) (MessageHandler, error)
 
+// EngineFactory for creating new engines
 type EngineFactory func(MessageHandlerCoordinator) (Engine, error)
 
 // PeerImpl implementation of the Peer service
@@ -253,7 +228,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	return peer, nil
 }
 
-// NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
+// NewPeerWithEngine returns a Peer which uses the supplied engine factory function for creating new peer engine and getting handler factory from it for creating new handlers on new Chat service invocations.
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}

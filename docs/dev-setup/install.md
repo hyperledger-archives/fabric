@@ -72,6 +72,8 @@ The `node start` command will initiate a peer process, with which one can intera
       help        Help about any command
 ```
 
+**Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
+
 #### 3. Test
 New code must be accompanied by test cases both in unit and Behave tests.
 
@@ -157,7 +159,7 @@ sudo su
 yum install git
 mkdir -p $HOME/git/src/github.com/hyperledger
 cd $HOME/git/src/github.com/hyperledger
-git clone https://github.com/vpaprots/fabric.git
+git clone https://github.com/hyperledger/fabric.git
 source fabric/devenv/setupRHELonZ.sh
 ```
 From there, follow instructions at [Installation](install.md):

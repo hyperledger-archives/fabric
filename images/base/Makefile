@@ -1,9 +1,5 @@
-# We could set VERSION=$(shell cat ./release), but better to leave this version independent
-# of consumers so that updates to base image may be prepared/published before consumers
-# begin to access
-
 NAME=hyperledger/fabric-baseimage
-VERSION=0.0.9
+VERSION=$(shell cat ./release)
 ARCH=$(shell uname -m)
 DOCKER_TAG ?= $(ARCH)-$(VERSION)
 VAGRANTIMAGE=packer_virtualbox-iso_virtualbox.box
@@ -33,11 +29,11 @@ Dockerfile: Dockerfile.in Makefile
 	@cat Dockerfile.in | \
 	sed -e  "s|_DOCKER_BASE_|$(DOCKER_BASE)|" >> $@
 
-docker: Dockerfile
+docker: Dockerfile release
 	@echo "Generating docker"
 	@docker build -t $(NAME):$(DOCKER_TAG) .
 
-vagrant: $(VAGRANTIMAGE) remove
+vagrant: $(VAGRANTIMAGE) remove release
 	vagrant box add -name $(NAME) $(VAGRANTIMAGE)
 
 push:

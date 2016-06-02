@@ -205,6 +205,9 @@ func TestLedgerPutRawBlock(t *testing.T) {
 	if !bytes.Equal(newBlock.PreviousBlockHash, previousHash) {
 		t.Fatalf("Expected new block to properly set its previous hash")
 	}
+
+	// Assert that a non-existent block is nil
+	testutil.AssertNil(t, ledgerTestWrapper.GetBlockByNumber(2))
 }
 
 func TestLedgerSetRawState(t *testing.T) {

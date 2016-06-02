@@ -26,14 +26,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
-
 	"google/protobuf"
 	"math/big"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 )
 
@@ -163,7 +162,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -239,10 +238,8 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		}
 
 		return &tCertImpl{client, x509Cert, tempSK, []byte{}}, nil
-	} else {
-		client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	}
-
+	client.warning("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s]. This is an foreign certificate.", err.Error())
 	return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 }
 
@@ -300,7 +297,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	mac.Write(TCertIndex)
 	ExpansionValue := mac.Sum(nil)
 
-	// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+	// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
@@ -466,7 +463,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[strin
 		mac.Write(TCertIndex)
 		ExpansionValue := mac.Sum(nil)
 
-		// Derive tpk and tsk accordingly to ExapansionValue from enrollment pk,sk
+		// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 

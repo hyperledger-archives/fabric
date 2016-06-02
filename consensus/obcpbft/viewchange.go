@@ -392,6 +392,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.stopTimer()
+	instance.nullRequestTimer.stop()
+
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
@@ -433,7 +435,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
-	instance.consumer.viewChange(instance.view)
+	instance.manager.inject(viewChangedEvent{})
 
 	return nil
 }

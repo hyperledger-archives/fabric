@@ -14,17 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package abac
+package attributes
 
 import (
 	"bytes"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
-	pb "github.com/hyperledger/fabric/core/crypto/abac/proto"
+	pb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 
@@ -107,6 +108,10 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 
 //ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
 func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
+	if position < 0 {
+		return nil, fmt.Errorf("Invalid attribute position. Received [%v]", position)
+	}
+
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
 	value, err := utils.GetCriticalExtension(tcert, oid)
 	if err != nil {
@@ -198,69 +203,72 @@ func GetValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certifi
 	return value, err
 }
 
-func createABACHeaderEntry(preK0 []byte) (*pb.ABACMetadataEntry, error) {
+func createAttributesHeaderEntry(preK0 []byte) *pb.AttributesMetadataEntry {
 	attKey := getAttributeKey(preK0, HeaderAttributeName)
-	return &pb.ABACMetadataEntry{HeaderAttributeName, attKey}, nil
+	return &pb.AttributesMetadataEntry{HeaderAttributeName, attKey}
 }
 
-func createABACMetadataEntry(attributeName string, preK0 []byte) (*pb.ABACMetadataEntry, error) {
+func createAttributesMetadataEntry(attributeName string, preK0 []byte) *pb.AttributesMetadataEntry {
 	attKey := getAttributeKey(preK0, attributeName)
-	return &pb.ABACMetadataEntry{attributeName, attKey}, nil
+	return &pb.AttributesMetadataEntry{attributeName, attKey}
 }
 
-//CreateABACMetadataObjectFromCert creates an ABACMetadata object from certificate "cert", metadata and the attributes keys.
-func CreateABACMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) (*pb.ABACMetadata, error) {
-	var entries []*pb.ABACMetadataEntry
+//CreateAttributesMetadataObjectFromCert creates an AttributesMetadata object from certificate "cert", metadata and the attributes keys.
+func CreateAttributesMetadataObjectFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) *pb.AttributesMetadata {
+	var entries []*pb.AttributesMetadataEntry
 	for _, key := range attributeKeys {
 		if len(key) == 0 {
 			continue
 		}
-		entry, err := createABACMetadataEntry(key, preK0)
-		if err == nil {
-			entries = append(entries, entry)
-		}
+
+		entry := createAttributesMetadataEntry(key, preK0)
+		entries = append(entries, entry)
 	}
-	headerEntry, err := createABACHeaderEntry(preK0)
-	if err == nil {
-		entries = append(entries, headerEntry)
-	}
-	return &pb.ABACMetadata{metadata, entries}, nil
+	headerEntry := createAttributesHeaderEntry(preK0)
+	entries = append(entries, headerEntry)
+
+	return &pb.AttributesMetadata{metadata, entries}
 }
 
-//CreateABACMetadataFromCert creates the ABACMetadata from the original metadata and certificate "cert".
-func CreateABACMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
-	abacMetadata, err := CreateABACMetadataObjectFromCert(cert, metadata, preK0, attributeKeys)
-	if err != nil {
-		return nil, err
-	}
-	return proto.Marshal(abacMetadata)
+//CreateAttributesMetadataFromCert creates the AttributesMetadata from the original metadata and certificate "cert".
+func CreateAttributesMetadataFromCert(cert *x509.Certificate, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
+	attributesMetadata := CreateAttributesMetadataObjectFromCert(cert, metadata, preK0, attributeKeys)
+
+	return proto.Marshal(attributesMetadata)
 }
 
-//CreateABACMetadata create the ABACMetadata from the original metadata
-func CreateABACMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
+//CreateAttributesMetadata create the AttributesMetadata from the original metadata
+func CreateAttributesMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
 	cert, err := utils.DERToX509Certificate(raw)
 	if err != nil {
 		return nil, err
 	}
 
-	return CreateABACMetadataFromCert(cert, metadata, preK0, attributeKeys)
+	return CreateAttributesMetadataFromCert(cert, metadata, preK0, attributeKeys)
 }
 
-//GetABACMetadata object from the original metadata "metadata".
-func GetABACMetadata(metadata []byte) (*pb.ABACMetadata, error) {
-	abacMetadata := &pb.ABACMetadata{}
-	err := proto.Unmarshal(metadata, abacMetadata)
-	return abacMetadata, err
+//GetAttributesMetadata object from the original metadata "metadata".
+func GetAttributesMetadata(metadata []byte) (*pb.AttributesMetadata, error) {
+	attributesMetadata := &pb.AttributesMetadata{}
+	err := proto.Unmarshal(metadata, attributesMetadata)
+	return attributesMetadata, err
 }
 
 //BuildAttributesHeader builds a header attribute from a map of attribute names and positions.
-func BuildAttributesHeader(attributesHeader map[string]int) []byte {
+func BuildAttributesHeader(attributesHeader map[string]int) ([]byte, error) {
 	var header []byte
 	var headerString string
+	var positions map[int]bool = make(map[int]bool)
+
 	for k, v := range attributesHeader {
+		if positions[v] {
+			return nil, errors.New("Duplicated position found in attributes header")
+		}
+		positions[v] = true
+
 		vStr := strconv.Itoa(v)
 		headerString = headerString + k + "->" + vStr + "#"
 	}
 	header = []byte(headerPrefix + headerString)
-	return header
+	return header, nil
 }

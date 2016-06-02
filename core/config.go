@@ -83,6 +83,8 @@ var coreLogger = logging.MustGetLogger("core")
 var configurationCached bool
 var securityEnabled bool
 
+// CacheConfiguration caches configuration settings so that reading the yaml
+// file can be avoided on future requests
 func CacheConfiguration() error {
 	securityEnabled = viper.GetBool("security.enabled")
 	configurationCached = true
@@ -95,6 +97,7 @@ func cacheConfiguration() {
 	}
 }
 
+// SecurityEnabled returns true if security is enabled
 func SecurityEnabled() bool {
 	if !configurationCached {
 		cacheConfiguration()

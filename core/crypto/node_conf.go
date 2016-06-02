@@ -18,8 +18,10 @@ package crypto
 
 import (
 	"errors"
-	"github.com/spf13/viper"
 	"path/filepath"
+
+	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
+	"github.com/spf13/viper"
 )
 
 func (node *nodeImpl) initConfiguration(name string) (err error) {
@@ -59,7 +61,7 @@ type configuration struct {
 
 	tlsServerName string
 
-	multiThreading bool
+	multiThreading  bool
 	tCertBatchSize  int
 }
 
