@@ -141,8 +141,6 @@ type pbftCore struct {
 	checkpointStore map[Checkpoint]bool   // track checkpoints as set
 	viewChangeStore map[vcidx]*ViewChange // track view-change messages
 	newViewStore    map[uint64]*NewView   // track last new-view we received or sent
-
-	sendViewChangedEvent bool // TODO _very_ hacky, the view change code sets this flag when a new view is accepted, signaling that a view change event should be generated
 }
 
 type qidx struct {
@@ -321,15 +319,15 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	case *Commit:
 		err = instance.recvCommit(et)
 	case *Checkpoint:
-		err = instance.recvCheckpoint(et)
+		return instance.recvCheckpoint(et)
 	case *ViewChange:
-		err = instance.recvViewChange(et)
+		return instance.recvViewChange(et)
 	case *NewView:
-		err = instance.recvNewView(et)
+		return instance.recvNewView(et)
 	case *FetchRequest:
 		err = instance.recvFetchRequest(et)
 	case returnRequestEvent:
-		err = instance.recvReturnRequest(et)
+		return instance.recvReturnRequest(et)
 	case stateUpdatingEvent:
 		update := et
 		instance.skipInProgress = true
@@ -351,6 +349,13 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		instance.nullRequestHandler()
 	case workEvent:
 		et() // Used to allow the caller to steal use of the main thread, to be removed
+	case viewChangeQuorumEvent:
+		logger.Debug("Replica %d received view change quorum, processing new view", instance.id)
+		if instance.primary(instance.view) == instance.id {
+			return instance.sendNewView()
+		}
+
+		return instance.processNewView()
 	case viewChangedEvent:
 		instance.consumer.viewChange(instance.view)
 	default:
@@ -361,10 +366,6 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		logger.Warning(err.Error())
 	}
 
-	if instance.sendViewChangedEvent { // TODO, pass this back through stack unwinding, rather than hacky method
-		instance.sendViewChangedEvent = false
-		return viewChangedEvent{}
-	}
 	return nil
 }
 
@@ -1054,7 +1055,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	}
 }
 
-func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) event {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.Id)
 
@@ -1148,7 +1149,7 @@ func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
 	return
 }
 
-func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
+func (instance *pbftCore) recvReturnRequest(req *Request) event {
 	digest := hashReq(req)
 	if _, ok := instance.missingReqs[digest]; !ok {
 		return nil // either the wrong digest, or we got it already from someone else

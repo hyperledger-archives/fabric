@@ -408,7 +408,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 		ReplicaId: 1,
 	}
 
-	if nil != instance.processNewView() {
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
 		t.Fatalf("Failed to successfully process new view")
 	}
 
@@ -1288,7 +1288,7 @@ func TestNetworkNullRequests(t *testing.T) {
 	net.pbftEndpoints[0].manager.queue() <- msg
 
 	go net.processContinually()
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions != 1 {
