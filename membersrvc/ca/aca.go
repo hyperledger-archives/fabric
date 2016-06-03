@@ -337,7 +337,6 @@ func (aca *ACA) fetchAndPopulateAttributes(id, affiliation string) error {
 	if err != nil {
 		return err
 	}
-
 	err = aca.populateAttributes(attrs)
 	if err != nil {
 		return err

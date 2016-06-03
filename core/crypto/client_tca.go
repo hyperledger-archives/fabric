@@ -26,14 +26,13 @@ import (
 	"errors"
 	"fmt"
 
-	"google/protobuf"
-	"math/big"
-	"time"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
+	"google/protobuf"
+	"math/big"
+	"time"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {

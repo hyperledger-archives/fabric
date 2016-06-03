@@ -17,8 +17,6 @@ limitations under the License.
 package crypto
 
 import (
-	obc "github.com/hyperledger/fabric/protos"
-
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -29,16 +27,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/fabric.andres/core/crypto/abac"
+	obc "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
+
 	"crypto/rand"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
-	"github.com/hyperledger/fabric/core/crypto/abac"
-
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

@@ -35,7 +35,7 @@ import (
 	protobuf "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/abac"
+	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
@@ -277,25 +277,25 @@ func (tcap *TCAP) selectValidAttributes(certRaw []byte) ([]*pb.TCertAttribute, e
 	return ans, nil
 }
 
-func (tcap *TCAP) requestAttributes(id string, ecert []byte, attributes []*pb.TCertAttribute) ([]*pb.TCertAttribute, error) {
+func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAttribute) ([]*pb.TCertAttribute, error) {
 	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
 	sock, acaP, err := GetACAClient()
 	if err != nil {
 		return nil, err
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
+	attrsHash := make([]*pb.TCertAttributeHash, 0)
 
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
+	for _, att := range attrs {
+		attrHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
+		attrsHash = append(attrsHash, &attrHash)
 	}
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:         &pb.Identity{id},
 		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Attributes: attrsHash,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -340,9 +340,9 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		return nil, err
 	}
 
-	var attributes = []*pb.TCertAttribute{}
+	var attrs = []*pb.TCertAttribute{}
 	if in.Attributes != nil && viper.GetBool("aca.enabled") {
-		attributes, err = tcap.requestAttributes(id, raw, in.Attributes)
+		attrs, err = tcap.requestAttributes(id, raw, in.Attributes)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +418,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 			return nil, err
 		}
 
-		extensions, preK0, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, attributes)
+		extensions, preK0, err := tcap.generateExtensions(tcertid, encryptedTidx, cert, attrs)
 
 		if err != nil {
 			return nil, err
@@ -437,9 +437,9 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attributes []*pb.TCertAttribute) ([]pkix.Extension, []byte, error) {
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attrs []*pb.TCertAttribute) ([]pkix.Extension, []byte, error) {
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	extensions := make([]pkix.Extension, len(attributes))
+	extensions := make([]pkix.Extension, len(attrs))
 
 	// Compute preK_1 to encrypt attributes and enrollment ID
 	preK1, err := tcap.tca.getPreKFrom(enrollmentCert)
@@ -469,18 +469,18 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 
 	attributeIdentifierIndex := 9
 	count := 0
-	attributesHeader := make(map[string]int)
-	// Encrypt and append attributes to the extensions slice
-	for _, a := range attributes {
+	attrsHeader := make(map[string]int)
+	// Encrypt and append attrs to the extensions slice
+	for _, a := range attrs {
 		count++
 
 		value := []byte(a.AttributeValue)
 
 		//Save the position of the attribute extension on the header.
-		attributesHeader[a.AttributeName] = count
+		attrsHeader[a.AttributeName] = count
 
 		if viper.GetBool("tca.attribute-encryption.enabled") {
-			value, err = abac.EncryptAttributeValuePK0(preK0, a.AttributeName, value)
+			value, err = attributes.EncryptAttributeValuePK0(preK0, a.AttributeName, value)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -500,10 +500,13 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
 
 	// Append the attributes header if there was attributes to include in the TCert
-	if len(attributes) > 0 {
-		headerValue := abac.BuildAttributesHeader(attributesHeader)
+	if len(attrs) > 0 {
+		headerValue, err := attributes.BuildAttributesHeader(attrsHeader)
+		if err != nil {
+			return nil, nil, err
+		}
 		if viper.GetBool("tca.attribute-encryption.enabled") {
-			headerValue, err = abac.EncryptAttributeValuePK0(preK0, abac.HeaderAttributeName, headerValue)
+			headerValue, err = attributes.EncryptAttributeValuePK0(preK0, attributes.HeaderAttributeName, headerValue)
 			if err != nil {
 				return nil, nil, err
 			}
