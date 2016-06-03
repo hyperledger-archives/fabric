@@ -18,6 +18,7 @@ package ecies
 
 import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 type encryptionSchemeImpl struct {
@@ -56,6 +57,10 @@ func (es *encryptionSchemeImpl) Init(params primitives.AsymmetricCipherParameter
 }
 
 func (es *encryptionSchemeImpl) Process(msg []byte) ([]byte, error) {
+	if len(msg) == 0 {
+		return nil, utils.ErrNilArgument
+	}
+
 	if es.isForEncryption {
 		// Encrypt
 		return eciesEncrypt(es.params.GetRand(), es.pub.pub, nil, nil, msg)
