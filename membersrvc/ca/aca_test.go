@@ -263,27 +263,10 @@ func TestRequestAttributes_AttributesMismatch(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
-	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+	if resp.Status != pb.ACAAttrResp_NO_ATTRIBUTES_FOUND {
+		t.Fatal("Test failed 'company' attribute shouldn't be found.")
 	}
 
-	valueMap := make(map[string]string)
-	for _, eachExtension := range aCert.Extensions {
-		if IsAttributeOID(eachExtension.Id) {
-			var attribute pb.ACAAttribute
-			proto.Unmarshal(eachExtension.Value, &attribute)
-			valueMap[attribute.AttributeName] = string(attribute.AttributeValue)
-		}
-	}
-
-	if valueMap["company"] != "ACompany" {
-		t.Fatal("Test failed 'company' attribute don't found.")
-	}
-
-	if valueMap["position"] != "Software Engineer" {
-		t.Fatal("Test failed 'position' attribute don't found.")
-	}
 }
 
 func TestRequestAttributes_MissingSignature(t *testing.T) {
