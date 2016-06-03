@@ -161,6 +161,8 @@ const (
 	ACAAttrResp_NO_ATTRIBUTES_FOUND ACAAttrResp_StatusCode = 8
 	// Processed with errors.
 	ACAAttrResp_FAILURE ACAAttrResp_StatusCode = 100
+	// Missing parameters
+	ACAAttrResp_BAD_REQUEST ACAAttrResp_StatusCode = 101
 )
 
 var ACAAttrResp_StatusCode_name = map[int32]string{
@@ -168,12 +170,14 @@ var ACAAttrResp_StatusCode_name = map[int32]string{
 	1:   "PARTIAL_SUCCESSFUL",
 	8:   "NO_ATTRIBUTES_FOUND",
 	100: "FAILURE",
+	101: "BAD_REQUEST",
 }
 var ACAAttrResp_StatusCode_value = map[string]int32{
 	"FULL_SUCCESSFUL":     0,
 	"PARTIAL_SUCCESSFUL":  1,
 	"NO_ATTRIBUTES_FOUND": 8,
 	"FAILURE":             100,
+	"BAD_REQUEST":         101,
 }
 
 func (x ACAAttrResp_StatusCode) String() string {
@@ -1184,6 +1188,8 @@ func (m *ACAFetchAttrReq) GetSignature() *Signature {
 type ACAFetchAttrResp struct {
 	// Status of the fetch process.
 	Status ACAFetchAttrResp_StatusCode `protobuf:"varint,1,opt,name=status,enum=protos.ACAFetchAttrResp_StatusCode" json:"status,omitempty"`
+	// Error message.
+	Msg string `protobuf:"bytes,2,opt,name=Msg" json:"Msg,omitempty"`
 }
 
 func (m *ACAFetchAttrResp) Reset()         { *m = ACAFetchAttrResp{} }
