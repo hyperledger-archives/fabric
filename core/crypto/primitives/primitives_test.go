@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"crypto/rand"
 	"encoding/asn1"
+	"github.com/hyperledger/fabric/core/crypto/utils"
+	"crypto/ecdsa"
 )
 
 type TestParameters struct {
@@ -103,11 +105,41 @@ func TestAES(t *testing.T) {
 
 }
 
+func TestAESKeys(t *testing.T) {
+	key, err := GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+	// PEM format
+	pem := utils.AEStoPEM(key)
+	keyFromPEM, err := utils.PEMtoAES(pem, nil)
+	if err != nil {
+		t.Fatalf("Failed converting PEM to AES key [%s]", err)
+	}
+	if !reflect.DeepEqual(key, keyFromPEM) {
+		t.Fatalf("Failed converting PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
+	}
+
+	// Encrypted PEM format
+	pem, err = utils.AEStoEncryptedPEM(key, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting AES key to Encrypted PEM [%s]", err)
+	}
+	keyFromPEM, err = utils.PEMtoAES(pem, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting encrypted PEM to AES key [%s]", err)
+	}
+	if !reflect.DeepEqual(key, keyFromPEM) {
+		t.Fatalf("Failed converting encrypted PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
+	}
+}
+
 func TestECDSA(t *testing.T) {
 
 	key, err := NewECDSAKey()
 	if err != nil {
-		t.Fatalf("Failed generating AES key [%s]", err)
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
 	for i:=1; i< 100; i++ {
@@ -163,6 +195,76 @@ func TestECDSA(t *testing.T) {
 		if !ok {
 			t.Fatalf("Failed verification.")
 		}
+	}
+}
+
+func TestECDSAKeys(t *testing.T) {
+	key, err := NewECDSAKey()
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	// DER format
+	der, err := utils.PrivateKeyToDER(key)
+	if err != nil {
+		t.Fatalf("Failed converting private key to DER [%s]", err)
+	}
+	keyFromDER, err := utils.DERToPrivateKey(der)
+	if err != nil {
+		t.Fatalf("Failed converting DER to private key [%s]", err)
+	}
+	ecdsaKeyFromDer := keyFromDER.(*ecdsa.PrivateKey)
+	// TODO: check the curve
+	if key.D.Cmp(ecdsaKeyFromDer.D) != 0 {
+		t.Fatalf("Failed converting DER to private key. Invalid D.")
+	}
+	if key.X.Cmp(ecdsaKeyFromDer.X) != 0 {
+		t.Fatalf("Failed converting DER to private key. Invalid X coordinate.")
+	}
+	if key.Y.Cmp(ecdsaKeyFromDer.Y) != 0 {
+		t.Fatalf("Failed converting DER to private key. Invalid Y coordinate.")
+	}
+
+	// PEM format
+	pem, err := utils.PrivateKeyToPEM(key, nil)
+	if err != nil {
+		t.Fatalf("Failed converting private key to PEM [%s]", err)
+	}
+	keyFromPEM, err := utils.PEMtoPrivateKey(pem, nil)
+	if err != nil {
+		t.Fatalf("Failed converting DER to private key [%s]", err)
+	}
+	ecdsaKeyFromPEM := keyFromPEM.(*ecdsa.PrivateKey)
+	// TODO: check the curve
+	if key.D.Cmp(ecdsaKeyFromPEM.D) != 0 {
+		t.Fatalf("Failed converting PEM to private key. Invalid D.")
+	}
+	if key.X.Cmp(ecdsaKeyFromPEM.X) != 0 {
+		t.Fatalf("Failed converting PEM to private key. Invalid X coordinate.")
+	}
+	if key.Y.Cmp(ecdsaKeyFromPEM.Y) != 0 {
+		t.Fatalf("Failed converting PEM to private key. Invalid Y coordinate.")
+	}
+
+	// Encrypted PEM format
+	encPEM, err := utils.PrivateKeyToPEM(key, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting private key to encrypted PEM [%s]", err)
+	}
+	encKeyFromPEM, err := utils.PEMtoPrivateKey(encPEM, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting DER to private key [%s]", err)
+	}
+	ecdsaKeyFromEncPEM := encKeyFromPEM.(*ecdsa.PrivateKey)
+	// TODO: check the curve
+	if key.D.Cmp(ecdsaKeyFromEncPEM.D) != 0 {
+		t.Fatalf("Failed converting encrypted PEM to private key. Invalid D.")
+	}
+	if key.X.Cmp(ecdsaKeyFromEncPEM.X) != 0 {
+		t.Fatalf("Failed converting encrypted PEM to private key. Invalid X coordinate.")
+	}
+	if key.Y.Cmp(ecdsaKeyFromEncPEM.Y) != 0 {
+		t.Fatalf("Failed converting encrypted PEM to private key. Invalid Y coordinate.")
 	}
 }
 
@@ -276,3 +378,4 @@ func TestX509(t *testing.T) {
 		t.Fatalf("Checking cert vk against sk shoud failed. Invalid VK [%s]")
 	}
 }
+
