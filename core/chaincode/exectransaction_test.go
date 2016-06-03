@@ -223,7 +223,7 @@ func deploy(ctx context.Context, spec *pb.ChaincodeSpec) ([]byte, error) {
 		return nil, fmt.Errorf("Failed to get handle to ledger: %s ", err)
 	}
 	ledger.BeginTxBatch("1")
-	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	b, _, err := Execute(ctx, GetChain(DefaultChain), transaction)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -243,7 +243,7 @@ func deploy2(ctx context.Context, chaincodeDeploymentSpec *pb.ChaincodeDeploymen
 
 	ledger, err := ledger.GetLedger()
 	ledger.BeginTxBatch("1")
-	b, err := Execute(ctx, GetChain(DefaultChain), transaction)
+	b, _, err := Execute(ctx, GetChain(DefaultChain), transaction)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -273,11 +273,11 @@ func invoke(ctx context.Context, spec *pb.ChaincodeSpec, typ pb.Transaction_Type
 	var retval []byte
 	var execErr error
 	if typ == pb.Transaction_CHAINCODE_QUERY {
-		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+		retval, _, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
 	} else {
 		ledger, _ := ledger.GetLedger()
 		ledger.BeginTxBatch("1")
-		retval, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
+		retval, _, execErr = Execute(ctx, GetChain(DefaultChain), transaction)
 		if err != nil {
 			return uuid, nil, fmt.Errorf("Error invoking chaincode: %s ", err)
 		}
