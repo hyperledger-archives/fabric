@@ -130,15 +130,19 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns []byte of state hash or
 //error
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (stateHash []byte, txerrs []error, err error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (succeededTXs []*pb.Transaction, stateHash []byte, txerrs []error, err error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
 	txerrs = make([]error, len(xacts))
+	var succeededTxs = make([]*pb.Transaction, 0)
 	for i, t := range xacts {
 		_, txerrs[i] = Execute(ctxt, chain, t)
+		if txerrs[i] == nil {
+			succeededTxs = append(succeededTxs, t)
+		}
 	}
 
 	var lgr *ledger.Ledger
@@ -146,7 +150,7 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 	if err == nil {
 		stateHash, err = lgr.GetTempStateHash()
 	}
-	return stateHash, txerrs, err
+	return succeededTxs, stateHash, txerrs, err
 }
 
 // GetSecureContext returns the security context from the context object or error
