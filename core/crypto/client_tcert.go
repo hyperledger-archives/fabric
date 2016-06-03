@@ -18,7 +18,8 @@ package crypto
 
 import (
 	"crypto/x509"
-	"github.com/hyperledger/fabric/core/crypto/abac"
+
+	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
@@ -83,5 +84,5 @@ func (tCert *tCertImpl) GetKForAttribute(attributeName string) ([]byte, error) {
 		return nil, utils.ErrNilArgument
 	}
 
-	return abac.GetKForAttribute(attributeName, tCert.preK0, tCert.GetCertificate())
+	return attributes.GetKForAttribute(attributeName, tCert.preK0, tCert.GetCertificate())
 }
