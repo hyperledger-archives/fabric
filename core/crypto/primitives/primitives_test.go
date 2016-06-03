@@ -1,0 +1,278 @@
+package primitives
+
+import (
+	"testing"
+	"fmt"
+	"os"
+	"math/big"
+	"reflect"
+	"crypto/rand"
+	"encoding/asn1"
+)
+
+type TestParameters struct {
+	hashFamily    string
+	securityLevel int
+}
+
+func (t *TestParameters) String() string {
+	return t.hashFamily + "-" + string(t.securityLevel)
+}
+
+var testParametersSet = []*TestParameters{
+	&TestParameters{"SHA3", 256},
+	&TestParameters{"SHA3", 384},
+	&TestParameters{"SHA2", 256},
+	&TestParameters{"SHA2", 384}}
+
+
+func TestMain(m *testing.M) {
+	for _, params := range testParametersSet {
+		err := InitSecurityLevel(params.hashFamily, params.securityLevel)
+		if err == nil {
+			m.Run()
+		}  else {
+			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
+		}
+
+		err = SetSecurityLevel(params.hashFamily, params.securityLevel)
+		if err == nil {
+			m.Run()
+		}  else {
+			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
+		}
+
+		if GetHashAlgorithm() != params.hashFamily {
+			panic(fmt.Errorf("Failed initiliazing crypto layer. Invalid Hash family [%s][%s]", GetHashAlgorithm(), params.hashFamily))
+		}
+
+	}
+	os.Exit(0)
+}
+
+func TestInitSecurityLevel(t *testing.T) {
+	err := SetSecurityLevel("SHA2", 1024)
+	if err == nil {
+		t.Fatalf("Initialization should fail")
+	}
+
+	err = SetSecurityLevel("SHA", 1024)
+	if err == nil {
+		t.Fatalf("Initialization should fail")
+	}
+
+	err = SetSecurityLevel("SHA3", 2048)
+	if err == nil {
+		t.Fatalf("Initialization should fail")
+	}
+}
+
+func TestAES(t *testing.T) {
+
+	key, err := GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+
+	for i:=1; i< 100; i++ {
+		len, err := rand.Int(rand.Reader, big.NewInt(1024))
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+		msg, err := GetRandomBytes(int(len.Int64())+1)
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+
+		ct, err := CBCPKCS7Encrypt(key, msg);
+		if err != nil {
+			t.Fatalf("Failed encrypting [%s]", err)
+		}
+
+		msg2, err := CBCPKCS7Decrypt(key, ct);
+		if err != nil {
+			t.Fatalf("Failed decrypting [%s]", err)
+		}
+
+		if !reflect.DeepEqual(msg, msg2) {
+			t.Fatalf("Wrong decryption output [%x][%x]", msg, msg2)
+		}
+
+	}
+
+}
+
+func TestECDSA(t *testing.T) {
+
+	key, err := NewECDSAKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+	for i:=1; i< 100; i++ {
+		length, err := rand.Int(rand.Reader, big.NewInt(1024))
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+		msg, err := GetRandomBytes(int(length.Int64())+1)
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+
+		sigma, err := ECDSASign(key, msg);
+		if err != nil {
+			t.Fatalf("Failed signing [%s]", err)
+		}
+
+		ok, err := ECDSAVerify(key.Public(), msg, sigma);
+		if err != nil {
+			t.Fatalf("Failed verifying [%s]", err)
+		}
+		if !ok {
+			t.Fatalf("Failed verification.")
+		}
+
+		ok, err = ECDSAVerify(key.Public(), msg[:len(msg)-1], sigma);
+		if err != nil {
+			t.Fatalf("Failed verifying [%s]", err)
+		}
+		if ok {
+			t.Fatalf("Verification should fail.")
+		}
+
+		ok, err = ECDSAVerify(key.Public(), msg[:1], sigma[:1]);
+		if err != nil {
+			t.Fatalf("Failed verifying [%s]", err)
+		}
+		if ok {
+			t.Fatalf("Verification should fail.")
+		}
+
+		R, S, err := ECDSASignDirect(key, msg)
+		if err != nil {
+			t.Fatalf("Failed signing (direct) [%s]", err)
+		}
+		if sigma, err = asn1.Marshal(ECDSASignature{R, S}); err != nil {
+			t.Fatalf("Failed marshalling (R,S) [%s]", err)
+		}
+		ok, err = ECDSAVerify(key.Public(), msg, sigma);
+		if err != nil {
+			t.Fatalf("Failed verifying [%s]", err)
+		}
+		if !ok {
+			t.Fatalf("Failed verification.")
+		}
+	}
+}
+
+func TestRandom(t *testing.T) {
+	nonce, err := GetRandomNonce();
+	if err != nil {
+		t.Fatalf("Failed getting nonce [%s]", err)
+	}
+
+	if len(nonce) != NonceSize {
+		t.Fatalf("Invalid nonce size. Expecting [%d], was [%d]", NonceSize, len(nonce))
+	}
+}
+
+func TestHMAC(t *testing.T) {
+	key, err := GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+	for i:=1; i< 100; i++ {
+		len, err := rand.Int(rand.Reader, big.NewInt(1024))
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+		msg, err := GetRandomBytes(int(len.Int64())+1)
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+
+		out1 := HMACAESTruncated(key, msg);
+		out2 := HMACTruncated(key, msg, AESKeyLength);
+		out3 := HMAC(key, msg);
+
+		if !reflect.DeepEqual(out1, out2) {
+			t.Fatalf("Wrong hmac output [%x][%x]", out1, out2)
+		}
+		if !reflect.DeepEqual(out2, out3[:AESKeyLength]) {
+			t.Fatalf("Wrong hmac output [%x][%x]", out1, out2)
+		}
+
+	}
+
+}
+
+func TestX509(t *testing.T) {
+
+	// Generate a self signed cert
+	der, key, err := NewSelfSignedCert()
+	if err != nil {
+		t.Fatalf("Failed genereting self signed cert")
+	}
+
+	// Test DERCertToPEM
+	pem := DERCertToPEM(der);
+	certFromPEM, derFromPem, err := PEMtoCertificateAndDER(pem)
+	if err != nil {
+		t.Fatalf("Failed converting PEM to (x509, DER) [%s]", err)
+	}
+	if !reflect.DeepEqual(certFromPEM.Raw, der) {
+		t.Fatalf("Invalid der from PEM [%x][%x]", der, certFromPEM.Raw)
+	}
+	if !reflect.DeepEqual(der, derFromPem) {
+		t.Fatalf("Invalid der from PEM [%x][%x]", der, derFromPem)
+	}
+	if err := CheckCertPKAgainstSK(certFromPEM, key); err != nil {
+		t.Fatalf("Failed checking cert vk against sk [%s]", err)
+	}
+
+	// Test PEMtoDER
+	if derFromPem, err = PEMtoDER(pem); err != nil {
+		t.Fatalf("Failed converting PEM to (DER) [%s]", err)
+	}
+	if !reflect.DeepEqual(der, derFromPem) {
+		t.Fatalf("Invalid der from PEM [%x][%x]", der, derFromPem)
+	}
+
+	// Test PEMtoCertificate
+	if certFromPEM, err = PEMtoCertificate(pem); err != nil {
+		t.Fatalf("Failed converting PEM to (x509) [%s]", err)
+	}
+	if !reflect.DeepEqual(certFromPEM.Raw, der) {
+		t.Fatalf("Invalid der from PEM [%x][%x]", der, certFromPEM.Raw)
+	}
+	if err := CheckCertPKAgainstSK(certFromPEM, key); err != nil {
+		t.Fatalf("Failed checking cert vk against sk [%s]", err)
+	}
+
+	// Test DERToX509Certificate
+	if certFromPEM, err = DERToX509Certificate(der); err != nil {
+		t.Fatalf("Failed converting DER to (x509) [%s]", err)
+	}
+	if !reflect.DeepEqual(certFromPEM.Raw, der) {
+		t.Fatalf("Invalid x509 from PEM [%x][%x]", der, certFromPEM.Raw)
+	}
+	if err := CheckCertPKAgainstSK(certFromPEM, key); err != nil {
+		t.Fatalf("Failed checking cert vk against sk [%s]", err)
+	}
+
+	// Test errors
+	if _, err = DERToX509Certificate(pem); err == nil {
+		t.Fatalf("Converting DER to (x509) should fail on PEM [%s]", err)
+	}
+
+	if _, err = PEMtoCertificate(der); err == nil {
+		t.Fatalf("Converting PEM to (x509) should fail on DER [%s]", err)
+	}
+
+	certFromPEM.PublicKey = nil
+	if err := CheckCertPKAgainstSK(certFromPEM, key); err == nil {
+		t.Fatalf("Checking cert vk against sk shoud failed. Invalid VK [%s]")
+	}
+}
