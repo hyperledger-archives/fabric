@@ -73,7 +73,10 @@ type Client interface {
 	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
 
 	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert() (tCert, error)
+	GetNextTCert() (tCert, error) // will be removed in the next refactoring step
+
+	// GetNextTCert gets next available (not yet used) transaction certificates.
+	GetNextTCerts(int) ([]tCert, error)
 }
 
 // Peer is an entity able to verify transactions
