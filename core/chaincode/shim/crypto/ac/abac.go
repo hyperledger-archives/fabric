@@ -21,8 +21,8 @@ import (
 	"crypto/x509"
 	"errors"
 
-	"github.com/hyperledger/fabric/core/crypto/abac"
-	abacpb "github.com/hyperledger/fabric/core/crypto/abac/proto"
+	"github.com/hyperledger/fabric/core/crypto/attributes"
+	attributespb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
@@ -95,20 +95,20 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 		return nil, err
 	}
 
-	//Getting ABAC Metadata from security context.
-	var abacMetadata *abacpb.ABACMetadata
+	//Getting Attributes Metadata from security context.
+	var attrsMetadata *attributespb.AttributesMetadata
 	var rawMetadata []byte
 	rawMetadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
 	}
-	abacMetadata, err = abac.GetABACMetadata(rawMetadata)
+	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
 	if err != nil {
 		return nil, err
 	}
 
 	keys := make(map[string][]byte)
-	for _, entry := range abacMetadata.Entries {
+	for _, entry := range attrsMetadata.Entries {
 		keys[entry.AttributeName] = entry.AttributeKey
 	}
 
@@ -120,7 +120,7 @@ func (abacHandler *ABACHandlerImpl) readHeader() (map[string]int, bool, error) {
 	if abacHandler.header != nil {
 		return abacHandler.header, abacHandler.encrypted, nil
 	}
-	header, encrypted, err := abac.ReadAttributeHeader(abacHandler.cert, abacHandler.keys[abac.HeaderAttributeName])
+	header, encrypted, err := attributes.ReadAttributeHeader(abacHandler.cert, abacHandler.keys[attributes.HeaderAttributeName])
 	if err != nil {
 		return nil, false, err
 	}
@@ -140,7 +140,7 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	value, err := abac.ReadTCertAttributeByPosition(abacHandler.cert, header[attributeName])
+	value, err := attributes.ReadTCertAttributeByPosition(abacHandler.cert, header[attributeName])
 	if err != nil {
 		return nil, errors.New("error reading attribute value '" + err.Error() + "'")
 	}
@@ -148,7 +148,7 @@ func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, erro
 		return nil, errors.New("There isn't a key")
 	}
 	if encrypted {
-		value, err = abac.DecryptAttributeValue(abacHandler.keys[attributeName], value)
+		value, err = attributes.DecryptAttributeValue(abacHandler.keys[attributeName], value)
 		if err != nil {
 			return nil, errors.New("error decrypting value '" + err.Error() + "'")
 		}

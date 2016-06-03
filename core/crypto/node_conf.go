@@ -20,7 +20,6 @@ import (
 	"errors"
 	"path/filepath"
 
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
 )
 
@@ -61,8 +60,8 @@ type configuration struct {
 
 	tlsServerName string
 
-	multiThreading  bool
-	tCertBatchSize  int
+	multiThreading bool
+	tCertBatchSize int
 }
 
 func (conf *configuration) init() error {
