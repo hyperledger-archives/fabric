@@ -18,6 +18,8 @@ package util
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math/big"
@@ -27,6 +29,15 @@ import (
 
 	"golang.org/x/crypto/sha3"
 )
+
+type alg struct {
+	hashFun func([]byte) string
+	decoder func(string) ([]byte, error)
+}
+
+var availableUUIDgenAlgs = map[string]alg{
+	"sha256base64": alg{GenerateUUIDfromTxSHAHash, base64.StdEncoding.DecodeString},
+}
 
 // ComputeCryptoHash should be used in openchain code so that we can change the actual algo used for crypto-hash at one place
 func ComputeCryptoHash(data []byte) (hash []byte) {
@@ -62,7 +73,7 @@ func GenerateIntUUID() *big.Int {
 // GenerateUUID returns a UUID based on RFC 4122
 func GenerateUUID() string {
 	uuid := GenerateBytesUUID()
-	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+	return uuidBytesToStr(uuid)
 }
 
 // CreateUtcTimestamp returns a google/protobuf/Timestamp in UTC
@@ -87,4 +98,28 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 	copy(b, cbytes)
 	hash := ComputeCryptoHash(b)
 	return hash
+}
+
+// GenerateUUIDfromTxSHAHash generates SHA256 hash using Tx payload, and uses its first
+// 128 bits as a UUID
+func GenerateUUIDfromTxSHAHash(txData []byte) string {
+	txHash := sha256.Sum256(txData)
+	return uuidBytesToStr(txHash[0:16])
+}
+
+// GenerateUUIDWithAlg generates a UUID using a custom algorithm
+func GenerateUUIDWithAlg(customUUIDgenAlg string, encodedPayload string) (string, error) {
+	var alg = availableUUIDgenAlgs[customUUIDgenAlg]
+	if alg.hashFun != nil && alg.decoder != nil {
+		var payload, err = alg.decoder(encodedPayload)
+		if err != nil {
+			return "", err
+		}
+		return alg.hashFun(payload), nil
+	}
+	return "", fmt.Errorf("Wrong UUID generation algorithm was given.")
+}
+
+func uuidBytesToStr(uuid []byte) string {
+	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 }
