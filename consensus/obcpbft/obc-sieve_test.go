@@ -98,8 +98,8 @@ func TestSieveNoDecision(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcSieveHelper, func(ce *consumerEndpoint) {
 		ce.consumer.(*obcSieve).pbft.requestTimeout = 400 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.newViewTimeout = 800 * time.Millisecond
-		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 800 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.newViewTimeout = 1200 * time.Millisecond
+		ce.consumer.(*obcSieve).pbft.lastNewViewTimeout = 1200 * time.Millisecond
 	})
 	// net.debug = true // Enable for debug
 	net.testnet.filterFn = func(src int, dst int, raw []byte) []byte {
@@ -121,9 +121,9 @@ func TestSieveNoDecision(t *testing.T) {
 	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 
 	go net.processContinually()
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	net.endpoints[3].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 	net.stop()
 
 	for _, ep := range net.endpoints {
