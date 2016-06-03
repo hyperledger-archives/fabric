@@ -99,6 +99,12 @@ COPY scripts $REMOTESCRIPTS
 RUN $REMOTESCRIPTS/common.sh
 EOF
 
-docker build -t $NAME:latest $TMP
+[ ! -z "$http_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg http_proxy=$http_proxy"
+[ ! -z "$https_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg https_proxy=$https_proxy"
+[ ! -z "$HTTP_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg HTTP_PROXY=$HTTP_PROXY"
+[ ! -z "$HTTPS_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg HTTPS_PROXY=$HTTPS_PROXY"
+[ ! -z "$no_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg no_proxy=$no_proxy"
+[ ! -z "$NO_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg NO_PROXY=$NO_PROXY"
+docker build $DOCKER_ARGS_PROXY -t $NAME:latest $TMP
 
 rm -rf $TMP
