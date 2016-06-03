@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"crypto/rand"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"crypto/ecdsa"
 )
 
@@ -112,8 +111,8 @@ func TestAESKeys(t *testing.T) {
 	}
 
 	// PEM format
-	pem := utils.AEStoPEM(key)
-	keyFromPEM, err := utils.PEMtoAES(pem, nil)
+	pem := AEStoPEM(key)
+	keyFromPEM, err := PEMtoAES(pem, nil)
 	if err != nil {
 		t.Fatalf("Failed converting PEM to AES key [%s]", err)
 	}
@@ -122,11 +121,11 @@ func TestAESKeys(t *testing.T) {
 	}
 
 	// Encrypted PEM format
-	pem, err = utils.AEStoEncryptedPEM(key, []byte("passwd"))
+	pem, err = AEStoEncryptedPEM(key, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting AES key to Encrypted PEM [%s]", err)
 	}
-	keyFromPEM, err = utils.PEMtoAES(pem, []byte("passwd"))
+	keyFromPEM, err = PEMtoAES(pem, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting encrypted PEM to AES key [%s]", err)
 	}
@@ -205,11 +204,11 @@ func TestECDSAKeys(t *testing.T) {
 	}
 
 	// DER format
-	der, err := utils.PrivateKeyToDER(key)
+	der, err := PrivateKeyToDER(key)
 	if err != nil {
 		t.Fatalf("Failed converting private key to DER [%s]", err)
 	}
-	keyFromDER, err := utils.DERToPrivateKey(der)
+	keyFromDER, err := DERToPrivateKey(der)
 	if err != nil {
 		t.Fatalf("Failed converting DER to private key [%s]", err)
 	}
@@ -226,11 +225,11 @@ func TestECDSAKeys(t *testing.T) {
 	}
 
 	// PEM format
-	pem, err := utils.PrivateKeyToPEM(key, nil)
+	pem, err := PrivateKeyToPEM(key, nil)
 	if err != nil {
 		t.Fatalf("Failed converting private key to PEM [%s]", err)
 	}
-	keyFromPEM, err := utils.PEMtoPrivateKey(pem, nil)
+	keyFromPEM, err := PEMtoPrivateKey(pem, nil)
 	if err != nil {
 		t.Fatalf("Failed converting DER to private key [%s]", err)
 	}
@@ -247,11 +246,11 @@ func TestECDSAKeys(t *testing.T) {
 	}
 
 	// Encrypted PEM format
-	encPEM, err := utils.PrivateKeyToPEM(key, []byte("passwd"))
+	encPEM, err := PrivateKeyToPEM(key, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting private key to encrypted PEM [%s]", err)
 	}
-	encKeyFromPEM, err := utils.PEMtoPrivateKey(encPEM, []byte("passwd"))
+	encKeyFromPEM, err := PEMtoPrivateKey(encPEM, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting DER to private key [%s]", err)
 	}
