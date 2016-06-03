@@ -275,8 +275,8 @@ vm:
 chaincode:
 
     # The id is used by the Chaincode stub to register the executing Chaincode
-    # ID with the Peerand is generally supplied through ENV variables
-    # the Path form of ID is provided when deploying the chaincode. The name is
+    # ID with the Peer and is generally supplied through ENV variables.
+    # The path form of ID is provided when deploying the chaincode. The name is
     # used for all other requests. The name is really a hashcode
     # returned by the system in response to the deploy transaction. In
     # development mode where user runs the chaincode, the name can be any string
@@ -300,6 +300,15 @@ chaincode:
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             FROM hyperledger/fabric-baseimage
+
+    # These are the file types that will be packaged into the Docker image
+    # when deploying a chaincode. All other file types will be excluded to
+    # minimize the size of the deployment transaction.
+    filetypes:
+      - .h
+      - .go
+      - .yaml
+      - .json
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
@@ -355,7 +364,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.

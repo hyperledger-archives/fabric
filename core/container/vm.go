@@ -22,6 +22,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	//"io/ioutil"
 	"time"
 
 	"golang.org/x/net/context"
@@ -109,6 +110,9 @@ func GetChaincodePackageBytes(spec *pb.ChaincodeSpec) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Dump the .tar.gz file for Docker. Useful for testing.
+	//ioutil.WriteFile("/tmp/chaincode_deployment.tar", inputbuf.Bytes(), 0644)
 
 	chaincodePkgBytes := inputbuf.Bytes()
 
