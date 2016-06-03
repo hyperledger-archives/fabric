@@ -71,6 +71,8 @@ type nextStateInfo struct {
 // Handler responsbile for management of Peer's side of chaincode stream
 type Handler struct {
 	sync.RWMutex
+	//peer to shim grpc serializer. User only in serialSend
+	serialLock  sync.Mutex
 	ChatStream  ccintf.ChaincodeStream
 	FSM         *fsm.FSM
 	ChaincodeID *pb.ChaincodeID
@@ -102,8 +104,8 @@ func shortuuid(uuid string) string {
 }
 
 func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
-	handler.Lock()
-	defer handler.Unlock()
+	handler.serialLock.Lock()
+	defer handler.serialLock.Unlock()
 	if err := handler.ChatStream.Send(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("Error sending %s: %s", msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)

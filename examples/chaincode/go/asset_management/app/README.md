@@ -34,7 +34,7 @@ Notice that, to assign ownership of assets, Bob has to use *BobCert* to authenti
 ### Bob assigns the asset 'Picasso' to Charlie
 
 1. Bob obtains, via an out-of-band channel, a TCert of Charlie, let us call this certificate *CharlieCert*;
-2. Bob constructs an execute transaction, as described in *application-ACL.md* using *BobCert* to gain access, to invoke the *assign* function passing as parameters *('Picasso', DER(CharlieCert))*. 
+2. Bob constructs an invoke transaction, as described in *application-ACL.md* using *BobCert* to gain access, to invoke the *assign* function passing as parameters *('Picasso', Base64(DER(CharlieCert)))*. 
 3. Bob submits the transaction to the fabric network.
 
 Charlie is now the owner of 'Picasso'.
@@ -44,7 +44,7 @@ Notice that, to transfer the ownership of 'Picasso', Charlie has to use *Charlie
 ### Charlie transfers the ownership of 'Picasso' to Dave
 
 1. Charlie obtains, via an out-of-band channel, a TCert of Dave, let us call this certificate *DaveCert*;
-2. Charlie constructs an execute transaction, as described in *application-ACL.md* using *CharlieCert*, to invoke the *transfer* function passing as parameters *('Picasso', DER(DaveCert))*. 
+2. Charlie constructs an invoke transaction, as described in *application-ACL.md* using *CharlieCert*, to invoke the *transfer* function passing as parameters *('Picasso', Base64(DER(DaveCert)))*. 
 3. Charlie submits the transaction to the fabric network.
 
 Dave is now the owner of 'Picasso'

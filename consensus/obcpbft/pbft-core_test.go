@@ -1336,7 +1336,7 @@ func TestNetworkNullRequestMissing(t *testing.T) {
 	net.pbftEndpoints[0].pbft.manager.queue() <- msg
 
 	go net.processContinually()
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second) // Bumped from 2 to 3 seconds because of sporadic CI failures
 
 	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions != 1 {

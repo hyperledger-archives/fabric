@@ -352,7 +352,7 @@ func (op *obcSieve) processRequest() {
 
 func (op *obcSieve) recvExecute(exec *Execute) {
 	if !(exec.View >= op.epoch && exec.BlockNumber > op.blockNumber && op.pbft.primary(exec.View) == exec.ReplicaId) {
-		logger.Debug("Invalid execute from %d", exec.ReplicaId)
+		logger.Debug("Replica %d got invalid execute from %d for view %d and block %d", op.pbft.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 		return
 	}
 
