@@ -376,6 +376,11 @@ func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, val
 // FetchAttributes fetchs the attributes from the outside world and populate them into the database.
 func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (*pb.ACAFetchAttrResp, error) {
 	Trace.Println("grpc ACAP:FetchAttributes")
+
+	if in.Ts == nil || in.ECert == nil || in.Signature == nil {
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE, Msg: "Bad request"}, nil
+	}
+
 	cert, err := acap.aca.getECACertificate()
 	if err != nil {
 		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, errors.New("Error getting ECA certificate.")
@@ -391,15 +396,16 @@ func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (
 	hash := primitives.NewHash()
 	raw, _ := proto.Marshal(in)
 	hash.Write(raw)
+
 	if ecdsa.Verify(ecaPub, hash.Sum(nil), r, s) == false {
-		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, errors.New("signature does not verify")
+		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE, Msg: "Signature does not verify"}, nil
 	}
 
 	cert, err = x509.ParseCertificate(in.ECert.Cert)
-
 	if err != nil {
 		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, err
 	}
+
 	var id, affiliation string
 	id, _, affiliation, err = acap.aca.parseEnrollID(cert.Subject.CommonName)
 	if err != nil {
@@ -437,6 +443,20 @@ func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCod
 // RequestAttributes lookups the atributes in the database and return a certificate with attributes included in the request and found in the database.
 func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb.ACAAttrResp, error) {
 	Trace.Println("grpc ACAP:RequestAttributes")
+
+	if in.Ts == nil || in.Id == nil || in.ECert == nil || in.Signature == nil ||
+		in.Attributes == nil || len(in.Attributes) == 0 {
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_BAD_REQUEST, nil), nil
+	}
+
+	attrs := make(map[string]bool)
+	for _, attrPair := range in.Attributes {
+		if attrs[attrPair.AttributeName] {
+			return acap.createRequestAttributeResponse(pb.ACAAttrResp_BAD_REQUEST, nil), nil
+		}
+		attrs[attrPair.AttributeName] = true
+	}
+
 	cert, err := acap.aca.getTCACertificate()
 	if err != nil {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), errors.New("Error getting TCA certificate.")
@@ -453,7 +473,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	raw, _ := proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(tcaPub, hash.Sum(nil), r, s) == false {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), errors.New("signature does not verify")
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), errors.New("Signature does not verify")
 	}
 
 	cert, err = x509.ParseCertificate(in.ECert.Cert)
@@ -484,7 +504,8 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	}
 
 	count := len(in.Attributes)
-	if count == 0 {
+
+	if verifyCounter == 0 {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, nil), nil
 	}
 
