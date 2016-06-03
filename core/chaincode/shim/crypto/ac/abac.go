@@ -96,31 +96,21 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 	}
 
 	//Getting Attributes Metadata from security context.
-<<<<<<< HEAD
-	var attributesMetadata *attributespb.AttributesMetadata
-=======
 	var attrsMetadata *attributespb.AttributesMetadata
->>>>>>> andres/abac
 	var rawMetadata []byte
 	rawMetadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
-	attributesMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
-=======
+
 	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
->>>>>>> andres/abac
+
 	if err != nil {
 		return nil, err
 	}
 
 	keys := make(map[string][]byte)
-<<<<<<< HEAD
-	for _, entry := range attributesMetadata.Entries {
-=======
 	for _, entry := range attrsMetadata.Entries {
->>>>>>> andres/abac
 		keys[entry.AttributeName] = entry.AttributeKey
 	}
 
