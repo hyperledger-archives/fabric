@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger/fabric.andres/core/crypto/abac"
+	"github.com/hyperledger/fabric/core/crypto/attributes"
 	obc "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 
@@ -65,7 +65,7 @@ var (
 
 	ksPwd = []byte("This is a very very very long pw")
 
-	attributes     = map[string]string{"company": "ACompany", "position": "Software Engineer"}
+	attrs          = map[string]string{"company": "ACompany", "position": "Software Engineer"}
 	attributeNames = []string{"company", "position"}
 )
 
@@ -139,7 +139,7 @@ func TestParallelInitClose(t *testing.T) {
 				}
 				for i := 0; i < 20; i++ {
 					uuid := util.GenerateUUID()
-					client.NewChaincodeExecute(cis, attributes, uuid)
+					client.NewChaincodeExecute(cis, attrs, uuid)
 				}
 
 				err = CloseClient(client)
@@ -295,7 +295,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 
 //TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACompany".
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	tcert, err := deployer.GetNextTCert(attributes)
+	tcert, err := deployer.GetNextTCert(attrs)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
@@ -313,7 +313,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 
-	attributeBytes, err := abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
+	attributeBytes, err := attributes.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -327,9 +327,9 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 //TestClientVerifyInvalidAttribute verfies that the TCert doesn't containes a company attribute since the value passed by the user isn't certified by ACA.
 func TestClientVerifyInvalidAttribute(t *testing.T) {
-	otherAttributes := map[string]string{"company": "InvalidCompany", "position": "Software Engineer"}
+	otherAttrs := map[string]string{"company": "InvalidCompany", "position": "Software Engineer"}
 
-	tcert, err := deployer.GetNextTCert(otherAttributes)
+	tcert, err := deployer.GetNextTCert(otherAttrs)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
@@ -347,7 +347,7 @@ func TestClientVerifyInvalidAttribute(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 
-	_, err = abac.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
+	_, err = attributes.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
 	if err == nil {
 		t.Fatalf("This TCert shouldn't has a company attribute")
 	}
@@ -373,10 +373,10 @@ func (shim *chaincodeStubMock) GetCallerMetadata() ([]byte, error) {
 
 //TestShimAttributeVerification tests the verification of attributes within mocking a chaincode stub.
 func TestShimAttributeVerification(t *testing.T) {
-	tcert, err := deployer.GetNextTCert(attributes)
+	tcert, err := deployer.GetNextTCert(attrs)
 	metadata := []byte{32, 64}
 	tcertder := tcert.GetCertificate().Raw
-	abacMetadata, err := abac.CreateABACMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
+	abacMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
 	if err != nil {
 		t.Error(err)
 	}
@@ -409,10 +409,10 @@ func TestShimAttributeVerification(t *testing.T) {
 
 //TestShimAttributeVerificationWithTwoHandlers tests the verification of attributes within mocking a chaincode stub with two handlers.
 func TestShimAttributeVerificationWithTwoHandlers(t *testing.T) {
-	tcert, err := deployer.GetNextTCert(attributes)
+	tcert, err := deployer.GetNextTCert(attrs)
 	metadata := []byte{32, 64}
 	tcertder := tcert.GetCertificate().Raw
-	abacMetadata, err := abac.CreateABACMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
+	abacMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, tcert.GetPreK0(), attributeNames)
 	if err != nil {
 		t.Error(err)
 	}
@@ -450,7 +450,7 @@ func TestShimAttributeVerificationWithTwoHandlers(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext(attributes)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs)
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -470,7 +470,7 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerFromDER(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext(attributes)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -496,7 +496,7 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 }
 
 func TestClientTCertHandlerSign(t *testing.T) {
-	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attributes)
+	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attrs)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -1132,12 +1132,12 @@ func BenchmarkTransactionCreation(b *testing.B) {
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
-	invoker.GetTCertificateHandlerNext(attributes)
+	invoker.GetTCertificateHandlerNext(attrs)
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
 		b.StartTimer()
-		invoker.NewChaincodeExecute(cis, attributes, uuid)
+		invoker.NewChaincodeExecute(cis, attrs, uuid)
 		b.StopTimer()
 	}
 }
@@ -1374,7 +1374,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, attributes, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, attrs, uuid)
 	return otx, tx, err
 }
 
@@ -1394,7 +1394,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, attributes, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, attrs, uuid)
 	return otx, tx, err
 }
 
@@ -1414,7 +1414,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, attributes, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, attrs, uuid)
 	return otx, tx, err
 }
 
@@ -1436,7 +1436,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetTCertificateHandlerNext(attributes)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1481,7 +1481,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext(attributes)
+	handler, err := invoker.GetTCertificateHandlerNext(attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1526,7 +1526,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext(attributes)
+	handler, err := invoker.GetTCertificateHandlerNext(attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1710,7 +1710,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, attributes, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, attrs, uuid)
 	return otx, tx, err
 }
 
@@ -1730,7 +1730,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, attributes, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, attrs, uuid)
 	return otx, tx, err
 }
 
@@ -1750,7 +1750,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, attributes, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, attrs, uuid)
 	return otx, tx, err
 }
 
