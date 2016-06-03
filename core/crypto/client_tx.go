@@ -37,7 +37,11 @@ func (client *clientImpl) createTransactionNonce() ([]byte, error) {
 	return nonce, err
 }
 
+<<<<<<< HEAD
 func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte, tCert tCert, attributes ...string) (*obc.Transaction, error) {
+=======
+func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, nonce []byte, tCert tCert, attrs ...string) (*obc.Transaction, error) {
+>>>>>>> andres/abac
 	// Create a new transaction
 	tx, err := obc.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, uuid)
 	if err != nil {
@@ -46,7 +50,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata, err = getMetadata(chaincodeDeploymentSpec.GetChaincodeSpec(), tCert, attributes...)
+	tx.Metadata, err = getMetadata(chaincodeDeploymentSpec.GetChaincodeSpec(), tCert, attrs...)
 	if err != nil {
 		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err
@@ -97,7 +101,11 @@ func getMetadata(chaincodeSpec *obc.ChaincodeSpec, tCert tCert, attrs ...string)
 
 }
 
+<<<<<<< HEAD
 func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attributes ...string) (*obc.Transaction, error) {
+=======
+func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attrs ...string) (*obc.Transaction, error) {
+>>>>>>> andres/abac
 	/// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
@@ -106,7 +114,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attributes...)
+	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attrs...)
 	if err != nil {
 		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err
@@ -142,7 +150,11 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 	return tx, nil
 }
 
+<<<<<<< HEAD
 func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attributes ...string) (*obc.Transaction, error) {
+=======
+func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attrs ...string) (*obc.Transaction, error) {
+>>>>>>> andres/abac
 	// Create a new transaction
 	tx, err := obc.NewChaincodeExecute(chaincodeInvocation, uuid, obc.Transaction_CHAINCODE_QUERY)
 	if err != nil {
@@ -151,7 +163,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 	}
 
 	// Copy metadata from ChaincodeSpec
-	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attributes...)
+	tx.Metadata, err = getMetadata(chaincodeInvocation.GetChaincodeSpec(), tCert, attrs...)
 	if err != nil {
 		client.error("Failed creating new transaction [%s].", err.Error())
 		return nil, err

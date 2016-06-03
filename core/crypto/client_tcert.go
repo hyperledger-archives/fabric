@@ -18,7 +18,10 @@ package crypto
 
 import (
 	"crypto/x509"
+<<<<<<< HEAD
 
+=======
+>>>>>>> andres/abac
 	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
