@@ -254,8 +254,11 @@ func (aca *ACA) getTCACertificate() (*x509.Certificate, error) {
 
 func (aca *ACA) fetchAttributes(id, affiliation string) ([]*AttributePair, error) {
 	// TODO this attributes should be readed from the outside world in place of configuration file.
+	var attributes = make([]*AttributePair, 0)
 	attrs := viper.GetStringMapString("aca.attributes")
-	attributes := make([]*AttributePair, 0)
+
+	var attrOwner *AttributeOwner
+
 	for _, flds := range attrs {
 		vals := strings.Fields(flds)
 		if len(vals) >= 1 {
@@ -263,7 +266,6 @@ func (aca *ACA) fetchAttributes(id, affiliation string) ([]*AttributePair, error
 			for _, eachVal := range vals {
 				val = val + " " + eachVal
 			}
-			var attrOwner *AttributeOwner
 			attributeVals := strings.Split(val, ";")
 			if len(attributeVals) >= 6 {
 				attrPair, err := NewAttributePair(attributeVals, attrOwner)
@@ -493,7 +495,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	}
 
 	var verifyCounter int
-	attributes := make([]AttributePair, 0)
+	var attributes = make([]AttributePair, 0)
 	owner := &AttributeOwner{id, affiliation}
 	for _, attrPair := range in.Attributes {
 		verifiedPair, _ := acap.aca.verifyAttribute(owner, attrPair.AttributeName, attrPair.AttributeValueHash)
@@ -509,7 +511,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, nil), nil
 	}
 
-	extensions := make([]pkix.Extension, 0)
+	var extensions = make([]pkix.Extension, 0)
 	extensions, err = acap.addAttributesToExtensions(&attributes, extensions)
 	if err != nil {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), err
