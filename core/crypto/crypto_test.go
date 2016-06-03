@@ -449,6 +449,58 @@ func TestShimAttributeVerificationWithTwoHandlers(t *testing.T) {
 
 }
 
+func TestGetKForAttribute(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attrs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	resultKey, err := tcert.GetKForAttribute("position")
+	if err != nil {
+		t.Error(err)
+	}
+
+	expectedKey := primitives.HMACTruncated(tcert.GetPreK0(), []byte("position"), 32)
+
+	if bytes.Compare(resultKey, expectedKey) != 0 {
+		t.Fatalf("Test failed expected key %v and result %v", resultKey, expectedKey)
+	}
+}
+
+func TestGetKForAttribute_NullPreK0(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attrs)
+	tcert1 := tCertImpl{nil, tcert.GetCertificate(), nil, nil}
+
+	_, err = tcert1.GetKForAttribute("position")
+	if err == nil {
+		t.Fatalf("Test failed should return an error")
+	}
+}
+
+func TestVerify_InvalidSignature(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attrs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = tcert.Verify([]byte{0, 0, 0}, []byte{0, 0, 0, 0, 0, 0, 0, 0})
+	if err == nil {
+		t.Fatalf("Test failed, verify should fail.")
+	}
+}
+
+func TestVerify_NullSignature(t *testing.T) {
+	tcert, err := deployer.GetNextTCert(attrs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = tcert.Verify(nil, []byte{0, 0, 0, 0, 0, 0, 0, 0})
+	if err == nil {
+		t.Fatalf("Test failed, verfiy should fail.")
+	}
+}
+
 func TestClientGetTCertHandlerNext(t *testing.T) {
 	handler, err := deployer.GetTCertificateHandlerNext(attrs)
 
