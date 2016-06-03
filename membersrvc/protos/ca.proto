@@ -362,6 +362,8 @@ message ACAAttrResp {
     	NO_ATTRIBUTES_FOUND = 010;
 		// Processed with errors.
     	FAILURE				= 100;
+		// Missing parameters
+		  BAD_REQUEST = 101;	
 	}
 	// Indicates the request process status.
     StatusCode status = 1;
@@ -391,6 +393,8 @@ message ACAFetchAttrResp {
 	}
 	// Status of the fetch process.
     StatusCode status = 1;
+		// Error message.
+		string Msg = 2;
 }
 
 //FetchAttrsResult is returned within the ECertCreateResp indicating the results of the fetch attributes invoked during enroll.
