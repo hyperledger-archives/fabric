@@ -935,7 +935,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			oldPayload := tx.Payload; tx.Payload = nil;
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. No ToValidators.", err)
+				t.Fatalf("TransactionPreExecution should fail. No Payload.", err)
 			}
 			tx.Payload = oldPayload
 
@@ -943,9 +943,25 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			oldPayload = tx.Payload; tx.Payload = []byte{0,1,2,3,4};
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. No ToValidators.", err)
+				t.Fatalf("TransactionPreExecution should fail. Invalid Payload.", err)
 			}
 			tx.Payload = oldPayload
+
+			// Test no Payload
+			oldChaincodeID := tx.ChaincodeID; tx.ChaincodeID = nil;
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. No ChaincodeID.", err)
+			}
+			tx.ChaincodeID = oldChaincodeID
+
+			// Test invalid Payload
+			oldChaincodeID = tx.ChaincodeID; tx.ChaincodeID = []byte{0,1,2,3,4};
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. Invalid ChaincodeID.", err)
+			}
+			tx.ChaincodeID = oldChaincodeID
 		}
 	}
 }
