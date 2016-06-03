@@ -286,6 +286,38 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+func TestClientGetNextTCerts(t *testing.T) {
+
+	// Some positive flow tests here
+	var nCerts int = 1
+	for i := 1; i<3; i++ {
+		nCerts *= 10
+		fmt.Println(fmt.Sprintf("Calling GetNextTCerts(%d)", nCerts))
+		rvCerts, err := deployer.GetNextTCerts(nCerts)
+		if err != nil {
+			t.Fatalf("Could not receive %d TCerts", nCerts)
+		}
+		if len(rvCerts) != nCerts {
+			t.Fatalf("Expected exactly '%d' TCerts as a return from GetNextTCert(1)", nCerts)
+		}
+		if rvCerts[0] == nil {
+			t.Fatalf("Returned TCert cannot be nil")
+		}
+	}
+
+	// Some negative flow tests here
+	_, err := deployer.GetNextTCerts(0)
+	if err == nil {
+		t.Fatalf("Expected a failure here")
+	}
+
+	_, err = deployer.GetNextTCerts(-1)
+	if err == nil {
+		t.Fatalf("Expected a failure here")
+	}
+
+}
+
 func TestClientGetAttributesFromTCert(t *testing.T) {
 	tcert, err := deployer.GetNextTCert()
 
