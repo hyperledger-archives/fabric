@@ -40,7 +40,7 @@ func getMessageType(e *pb.Event) pb.EventType {
 		return pb.EventType_BLOCK
 	case *pb.Event_Generic:
 		return pb.EventType_GENERIC
-	case *pb.Event_Chaincode:
+	case *pb.Event_ChaincodeEvent:
 		return pb.EventType_CHAINCODE
 	default:
 		return -1

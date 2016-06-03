@@ -60,7 +60,7 @@ func (hl *chaincodeHandlerList) add(ie *pb.Interest, h *handler) bool {
 		emap = make(map[string]*handler)
 		hl.handlers[ie.GetChainEvent().Uuid] = emap
 	}
-	emap[ie.GetChainEvent().Eventname] = h
+	emap[ie.GetChainEvent().EventName] = h
 	hl.Unlock()
 	return true
 }
@@ -71,14 +71,14 @@ func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) bool {
 		hl.Unlock()
 		return false
 	}
-	delete(emap, ie.GetChainEvent().Eventname)
+	delete(emap, ie.GetChainEvent().EventName)
 	hl.Unlock()
 	return true
 }
 
 func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
 	hl.Lock()
-	for _, h := range hl.handlers[e.GetChaincode().Uuid] {
+	for _, h := range hl.handlers[e.GetChaincodeEvent().Uuid] {
 		action(h)
 	}
 	hl.Unlock()

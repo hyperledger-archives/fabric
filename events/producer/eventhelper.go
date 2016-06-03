@@ -30,6 +30,6 @@ func CreateGenericEvent(te *ehpb.Generic) *ehpb.Event {
 	return &ehpb.Event{&ehpb.Event_Generic{Generic: te}}
 }
 
-func CreateChaincodeEvent(te *ehpb.Chaincode) *ehpb.Event {
-	return &ehpb.Event{&ehpb.Event_Chaincode{Chaincode: te}}
+func CreateChaincodeEvent(te *ehpb.ChaincodeEvent) *ehpb.Event {
+	return &ehpb.Event{&ehpb.Event_ChaincodeEvent{ChaincodeEvent: te}}
 }

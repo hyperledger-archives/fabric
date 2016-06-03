@@ -35,7 +35,7 @@ enum EventType {
 //when EventType is CHAINCODE
 message ChaincodeReg {
     string uuid = 1;
-    string eventname = 2;
+    string eventName = 2;
     bool anyTransaction = 3;
 }
 

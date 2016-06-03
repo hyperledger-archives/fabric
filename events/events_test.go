@@ -45,7 +45,7 @@ var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF}, &ehpb.Interest{EventType: "generic", ResponseType: ehpb.Interest_PROTOBUF}}, nil
-	return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChainEvent: &ehpb.Chaincode{Uuid: "0xffffffff", Eventname: "event1"}}}, nil
+	return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChainEvent: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: "event1"}}}, nil
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
 
@@ -54,7 +54,7 @@ func (a *Adapter) Recv(msg *ehpb.Event) (bool, error) {
 	switch x := msg.Event.(type) {
 	case *ehpb.Event_Block:
 	case *ehpb.Event_Generic:
-	case *ehpb.Event_Chaincode:
+	case *ehpb.Event_ChaincodeEvent:
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
@@ -84,7 +84,7 @@ func createTestBlock() *ehpb.Event {
 }
 
 func createTestChaincodeEvent() *ehpb.Event {
-	emsg := producer.CreateChaincodeEvent(&ehpb.Chaincode{Uuid: "0xffffffff", Eventname: "event1"})
+	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{Uuid: "0xffffffff", EventName: "event1"})
 	return emsg
 }
 

@@ -74,7 +74,7 @@ func (x Interest_ResponseType) String() string {
 // when EventType is CHAINCODE
 type ChaincodeReg struct {
 	Uuid           string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
-	Eventname      string `protobuf:"bytes,2,opt,name=eventname" json:"eventname,omitempty"`
+	EventName      string `protobuf:"bytes,2,opt,name=eventName" json:"eventName,omitempty"`
 	AnyTransaction bool   `protobuf:"varint,3,opt,name=anyTransaction" json:"anyTransaction,omitempty"`
 }
 
