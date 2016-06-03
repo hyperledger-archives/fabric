@@ -505,12 +505,6 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 		}
 	}
 
-	count := len(in.Attributes)
-
-	if verifyCounter == 0 {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, nil), nil
-	}
-
 	var extensions = make([]pkix.Extension, 0)
 	extensions, err = acap.addAttributesToExtensions(&attributes, extensions)
 	if err != nil {
@@ -522,6 +516,12 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	if err != nil {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), err
 	}
+
+	if verifyCounter == 0 {
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, &pb.Cert{raw}), nil
+	}
+
+	count := len(in.Attributes)
 
 	if count == verifyCounter {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FULL_SUCCESSFUL, &pb.Cert{raw}), nil
