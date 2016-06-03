@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package primitives
 
 import (
 	"crypto/ecdsa"
@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // PrivateKeyToDER marshals a private key to der
@@ -51,7 +52,7 @@ func PrivateKeyToPEM(privateKey interface{}, pwd []byte) ([]byte, error) {
 			},
 		), nil
 	default:
-		return nil, ErrInvalidKey
+		return nil, utils.ErrInvalidKey
 	}
 }
 
@@ -79,7 +80,7 @@ func PrivateKeyToEncryptedPEM(privateKey interface{}, pwd []byte) ([]byte, error
 		return pem.EncodeToMemory(block), nil
 
 	default:
-		return nil, ErrInvalidKey
+		return nil, utils.ErrInvalidKey
 	}
 }
 
@@ -215,7 +216,7 @@ func PublicKeyToPEM(publicKey interface{}, pwd []byte) ([]byte, error) {
 		), nil
 
 	default:
-		return nil, ErrInvalidKey
+		return nil, utils.ErrInvalidKey
 	}
 }
 
@@ -243,7 +244,7 @@ func PublicKeyToEncryptedPEM(publicKey interface{}, pwd []byte) ([]byte, error) 
 		return pem.EncodeToMemory(block), nil
 
 	default:
-		return nil, ErrInvalidKey
+		return nil, utils.ErrInvalidKey
 	}
 }
 

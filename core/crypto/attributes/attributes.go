@@ -27,7 +27,6 @@ import (
 
 	pb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -81,7 +80,7 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 	var err error
 	var headerRaw []byte
 	encrypted := false
-	if headerRaw, err = utils.GetCriticalExtension(tcert, TCertAttributesHeaders); err != nil {
+	if headerRaw, err = primitives.GetCriticalExtension(tcert, TCertAttributesHeaders); err != nil {
 		return nil, encrypted, err
 	}
 	headerStr := string(headerRaw)
@@ -113,7 +112,7 @@ func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte
 	}
 
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
-	value, err := utils.GetCriticalExtension(tcert, oid)
+	value, err := primitives.GetCriticalExtension(tcert, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +238,7 @@ func CreateAttributesMetadataFromCert(cert *x509.Certificate, metadata []byte, p
 
 //CreateAttributesMetadata create the AttributesMetadata from the original metadata
 func CreateAttributesMetadata(raw []byte, metadata []byte, preK0 []byte, attributeKeys []string) ([]byte, error) {
-	cert, err := utils.DERToX509Certificate(raw)
+	cert, err := primitives.DERToX509Certificate(raw)
 	if err != nil {
 		return nil, err
 	}

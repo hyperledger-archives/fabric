@@ -396,7 +396,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
 			client.error("Failed unmarshalling cert [%s].", err.Error())
 			return err

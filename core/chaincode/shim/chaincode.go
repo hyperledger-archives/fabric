@@ -34,12 +34,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	"github.com/hyperledger/fabric/core/comm"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 // Logger for the shim package.
@@ -304,13 +304,13 @@ func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 // CertAttributes returns all the attributes stored in the transaction tCert.
 func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
+	tcert, err := primitives.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
 
 	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if headerRaw, err = primitives.GetCriticalExtension(tcert, primitives.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -334,13 +334,13 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 // ReadCertAttribute returns the value specified by `attributeName` from the transaction tCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
+	tcert, err := primitives.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
 
 	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if headerRaw, err = primitives.GetCriticalExtension(tcert, primitives.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -361,7 +361,7 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
 
 	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+	if value, err = primitives.GetCriticalExtension(tcert, oid); err != nil {
 		return nil, err
 	}
 	return value, nil
