@@ -506,7 +506,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	count := len(in.Attributes)
 
 	if verifyCounter == 0 {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, nil), nil
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, &pb.Cert{raw}), nil
 	}
 
 	extensions := make([]pkix.Extension, 0)

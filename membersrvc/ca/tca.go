@@ -322,7 +322,7 @@ func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAt
 		return nil, err
 	}
 
-	if resp.Status == pb.ACAAttrResp_FAILURE {
+	if resp.Status == pb.ACAAttrResp_FAILURE || resp.Status == pb.ACAAttrResp_BAD_REQUEST {
 		return nil, errors.New("Error fetching attributes.")
 	}
 
