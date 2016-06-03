@@ -16,6 +16,7 @@ limitations under the License.
 
 syntax = "proto3";
 
+import "chaincodeevent.proto";
 import "fabric.proto";
 
 package protos;
@@ -30,6 +31,14 @@ enum EventType {
 	CHAINCODE = 3;
 }
 
+//ChaincodeReg is used for registering chaincode Interests
+//when EventType is CHAINCODE
+message ChaincodeReg {
+    string uuid = 1;
+    string eventname = 2;
+    bool anyTransaction = 3;
+}
+
 message Interest {
     enum ResponseType {
         //don't send events (used to cancel interest)
@@ -41,7 +50,7 @@ message Interest {
     }
     EventType eventType = 1;
     ResponseType responseType = 2;
-    Chaincode chainEvent = 3;
+    ChaincodeReg chainEvent = 3;
 }
 
 //---------- consumer events ---------
@@ -59,14 +68,6 @@ message Generic {
     bytes payload = 2;
 }
 
-//Chaincode is used for events and registrations that are specific to chaincode
-//string type - "chaincode"
-message Chaincode {
-      string uuid = 1;
-      bool   transactions = 2;
-      string eventname = 3;
-      bytes payload = 4;
-}
 //Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
@@ -80,7 +81,7 @@ message Event {
         //producer events
         Block block = 2;
         Generic generic = 3;
-        Chaincode chaincode = 4;
+        ChaincodeEvent chaincodeEvent = 4;
     }
 }
 
