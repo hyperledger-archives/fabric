@@ -23,7 +23,9 @@ type tCertPool interface {
 
 	Stop() error
 
-	GetNextTCert() (tCert, error)
+	GetNextTCerts(nCerts int) ([]tCert, error)
+
+	GetNextTCert() (tCert, error) // will be removed in the next refactoring step
 
 	AddTCert(tCert tCert) error
 }

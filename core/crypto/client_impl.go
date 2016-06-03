@@ -17,6 +17,8 @@ limitations under the License.
 package crypto
 
 import (
+	"errors"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -54,7 +56,27 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
 }
 
-// GetNextTCert Gets next available (not yet used) transaction certificate.
+// GetNextTCerts Gets next available (not yet used) transaction certificate.
+func (client *clientImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
+	if nCerts < 1 {
+		return nil, errors.New("Number of requested TCerts has to be positive!")
+	}
+
+	// Verify that the client is initialized
+	if !client.isInitialized {
+		return nil, utils.ErrNotInitialized
+	}
+
+	// Get next available (not yet used) transaction certificate
+	tCerts, err = client.tCertPool.GetNextTCerts(nCerts)
+	if err != nil {
+		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		return nil, err
+	}
+
+	return tCerts, nil
+}
+
 func (client *clientImpl) GetNextTCert() (tCert, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
