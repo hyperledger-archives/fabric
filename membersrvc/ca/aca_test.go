@@ -371,6 +371,182 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 	}
 }
 
+func TestRequestAttributes_FullAttributes(t *testing.T) {
+
+	cert, err := loadECert()
+	if err != nil {
+		t.Fatalf("Error loading ECert: %v", err)
+	}
+	ecert := cert.Raw
+
+	sock, acaP, err := GetACAClient()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+	defer sock.Close()
+	attributesHash := make([]*pb.TCertAttributeHash, 0)
+
+	attributes := make([]*pb.TCertAttribute, 0)
+	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
+	attributes = append(attributes, &pb.TCertAttribute{"business_unit", "Sales"})
+
+	for _, att := range attributes {
+		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
+		attributesHash = append(attributesHash, &attributeHash)
+	}
+
+	req := &pb.ACAAttrReq{
+		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id:         &pb.Identity{"diego"},
+		ECert:      &pb.Cert{ecert},
+		Attributes: attributesHash,
+		Signature:  nil}
+
+	var rawReq []byte
+	rawReq, err = proto.Marshal(req)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	var r, s *big.Int
+
+	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+
+	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+
+	resp, err := acaP.RequestAttributes(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	valueMap := make(map[string]string)
+	for _, eachExtension := range aCert.Extensions {
+		if IsAttributeOID(eachExtension.Id) {
+			var attribute pb.ACAAttribute
+			proto.Unmarshal(eachExtension.Value, &attribute)
+			valueMap[attribute.AttributeName] = string(attribute.AttributeValue)
+		}
+	}
+
+	if valueMap["company"] != "ACompany" {
+				t.Fatalf("The attribute should have coincided.")
+	}
+
+	if valueMap["business_unit"] != "Sales" {
+				t.Fatalf("The attribute should have coincided.")
+	}
+
+	if resp.Status != pb.ACAAttrResp_FULL_SUCCESSFUL {
+		t.Fatalf("All attributes in the query should have coincided.")
+	}
+}
+
+func TestRequestAttributes_PartialAttributes(t *testing.T) {
+
+	cert, err := loadECert()
+	if err != nil {
+		t.Fatalf("Error loading ECert: %v", err)
+	}
+	ecert := cert.Raw
+
+	sock, acaP, err := GetACAClient()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+	defer sock.Close()
+	attributesHash := make([]*pb.TCertAttributeHash, 0)
+
+	attributes := make([]*pb.TCertAttribute, 0)
+	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
+	attributes = append(attributes, &pb.TCertAttribute{"credit_card", "883994898378994"})
+
+	for _, att := range attributes {
+		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
+		attributesHash = append(attributesHash, &attributeHash)
+	}
+
+	req := &pb.ACAAttrReq{
+		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Id:         &pb.Identity{"diego"},
+		ECert:      &pb.Cert{ecert},
+		Attributes: attributesHash,
+		Signature:  nil}
+
+	var rawReq []byte
+	rawReq, err = proto.Marshal(req)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	var r, s *big.Int
+
+	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+
+	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+
+	resp, err := acaP.RequestAttributes(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	valueMap := make(map[string]string)
+	for _, eachExtension := range aCert.Extensions {
+		if IsAttributeOID(eachExtension.Id) {
+			var attribute pb.ACAAttribute
+			proto.Unmarshal(eachExtension.Value, &attribute)
+			valueMap[attribute.AttributeName] = string(attribute.AttributeValue)
+		}
+	}
+
+	if valueMap["company"] != "ACompany" {
+				t.Fatalf("The attribute should have coincided.")
+	}
+
+	if valueMap["credit_card"] != "" {
+		t.Fatalf("The Attribute should be blank.")
+	}
+
+  if resp.Status == pb.ACAAttrResp_NO_ATTRIBUTES_FOUND{
+			t.Fatalf("At least one attribute must be conincided")
+	}
+
+	if resp.Status != pb.ACAAttrResp_PARTIAL_SUCCESSFUL {
+		t.Fatalf("All attributes in the query should have coincided.")
+	}
+}
+
 func contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
