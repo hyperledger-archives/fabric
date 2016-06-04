@@ -44,8 +44,11 @@ var adapter *Adapter
 var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
-	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF}, &ehpb.Interest{EventType: "generic", ResponseType: ehpb.Interest_PROTOBUF}}, nil
-	return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChainEvent: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: "event1"}}}, nil
+	return []*ehpb.Interest{
+				&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF},
+				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: "event1"}},
+				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: ""}},
+				}, nil
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
 
@@ -83,8 +86,8 @@ func createTestBlock() *ehpb.Event {
 	return emsg
 }
 
-func createTestChaincodeEvent() *ehpb.Event {
-	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{Uuid: "0xffffffff", EventName: "event1"})
+func createTestChaincodeEvent(tid string, typ string) *ehpb.Event {
+	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{Uuid: tid, EventName: typ})
 	return emsg
 }
 
@@ -105,7 +108,57 @@ func TestReceiveMessage(t *testing.T) {
 
 	adapter.count = 1
 	//emsg := createTestBlock()
-	emsg := createTestChaincodeEvent()
+	emsg := createTestChaincodeEvent("0xffffffff", "event1")
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	//receive 2 messages
+	for i:=0; i < 2; i++ {
+		select {
+		case <-adapter.notfy:
+		case <-time.After(5 * time.Second):
+			t.Fail()
+			t.Logf("timed out on messge")
+		}
+	}
+}
+
+func TestReceiveAnyMessage(t *testing.T) {
+	var err error
+	fmt.Printf("TestReceiveMessage:\n")
+
+	adapter.count = 1
+	emsg := createTestBlock()
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	emsg = createTestChaincodeEvent("0xffffffff", "event2")
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	//receive 2 messages - a block and a chaincode event
+	for i:=0; i < 2; i++ {
+		select {
+		case <-adapter.notfy:
+		case <-time.After(5 * time.Second):
+			t.Fail()
+			t.Logf("timed out on messge")
+		}
+	}
+}
+
+func TestFailReceive(t *testing.T) {
+	var err error
+	fmt.Printf("TestReceiveMessage:\n")
+
+	adapter.count = 1
+	emsg := createTestChaincodeEvent("badcc", "event1")
 	if err = producer.Send(emsg); err != nil {
 		t.Fail()
 		t.Logf("Error sending message %s", err)
@@ -113,9 +166,9 @@ func TestReceiveMessage(t *testing.T) {
 
 	select {
 	case <-adapter.notfy:
-	case <-time.After(5 * time.Second):
 		t.Fail()
-		t.Logf("timed out on messge")
+		t.Logf("should NOT have received event1")
+	case <-time.After(2 * time.Second):
 	}
 }
 
@@ -131,7 +184,7 @@ func BenchmarkMessages(b *testing.B) {
 		go func() {
 			//emsg := createTestGenericEvent()
 			//emsg := createTestBlock()
-			emsg := createTestChaincodeEvent()
+			emsg := createTestChaincodeEvent("0xffffffff", "event1")
 			if err = producer.Send(emsg); err != nil {
 				b.Fail()
 				b.Logf("Error sending message %s", err)

@@ -85,16 +85,22 @@ func (*ChaincodeReg) ProtoMessage()    {}
 type Interest struct {
 	EventType    EventType             `protobuf:"varint,1,opt,name=eventType,enum=protos.EventType" json:"eventType,omitempty"`
 	ResponseType Interest_ResponseType `protobuf:"varint,2,opt,name=responseType,enum=protos.Interest_ResponseType" json:"responseType,omitempty"`
-	ChainEvent   *ChaincodeReg         `protobuf:"bytes,3,opt,name=chainEvent" json:"chainEvent,omitempty"`
+	// this is provided if eventType is CHAINCODE
+	// Ideally we should just have oneof different Reg types
+	// and get rid of EventType. But this is an API change
+	// As we dont really anticipate frequent additions of types
+	// (basically, Block and Chaincode) this maybe ok. Should be
+	// revisited
+	ChaincodeRegInfo *ChaincodeReg `protobuf:"bytes,3,opt,name=chaincodeRegInfo" json:"chaincodeRegInfo,omitempty"`
 }
 
 func (m *Interest) Reset()         { *m = Interest{} }
 func (m *Interest) String() string { return proto.CompactTextString(m) }
 func (*Interest) ProtoMessage()    {}
 
-func (m *Interest) GetChainEvent() *ChaincodeReg {
+func (m *Interest) GetChaincodeRegInfo() *ChaincodeReg {
 	if m != nil {
-		return m.ChainEvent
+		return m.ChaincodeRegInfo
 	}
 	return nil
 }

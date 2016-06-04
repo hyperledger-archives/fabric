@@ -36,8 +36,8 @@ import (
 //
 type handlerList interface {
 	//find() *handler
-	add(ie *pb.Interest, h *handler) bool
-	del(ie *pb.Interest, h *handler) bool
+	add(ie *pb.Interest, h *handler) (bool, error)
+	del(ie *pb.Interest, h *handler) (bool, error)
 	foreach(ie *pb.Event, action func(h *handler))
 }
 
@@ -50,59 +50,137 @@ type genericHandlerList struct {
 type chaincodeHandlerList struct {
 	sync.RWMutex
 	// this map used as a list - add/del/iterate
-	handlers map[string]map[string]*handler
+	handlers map[string]map[string]map[*handler]bool
 }
 
-func (hl *chaincodeHandlerList) add(ie *pb.Interest, h *handler) bool {
+func (hl *chaincodeHandlerList) add(ie *pb.Interest, h *handler) (bool, error) {
 	hl.Lock()
-	emap, ok := hl.handlers[ie.GetChainEvent().Uuid]
-	if !ok {
-		emap = make(map[string]*handler)
-		hl.handlers[ie.GetChainEvent().Uuid] = emap
+	defer hl.Unlock()
+
+	//chaincode registration info must be non-nil
+	if ie.GetChaincodeRegInfo() == nil {
+		return false, fmt.Errorf("chaincode information not provided for registering")
 	}
-	emap[ie.GetChainEvent().EventName] = h
-	hl.Unlock()
-	return true
+	//chaincode registration info must be for a non-empty chaincode ID (even if the chaincode does not exist)
+	if ie.GetChaincodeRegInfo().Uuid == "" {
+		return false, fmt.Errorf("chaincode ID not provided for registering")
+	}
+	//is there a event type map for the chaincode
+	emap, ok := hl.handlers[ie.GetChaincodeRegInfo().Uuid]
+	if !ok {
+		emap = make(map[string]map[*handler]bool)
+		hl.handlers[ie.GetChaincodeRegInfo().Uuid] = emap
+	}
+
+	//create handler map if this is the first handler for the type
+	var handlerMap map[*handler]bool
+	if handlerMap,_ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
+		handlerMap = make(map[*handler]bool)
+		emap[ie.GetChaincodeRegInfo().EventName] = handlerMap
+	} else if _,ok = handlerMap[h]; ok {
+		return false, fmt.Errorf("handler exists for event type")
+	}
+
+	//the handler is added to the map
+	handlerMap[h] = true
+
+	return true, nil
 }
-func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) bool {
+func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) (bool, error) {
 	hl.Lock()
-	emap, ok := hl.handlers[ie.GetChainEvent().Uuid]
-	if !ok {
-		hl.Unlock()
-		return false
+	defer hl.Unlock()
+
+	//chaincode registration info must be non-nil
+	if ie.GetChaincodeRegInfo() == nil {
+		return false, fmt.Errorf("chaincode information not provided for de-registering")
 	}
-	delete(emap, ie.GetChainEvent().EventName)
-	hl.Unlock()
-	return true
+
+	//chaincode registration info must be for a non-empty chaincode ID (even if the chaincode does not exist)
+	if ie.GetChaincodeRegInfo().Uuid == "" {
+		return false, fmt.Errorf("chaincode ID not provided for de-registering")
+	}
+
+	//if there's no event type map, nothing to do
+	emap, ok := hl.handlers[ie.GetChaincodeRegInfo().Uuid]
+	if !ok {
+		return false, fmt.Errorf("chaincode ID not registered")
+	}
+
+	//if there are no handlers for the event type, nothing to do
+	var handlerMap map[*handler]bool
+	if handlerMap,_ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
+		return false, fmt.Errorf("event name %s not registered for chaincode ID %s", ie.GetChaincodeRegInfo().EventName, ie.GetChaincodeRegInfo().Uuid)
+	} else if _,ok = handlerMap[h]; !ok {
+		//the handler is not registered for the event type
+		return false, fmt.Errorf("handler not registered for event name %s for chaincode ID %s", ie.GetChaincodeRegInfo().EventName, ie.GetChaincodeRegInfo().Uuid)
+	}
+
+	//remove the handler from the map
+	delete(handlerMap, h)
+
+	//if the last handler has been removed from handler map for a chaincode's event,
+	//remove the event map.
+	//if the last map of events have been removed for the chaincode UUID
+	//remove the chaincode UUID map
+	if len(handlerMap) == 0 {
+		delete(emap, ie.GetChaincodeRegInfo().EventName)
+		if len(emap) == 0 {
+			delete(hl.handlers, ie.GetChaincodeRegInfo().Uuid)
+		}
+	}
+
+	return true, nil
 }
 
 func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
 	hl.Lock()
-	for _, h := range hl.handlers[e.GetChaincodeEvent().Uuid] {
-		action(h)
+	defer hl.Unlock()
+
+	//if there's no chaincode event in the event... nothing to do (why was this event sent ?)
+	if e.GetChaincodeEvent() == nil || e.GetChaincodeEvent().Uuid == ""  {
+		return
 	}
-	hl.Unlock()
+
+	//get the event map for the chaincode
+	if emap := hl.handlers[e.GetChaincodeEvent().Uuid]; emap != nil {
+		//get the handler map for the event
+		if handlerMap := emap[e.GetChaincodeEvent().EventName]; handlerMap != nil {
+			for h, _ := range handlerMap {
+				action(h)
+			}
+		}
+		//send to handlers who want all events from the chaincode, but only if
+		//EventName is not already "" (chaincode should NOT send nameless events though)
+		if e.GetChaincodeEvent().EventName != "" {
+			if handlerMap := emap[""]; handlerMap != nil {
+				for h, _ := range handlerMap {
+					action(h)
+				}
+			}
+		}
+	}
 }
 
-func (hl *genericHandlerList) add(ie *pb.Interest, h *handler) bool {
+func (hl *genericHandlerList) add(ie *pb.Interest, h *handler) (bool, error) {
 	hl.Lock()
 	if _, ok := hl.handlers[h]; ok {
 		hl.Unlock()
-		return false
+		return false, fmt.Errorf("handler exists for event type")
 	}
 	hl.handlers[h] = true
 	hl.Unlock()
-	return true
+	return true, nil
 }
-func (hl *genericHandlerList) del(ie *pb.Interest, h *handler) bool {
+
+func (hl *genericHandlerList) del(ie *pb.Interest, h *handler) (bool, error) {
 	hl.Lock()
 	if _, ok := hl.handlers[h]; !ok {
 		hl.Unlock()
-		return false
+		return false, fmt.Errorf("handler does not exist for event type")
 	}
 	delete(hl.handlers, h)
 	hl.Unlock()
-	return true
+	return true, nil
 }
 
 func (hl *genericHandlerList) foreach(e *pb.Event, action func(h *handler)) {
@@ -209,7 +287,7 @@ func AddEventType(eventType pb.EventType) error {
 	case pb.EventType_BLOCK:
 		gEventProcessor.eventConsumers[eventType] = &genericHandlerList{handlers: make(map[*handler]bool)}
 	case pb.EventType_CHAINCODE:
-		gEventProcessor.eventConsumers[eventType] = &chaincodeHandlerList{handlers: make(map[string]map[string]*handler)}
+		gEventProcessor.eventConsumers[eventType] = &chaincodeHandlerList{handlers: make(map[string]map[string]map[*handler]bool)}
 	}
 	gEventProcessor.Unlock()
 
@@ -220,15 +298,13 @@ func registerHandler(ie *pb.Interest, h *handler) error {
 	producerLogger.Debug("registerHandler %s", ie.EventType)
 
 	gEventProcessor.Lock()
+	defer gEventProcessor.Unlock()
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
-		gEventProcessor.Unlock()
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
-	} else if ok = hl.add(ie, h); !ok {
-		gEventProcessor.Unlock()
-		return fmt.Errorf("handler already registered for  %s", ie.EventType)
+	} else if _, err := hl.add(ie, h); err != nil {
+		return fmt.Errorf("error registering handler for  %s: %s", ie.EventType, err)
 	}
 
-	gEventProcessor.Unlock()
 	return nil
 }
 
@@ -236,12 +312,11 @@ func deRegisterHandler(ie *pb.Interest, h *handler) error {
 	producerLogger.Debug("deRegisterHandler %s", ie.EventType)
 
 	gEventProcessor.Lock()
+	defer gEventProcessor.Unlock()
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
-		gEventProcessor.Unlock()
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
-	} else if ok = hl.del(ie, h); !ok {
-		gEventProcessor.Unlock()
-		return fmt.Errorf("handler already deregistered for  %s", ie.EventType)
+	} else if _, err := hl.del(ie, h); err != nil {
+		return fmt.Errorf("error deregistering handler for %s: %s", ie.EventType, err)
 	}
 
 	return nil
