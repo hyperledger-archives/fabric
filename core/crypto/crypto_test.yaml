@@ -22,7 +22,8 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-
+    level: 256
+    hashAlgorithm: SHA3
 
 eca:
     affiliation_groups:
@@ -30,7 +31,7 @@ eca:
             banks:
                 bank_a:
                 bank_b:
-                bank_c:              		
+                bank_c:
             institutions:
                 institution_a:
 
@@ -100,6 +101,8 @@ security:
       attributes:
         company: IBM
         position: "Software Engineer"
+    level: 256
+    hashAlgorithm: SHA3
 
 ###############################################################################
 #
@@ -174,4 +177,3 @@ tests:
             userthread:
                 enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
-
