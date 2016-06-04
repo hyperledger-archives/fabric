@@ -26,6 +26,7 @@ import (
 	"database/sql"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
@@ -159,13 +160,18 @@ func (eca *ECA) populateUsersTable() {
 		if err != nil {
 			Panic.Panicln(err)
 		}
-
-		var affiliation, affiliationRole string
+		var affiliation, affiliationRole, memberMetadata, registrar string
 		if len(vals) >= 4 {
 			affiliation = vals[2]
 			affiliationRole = vals[3]
+			if len(vals) >= 5 {
+				memberMetadata = vals[4]
+				if len(vals) >= 6 {
+					registrar = vals[5]
+				}
+			}
 		}
-		eca.registerUser(id, affiliation, affiliationRole, pb.Role(role), vals[1])
+		eca.registerUser(id, affiliation, affiliationRole, pb.Role(role), registrar, memberMetadata, vals[1])
 	}
 }
 
@@ -278,8 +284,9 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	id := in.Id.Id
 	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollID)
-
 	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
+		Trace.Printf("id or token mismatch: err=%s, id=%s, tok=%s, tokLen=%d, in.tok=%s, in.tokLen=%d\n",
+			err.Error(), id, string(tok), len(tok), string(in.Tok.Tok), len(in.Tok.Tok))
 		return nil, errors.New("Identity or token does not match.")
 	}
 
@@ -434,8 +441,74 @@ func (ecap *ECAP) RevokeCertificatePair(context.Context, *pb.ECertRevokeReq) (*p
 func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb.Token, error) {
 	Trace.Println("gRPC ECAA:RegisterUser")
 
-	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role)
+	// Check the signature
+	err := ecaa.checkRegistrarSignature(in)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register the user
+	registrarId := in.Registrar.Id.Id
+	in.Registrar.Id = nil
+	registrar := pb.RegisterUserReq{Registrar: in.Registrar}
+	json, err := json.Marshal(registrar)
+	if err != nil {
+		return nil, err
+	}
+	jsonStr := string(json)
+	Trace.Println("gRPC ECAA:RegisterUser: json=" + jsonStr)
+	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarId, jsonStr)
+
+	// Return the one-time password
 	return &pb.Token{[]byte(tok)}, err
+
+}
+
+func (ecaa *ECAA) checkRegistrarSignature(in *pb.RegisterUserReq) error {
+	Trace.Println("ECAA.checkRegistrarSignature")
+
+	// If no registrar was specified
+	if in.Registrar == nil || in.Registrar.Id == nil || in.Registrar.Id.Id == "" {
+		Trace.Println("gRPC ECAA:checkRegistrarSignature: no registrar was specified")
+		return errors.New("no registrar was specified")
+	}
+
+	// Get the raw cert for the registrar
+	registrar := in.Registrar.Id.Id
+	raw, err := ecaa.eca.readCertificate(registrar, x509.KeyUsageDigitalSignature)
+	if err != nil {
+		return err
+	}
+
+	// Parse the cert
+	cert, err := x509.ParseCertificate(raw)
+	if err != nil {
+		return err
+	}
+
+	// Remove the signature
+	sig := in.Sig
+	in.Sig = nil
+
+	// Marshall the raw bytes
+	r, s := big.NewInt(0), big.NewInt(0)
+	r.UnmarshalText(sig.R)
+	s.UnmarshalText(sig.S)
+
+	hash := primitives.NewHash()
+	raw, _ = proto.Marshal(in)
+	hash.Write(raw)
+
+	// Check the signature
+	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
+		// Signature verification failure
+		Trace.Printf("ECAA.checkRegistrarSignature: failure for %s\n", registrar)
+		return errors.New("Signature verification failed.")
+	}
+
+	// Signature verification was successful
+	Trace.Printf("ECAA.checkRegistrarSignature: success for %s\n", registrar)
+	return nil
 }
 
 // ReadUserSet returns a list of users matching the parameters set in the read request.

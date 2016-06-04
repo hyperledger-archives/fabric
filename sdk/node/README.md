@@ -194,6 +194,18 @@ We also assume that the peer is running at security level 256, which is the defa
 Don't forget to enable security and privacy as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
 
 
+#### registrar
+
+This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.
+
+Run the test as follows assuming membership services is running on the default ports:
+
+
+```
+cd $FABRIC/sdk/node
+node test/unit/registrar.js
+```
+
 #### chain-tests
 
 This test case exercises chaincode *chaincode_example02* as described in in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).

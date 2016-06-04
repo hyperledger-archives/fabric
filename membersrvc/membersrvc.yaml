@@ -58,14 +58,14 @@ eca:
               institutions:
                   - institution_a
         users:
-                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                lukas: 1 NPKYL39uKbkj bank_a    00001
+                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role> <JSON_Metadata>
+                admin: 1 Xurw3yU9zI0l institution_a 00001 '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
+                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 '{"registrar":{"roles":["client"]}}'
+                lukas: 1 NPKYL39uKbkj bank_a 00001
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
-                diego: 1 DRJ23pEQl16a institution_a     00003
-                jim: 1 6avZQLwcUe9b bank_a      00004
-                binhn: 1 7avZQLwcUe9q institution_a     00005
-                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 # Node.js UT user. Do not modify.
-
+                diego: 1 DRJ23pEQl16a institution_a 00003
+                jim: 1 6avZQLwcUe9b bank_a 00004
+                binhn: 1 7avZQLwcUe9q institution_a 00005
                 vp: 4 f3489fy98ghf
 
                 test_vp0: 4 MwYpmSRjupbT

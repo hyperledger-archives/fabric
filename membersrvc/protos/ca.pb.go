@@ -17,6 +17,7 @@ It has these top-level messages:
 	PublicKey
 	PrivateKey
 	Signature
+	Registrar
 	RegisterUserReq
 	ReadUserSetReq
 	User
@@ -303,11 +304,30 @@ func (m *Signature) Reset()         { *m = Signature{} }
 func (m *Signature) String() string { return proto.CompactTextString(m) }
 func (*Signature) ProtoMessage()    {}
 
+type Registrar struct {
+	Id            *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Roles         []string  `protobuf:"bytes,2,rep,name=roles" json:"roles,omitempty"`
+	DelegateRoles []string  `protobuf:"bytes,3,rep,name=delegateRoles" json:"delegateRoles,omitempty"`
+}
+
+func (m *Registrar) Reset()         { *m = Registrar{} }
+func (m *Registrar) String() string { return proto.CompactTextString(m) }
+func (*Registrar) ProtoMessage()    {}
+
+func (m *Registrar) GetId() *Identity {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
 type RegisterUserReq struct {
-	Id          *Identity `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Role        Role      `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
-	Account     string    `protobuf:"bytes,3,opt,name=account" json:"account,omitempty"`
-	Affiliation string    `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
+	Id          *Identity  `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Role        Role       `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
+	Account     string     `protobuf:"bytes,3,opt,name=account" json:"account,omitempty"`
+	Affiliation string     `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
+	Registrar   *Registrar `protobuf:"bytes,5,opt,name=registrar" json:"registrar,omitempty"`
+	Sig         *Signature `protobuf:"bytes,6,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *RegisterUserReq) Reset()         { *m = RegisterUserReq{} }
@@ -317,6 +337,20 @@ func (*RegisterUserReq) ProtoMessage()    {}
 func (m *RegisterUserReq) GetId() *Identity {
 	if m != nil {
 		return m.Id
+	}
+	return nil
+}
+
+func (m *RegisterUserReq) GetRegistrar() *Registrar {
+	if m != nil {
+		return m.Registrar
+	}
+	return nil
+}
+
+func (m *RegisterUserReq) GetSig() *Signature {
+	if m != nil {
+		return m.Sig
 	}
 	return nil
 }
