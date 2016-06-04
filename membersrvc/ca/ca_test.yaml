@@ -323,6 +323,14 @@ hosts:
         tlsca: localhost
 
 eca:
+        affiliation_groups:
+           banks_and_institutions:
+              banks:
+                  bank_a
+                  bank_b
+                  bank_c
+              institutions:
+                  institution_a
         users:
                 system_chaincode_invoker: 1 DRJ20pEql15a
                 diego: 2 DRJ23pEQl16a
