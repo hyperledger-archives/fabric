@@ -397,6 +397,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
+	instance.seqNo = 0
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
 			View:           instance.view,
@@ -412,6 +413,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		}
 		instance.persistQSet()
 	}
+
+	instance.updateViewChangeSeqNo()
 
 	if instance.primary(instance.view) != instance.id {
 		for n, d := range nv.Xset {

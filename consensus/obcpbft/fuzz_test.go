@@ -141,7 +141,7 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket

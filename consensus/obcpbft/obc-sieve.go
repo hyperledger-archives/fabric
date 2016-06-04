@@ -655,7 +655,7 @@ func (op *obcSieve) execute(seqNo uint64, raw []byte) {
 		seqNo: seqNo,
 		txRaw: raw,
 	}
-	logger.Debug("Seive replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
 }
 
 func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
