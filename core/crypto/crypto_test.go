@@ -259,7 +259,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake peer
-	peer, err := InitPeer("", nil)
+	peer, err = InitPeer("", nil)
 	if err == nil || peer != nil {
 		t.Fatal("Init should fail")
 	}
@@ -269,7 +269,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake validator
-	validator, err := InitValidator("", nil)
+	validator, err = InitValidator("", nil)
 	if err == nil || validator != nil {
 		t.Fatal("Init should fail")
 	}
@@ -882,25 +882,25 @@ func TestValidatorQueryTransaction(t *testing.T) {
 		if queryTx.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 
 			// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-			if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+			if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 				t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 			}
 			if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 				t.Fatalf("Failed pre-executing deploty transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 			}
 			if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-executing exec1 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 			}
 			if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-executing exec2 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(queryTx); err != nil {
+			if _, err = validator.TransactionPreValidation(queryTx); err != nil {
 				t.Fatalf("Failed pre-validating query transaction [%s].", err)
 			}
 			if queryTx, err = validator.TransactionPreExecution(queryTx); err != nil {
@@ -990,19 +990,19 @@ func TestValidatorStateEncryptor(t *testing.T) {
 	}
 
 	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-	if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+	if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 	if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
@@ -1272,7 +1272,7 @@ func initClients() error {
 
 	// Invoker
 	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
-	if err := RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	if err = RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	invoker, err = InitClient(invokerConf.Name, ksPwd)
