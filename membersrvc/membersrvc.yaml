@@ -50,11 +50,11 @@ eca:
         affiliation_groups:
            banks_and_institutions:
               banks:
-                  bank_a:
-                  bank_b:
-                  bank_c:
+                  bank_a
+                  bank_b
+                  bank_c
               institutions:
-                  institution_a:
+                  institution_a
         users:
                 # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
                 lukas: 1 NPKYL39uKbkj bank_a    00001
