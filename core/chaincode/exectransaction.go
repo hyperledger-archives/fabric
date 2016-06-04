@@ -107,6 +107,10 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 			markTxFinish(ledger, t, false)
 			return nil, nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
+			if resp.ChaincodeEvent != nil {
+				resp.ChaincodeEvent.Uuid = chaincode
+			}
+
 			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
 				// Success
 				markTxFinish(ledger, t, true)
