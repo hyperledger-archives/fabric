@@ -150,11 +150,10 @@ func (ep *eventProcessor) start() {
 			ep.Unlock()
 			continue
 		}
-		ghl := hl.(*genericHandlerList)
 		//lock the handler map lock
 		ep.Unlock()
 
-		ghl.foreach(e, func(h *handler) {
+		hl.foreach(e, func(h *handler) {
 			if e.Event != nil {
 				h.SendMessage(e)
 			}
@@ -206,7 +205,12 @@ func AddEventType(eventType pb.EventType) error {
 		return fmt.Errorf("event type exists %s", pb.EventType_name[int32(eventType)])
 	}
 
-	gEventProcessor.eventConsumers[eventType] = &genericHandlerList{handlers: make(map[*handler]bool)}
+	switch eventType   {
+	case pb.EventType_BLOCK:
+		gEventProcessor.eventConsumers[eventType] = &genericHandlerList{handlers: make(map[*handler]bool)}
+	case pb.EventType_CHAINCODE:
+		gEventProcessor.eventConsumers[eventType] = &chaincodeHandlerList{handlers: make(map[string]map[string]*handler)}
+	}
 	gEventProcessor.Unlock()
 
 	return nil
