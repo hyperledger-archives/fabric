@@ -34,6 +34,7 @@ import (
 type EventSender struct {
 }
 
+// Init function
 func (t *EventSender) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	err := stub.PutState("noevents", []byte("0"))
 	if err != nil {
@@ -43,7 +44,7 @@ func (t *EventSender) Init(stub *shim.ChaincodeStub, function string, args []str
 	return nil, nil
 }
 
-// Transaction makes payment of X units from A to B
+// Invoke function
 func (t *EventSender) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	b, err := stub.GetState("noevents")
 	if err != nil {
@@ -52,8 +53,8 @@ func (t *EventSender) Invoke(stub *shim.ChaincodeStub, function string, args []s
 	noevts, _ := strconv.Atoi(string(b))
 
 	tosend := "Event " + string(b)
-	for _,s := range args {
-		tosend = tosend+","+s
+	for _, s := range args {
+		tosend = tosend + "," + s
 	}
 
 	err = stub.PutState("noevts", []byte(strconv.Itoa(noevts+1)))
@@ -68,13 +69,13 @@ func (t *EventSender) Invoke(stub *shim.ChaincodeStub, function string, args []s
 	return nil, nil
 }
 
-// Query callback representing the query of a chaincode
+// Query function
 func (t *EventSender) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	b, err := stub.GetState("noevents")
 	if err != nil {
 		return nil, errors.New("Failed to get state")
 	}
-	jsonResp := "{\"NoEvents\":\"" +  string(b) + "\"}"
+	jsonResp := "{\"NoEvents\":\"" + string(b) + "\"}"
 	return []byte(jsonResp), nil
 }
 

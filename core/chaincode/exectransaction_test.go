@@ -1438,7 +1438,7 @@ func TestGetEvent(t *testing.T) {
 	args := []string{"i", "am", "satoshi"}
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: "", Args: args}}
-	
+
 	var ccevt *pb.ChaincodeEvent
 	ccevt, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_INVOKE)
 
@@ -1452,8 +1452,8 @@ func TestGetEvent(t *testing.T) {
 		t.Fail()
 	}
 
-	if ccevt.Uuid != chaincodeID {
-		t.Logf("Error ccevt id(%s) != cid(%s)", ccevt.Uuid, chaincodeID)
+	if ccevt.ChaincodeID != chaincodeID {
+		t.Logf("Error ccevt id(%s) != cid(%s)", ccevt.ChaincodeID, chaincodeID)
 		t.Fail()
 	}
 

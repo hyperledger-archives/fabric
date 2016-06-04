@@ -19,7 +19,8 @@ package protos;
 //Chaincode is used for events and registrations that are specific to chaincode
 //string type - "chaincode"
 message ChaincodeEvent {
-      string uuid = 1;
-      string eventName = 2;
-      bytes payload = 3;
+      string chaincodeID = 1;
+      string txID = 2;
+      string eventName = 3;
+      bytes payload = 4;
 }

@@ -16,9 +16,10 @@ var _ = math.Inf
 // Chaincode is used for events and registrations that are specific to chaincode
 // string type - "chaincode"
 type ChaincodeEvent struct {
-	Uuid      string `protobuf:"bytes,1,opt,name=uuid" json:"uuid,omitempty"`
-	EventName string `protobuf:"bytes,2,opt,name=eventName" json:"eventName,omitempty"`
-	Payload   []byte `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	ChaincodeID string `protobuf:"bytes,1,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	TxID        string `protobuf:"bytes,2,opt,name=txID" json:"txID,omitempty"`
+	EventName   string `protobuf:"bytes,3,opt,name=eventName" json:"eventName,omitempty"`
+	Payload     []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
 func (m *ChaincodeEvent) Reset()         { *m = ChaincodeEvent{} }

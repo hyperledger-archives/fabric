@@ -34,7 +34,7 @@ enum EventType {
 //ChaincodeReg is used for registering chaincode Interests
 //when EventType is CHAINCODE
 message ChaincodeReg {
-    string uuid = 1;
+    string chaincodeID = 1;
     string eventName = 2;
     bool anyTransaction = 3;
 }

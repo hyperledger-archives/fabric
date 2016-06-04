@@ -46,8 +46,8 @@ var obcEHClient *consumer.EventsClient
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	return []*ehpb.Interest{
 				&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF},
-				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: "event1"}},
-				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{Uuid: "0xffffffff", EventName: ""}},
+				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}},
+				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}},
 				}, nil
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
@@ -87,7 +87,7 @@ func createTestBlock() *ehpb.Event {
 }
 
 func createTestChaincodeEvent(tid string, typ string) *ehpb.Event {
-	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{Uuid: tid, EventName: typ})
+	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{ChaincodeID: tid, EventName: typ})
 	return emsg
 }
 
@@ -104,7 +104,6 @@ func closeListenerAndSleep(l net.Listener) {
 // Test the invocation of a transaction.
 func TestReceiveMessage(t *testing.T) {
 	var err error
-	fmt.Printf("TestReceiveMessage:\n")
 
 	adapter.count = 1
 	//emsg := createTestBlock()
@@ -127,7 +126,6 @@ func TestReceiveMessage(t *testing.T) {
 
 func TestReceiveAnyMessage(t *testing.T) {
 	var err error
-	fmt.Printf("TestReceiveMessage:\n")
 
 	adapter.count = 1
 	emsg := createTestBlock()
@@ -155,7 +153,6 @@ func TestReceiveAnyMessage(t *testing.T) {
 
 func TestFailReceive(t *testing.T) {
 	var err error
-	fmt.Printf("TestReceiveMessage:\n")
 
 	adapter.count = 1
 	emsg := createTestChaincodeEvent("badcc", "event1")
