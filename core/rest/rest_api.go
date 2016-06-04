@@ -40,8 +40,8 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 var restLogger = logging.MustGetLogger("rest")
@@ -427,7 +427,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		}
 
 		// Transforms the DER encoded certificate to a PEM encoded certificate
-		certPEM := utils.DERCertToPEM(certDER)
+		certPEM := primitives.DERCertToPEM(certDER)
 
 		// As the enrollment certificate contains \n characters, url encode it before outputting
 		urlEncodedCert := url.QueryEscape(string(certPEM))
@@ -549,7 +549,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			}
 
 			// Transforms the DER encoded certificate to a PEM encoded certificate
-			certPEM := utils.DERCertToPEM(certDER)
+			certPEM := primitives.DERCertToPEM(certDER)
 
 			// As the transaction certificate contains \n characters, url encode it before outputting
 			urlEncodedCert := url.QueryEscape(string(certPEM))
