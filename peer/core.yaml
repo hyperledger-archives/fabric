@@ -422,6 +422,8 @@ security:
         company: IBM
         position: "Software Engineer"
 
+    # Confidentiality protocol version could be 1.1 or 1.2
+    confidentialityProtocolVersion: 1.2
 
 ################################################################################
 #
