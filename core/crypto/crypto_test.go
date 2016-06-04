@@ -67,6 +67,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	setup()
 	//Define a map to store the scenarios properties
 	properties := make(map[string]interface{})
 	ret := 0
