@@ -284,9 +284,13 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	id := in.Id.Id
 	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollID)
-	if err != nil || !bytes.Equal(tok, in.Tok.Tok) {
-		Trace.Printf("id or token mismatch: err=%s, id=%s, tok=%s, tokLen=%d, in.tok=%s, in.tokLen=%d\n",
-			err.Error(), id, string(tok), len(tok), string(in.Tok.Tok), len(in.Tok.Tok))
+	if err != nil {
+		errMsg := "Identity lookup error: " + err.Error()
+		Trace.Println(errMsg)
+		return nil, errors.New(errMsg)
+	}
+	if !bytes.Equal(tok, in.Tok.Tok) {
+		Trace.Printf("id or token mismatch: id=%s\n", id)
 		return nil, errors.New("Identity or token does not match.")
 	}
 

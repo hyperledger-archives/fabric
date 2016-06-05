@@ -25,6 +25,16 @@ var fs = require('fs');
 
 var chain = hlc.newChain("testChain");
 
+//
+// Run the registrar test
+//
+test('registrar test', function (t) {
+    registrarTest(function(err) {
+        if (err) fail(t, "registrarTest", err);
+        else pass(t, "registrarTest");
+    });
+});
+
 // The registrar test
 function registrarTest(cb) {
    console.log("testRegistrar");
@@ -36,8 +46,8 @@ function registrarTest(cb) {
    chain.getMember("admin", function (err, admin) {
       if (err) return cb(err);
       // Enroll the admin
-      admin.enroll("Xurw3yU9zI0l", function (err, crypto) {
-          if (err) return fail(t,"Failed to enroll WebAppAdmin member",err);
+      admin.enroll("Xurw3yU9zI0l", function (err) {
+          if (err) return cb(err);
           chain.setRegistrar(admin);
           // Register and enroll webAdmin
           registerAndEnroll("webAdmin", {roles:['client']}, function(err,webAdmin) {
@@ -47,11 +57,11 @@ function registrarTest(cb) {
                  if (err) return cb(err);
                  chain.setRegistrar(webUser);
                  registerAndEnroll("webUser2", null, function(err) {
-                    if (err) return cb();
-                    else return cb(Error("webUser should not be allowed to register a client"));
+                    if (!err) return cb(Error("webUser should not be allowed to register a client"));
+                    return cb();
                  });
              });
-          })
+          });
       });
    });
 }
@@ -78,16 +88,6 @@ function registerAndEnroll(name, registrar, cb) {
        });
    });
 }
-
-//
-// Run the registrar test
-//
-test('registrar test', function (t) {
-    registrarTest(function(err) {
-        if (err) fail(t, "registrarTest", err);
-        else pass(t, "registrarTest");
-    });
-});
 
 function pass(t, msg) {
     t.pass("Success: [" + msg + "]");
