@@ -40,10 +40,18 @@ var registrar = {
 //
 // Set the directory for the local file-based key value store, point to the
 // address of the membership service, and add an associated peer node.
+// If the "tlsca.cert" file exists then the client-sdk will
+// try to connect to the member services using TLS.
+// The "tlsca.cert" is supposed to contain the root certificate (in PEM format)
+// to be used to authenticate the member services certificate.
 //
 
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
-chain.setMemberServicesUrl("grpc://localhost:50051");
+if (fs.existsSync("tlsca.cert")) {
+    chain.setMemberServicesUrl("grpcs://localhost:50051",  fs.readFileSync('tlsca.cert'));
+} else {
+    chain.setMemberServicesUrl("grpc://localhost:50051");
+}
 chain.addPeer("grpc://localhost:30303");
 chain.setDevMode(true);
 
