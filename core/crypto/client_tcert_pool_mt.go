@@ -70,7 +70,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int) (tCerts 
 		return nil, errors.New("The multithreaded TCertPool implementation is here for testing and supports only a single TCert request at a time")
 	}
 
-	tcert, err := tCertPool.GetNextTCert()
+	tcert, err := tCertPool.getNextTCert()
 	if err != nil {
 		tCertPool.client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -82,7 +82,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int) (tCerts 
 	return nil, err
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) getNextTCert() (tCert tCert, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPool.client.debug("Getting next TCert... %d out of 3", i)
 		select {

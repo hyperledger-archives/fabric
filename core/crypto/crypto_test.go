@@ -290,7 +290,7 @@ func TestClientGetNextTCerts(t *testing.T) {
 
 	// Some positive flow tests here
 	var nCerts int = 1
-	for i := 1; i<3; i++ {
+	for i := 1; i < 3; i++ {
 		nCerts *= 10
 		fmt.Println(fmt.Sprintf("Calling GetNextTCerts(%d)", nCerts))
 		rvCerts, err := deployer.GetNextTCerts(nCerts)
@@ -319,16 +319,19 @@ func TestClientGetNextTCerts(t *testing.T) {
 }
 
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	tcert, err := deployer.GetNextTCert()
+	tCerts, err := deployer.GetNextTCerts(1)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
-	if tcert == nil {
+	if tCerts == nil {
 		t.Fatalf("TCert should be different from nil")
 	}
+	if len(tCerts) != 1 {
+		t.Fatalf("Expected one TCert returned from GetNextTCerts(1)")
+	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tCerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")

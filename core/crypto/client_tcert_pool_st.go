@@ -79,7 +79,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
 	tCerts = make([]tCert, nCerts)
 	for i := 0; i < nCerts; i++ {
-		tcert, err := tCertPool.GetNextTCert()
+		tcert, err := tCertPool.getNextTCert()
 		if err != nil {
 			tCertPool.client.error("Failed getting next transaction certificate [%s].", err.Error())
 			return nil, err
@@ -89,7 +89,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCerts(nCerts int) (tCerts []
 	return tCerts, nil
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolSingleThreadImpl) getNextTCert() (tCert tCert, err error) {
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 

@@ -72,9 +72,6 @@ type Client interface {
 	// ReadAttribute reads the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
 
-	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert() (tCert, error) // will be removed in the next refactoring step
-
 	// GetNextTCert gets next available (not yet used) transaction certificates.
 	GetNextTCerts(int) ([]tCert, error)
 }

@@ -46,14 +46,18 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
+	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
+	if len(tCerts) != 1 {
+		client.error("Failed obtaining a TCert for Chaincode execution [%s].", err.Error())
+		return nil, err
+	}
 
 	// Create Transaction
-	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
+	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCerts[0], nil)
 }
 
 // GetNextTCerts Gets next available (not yet used) transaction certificate.
@@ -77,22 +81,6 @@ func (client *clientImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) 
 	return tCerts, nil
 }
 
-func (client *clientImpl) GetNextTCert() (tCert, error) {
-	// Verify that the client is initialized
-	if !client.isInitialized {
-		return nil, utils.ErrNotInitialized
-	}
-
-	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
-	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
-		return nil, err
-	}
-
-	return tCert, err
-}
-
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
 func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
@@ -101,14 +89,19 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
+	if len(tCerts) != 1 {
+		client.error("Failed obtaining a TCert for Chaincode execution [%s].", err.Error())
+		return nil, err
+	}
+
 	// Create Transaction
-	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, tCerts[0], nil)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
@@ -119,14 +112,19 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
+	if len(tCerts) != 1 {
+		client.error("Failed obtaining a TCert for Chaincode query [%s].", err.Error())
+		return nil, err
+	}
+
 	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCerts[0], nil)
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
@@ -155,15 +153,20 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	}
 
 	// Get next TCert
-	tCert, err := client.tCertPool.GetNextTCert()
+	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
 	}
 
+	if len(tCerts) != 1 {
+		client.error("Failed obtaining a TCert for creating a TCertHandler [%s].", err.Error())
+		return nil, err
+	}
+
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.init(client, tCert)
+	err = handler.init(client, tCerts[0])
 	if err != nil {
 		client.error("Failed getting handler [%s].", err.Error())
 		return nil, err
