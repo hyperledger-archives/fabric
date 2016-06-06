@@ -45,21 +45,10 @@ func getMessageType(e *pb.Event) pb.EventType {
 	default:
 		return -1
 	}
-	/*	switch e.Event.(type) {
-		case *pb.Event_Register:
-			return "register"
-		case *pb.Event_Block:
-			return "block"
-		case *pb.Event_Generic:
-			return "generic"
-		default:
-			return ""
-		} */
 }
 
 //should be called at init time to register supported internal events
 func addInternalEventTypes() {
 	AddEventType(pb.EventType_BLOCK)
-	//AddEventType(ReGenericTypegisterType)
 	AddEventType(pb.EventType_CHAINCODE)
 }

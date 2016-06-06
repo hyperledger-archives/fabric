@@ -17,7 +17,6 @@ limitations under the License.
 package producer
 
 import (
-	//	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -74,10 +73,10 @@ func (hl *chaincodeHandlerList) add(ie *pb.Interest, h *handler) (bool, error) {
 
 	//create handler map if this is the first handler for the type
 	var handlerMap map[*handler]bool
-	if handlerMap,_ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
+	if handlerMap, _ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
 		handlerMap = make(map[*handler]bool)
 		emap[ie.GetChaincodeRegInfo().EventName] = handlerMap
-	} else if _,ok = handlerMap[h]; ok {
+	} else if _, ok = handlerMap[h]; ok {
 		return false, fmt.Errorf("handler exists for event type")
 	}
 
@@ -108,9 +107,9 @@ func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) (bool, error) {
 
 	//if there are no handlers for the event type, nothing to do
 	var handlerMap map[*handler]bool
-	if handlerMap,_ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
+	if handlerMap, _ = emap[ie.GetChaincodeRegInfo().EventName]; handlerMap == nil {
 		return false, fmt.Errorf("event name %s not registered for chaincode ID %s", ie.GetChaincodeRegInfo().EventName, ie.GetChaincodeRegInfo().ChaincodeID)
-	} else if _,ok = handlerMap[h]; !ok {
+	} else if _, ok = handlerMap[h]; !ok {
 		//the handler is not registered for the event type
 		return false, fmt.Errorf("handler not registered for event name %s for chaincode ID %s", ie.GetChaincodeRegInfo().EventName, ie.GetChaincodeRegInfo().ChaincodeID)
 	}
@@ -137,7 +136,7 @@ func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
 	defer hl.Unlock()
 
 	//if there's no chaincode event in the event... nothing to do (why was this event sent ?)
-	if e.GetChaincodeEvent() == nil || e.GetChaincodeEvent().ChaincodeID == ""  {
+	if e.GetChaincodeEvent() == nil || e.GetChaincodeEvent().ChaincodeID == "" {
 		return
 	}
 
@@ -240,26 +239,6 @@ func (ep *eventProcessor) start() {
 	}
 }
 
-/*func oldaction(h *handler) {
-	if rType := h.responseType(eType); rType != pb.Interest_DONTSEND {
-		//if Message is already a generic message, producer must have already converted
-		if eType != "generic" {
-			switch rType {
-			case pb.Interest_JSON:
-				if b, err := json.Marshal(e.Event); err != nil {
-					producerLogger.Error(fmt.Sprintf("could not marshall JSON for eObject %v(%s)", e.Event, eType))
-				} else {
-					e.Event = &pb.Event_Generic{Generic: &pb.Generic{EventType: eType, Payload: b}}
-				}
-			case pb.Interest_PROTOBUF:
-			}
-		}
-		if e.Event != nil {
-			h.SendMessage(e)
-		}
-	}
-}*/
-
 //initialize and start
 func initializeEvents(bufferSize uint, tout int) {
 	if gEventProcessor != nil {
@@ -283,7 +262,7 @@ func AddEventType(eventType pb.EventType) error {
 		return fmt.Errorf("event type exists %s", pb.EventType_name[int32(eventType)])
 	}
 
-	switch eventType   {
+	switch eventType {
 	case pb.EventType_BLOCK:
 		gEventProcessor.eventConsumers[eventType] = &genericHandlerList{handlers: make(map[*handler]bool)}
 	case pb.EventType_CHAINCODE:

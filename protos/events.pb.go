@@ -44,32 +44,6 @@ func (x EventType) String() string {
 	return proto.EnumName(EventType_name, int32(x))
 }
 
-type Interest_ResponseType int32
-
-const (
-	// don't send events (used to cancel interest)
-	Interest_DONTSEND Interest_ResponseType = 0
-	// send protobuf objects
-	Interest_PROTOBUF Interest_ResponseType = 1
-	// marshall into JSON byte array
-	Interest_JSON Interest_ResponseType = 2
-)
-
-var Interest_ResponseType_name = map[int32]string{
-	0: "DONTSEND",
-	1: "PROTOBUF",
-	2: "JSON",
-}
-var Interest_ResponseType_value = map[string]int32{
-	"DONTSEND": 0,
-	"PROTOBUF": 1,
-	"JSON":     2,
-}
-
-func (x Interest_ResponseType) String() string {
-	return proto.EnumName(Interest_ResponseType_name, int32(x))
-}
-
 // ChaincodeReg is used for registering chaincode Interests
 // when EventType is CHAINCODE
 type ChaincodeReg struct {
@@ -83,26 +57,82 @@ func (m *ChaincodeReg) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeReg) ProtoMessage()    {}
 
 type Interest struct {
-	EventType    EventType             `protobuf:"varint,1,opt,name=eventType,enum=protos.EventType" json:"eventType,omitempty"`
-	ResponseType Interest_ResponseType `protobuf:"varint,2,opt,name=responseType,enum=protos.Interest_ResponseType" json:"responseType,omitempty"`
-	// this is provided if eventType is CHAINCODE
-	// Ideally we should just have oneof different Reg types
-	// and get rid of EventType. But this is an API change
-	// As we dont really anticipate frequent additions of types
-	// (basically, Block and Chaincode) this maybe ok. Should be
-	// revisited
-	ChaincodeRegInfo *ChaincodeReg `protobuf:"bytes,3,opt,name=chaincodeRegInfo" json:"chaincodeRegInfo,omitempty"`
+	EventType EventType `protobuf:"varint,1,opt,name=eventType,enum=protos.EventType" json:"eventType,omitempty"`
+	// Ideally we should just have the following oneof for different
+	// Reg types and get rid of EventType. But this is an API change
+	// Additional Reg types may add messages specific to their type
+	// to the oneof.
+	//
+	// Types that are valid to be assigned to RegInfo:
+	//	*Interest_ChaincodeRegInfo
+	RegInfo isInterest_RegInfo `protobuf_oneof:"RegInfo"`
 }
 
 func (m *Interest) Reset()         { *m = Interest{} }
 func (m *Interest) String() string { return proto.CompactTextString(m) }
 func (*Interest) ProtoMessage()    {}
 
-func (m *Interest) GetChaincodeRegInfo() *ChaincodeReg {
+type isInterest_RegInfo interface {
+	isInterest_RegInfo()
+}
+
+type Interest_ChaincodeRegInfo struct {
+	ChaincodeRegInfo *ChaincodeReg `protobuf:"bytes,2,opt,name=chaincodeRegInfo,oneof"`
+}
+
+func (*Interest_ChaincodeRegInfo) isInterest_RegInfo() {}
+
+func (m *Interest) GetRegInfo() isInterest_RegInfo {
 	if m != nil {
-		return m.ChaincodeRegInfo
+		return m.RegInfo
 	}
 	return nil
+}
+
+func (m *Interest) GetChaincodeRegInfo() *ChaincodeReg {
+	if x, ok := m.GetRegInfo().(*Interest_ChaincodeRegInfo); ok {
+		return x.ChaincodeRegInfo
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Interest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Interest_OneofMarshaler, _Interest_OneofUnmarshaler, []interface{}{
+		(*Interest_ChaincodeRegInfo)(nil),
+	}
+}
+
+func _Interest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Interest)
+	// RegInfo
+	switch x := m.RegInfo.(type) {
+	case *Interest_ChaincodeRegInfo:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ChaincodeRegInfo); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Interest.RegInfo has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Interest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Interest)
+	switch tag {
+	case 2: // RegInfo.chaincodeRegInfo
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ChaincodeReg)
+		err := b.DecodeMessage(msg)
+		m.RegInfo = &Interest_ChaincodeRegInfo{msg}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 // ---------- consumer events ---------
@@ -291,7 +321,6 @@ func _Event_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 
 func init() {
 	proto.RegisterEnum("protos.EventType", EventType_name, EventType_value)
-	proto.RegisterEnum("protos.Interest_ResponseType", Interest_ResponseType_name, Interest_ResponseType_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

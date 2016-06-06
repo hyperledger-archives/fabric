@@ -45,10 +45,10 @@ var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	return []*ehpb.Interest{
-				&ehpb.Interest{EventType: ehpb.EventType_BLOCK, ResponseType: ehpb.Interest_PROTOBUF},
-				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}},
-				&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}},
-				}, nil
+		&ehpb.Interest{EventType: ehpb.EventType_BLOCK},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{&ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}}},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{&ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}}},
+	}, nil
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
 
@@ -114,7 +114,7 @@ func TestReceiveMessage(t *testing.T) {
 	}
 
 	//receive 2 messages
-	for i:=0; i < 2; i++ {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-adapter.notfy:
 		case <-time.After(5 * time.Second):
@@ -141,7 +141,7 @@ func TestReceiveAnyMessage(t *testing.T) {
 	}
 
 	//receive 2 messages - a block and a chaincode event
-	for i:=0; i < 2; i++ {
+	for i := 0; i < 2; i++ {
 		select {
 		case <-adapter.notfy:
 		case <-time.After(5 * time.Second):

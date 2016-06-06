@@ -40,23 +40,14 @@ message ChaincodeReg {
 }
 
 message Interest {
-    enum ResponseType {
-        //don't send events (used to cancel interest)
-        DONTSEND = 0;
-        //send protobuf objects
-        PROTOBUF = 1;
-        //marshall into JSON byte array
-        JSON = 2;
-    }
     EventType eventType = 1;
-    ResponseType responseType = 2;
-    //this is provided if eventType is CHAINCODE
-    //Ideally we should just have oneof different Reg types
-    //and get rid of EventType. But this is an API change
-    //As we dont really anticipate frequent additions of types
-    //(basically, Block and Chaincode) this maybe ok. Should be
-    //revisited
-    ChaincodeReg chaincodeRegInfo = 3;
+    //Ideally we should just have the following oneof for different
+    //Reg types and get rid of EventType. But this is an API change
+    //Additional Reg types may add messages specific to their type
+    //to the oneof.
+    oneof RegInfo {
+        ChaincodeReg chaincodeRegInfo = 2;
+    }
 }
 
 //---------- consumer events ---------

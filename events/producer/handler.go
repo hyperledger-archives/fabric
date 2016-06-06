@@ -85,16 +85,6 @@ func (d *handler) deregister() {
 	d.interestedEvents = nil
 }
 
-/*func (d *handler) responseType(eventType string) pb.Interest_ResponseType {
-	rType := pb.Interest_DONTSEND
-	if d.registered {
-		if ie, _ := d.interestedEvents[eventType]; ie != nil {
-			rType = ie.ResponseType
-		}
-	}
-	return rType
-}*/
-
 // HandleMessage handles the Openchain messages for the Peer.
 func (d *handler) HandleMessage(msg *pb.Event) error {
 	producerLogger.Debug("Handling Event")
