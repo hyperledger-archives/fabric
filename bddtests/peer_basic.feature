@@ -311,6 +311,42 @@ Feature: Network of Peers
         | foobar |
       Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foobar"}}]}]"
 
+@doNotDecompose
+#    @wip
+	Scenario: chaincode example 01 single peer erroneous TX
+	    Given we compose "docker-compose-1.yml"
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "2"
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| 1  |
+	    Then I should have received a transactionID
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "3"
+	    When requesting "/chain/blocks/2" from "vp0"
+	    Then I should get a JSON response containing "transactions" attribute
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| a  |
+	    Then I should have received a transactionID
+	    Then I wait "10" seconds
+        When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "4"
+        When requesting "/chain/blocks/3" from "vp0"
+	    Then I should get a JSON response containing no "transactions" attribute
+
 #    @doNotDecompose
 #    @wip
 #    Arg[0] = a, base64 = 'YQ=='
