@@ -18,7 +18,6 @@ package ca
 
 import (
 	"crypto/rand"
-	"fmt"
 	"testing"
 )
 
@@ -50,9 +49,7 @@ func TestCBCEncryptCBCDecrypt(t *testing.T) {
 func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 
 	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in f", r)
-		}
+		recover()
 	}()
 
 	key := make([]byte, 32)
@@ -64,17 +61,8 @@ func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 
 	var msg = []byte("a message to be encrypted")
 
-	encrypted, encErr := CBCEncrypt(key, msg)
-
-	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
-	}
-
-	decrypted, dErr := CBCDecrypt(decryptionKey, encrypted)
-
-	if dErr != nil {
-		t.Fatalf("Error encrypting message %v", dErr)
-	}
+	encrypted, _ := CBCEncrypt(key, msg)
+	decrypted, _ := CBCDecrypt(decryptionKey, encrypted)
 
 	if string(msg[:]) == string(decrypted[:]) {
 		t.Fatalf("Encryption->Decryption with different keys shouldn't return original message")
