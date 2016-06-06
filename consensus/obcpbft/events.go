@@ -303,9 +303,6 @@ type viewChangedEvent struct{}
 // complaintEvent is sent when custody has a complaint
 type complaintEvent custodyInfo
 
-// batchExecEvent is sent when a batch execution should take place
-type batchExecEvent execInfo
-
 // returnRequestEvent is sent by pbft when we are forwarded a request
 type returnRequestEvent *Request
 

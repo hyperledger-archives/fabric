@@ -190,7 +190,7 @@ func TestBatchStaleCustody(t *testing.T) {
 	op.pbft.currentExec = new(uint64) // so that pbft.execDone doesn't get unhappy
 	*op.pbft.currentExec = 1
 	rblock2raw, _ := proto.Marshal(&RequestBlock{[]*Request{reqs[1]}})
-	op.executeImpl(1, rblock2raw)
+	op.manager.queue() <- workEvent(func() { op.execute(1, rblock2raw) })
 	time.Sleep(500 * time.Millisecond)
 	op.manager.queue() <- nil
 	if len(reqs) != 3 || !reflect.DeepEqual(reqs[2].Payload, req1.Payload) {
