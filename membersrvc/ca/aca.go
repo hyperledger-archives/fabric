@@ -79,7 +79,7 @@ func IsAttributeOID(oid asn1.ObjectIdentifier) bool {
 }
 
 func initializeACATables(db *sql.DB) error {
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Attributes (row INTEGER PRIMARY KEY, id VARCHAR(64), affiliation VARCHAR(64), attributeKey VARCHAR(64), validFrom DATETIME, validTo DATETIME,  attributeValue BLOB)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS Attributes (row INTEGER PRIMARY KEY, id VARCHAR(64), affiliation VARCHAR(64), attributeName VARCHAR(64), validFrom DATETIME, validTo DATETIME,  attributeValue BLOB)"); err != nil {
 		return err
 	}
 	return nil
@@ -91,11 +91,11 @@ type AttributeOwner struct {
 	affiliation string
 }
 
-//AttributePair is an struct that store the relation between an owner (user who owns the attribute), attributeKey (name of the attribute), attributeValue (value of the attribute),
+//AttributePair is an struct that store the relation between an owner (user who owns the attribute), attributeName (name of the attribute), attributeValue (value of the attribute),
 //validFrom (time since the attribute is valid) and validTo (time until the attribute will be valid).
 type AttributePair struct {
 	owner          *AttributeOwner
-	attributeKey   string
+	attributeName  string
 	attributeValue []byte
 	validFrom      time.Time
 	validTo        time.Time
@@ -112,7 +112,7 @@ func NewAttributePair(attributeVals []string, attrOwner *AttributeOwner) (*Attri
 	} else {
 		attrPair.SetOwner(&AttributeOwner{strings.TrimSpace(attributeVals[0]), strings.TrimSpace(attributeVals[1])})
 	}
-	attrPair.SetAttributeKey(strings.TrimSpace(attributeVals[2]))
+	attrPair.SetAttributeName(strings.TrimSpace(attributeVals[2]))
 	attrPair.SetAttributeValue([]byte(strings.TrimSpace(attributeVals[3])))
 	//Reading validFrom date
 	dateStr := strings.TrimSpace(attributeVals[4])
@@ -167,14 +167,14 @@ func (attrPair *AttributePair) GetAffiliation() string {
 	return attrPair.owner.GetAffiliation()
 }
 
-//GetAttributeKey gets the attribute key (name) related with the attribute pair.
-func (attrPair *AttributePair) GetAttributeKey() string {
-	return attrPair.attributeKey
+//GetAttributeName gets the attribute name related with the attribute pair.
+func (attrPair *AttributePair) GetAttributeName() string {
+	return attrPair.attributeName
 }
 
-//SetAttributeKey sets the key (name) related with the attribute pair.
-func (attrPair *AttributePair) SetAttributeKey(key string) {
-	attrPair.attributeKey = key
+//SetAttributeName sets the name related with the attribute pair.
+func (attrPair *AttributePair) SetAttributeName(name string) {
+	attrPair.attributeName = name
 }
 
 //GetAttributeValue returns the value of the pair.
@@ -226,7 +226,7 @@ func (attrPair *AttributePair) ToACAAttribute() *pb.ACAAttribute {
 		to = &google_protobuf.Timestamp{Seconds: attrPair.validTo.Unix(), Nanos: int32(attrPair.validTo.UnixNano())}
 
 	}
-	return &pb.ACAAttribute{attrPair.attributeKey, attrPair.attributeValue, from, to}
+	return &pb.ACAAttribute{attrPair.attributeName, attrPair.attributeValue, from, to}
 }
 
 // NewACA sets up a new ACA.
@@ -310,22 +310,22 @@ func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
 
 func (aca *ACA) populateAttribute(attr *AttributePair) error {
 	var count int
-	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?",
-		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeKey()).Scan(&count)
+	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
+		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName()).Scan(&count)
 
 	if err != nil {
 		return err
 	}
 
 	if count > 0 {
-		_, err = aca.db.Exec("UPDATE Attributes SET validFrom = ?, validTo = ?,  attributeValue = ? WHERE  id=? AND affiliation =? AND attributeKey =? AND validFrom < ?",
-			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeKey(), attr.GetValidFrom())
+		_, err = aca.db.Exec("UPDATE Attributes SET validFrom = ?, validTo = ?,  attributeValue = ? WHERE  id=? AND affiliation =? AND attributeName =? AND validFrom < ?",
+			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName(), attr.GetValidFrom())
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err = aca.db.Exec("INSERT INTO Attributes (validFrom , validTo,  attributeValue, id, affiliation, attributeKey) VALUES (?,?,?,?,?,?)",
-			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeKey())
+		_, err = aca.db.Exec("INSERT INTO Attributes (validFrom , validTo,  attributeValue, id, affiliation, attributeName) VALUES (?,?,?,?,?,?)",
+			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName())
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func (aca *ACA) fetchAndPopulateAttributes(id, affiliation string) error {
 func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, valueHash []byte) (*AttributePair, error) {
 	var count int
 
-	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?",
+	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		owner.GetID(), owner.GetAffiliation(), attributeName).Scan(&count)
 	if err != nil {
 		return nil, err
@@ -359,11 +359,11 @@ func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, val
 		return nil, nil
 	}
 
-	var attKey string
+	var attName string
 	var attValue []byte
 	var validFrom, validTo time.Time
-	err = aca.db.QueryRow("SELECT attributeKey, attributeValue, validFrom, validTo AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeKey =?",
-		owner.GetID(), owner.GetAffiliation(), attributeName).Scan(&attKey, &attValue, &validFrom, &validTo)
+	err = aca.db.QueryRow("SELECT attributeName, attributeValue, validFrom, validTo AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
+		owner.GetID(), owner.GetAffiliation(), attributeName).Scan(&attName, &attValue, &validFrom, &validTo)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, val
 	if bytes.Compare(hashValue, valueHash) != 0 {
 		return nil, nil
 	}
-	return &AttributePair{owner, attKey, attValue, validFrom, validTo}, nil
+	return &AttributePair{owner, attName, attValue, validFrom, validTo}, nil
 }
 
 // FetchAttributes fetchs the attributes from the outside world and populate them into the database.
