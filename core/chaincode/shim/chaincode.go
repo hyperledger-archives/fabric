@@ -39,6 +39,7 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 // Logger for the shim package.
@@ -278,6 +279,7 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
+<<<<<<< HEAD
 //ReadCertAttribute is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
 // Example:
 //  attrValue,error:=stub.ReadCertAttribute("position")

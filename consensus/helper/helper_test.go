@@ -14,4 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ecies
+package helper
+
+import "testing"
+
+func TestHelper(t *testing.T) {
+	t.Skip("Helper functions already tested in other consensus components")
+}

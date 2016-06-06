@@ -14,30 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package persist
 
-import (
-	"testing"
-)
+import "testing"
 
-func TestQueue(t *testing.T) {
-	q := NewQueue()
-	q.Push("first")
-	q.Push("second")
-	q.Push("third")
-	t.Logf("Size: %d\n", q.Size())
-	head := q.Peek()
-	if head != "first" {
-		t.Fatalf("head is not correct. Expected \"first\", got %v", head)
-	}
-	t.Logf("Pop: %v\n", q.Pop())
-	if q.Size() != 2 {
-		t.Fatalf("Wrong queue size != 2: %d", q.Size())
-	}
-	t.Logf("Pop: %v\n", q.Pop())
-	t.Logf("Pop: %v\n", q.Pop())
-	if q.Size() != 0 {
-		t.Fatalf("Wrong queue size != 0: %d", q.Size())
-	}
-
+func TestPersist(t *testing.T) {
+	t.Skip("Persist functions already tested in other consensus components")
 }

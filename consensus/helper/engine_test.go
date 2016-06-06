@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package helper
 
-// Abs returns the absolute value of x.
-func Abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
+import "testing"
+
+func TestEngine(t *testing.T) {
+	t.Skip("Engine functions already tested in other consensus components")
 }

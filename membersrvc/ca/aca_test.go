@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
 )
@@ -135,9 +134,10 @@ func TestRequestAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
+	var attributesHash = make([]*pb.TCertAttributeHash, 0)
+
+	var attributes = make([]*pb.TCertAttribute, 0)
 	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
 	attributes = append(attributes, &pb.TCertAttribute{"position", "Software Engineer"})
 	attributes = append(attributes, &pb.TCertAttribute{"identity-number", "1234"})
@@ -182,7 +182,7 @@ func TestRequestAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	aCert, err := primitives.DERToX509Certificate(resp.Cert.Cert)
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}
@@ -218,9 +218,9 @@ func TestRequestAttributes_AttributesMismatch(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
+	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
+	var attributes = make([]*pb.TCertAttribute, 0)
 	attributes = append(attributes, &pb.TCertAttribute{"company", "BCompany"})
 
 	for _, att := range attributes {
@@ -282,9 +282,9 @@ func TestRequestAttributes_MissingSignature(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
+	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
+	var attributes = make([]*pb.TCertAttribute, 0)
 	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
 	attributes = append(attributes, &pb.TCertAttribute{"position", "Software Engineer"})
 	attributes = append(attributes, &pb.TCertAttribute{"identity-number", "1234"})
@@ -324,9 +324,9 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
+	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
+	var attributes = make([]*pb.TCertAttribute, 0)
 	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
 	attributes = append(attributes, &pb.TCertAttribute{"company", "BCompany"})
 

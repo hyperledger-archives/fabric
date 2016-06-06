@@ -27,6 +27,7 @@ import (
 
 	// Required to successfully initialized the driver
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 /*
@@ -116,7 +117,7 @@ func (ks *keyStore) isAliasSet(alias string) bool {
 }
 
 func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error {
-	rawKey, err := utils.PrivateKeyToPEM(privateKey, ks.pwd)
+	rawKey, err := primitives.PrivateKeyToPEM(privateKey, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed converting private key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -132,7 +133,7 @@ func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error 
 }
 
 func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{}) error {
-	rawKey, err := utils.PrivateKeyToPEM(privateKey, nil)
+	rawKey, err := primitives.PrivateKeyToPEM(privateKey, nil)
 	if err != nil {
 		ks.node.error("Failed converting private key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -158,7 +159,7 @@ func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 		return nil, err
 	}
 
-	privateKey, err := utils.PEMtoPrivateKey(raw, ks.pwd)
+	privateKey, err := primitives.PEMtoPrivateKey(raw, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed parsing private key [%s]: [%s].", alias, err.Error())
 
@@ -169,7 +170,7 @@ func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 }
 
 func (ks *keyStore) storePublicKey(alias string, publicKey interface{}) error {
-	rawKey, err := utils.PublicKeyToPEM(publicKey, ks.pwd)
+	rawKey, err := primitives.PublicKeyToPEM(publicKey, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed converting public key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -195,7 +196,7 @@ func (ks *keyStore) loadPublicKey(alias string) (interface{}, error) {
 		return nil, err
 	}
 
-	privateKey, err := utils.PEMtoPublicKey(raw, ks.pwd)
+	privateKey, err := primitives.PEMtoPublicKey(raw, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed parsing private key [%s]: [%s].", alias, err.Error())
 
@@ -206,7 +207,7 @@ func (ks *keyStore) loadPublicKey(alias string) (interface{}, error) {
 }
 
 func (ks *keyStore) storeKey(alias string, key []byte) error {
-	pem, err := utils.AEStoEncryptedPEM(key, ks.pwd)
+	pem, err := primitives.AEStoEncryptedPEM(key, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed converting key to PEM [%s]: [%s]", alias, err)
 		return err
@@ -232,7 +233,7 @@ func (ks *keyStore) loadKey(alias string) ([]byte, error) {
 		return nil, err
 	}
 
-	key, err := utils.PEMtoAES(pem, ks.pwd)
+	key, err := primitives.PEMtoAES(pem, ks.pwd)
 	if err != nil {
 		ks.node.error("Failed parsing key [%s]: [%s]", alias, err)
 
@@ -243,7 +244,7 @@ func (ks *keyStore) loadKey(alias string) ([]byte, error) {
 }
 
 func (ks *keyStore) storeCert(alias string, der []byte) error {
-	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), utils.DERCertToPEM(der), 0700)
+	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), primitives.DERCertToPEM(der), 0700)
 	if err != nil {
 		ks.node.error("Failed storing certificate [%s]: [%s]", alias, err)
 		return err
@@ -290,7 +291,7 @@ func (ks *keyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte,
 		return nil, nil, err
 	}
 
-	cert, der, err := utils.PEMtoCertificateAndDER(pem)
+	cert, der, err := primitives.PEMtoCertificateAndDER(pem)
 	if err != nil {
 		ks.node.error("Failed parsing certificate [%s]: [%s].", alias, err.Error())
 

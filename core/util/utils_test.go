@@ -42,9 +42,28 @@ func TestUUIDGeneration(t *testing.T) {
 	}
 }
 
+func TestIntUUIDGeneration(t *testing.T) {
+	uuid := GenerateIntUUID()
+
+	uuid2 := GenerateIntUUID()
+	if uuid == uuid2 {
+		t.Fatalf("Two UUIDs are equal. This should never occur")
+	}
+}
 func TestTimestamp(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		t.Logf("timestamp now: %v", CreateUtcTimestamp())
 		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func TestGenerateHashFromSignature(t *testing.T) {
+	if bytes.Compare(GenerateHashFromSignature("aPath", "aCtor", []string{"1", "2"}),
+		GenerateHashFromSignature("aPath", "aCtor", []string{"1", "2"})) != 0 {
+		t.Fatalf("Expected hashes to match, but they did not match")
+	}
+	if bytes.Compare(GenerateHashFromSignature("aPath", "aCtor", []string{"1", "2"}),
+		GenerateHashFromSignature("bPath", "bCtor", []string{"3", "4"})) == 0 {
+		t.Fatalf("Expected hashes to be different, but they match")
 	}
 }

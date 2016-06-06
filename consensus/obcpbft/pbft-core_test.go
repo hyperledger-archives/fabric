@@ -72,7 +72,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 			t.Fatalf("Expected to ignore malicious pre-prepare")
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, &inertTimerFactory{})
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -95,7 +95,7 @@ func TestWrongReplicaID(t *testing.T) {
 			return nil
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, &inertTimerFactory{})
 
 	chainTxMsg := createOcMsgWithChainTx(1)
 	req := &Request{
@@ -124,7 +124,7 @@ func TestIncompletePayload(t *testing.T) {
 			return nil
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, &inertTimerFactory{})
 	defer instance.close()
 	instance.replicaCount = 5
 
@@ -144,10 +144,10 @@ func TestIncompletePayload(t *testing.T) {
 
 func TestNetwork(t *testing.T) {
 	validatorCount := 7
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 
 	msg := createPbftRequestWithChainTx(1, uint64(generateBroadcaster(validatorCount)))
-	net.pbftEndpoints[0].pbft.manager.queue() <- msg
+	net.pbftEndpoints[0].manager.queue() <- msg
 
 	err := net.process()
 	if err != nil {
@@ -183,21 +183,10 @@ func TestCheckpoint(t *testing.T) {
 	finishWait := &sync.WaitGroup{}
 
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.K = 2
-		pe.pbft.L = 4
-		// XXX
-		// pe.sc.checkpointResult = func(seqNo uint64, id []byte) {
-		// 	finishWait.Add(1)
-		// 	go func() {
-		// 		fmt.Println("TEST: possibly delaying checkpoint evaluation")
-		// 		execWait.Wait()
-		// 		fmt.Println("TEST: sending checkpoint")
-		// 		pe.pbft.Checkpoint(seqNo, id)
-		// 		finishWait.Done()
-		// 	}()
-		// }
-	})
+	config := loadConfig()
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	execReq := func(iter int64) {
@@ -208,7 +197,7 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.pbftEndpoints[0].pbft.manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 
 		net.process()
 	}
@@ -270,7 +259,7 @@ func TestCheckpoint(t *testing.T) {
 
 func TestLostPrePrepare(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -283,7 +272,7 @@ func TestLostPrePrepare(t *testing.T) {
 		ReplicaId: uint64(generateBroadcaster(validatorCount)),
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- (req)
+	net.pbftEndpoints[0].manager.queue() <- (req)
 
 	// clear all messages sent by primary
 	msg := <-net.msgs
@@ -296,7 +285,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 	// deliver pre-prepare to subset of replicas
 	for _, pep := range net.pbftEndpoints[1 : len(net.pbftEndpoints)-1] {
-		pep.pbft.manager.queue() <- prePrep.GetPrePrepare()
+		pep.manager.queue() <- prePrep.GetPrePrepare()
 	}
 
 	err = net.process()
@@ -318,7 +307,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 func TestInconsistentPrePrepare(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -341,15 +330,15 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		return preprep
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- makePP(1).Request
+	net.pbftEndpoints[0].manager.queue() <- makePP(1).Request
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	net.pbftEndpoints[1].pbft.manager.queue() <- makePP(1)
-	net.pbftEndpoints[2].pbft.manager.queue() <- makePP(2)
-	net.pbftEndpoints[3].pbft.manager.queue() <- makePP(3)
+	net.pbftEndpoints[1].manager.queue() <- makePP(1)
+	net.pbftEndpoints[2].manager.queue() <- makePP(2)
+	net.pbftEndpoints[3].manager.queue() <- makePP(3)
 
 	net.process()
 
@@ -369,8 +358,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 			t.Fatalf("Should not have attempted to initiate state transfer")
 		},
 		broadcastImpl: func(b []byte) {},
-	})
-	instance.manager.start()
+	}, &inertTimerFactory{})
 	instance.activeView = false
 	instance.view = 1
 	instance.lastExec = 10
@@ -420,7 +408,7 @@ func TestViewChangeWatermarksMovement(t *testing.T) {
 		ReplicaId: 1,
 	}
 
-	if nil != instance.processNewView() {
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
 		t.Fatalf("Failed to successfully process new view")
 	}
 
@@ -487,10 +475,10 @@ func TestViewChangeCheckpointSelection(t *testing.T) {
 
 func TestViewChange(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
-		pep.pbft.K = 2
-		pep.pbft.L = pep.pbft.K * 2
-	})
+	config := loadConfig()
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	execReq := func(iter int64) {
@@ -501,7 +489,7 @@ func TestViewChange(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.pbftEndpoints[0].pbft.manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -543,7 +531,7 @@ func TestViewChange(t *testing.T) {
 
 func TestInconsistentDataViewChange(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 
 	txTime := &gp.Timestamp{Seconds: 1, Nanos: 0}
@@ -566,15 +554,15 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		return preprep
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- makePP(0).Request
+	net.pbftEndpoints[0].manager.queue() <- makePP(0).Request
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	net.pbftEndpoints[1].pbft.manager.queue() <- makePP(1)
-	net.pbftEndpoints[2].pbft.manager.queue() <- makePP(1)
-	net.pbftEndpoints[3].pbft.manager.queue() <- makePP(0)
+	net.pbftEndpoints[1].manager.queue() <- makePP(1)
+	net.pbftEndpoints[2].manager.queue() <- makePP(1)
+	net.pbftEndpoints[3].manager.queue() <- makePP(0)
 
 	err := net.process()
 	if err != nil {
@@ -591,7 +579,7 @@ func TestInconsistentDataViewChange(t *testing.T) {
 
 func TestViewChangeWithStateTransfer(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 
 	var err error
@@ -626,14 +614,14 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
 	for i := int64(1); i <= 3; i++ {
-		net.pbftEndpoints[0].pbft.manager.queue() <- makePP(i).Request
+		net.pbftEndpoints[0].manager.queue() <- makePP(i).Request
 
 		// clear all messages sent by primary
 		net.clearMessages()
 
-		net.pbftEndpoints[0].pbft.manager.queue() <- makePP(i)
-		net.pbftEndpoints[1].pbft.manager.queue() <- makePP(i)
-		net.pbftEndpoints[2].pbft.manager.queue() <- makePP(i)
+		net.pbftEndpoints[0].manager.queue() <- makePP(i)
+		net.pbftEndpoints[1].manager.queue() <- makePP(i)
+		net.pbftEndpoints[2].manager.queue() <- makePP(i)
 
 		err = net.process()
 		if err != nil {
@@ -654,7 +642,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	fmt.Println("Done with stage 3")
 
-	net.pbftEndpoints[1].pbft.manager.queue() <- makePP(5).Request
+	net.pbftEndpoints[1].manager.queue() <- makePP(5).Request
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
@@ -670,18 +658,13 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 }
 
 func TestNewViewTimeout(t *testing.T) {
-	millisUntilTimeout := time.Duration(100)
-
-	if testing.Short() {
-		t.Skip("Skipping timeout test")
-	}
+	millisUntilTimeout := time.Duration(800)
 
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.newViewTimeout = millisUntilTimeout * time.Millisecond
-		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
-		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
-	})
+	config := loadConfig()
+	config.Set("general.timeout.request", "400ms")
+	config.Set("general.timeout.viewchange", "800ms")
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	replica1Disabled := false
@@ -700,7 +683,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.pbftEndpoints[1].pbft.manager.queue() <- req
+	net.pbftEndpoints[1].manager.queue() <- req
 	fmt.Println("Debug: Sleeping 1")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
@@ -711,7 +694,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// However, 2 does not know about the missing request, and therefore the request will not be
 	// pre-prepared and finally executed.
 	replica1Disabled = true
-	net.pbftEndpoints[3].pbft.manager.queue() <- req
+	net.pbftEndpoints[3].manager.queue() <- req
 	fmt.Println("Debug: Sleeping 2")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
@@ -719,7 +702,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
 	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
 	// all replicas move to view 3 and finally process the request.
-	net.pbftEndpoints[0].pbft.manager.queue() <- req
+	net.pbftEndpoints[0].manager.queue() <- req
 	fmt.Println("Debug: Sleeping 3")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 3")
@@ -739,13 +722,13 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	millisUntilTimeout := 400 * time.Millisecond
 
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.newViewTimeout = millisUntilTimeout
-		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
-		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
+	config.Set("general.timeout.request", "400ms")
+	config.Set("general.timeout.viewchange", "400ms")
+	net := makePBFTNetwork(validatorCount, config)
+	for _, pe := range net.pbftEndpoints {
 		pe.pbft.lastExec = 99
 		pe.pbft.h = 99 / pe.pbft.K * pe.pbft.K
-	})
+	}
 	net.pbftEndpoints[0].pbft.seqNo = 99
 
 	go net.processContinually()
@@ -753,7 +736,7 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	broadcaster := uint64(generateBroadcaster(validatorCount))
 
 	req := createPbftRequestWithChainTx(1, broadcaster)
-	net.pbftEndpoints[0].pbft.manager.queue() <- req
+	net.pbftEndpoints[0].manager.queue() <- req
 	time.Sleep(5 * millisUntilTimeout)
 	// Now we all have executed seqNo 100.  After triggering a
 	// view change, the new primary should pick up right after
@@ -764,7 +747,7 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	time.Sleep(5 * millisUntilTimeout)
 
 	req = createPbftRequestWithChainTx(2, broadcaster)
-	net.pbftEndpoints[1].pbft.manager.queue() <- req
+	net.pbftEndpoints[1].manager.queue() <- req
 	time.Sleep(5 * millisUntilTimeout)
 
 	net.stop()
@@ -784,7 +767,7 @@ func TestSendQueueThrottling(t *testing.T) {
 	prePreparesSent := 0
 
 	mock := &omniProto{}
-	instance := newPbftCore(0, loadConfig(), mock)
+	instance := newPbftCore(0, loadConfig(), mock, &inertTimerFactory{})
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -812,7 +795,7 @@ func TestSendQueueThrottling(t *testing.T) {
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, &inertTimerFactory{})
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -837,7 +820,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 // From issue #687
 func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 	mock := &omniProto{}
-	instance := newPbftCore(1, loadConfig(), mock)
+	instance := newPbftCore(1, loadConfig(), mock, &inertTimerFactory{})
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -855,10 +838,10 @@ func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 
 func TestFallBehind(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
-		pep.pbft.K = 2
-		pep.pbft.L = 2 * pep.pbft.K
-	})
+	config := loadConfig()
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	execReq := func(iter int64, skipThree bool) {
@@ -872,7 +855,7 @@ func TestFallBehind(t *testing.T) {
 
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 
-		net.pbftEndpoints[0].pbft.manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 
 		if skipThree {
 			// Send the request for consensus to everone but replica 3
@@ -936,14 +919,14 @@ func TestFallBehind(t *testing.T) {
 }
 
 func TestPbftF0(t *testing.T) {
-	net := makePBFTNetwork(1)
+	net := makePBFTNetwork(1, nil)
 	defer net.stop()
 
 	req := createPbftRequestWithChainTx(1, 0)
 
 	pep0 := net.pbftEndpoints[0]
 
-	pep0.pbft.manager.queue() <- req
+	pep0.manager.queue() <- req
 
 	err := net.process()
 	if err != nil {
@@ -976,8 +959,8 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 			t.Errorf("Should not send the view change message during a view change")
 		},
 	}
-	instance := newPbftCore(1, loadConfig(), mock)
-	instance.manager.start()
+	instance, manager := createRunningPbftWithManager(1, loadConfig(), mock)
+	defer manager.halt()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -995,7 +978,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 		ReplicaId: 1, // Not the primary
 	}
 
-	instance.manager.queue() <- req
+	manager.queue() <- req
 
 	time.Sleep(100 * time.Millisecond)
 }
@@ -1006,10 +989,10 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 // submitted should also be executed on all replicas.
 func TestReplicaCrash1(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
-		pep.pbft.K = 2
-		pep.pbft.L = 2 * pep.pbft.K
-	})
+	config := loadConfig()
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	mkreq := func(n int64) *Request {
@@ -1024,21 +1007,21 @@ func TestReplicaCrash1(t *testing.T) {
 		}
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- mkreq(1)
+	net.pbftEndpoints[0].manager.queue() <- mkreq(1)
 	net.process()
 
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
-		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc)
-		pe.pbft.manager.start()
+		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc, newEventTimerFactoryImpl(pe.manager))
+		pe.manager.setReceiver(pe.pbft)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2
 		pe.pbft.L = 2 * pe.pbft.K
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- mkreq(2)
-	net.pbftEndpoints[0].pbft.manager.queue() <- (mkreq(3))
+	net.pbftEndpoints[0].manager.queue() <- mkreq(2)
+	net.pbftEndpoints[0].manager.queue() <- (mkreq(3))
 	net.process()
 
 	for _, pep := range net.pbftEndpoints {
@@ -1058,16 +1041,13 @@ func TestReplicaCrash1(t *testing.T) {
 // Additionally, for view<2 and seqno=1, the network drops commit
 // messages to all but replica 1.
 func TestReplicaCrash2(t *testing.T) {
-	millisUntilTimeout := 800 * time.Millisecond
-
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.newViewTimeout = millisUntilTimeout
-		pe.pbft.requestTimeout = pe.pbft.newViewTimeout
-		pe.pbft.lastNewViewTimeout = pe.pbft.newViewTimeout
-		pe.pbft.K = 2
-		pe.pbft.L = 2 * pe.pbft.K
-	})
+	config := loadConfig()
+	config.Set("general.timeout.request", "800ms")
+	config.Set("general.timeout.viewchange", "800ms")
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	filterMsg := true
@@ -1101,15 +1081,15 @@ func TestReplicaCrash2(t *testing.T) {
 		}
 	}
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- (mkreq(1))
+	net.pbftEndpoints[0].manager.queue() <- (mkreq(1))
 	net.process()
 
 	logger.Info("stopping filtering")
 	filterMsg = false
 	primary := net.pbftEndpoints[0].pbft.primary(net.pbftEndpoints[0].pbft.view)
-	net.pbftEndpoints[primary].pbft.manager.queue() <- (mkreq(2))
-	net.pbftEndpoints[primary].pbft.manager.queue() <- (mkreq(3))
-	net.pbftEndpoints[primary].pbft.manager.queue() <- (mkreq(4))
+	net.pbftEndpoints[primary].manager.queue() <- (mkreq(2))
+	net.pbftEndpoints[primary].manager.queue() <- (mkreq(3))
+	net.pbftEndpoints[primary].manager.queue() <- (mkreq(4))
 	go net.processContinually()
 	time.Sleep(5 * time.Second)
 
@@ -1132,10 +1112,10 @@ func TestReplicaCrash2(t *testing.T) {
 // triggered to get vp3 up to speed
 func TestReplicaCrash3(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pep *pbftEndpoint) {
-		pep.pbft.K = 2
-		pep.pbft.L = 2 * pep.pbft.K
-	})
+	config := loadConfig()
+	config.Set("general.K", 2)
+	config.Set("general.logmultiplier", 2)
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	twoOffline := false
@@ -1163,7 +1143,7 @@ func TestReplicaCrash3(t *testing.T) {
 	}
 
 	for i := int64(1); i <= 8; i++ {
-		net.pbftEndpoints[0].pbft.manager.queue() <- (mkreq(i))
+		net.pbftEndpoints[0].manager.queue() <- (mkreq(i))
 	}
 	net.process() // vp0,1,2 should have a stable checkpoint for seqNo 8
 
@@ -1172,8 +1152,9 @@ func TestReplicaCrash3(t *testing.T) {
 		pe := net.pbftEndpoints[id]
 		config := loadConfig()
 		config.Set("general.K", "2")
-		pe.pbft = newPbftCore(uint64(id), config, pe.sc)
-		pe.pbft.manager.start()
+		pe.pbft.close()
+		pe.pbft = newPbftCore(uint64(id), config, pe.sc, newEventTimerFactoryImpl(pe.manager))
+		pe.manager.setReceiver(pe.pbft)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.requestTimeout = 200 * time.Millisecond
@@ -1184,7 +1165,7 @@ func TestReplicaCrash3(t *testing.T) {
 
 	// Because vp2 is 'offline', and vp3 is still at the genesis block, the network needs to make a view change
 
-	net.pbftEndpoints[0].pbft.manager.queue() <- (mkreq(9))
+	net.pbftEndpoints[0].manager.queue() <- (mkreq(9))
 	net.process()
 
 	// Now vp0,1,3 should be in sync with 9 executions in view 1, and vp2 should be at 8 executions in view 0
@@ -1245,7 +1226,7 @@ func TestReplicaPersistQSet(t *testing.T) {
 			return r, nil
 		},
 	}
-	p := newPbftCore(1, loadConfig(), stack)
+	p := newPbftCore(1, loadConfig(), stack, &inertTimerFactory{})
 	req := &Request{
 		Timestamp: &gp.Timestamp{Seconds: 1, Nanos: 0},
 		Payload:   []byte("foo"),
@@ -1260,7 +1241,7 @@ func TestReplicaPersistQSet(t *testing.T) {
 	})
 	p.close()
 
-	p = newPbftCore(1, loadConfig(), stack)
+	p = newPbftCore(1, loadConfig(), stack, &inertTimerFactory{})
 	if !p.prePrepared(hashReq(req), 0, 1) {
 		t.Errorf("did not restore qset properly")
 	}
@@ -1278,7 +1259,7 @@ func TestReplicaPersistDelete(t *testing.T) {
 			delete(persist, key)
 		},
 	}
-	p := newPbftCore(1, loadConfig(), stack)
+	p := newPbftCore(1, loadConfig(), stack, &inertTimerFactory{})
 	p.reqStore["a"] = &Request{}
 	p.persistRequest("a")
 	if len(persist) != 1 {
@@ -1291,23 +1272,23 @@ func TestReplicaPersistDelete(t *testing.T) {
 }
 
 func TestNilCurrentExec(t *testing.T) {
-	p := newPbftCore(1, loadConfig(), &omniProto{})
+	p := newPbftCore(1, loadConfig(), &omniProto{}, &inertTimerFactory{})
 	p.execDoneSync() // Per issue 1538, this would cause a Nil pointer dereference
 }
 
 func TestNetworkNullRequests(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.nullRequestTimeout = 200 * time.Millisecond
-		pe.pbft.requestTimeout = 500 * time.Millisecond
-	})
+	config := loadConfig()
+	config.Set("general.timeout.nullrequest", "200ms")
+	config.Set("general.timeout.request", "500ms")
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	msg := createPbftRequestWithChainTx(1, 0)
-	net.pbftEndpoints[0].pbft.manager.queue() <- msg
+	net.pbftEndpoints[0].manager.queue() <- msg
 
 	go net.processContinually()
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	for _, pep := range net.pbftEndpoints {
 		if pep.sc.executions != 1 {
@@ -1324,16 +1305,16 @@ func TestNetworkNullRequests(t *testing.T) {
 
 func TestNetworkNullRequestMissing(t *testing.T) {
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount, func(pe *pbftEndpoint) {
-		pe.pbft.nullRequestTimeout = 200 * time.Millisecond
-		pe.pbft.requestTimeout = 500 * time.Millisecond
-	})
+	config := loadConfig()
+	config.Set("general.timeout.nullrequest", "200ms")
+	config.Set("general.timeout.request", "500ms")
+	net := makePBFTNetwork(validatorCount, config)
 	defer net.stop()
 
 	net.pbftEndpoints[0].pbft.nullRequestTimeout = 0
 
 	msg := createPbftRequestWithChainTx(1, 0)
-	net.pbftEndpoints[0].pbft.manager.queue() <- msg
+	net.pbftEndpoints[0].manager.queue() <- msg
 
 	go net.processContinually()
 	time.Sleep(3 * time.Second) // Bumped from 2 to 3 seconds because of sporadic CI failures
@@ -1344,6 +1325,65 @@ func TestNetworkNullRequestMissing(t *testing.T) {
 		}
 		if pep.pbft.lastExec <= 1 {
 			t.Errorf("Instance %d: no null requests processed", pep.id)
+		}
+		if pep.pbft.view != 1 {
+			t.Errorf("Instance %d: expected view=1", pep.id)
+		}
+	}
+}
+
+func TestNetworkPeriodicViewChange(t *testing.T) {
+	validatorCount := 4
+	config := loadConfig()
+	config.Set("general.K", "2")
+	config.Set("general.logmultiplier", "2")
+	config.Set("general.timeout.request", "500ms")
+	config.Set("general.viewchangeperiod", "1")
+	net := makePBFTNetwork(validatorCount, config)
+	defer net.stop()
+
+	for n := 1; n < 6; n++ {
+		msg := createPbftRequestWithChainTx(int64(n), 0)
+		for _, pe := range net.pbftEndpoints {
+			pe.manager.queue() <- msg
+		}
+		net.process()
+	}
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 5 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
+		}
+		if pep.pbft.view != 2 {
+			t.Errorf("Instance %d: expected view=2", pep.id)
+		}
+	}
+}
+
+func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
+	validatorCount := 4
+	config := loadConfig()
+	config.Set("general.K", "2")
+	config.Set("general.logmultiplier", "2")
+	config.Set("general.timeout.request", "500ms")
+	config.Set("general.viewchangeperiod", "1")
+	net := makePBFTNetwork(validatorCount, config)
+	defer net.stop()
+
+	net.pbftEndpoints[0].pbft.viewChangePeriod = 0
+	net.pbftEndpoints[0].pbft.viewChangeSeqNo = ^uint64(0)
+
+	for n := 1; n < 3; n++ {
+		msg := createPbftRequestWithChainTx(int64(n), 0)
+		for _, pe := range net.pbftEndpoints {
+			pe.manager.queue() <- msg
+		}
+		net.process()
+	}
+
+	for _, pep := range net.pbftEndpoints {
+		if pep.sc.executions != 2 {
+			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
 		}
 		if pep.pbft.view != 1 {
 			t.Errorf("Instance %d: expected view=1", pep.id)

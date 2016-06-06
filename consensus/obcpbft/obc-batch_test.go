@@ -186,13 +186,13 @@ func TestBatchStaleCustody(t *testing.T) {
 	req1 := createOcMsgWithChainTx(1)
 	op.RecvMsg(req1, &pb.PeerID{})
 	op.RecvMsg(createOcMsgWithChainTx(2), &pb.PeerID{})
-	op.pbft.manager.queue() <- nil
+	op.manager.queue() <- nil
 	op.pbft.currentExec = new(uint64) // so that pbft.execDone doesn't get unhappy
 	*op.pbft.currentExec = 1
 	rblock2raw, _ := proto.Marshal(&RequestBlock{[]*Request{reqs[1]}})
 	op.executeImpl(1, rblock2raw)
 	time.Sleep(500 * time.Millisecond)
-	op.pbft.manager.queue() <- nil
+	op.manager.queue() <- nil
 	if len(reqs) != 3 || !reflect.DeepEqual(reqs[2].Payload, req1.Payload) {
 		t.Error("expected resubmitted request")
 	}
