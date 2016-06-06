@@ -230,19 +230,19 @@ test('Deploy a chaincode by enrolled user', function (t) {
     // Print the invoke results
     deployTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
-        console.log("Successfully submitted chaincode deploy transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + results);
+        console.log("Successfully submitted chaincode deploy transaction" + " ---> " + "function: " + deployRequest.fcn + ", args: " + deployRequest.args + " : " + results);
     });
 
     // Listen for the completed event
     deployTx.on('complete', function (results) {
         // Invoke transaction submitted successfully
-        t.pass("Successfully completed chaincode deploy transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + results);
+        t.pass("Successfully completed chaincode deploy transaction" + " ---> " + "function: " + deployRequest.fcn + ", args: " + deployRequest.args + " : " + results);
         t.end();
     });
 
     deployTx.on('error', function (err) {
         // Invoke transaction submission failed
-        t.fail("Failed to submit chaincode invoke transaction" + " ---> " + "function: " + deployRequest.function + ", args: " + deployRequest.arguments + " : " + err);
+        t.fail("Failed to submit chaincode invoke transaction" + " ---> " + "function: " + deployRequest.fcn + ", args: " + deployRequest.args + " : " + err);
         t.end(err);
     });
 });
@@ -272,13 +272,13 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass("Successfully queried existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
+        t.pass("Successfully queried existing chaincode state" + " ---> " + queryRequest.args + " : " +
             new Buffer(results).toString());
         t.end();
     });
     queryTx.on('error', function (results) {
         // Query failed
-        t.fail("Failed to query existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
+        t.fail("Failed to query existing chaincode state" + " ---> " + queryRequest.args + " : " +
             new Buffer(results).toString());
         t.end();
     });
@@ -304,12 +304,12 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass("Successfully queried existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
+        t.pass("Successfully queried existing chaincode state" + " ---> " + queryRequest.args + " : " +
             new Buffer(results).toString());
     });
     queryTx.on('error', function (results) {
         // Query failed
-        t.fail("Failed to query existing chaincode state" + " ---> " + queryRequest.arguments + " : " +
+        t.fail("Failed to query existing chaincode state" + " ---> " + queryRequest.args + " : " +
             new Buffer(results).toString());
     });
 });
@@ -339,11 +339,11 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail("Successfully queried non-existing chaincode state" + " ---> " + queryRequest.arguments + " : " + results);
+        t.fail("Successfully queried non-existing chaincode state" + " ---> " + queryRequest.args + " : " + results);
     });
     queryTx.on('error', function (results) {
         // Query failed
-        t.pass("Failed to query non-existing chaincode state" + " ---> " + queryRequest.arguments + " : " + results);
+        t.pass("Failed to query non-existing chaincode state" + " ---> " + queryRequest.args + " : " + results);
     });
 });
 
@@ -372,11 +372,11 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail("Successfully queried non-existing chaincode function" + " ---> " + queryRequest.function + " : " + results);
+        t.fail("Successfully queried non-existing chaincode function" + " ---> " + queryRequest.fcn + " : " + results);
     });
     queryTx.on('error', function (results) {
         // Query failed
-        t.pass("Failed to query non-existing chaincode function" + " ---> " + queryRequest.function + " : " + results);
+        t.pass("Failed to query non-existing chaincode function" + " ---> " + queryRequest.fcn + " : " + results);
     });
 });
 
@@ -404,7 +404,7 @@ test('Invoke a chaincode by enrolled user', function (t) {
     // Print the invoke results
     invokeTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
-        t.pass("Successfully submitted chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.function + ", args: " + invokeRequest.arguments + " : " + results);
+        t.pass("Successfully submitted chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.fcn + ", args: " + invokeRequest.args + " : " + results);
 
         // Insure the txUUID returned is not an empty string
         if (results === "") {
@@ -416,7 +416,7 @@ test('Invoke a chaincode by enrolled user', function (t) {
     });
     invokeTx.on('error', function (err) {
         // Invoke transaction submission failed
-        t.fail("Failed to submit chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.function + ", args: " + invokeRequest.arguments + " : " + err);
+        t.fail("Failed to submit chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.fcn + ", args: " + invokeRequest.args + " : " + err);
         t.end(err);
     });
 });
