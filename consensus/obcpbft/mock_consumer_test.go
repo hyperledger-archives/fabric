@@ -52,7 +52,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case ce.consumer.getPBFTCore().manager.queue() <- nil:
+	case ce.consumer.getManager().queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
@@ -102,6 +102,7 @@ type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
+	getManager() eventManager // TODO, remove, this is a temporary measure
 	Close()
 	idleChannel() <-chan struct{}
 }
