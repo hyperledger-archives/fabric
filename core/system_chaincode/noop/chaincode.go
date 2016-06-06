@@ -59,7 +59,7 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	case "execute":
 
 		if len(args) < 1 {
-			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a bitcoin transaction")
+			return nil, errors.New("execute operation must include single argument, the base64 encoded form of a byte sequence")
 		}
 		logger.Infof("Executing NOOP INVOKE")
 		return nil, nil
