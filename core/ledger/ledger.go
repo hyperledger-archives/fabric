@@ -159,7 +159,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	writeBatch := gorocksdb.NewWriteBatch()
 	defer writeBatch.Destroy()
 	block := protos.NewBlock(transactions, metadata)
-	block.NonHashData = &protos.NonHashData{TransactionResults: transactionResults}
+	block.NonHashData = &protos.NonHashData{}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		ledger.resetForNextTxGroup(false)
@@ -180,6 +180,9 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	ledger.blockchain.blockPersistenceStatus(true)
 
 	sendProducerBlockEvent(block)
+	if len(transactionResults) != 0 {
+		ledgerLogger.Debug("There were some erroneous transactions. We need to send a 'TX rejected' message here.")
+	}
 	return nil
 }
 
