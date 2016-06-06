@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
 )
@@ -183,7 +182,7 @@ func TestRequestAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	aCert, err := primitives.DERToX509Certificate(resp.Cert.Cert)
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}

@@ -18,6 +18,9 @@ package obcpbft
 
 import "time"
 
+// Ultimately, the events code should all be converted to use this type to indicate the intent of parameters and returns
+type event interface{}
+
 // eventReceiver is a consumer of events, processEvent will be called serially
 // as events arrive
 type eventReceiver interface {
@@ -57,6 +60,7 @@ func (t *threaded) halt() {
 type eventManager interface {
 	inject(interface{})        // A temporary interface to allow the event manager thread to skip the queue
 	queue() chan<- interface{} // Get a write-only reference to the queue, to submit events
+	setReceiver(eventReceiver) // Set the target to route events to
 	start()                    // Starts the eventManager thread TODO, these thread management things should probably go away
 	halt()                     // Stops the eventManager thread
 }
@@ -69,12 +73,16 @@ type eventManagerImpl struct {
 }
 
 // newEventManager creates an instance of eventManagerImpl
-func newEventManagerImpl(er eventReceiver) eventManager {
+func newEventManagerImpl() eventManager {
 	return &eventManagerImpl{
-		receiver: er,
 		events:   make(chan interface{}),
 		threaded: threaded{make(chan struct{})},
 	}
+}
+
+// start creates the go routine necessary to deliver events
+func (em *eventManagerImpl) setReceiver(receiver eventReceiver) {
+	em.receiver = receiver
 }
 
 // start creates the go routine necessary to deliver events
@@ -101,7 +109,9 @@ func sendEvent(receiver eventReceiver, event interface{}) {
 
 // inject can only safely be called by the eventManager thread itself, it skips the queue
 func (em *eventManagerImpl) inject(event interface{}) {
-	sendEvent(em.receiver, event)
+	if em.receiver != nil {
+		sendEvent(em.receiver, event)
+	}
 }
 
 // eventLoop is where the event thread loops, delivering events

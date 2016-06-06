@@ -28,7 +28,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -144,7 +143,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	node.debug("Verifing tls certificate...")
 
-	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
+	tlsCert, err := primitives.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
 	primitives.VerifySignCapability(priv, certPK)
 

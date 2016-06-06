@@ -16,9 +16,34 @@ limitations under the License.
 
 package core
 
-import "github.com/spf13/viper"
+import (
+	"math/rand"
+	"strings"
+	"time"
+)
 
-// GetRootNode place holder function for providing a boostrap address for a Validating Peer.
-func GetRootNode() (string, error) {
-	return viper.GetString("peer.discovery.rootnode"), nil
+// StaticDiscovery is an implementation of Discovery
+type StaticDiscovery struct {
+	rootNodes []string
+	random    *rand.Rand
+}
+
+// NewStaticDiscovery is a constructor of a Discovery implementation
+// Accepts as a parameter the root node configuration, which is a single node,
+// or a comma separated list of nodes with no spaces
+func NewStaticDiscovery(rootNodesString string) *StaticDiscovery {
+	sd := StaticDiscovery{}
+	sd.rootNodes = strings.Split(rootNodesString, ",")
+	sd.random = rand.New(rand.NewSource(time.Now().Unix()))
+	return &sd
+}
+
+// GetRandomNode returns a random root node out of the nodes the discovery was initialized with
+func (sd *StaticDiscovery) GetRandomNode() string {
+	return sd.rootNodes[sd.random.Intn(len(sd.rootNodes))]
+}
+
+// GetRootNodes returns an array of all the nodes it was initialized with
+func (sd *StaticDiscovery) GetRootNodes() []string {
+	return append([]string{}, sd.rootNodes...)
 }

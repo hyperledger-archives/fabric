@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
@@ -49,7 +50,7 @@ func (peer *peerImpl) getEnrollmentCert(id []byte) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	cert, err := utils.DERToX509Certificate(rawCert)
+	cert, err := primitives.DERToX509Certificate(rawCert)
 	if err != nil {
 		peer.error("Failed parsing enrollment certificate for [%s]: [% x],[% x]", sid, rawCert, err)
 
@@ -76,7 +77,7 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	peer.debug("Certificate for hash [% x] = [% x][% x]", id, response.Sign, response.Enc)
 
 	// Verify response.Sign
-	x509Cert, err := utils.DERToX509Certificate(response.Sign)
+	x509Cert, err := primitives.DERToX509Certificate(response.Sign)
 	if err != nil {
 		peer.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
@@ -84,7 +85,7 @@ func (peer *peerImpl) getEnrollmentCertByHashFromECA(id []byte) ([]byte, []byte,
 	}
 
 	// Check role
-	roleRaw, err := utils.GetCriticalExtension(x509Cert, ECertSubjectRole)
+	roleRaw, err := primitives.GetCriticalExtension(x509Cert, ECertSubjectRole)
 	if err != nil {
 		peer.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
