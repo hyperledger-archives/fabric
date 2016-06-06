@@ -23,8 +23,6 @@ var test = require('tape');
 var util = require('util');
 var fs = require('fs');
 
-var chain = hlc.newChain("testChain");
-
 //
 // Run the registrar test
 //
@@ -35,12 +33,23 @@ test('registrar test', function (t) {
     });
 });
 
+//
+// Run the registrar test
+//
+test('enroll again', function (t) {
+    enrollAgain(function(err) {
+        if (err) fail(t, "enrollAgain", err);
+        else pass(t, "enrollAgain");
+    });
+});
+
 // The registrar test
 function registrarTest(cb) {
    console.log("testRegistrar");
    //
-   // Configure the test chain
+   // Create and configure the test chain
    //
+   var chain = hlc.newChain("testChain");
    chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.getMember("admin", function (err, admin) {
@@ -50,13 +59,13 @@ function registrarTest(cb) {
           if (err) return cb(err);
           chain.setRegistrar(admin);
           // Register and enroll webAdmin
-          registerAndEnroll("webAdmin", {roles:['client']}, function(err,webAdmin) {
+          registerAndEnroll("webAdmin", {roles:['client']}, chain, function(err,webAdmin) {
              if (err) return cb(err);
              chain.setRegistrar(webAdmin);
-             registerAndEnroll("webUser", null, function(err, webUser) {
+             registerAndEnroll("webUser", null, chain, function(err, webUser) {
                  if (err) return cb(err);
                  chain.setRegistrar(webUser);
-                 registerAndEnroll("webUser2", null, function(err) {
+                 registerAndEnroll("webUser2", null, chain, function(err) {
                     if (!err) return cb(Error("webUser should not be allowed to register a client"));
                     return cb();
                  });
@@ -66,7 +75,8 @@ function registrarTest(cb) {
    });
 }
 
-function registerAndEnroll(name, registrar, cb) {
+// Register and enroll user 'name' with registrar info 'registrar' for chain 'chain'
+function registerAndEnroll(name, registrar, chain, cb) {
     console.log("registerAndEnroll %s",name);
     chain.getUser(name, function (err, user) {
        if (err) return cb(err);
@@ -87,6 +97,43 @@ function registerAndEnroll(name, registrar, cb) {
           return cb(null,user);
        });
    });
+}
+
+// Force the client to try to enroll admin again by creating a different chain
+// This should fail.
+function enrollAgain(cb) {
+   console.log("enrollAgain");
+   //
+   // Remove the file-based keyValStore
+   // Create and configure testChain2 so there is no shared state with testChain
+   // This is necessary to start without a local cache.
+   //
+   rmdir("/tmp/keyValStore");
+   var chain = hlc.newChain("testChain2");
+   chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+   chain.setMemberServicesUrl("grpc://localhost:50051");
+   chain.getMember("admin", function (err, admin) {
+      if (err) return cb(err);
+      // Re-enroll the admin
+      admin.enroll("Xurw3yU9zI0l", function (err) {
+          if (!err) return cb(Error("admin should not be allowed to re-enroll"));
+          return cb();
+      });
+   });
+}
+
+function rmdir(path) {
+  if( fs.existsSync(path) ) {
+    fs.readdirSync(path).forEach(function(file,index){
+      var curPath = path + "/" + file;
+      if(fs.lstatSync(curPath).isDirectory()) { // recurse
+        rmdir(curPath);
+      } else { // delete file
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(path);
+  }
 }
 
 function pass(t, msg) {
