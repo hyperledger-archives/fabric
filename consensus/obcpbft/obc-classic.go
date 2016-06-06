@@ -37,16 +37,14 @@ type obcClassic struct {
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
 		legacyGenericShim: legacyGenericShim{
-			obcGeneric: obcGeneric{stack: stack},
+			obcGeneric: &obcGeneric{stack: stack},
 		},
 	}
 
 	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = legacyPbftShim{newPbftCore(id, config, op)}
-	op.pbft.manager.start()
+	op.legacyGenericShim.init(id, config, op)
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan)
@@ -82,11 +80,6 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 	op.pbft.receive(ocMsg.Payload, senderID)
 
 	return nil
-}
-
-// Close tells us to release resources we are holding
-func (op *obcClassic) Close() {
-	op.pbft.close()
 }
 
 // =============================================================================
