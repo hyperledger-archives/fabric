@@ -430,7 +430,7 @@ func TestRequestAttributes_FullAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	aCert, err := primitives.DERToX509Certificate(resp.Cert.Cert)
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}
@@ -516,7 +516,7 @@ func TestRequestAttributes_PartialAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	aCert, err := utils.DERToX509Certificate(resp.Cert.Cert)
+	aCert, err := primitives.DERToX509Certificate(resp.Cert.Cert)
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}
