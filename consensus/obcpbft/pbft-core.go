@@ -880,10 +880,8 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		// asynchronously execute
-		go func() {
-			instance.consumer.execute(idx.n, req.Payload)
-		}()
+		// synchronously execute, it is the other side's responsibility to execute in the background if needed
+		instance.consumer.execute(idx.n, req.Payload)
 	}
 	return true
 }

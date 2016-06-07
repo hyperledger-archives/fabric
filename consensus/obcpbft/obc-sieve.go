@@ -650,11 +650,13 @@ func (op *obcSieve) main() {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte) {
-	op.executeChan <- &pbftExecute{
-		seqNo: seqNo,
-		txRaw: raw,
-	}
-	logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	go func() {
+		op.executeChan <- &pbftExecute{
+			seqNo: seqNo,
+			txRaw: raw,
+		}
+		logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	}()
 }
 
 func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
