@@ -118,7 +118,7 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
 
 ## FLOW
 
-![ACA flow](../images/attributes_flow.jpg)
+![ACA flow](../images/attributes_flow.png)
 
 ### During enrollment
 
