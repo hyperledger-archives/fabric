@@ -391,8 +391,8 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "IBM" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+	if attributeValue != "ACME" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
 	}
 }
 
@@ -427,8 +427,8 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "IBM" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+	if attributeValue != "ACME" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
 	}
 }
 

@@ -99,7 +99,7 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: IBM
+        company: ACME
         position: "Software Engineer"
     level: 256
     hashAlgorithm: SHA3
