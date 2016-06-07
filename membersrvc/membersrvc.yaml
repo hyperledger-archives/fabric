@@ -47,6 +47,8 @@ logging:
 # - auditing client: AUDITOR
 #
 eca:
+        # This hierarchy is used to create the Pre-key tree. Affiliation_group is the top of this hierarchy, 'banks_and_institutions' is used to create the key associated to auditors of both banks and
+        # institutions, 'banks' is used to create a key associated to auditors of banks, 'bank_a' is used to create a key associated to auditors of bank_a, etc.
         affiliation_groups:
            banks_and_institutions:
               banks:

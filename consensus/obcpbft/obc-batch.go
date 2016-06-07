@@ -194,13 +194,6 @@ func (op *obcBatch) validate(txRaw []byte) error {
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcBatch) execute(seqNo uint64, raw []byte) {
-	op.manager.queue() <- batchExecEvent{
-		seqNo: seqNo,
-		raw:   raw,
-	}
-}
-
-func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 	reqs := &RequestBlock{}
 	if err := proto.Unmarshal(raw, reqs); err != nil {
 		logger.Warning("Batch replica %d could not unmarshal request block: %s", op.pbft.id, err)
@@ -230,6 +223,10 @@ func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
 
+	go op.executeImpl(txs, meta)
+}
+
+func (op *obcBatch) executeImpl(txs []*pb.Transaction, meta []byte) {
 	id := []byte("foo")
 	op.stack.BeginTxBatch(id)
 	result, err := op.stack.ExecTxs(id, txs)
@@ -237,7 +234,7 @@ func (op *obcBatch) executeImpl(seqNo uint64, raw []byte) {
 	_ = result // XXX what to do with the result?
 	_, err = op.stack.CommitTxBatch(id, meta)
 
-	op.pbft.execDoneSync()
+	op.manager.queue() <- execDoneEvent{}
 }
 
 // =============================================================================
@@ -420,9 +417,6 @@ func (op *obcBatch) processEvent(event interface{}) interface{} {
 			logger.Info("Replica %d resubmitting request under custody: %s", op.pbft.id, pair.Hash)
 			return op.submitToLeader(pair.Request)
 		}
-	case batchExecEvent:
-		execInfo := et
-		op.executeImpl(execInfo.seqNo, execInfo.raw)
 	case complaintEvent:
 		c := et
 		logger.Debug("Replica %d processing complaint from custodian", op.pbft.id)
