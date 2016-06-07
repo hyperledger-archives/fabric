@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package events
 
 import (
 	"testing"
@@ -25,35 +25,37 @@ import (
 type mockEvent struct{}
 
 type mockReceiver struct {
-	processEventImpl func(event interface{}) interface{}
+	processEventImpl func(event Event) Event
 }
 
-func (mr *mockReceiver) processEvent(event interface{}) interface{} {
+func (mr *mockReceiver) ProcessEvent(event Event) Event {
 	if mr.processEventImpl != nil {
 		return mr.processEventImpl(event)
 	}
 	return nil
 }
 
-func newMockManager(processEvent func(event interface{}) interface{}) eventManager {
-	return newEventManagerImpl(&mockReceiver{
+func newMockManager(processEvent func(event Event) Event) Manager {
+	manager := NewManagerImpl()
+	manager.SetReceiver(&mockReceiver{
 		processEventImpl: processEvent,
 	})
+	return manager
 }
 
 // Starts an event timer, waits for the event to be delivered
 func TestEventTimerStart(t *testing.T) {
-	events := make(chan interface{})
-	mr := newMockManager(func(event interface{}) interface{} {
+	events := make(chan Event)
+	mr := newMockManager(func(event Event) Event {
 		events <- event
 		return nil
 	})
-	mr.start()
-	defer mr.halt()
-	timer := newEventTimer(mr)
-	defer timer.halt()
+	mr.Start()
+	defer mr.Halt()
+	timer := newTimerImpl(mr)
+	defer timer.Halt()
 	me := &mockEvent{}
-	timer.reset(time.Millisecond, me)
+	timer.Reset(time.Millisecond, me)
 
 	select {
 	case e := <-events:
@@ -67,20 +69,20 @@ func TestEventTimerStart(t *testing.T) {
 
 // Starts an event timer, resets it twice, expects second output
 func TestEventTimerHardReset(t *testing.T) {
-	events := make(chan interface{})
-	mr := newMockManager(func(event interface{}) interface{} {
+	events := make(chan Event)
+	mr := newMockManager(func(event Event) Event {
 		events <- event
 		return nil
 	})
-	timer := newEventTimer(mr)
-	defer timer.halt()
+	timer := newTimerImpl(mr)
+	defer timer.Halt()
 	me1 := &mockEvent{}
 	me2 := &mockEvent{}
-	timer.reset(time.Millisecond, me1)
-	timer.reset(time.Millisecond, me2)
+	timer.Reset(time.Millisecond, me1)
+	timer.Reset(time.Millisecond, me2)
 
-	mr.start()
-	defer mr.halt()
+	mr.Start()
+	defer mr.Halt()
 
 	select {
 	case e := <-events:
@@ -94,20 +96,20 @@ func TestEventTimerHardReset(t *testing.T) {
 
 // Starts an event timer, soft resets it twice, expects first output
 func TestEventTimerSoftReset(t *testing.T) {
-	events := make(chan interface{})
-	mr := newMockManager(func(event interface{}) interface{} {
+	events := make(chan Event)
+	mr := newMockManager(func(event Event) Event {
 		events <- event
 		return nil
 	})
-	timer := newEventTimer(mr)
-	defer timer.halt()
+	timer := newTimerImpl(mr)
+	defer timer.Halt()
 	me1 := &mockEvent{}
 	me2 := &mockEvent{}
-	timer.softReset(time.Millisecond, me1)
-	timer.softReset(time.Millisecond, me2)
+	timer.SoftReset(time.Millisecond, me1)
+	timer.SoftReset(time.Millisecond, me2)
 
-	mr.start()
-	defer mr.halt()
+	mr.Start()
+	defer mr.Halt()
 
 	select {
 	case e := <-events:
@@ -121,20 +123,20 @@ func TestEventTimerSoftReset(t *testing.T) {
 
 // Starts an event timer, then stops it before delivery is possible, should not receive event
 func TestEventTimerStop(t *testing.T) {
-	events := make(chan interface{})
-	mr := newMockManager(func(event interface{}) interface{} {
+	events := make(chan Event)
+	mr := newMockManager(func(event Event) Event {
 		events <- event
 		return nil
 	})
-	timer := newEventTimer(mr)
-	defer timer.halt()
+	timer := newTimerImpl(mr)
+	defer timer.Halt()
 	me := &mockEvent{}
-	timer.reset(time.Millisecond, me)
+	timer.Reset(time.Millisecond, me)
 	time.Sleep(100 * time.Millisecond) // Allow the timer to fire
-	timer.stop()
+	timer.Stop()
 
-	mr.start()
-	defer mr.halt()
+	mr.Start()
+	defer mr.Halt()
 
 	select {
 	case <-events:
@@ -148,17 +150,17 @@ func TestEventTimerStop(t *testing.T) {
 func TestEventManagerLoop(t *testing.T) {
 	success := make(chan struct{})
 	m2 := &mockEvent{}
-	mr := newMockManager(func(event interface{}) interface{} {
+	mr := newMockManager(func(event Event) Event {
 		if event != m2 {
 			return m2
 		}
 		success <- struct{}{}
 		return nil
 	})
-	mr.start()
-	defer mr.halt()
+	mr.Start()
+	defer mr.Halt()
 
-	mr.queue() <- &mockEvent{}
+	mr.Queue() <- &mockEvent{}
 
 	select {
 	case <-success:

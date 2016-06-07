@@ -22,11 +22,26 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 	gp "google/protobuf"
 )
+
+type inertTimer struct{}
+
+func (it *inertTimer) Halt()                                                {}
+func (it *inertTimer) Reset(duration time.Duration, event events.Event)     {}
+func (it *inertTimer) SoftReset(duration time.Duration, event events.Event) {}
+func (it *inertTimer) Stop()                                                {}
+
+type inertTimerFactory struct{}
+
+func (it *inertTimerFactory) CreateTimer() events.Timer {
+	return &inertTimer{}
+}
 
 type noopSecurity struct{}
 
@@ -78,6 +93,14 @@ func (p *mockPersist) StoreState(key string, value []byte) error {
 func (p *mockPersist) DelState(key string) {
 	p.initialize()
 	delete(p.store, key)
+}
+
+func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerStack) (*pbftCore, events.Manager) {
+	manager := events.NewManagerImpl()
+	core := newPbftCore(id, loadConfig(), stack, events.NewTimerFactoryImpl(manager))
+	manager.SetReceiver(core)
+	manager.Start()
+	return core, manager
 }
 
 // Create a message of type `Message_CHAIN_TRANSACTION`

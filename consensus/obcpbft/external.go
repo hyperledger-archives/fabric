@@ -17,6 +17,7 @@ limitations under the License.
 package obcpbft
 
 import (
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -27,13 +28,21 @@ import (
 //
 // --------------------------------------------------------------
 
+// Event types
+
+// stateUpdatedEvent is sent when state transfer completes
+type stateUpdatedEvent checkpointMessage
+
+// stateUpdatingEvent is sent when state transfer is initiated
+type stateUpdatingEvent checkpointMessage
+
 type externalEventReceiver struct {
-	manager eventManager
+	manager events.Manager
 }
 
 // RecvMsg is called by the stack when a new message is received
 func (eer *externalEventReceiver) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
-	eer.manager.queue() <- batchMessageEvent{
+	eer.manager.Queue() <- batchMessageEvent{
 		msg:    ocMsg,
 		sender: senderHandle,
 	}
@@ -42,7 +51,7 @@ func (eer *externalEventReceiver) RecvMsg(ocMsg *pb.Message, senderHandle *pb.Pe
 
 // StateUpdated is a signal from the stack that it has fast-forwarded its state
 func (eer *externalEventReceiver) StateUpdated(seqNo uint64, id []byte) {
-	eer.manager.queue() <- stateUpdatedEvent{
+	eer.manager.Queue() <- stateUpdatedEvent{
 		seqNo: seqNo,
 		id:    id,
 	}
@@ -50,7 +59,7 @@ func (eer *externalEventReceiver) StateUpdated(seqNo uint64, id []byte) {
 
 // StateUpdating is a signal from the stack that state transfer has started
 func (eer *externalEventReceiver) StateUpdating(seqNo uint64, id []byte) {
-	eer.manager.queue() <- stateUpdatingEvent{
+	eer.manager.Queue() <- stateUpdatingEvent{
 		seqNo: seqNo,
 		id:    id,
 	}

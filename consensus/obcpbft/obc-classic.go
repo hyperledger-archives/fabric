@@ -37,16 +37,14 @@ type obcClassic struct {
 func newObcClassic(id uint64, config *viper.Viper, stack consensus.Stack) *obcClassic {
 	op := &obcClassic{
 		legacyGenericShim: legacyGenericShim{
-			obcGeneric: obcGeneric{stack: stack},
+			obcGeneric: &obcGeneric{stack: stack},
 		},
 	}
 
 	op.persistForward.persistor = stack
 
 	logger.Debug("Replica %d obtaining startup information", id)
-
-	op.pbft = legacyPbftShim{newPbftCore(id, config, op)}
-	op.pbft.manager.start()
+	op.legacyGenericShim.init(id, config, op)
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan)
@@ -82,11 +80,6 @@ func (op *obcClassic) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error 
 	op.pbft.receive(ocMsg.Payload, senderID)
 
 	return nil
-}
-
-// Close tells us to release resources we are holding
-func (op *obcClassic) Close() {
-	op.pbft.close()
 }
 
 // =============================================================================
@@ -136,23 +129,25 @@ func (op *obcClassic) validate(txRaw []byte) error {
 
 // execute an opaque request which corresponds to an OBC Transaction
 func (op *obcClassic) execute(seqNo uint64, txRaw []byte) {
-	tx := &pb.Transaction{}
-	err := proto.Unmarshal(txRaw, tx)
-	if err != nil {
-		logger.Error("Unable to unmarshal transaction: %v", err)
-		return
-	}
+	go func() {
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(txRaw, tx)
+		if err != nil {
+			logger.Error("Unable to unmarshal transaction: %v", err)
+			return
+		}
 
-	meta, _ := proto.Marshal(&Metadata{seqNo})
+		meta, _ := proto.Marshal(&Metadata{seqNo})
 
-	id := []byte("foo")
-	op.stack.BeginTxBatch(id)
-	result, err := op.stack.ExecTxs(id, []*pb.Transaction{tx})
-	_ = err    // XXX what to do on error?
-	_ = result // XXX what to do with the result?
-	_, err = op.stack.CommitTxBatch(id, meta)
+		id := []byte("foo")
+		op.stack.BeginTxBatch(id)
+		result, err := op.stack.ExecTxs(id, []*pb.Transaction{tx})
+		_ = err    // XXX what to do on error?
+		_ = result // XXX what to do with the result?
+		_, err = op.stack.CommitTxBatch(id, meta)
 
-	op.pbft.execDone()
+		op.pbft.execDone()
+	}()
 }
 
 // called when a view-change happened in the underlying PBFT

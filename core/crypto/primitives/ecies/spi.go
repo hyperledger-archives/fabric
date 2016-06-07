@@ -22,23 +22,34 @@ import (
 	"crypto/rand"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"io"
+	"fmt"
 )
 
-func newKeyGeneratorParameter(rand io.Reader, curve elliptic.Curve) (primitives.KeyGeneratorParameters, error) {
-	return &keyGeneratorParameterImpl{rand, curve, nil}, nil
+func newKeyGeneratorParameter(r io.Reader, curve elliptic.Curve) (primitives.KeyGeneratorParameters, error) {
+	if r == nil {
+		r = rand.Reader
+	}
+	return &keyGeneratorParameterImpl{r, curve, nil}, nil
 }
 
 func newKeyGenerator() (primitives.KeyGenerator, error) {
 	return &keyGeneratorImpl{}, nil
 }
 
-func newKeyGeneratorFromCurve(rand io.Reader, curve elliptic.Curve) (primitives.KeyGenerator, error) {
+func newKeyGeneratorFromCurve(r io.Reader, curve elliptic.Curve) (primitives.KeyGenerator, error) {
+	if r == nil {
+		r = rand.Reader
+	}
+	if curve == nil {
+		curve = primitives.GetDefaultCurve()
+	}
+
 	kg, err := newKeyGenerator()
 	if err != nil {
 		return nil, err
 	}
 
-	kgp, err := newKeyGeneratorParameter(rand, curve)
+	kgp, err := newKeyGeneratorParameter(r, curve)
 	if err != nil {
 		return nil, err
 	}
@@ -51,20 +62,42 @@ func newKeyGeneratorFromCurve(rand io.Reader, curve elliptic.Curve) (primitives.
 	return kg, nil
 }
 
-func newPublicKeyFromECDSA(pk *ecdsa.PublicKey) (primitives.PublicKey, error) {
-	return &publicKeyImpl{pk, rand.Reader, nil}, nil
+func newPublicKeyFromECDSA(r io.Reader, pk *ecdsa.PublicKey) (primitives.PublicKey, error) {
+	if r == nil {
+		r = rand.Reader
+	}
+	if pk == nil {
+		return nil, fmt.Errorf("Null ECDSA public key")
+	}
+
+	return &publicKeyImpl{pk, r, nil}, nil
 }
 
-func newPrivateKeyFromECDSA(sk *ecdsa.PrivateKey) (primitives.PrivateKey, error) {
-	return &secretKeyImpl{sk, nil, nil, rand.Reader}, nil
+func newPrivateKeyFromECDSA(r io.Reader, sk *ecdsa.PrivateKey) (primitives.PrivateKey, error) {
+	if r == nil {
+		r = rand.Reader
+	}
+	if sk == nil {
+		return nil, fmt.Errorf("Null ECDSA secret key")
+	}
+
+	return &secretKeyImpl{sk, nil, nil, r}, nil
 }
 
 func serializePrivateKey(priv primitives.PrivateKey) ([]byte, error) {
+	if priv == nil {
+		return nil, fmt.Errorf("Null Private Key")
+	}
+
 	serializer := secretKeySerializerImpl{}
 	return serializer.ToBytes(priv)
 }
 
 func deserializePrivateKey(bytes []byte) (primitives.PrivateKey, error) {
+	if len(bytes) == 0 {
+		return nil, fmt.Errorf("Null bytes")
+	}
+
 	serializer := secretKeySerializerImpl{}
 	priv, err := serializer.FromBytes(bytes)
 	if err != nil {
@@ -74,12 +107,20 @@ func deserializePrivateKey(bytes []byte) (primitives.PrivateKey, error) {
 	return priv.(primitives.PrivateKey), nil
 }
 
-func serializePublicKey(priv primitives.PublicKey) ([]byte, error) {
+func serializePublicKey(pub primitives.PublicKey) ([]byte, error) {
+	if pub == nil {
+		return nil, fmt.Errorf("Null Public Key")
+	}
+
 	serializer := publicKeySerializerImpl{}
-	return serializer.ToBytes(priv)
+	return serializer.ToBytes(pub)
 }
 
 func deserializePublicKey(bytes []byte) (primitives.PublicKey, error) {
+	if len(bytes) == 0 {
+		return nil, fmt.Errorf("Null bytes")
+	}
+
 	serializer := publicKeySerializerImpl{}
 	pub, err := serializer.FromBytes(bytes)
 	if err != nil {
@@ -93,8 +134,14 @@ func newAsymmetricCipher() (primitives.AsymmetricCipher, error) {
 	return &encryptionSchemeImpl{}, nil
 }
 
-func newPrivateKey(rand io.Reader, curve elliptic.Curve) (primitives.PrivateKey, error) {
-	kg, err := newKeyGeneratorFromCurve(rand, curve)
+func newPrivateKey(r io.Reader, curve elliptic.Curve) (primitives.PrivateKey, error) {
+	if r == nil {
+		r = rand.Reader
+	}
+	if curve == nil {
+		curve = primitives.GetDefaultCurve()
+	}
+ 	kg, err := newKeyGeneratorFromCurve(r, curve)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +149,10 @@ func newPrivateKey(rand io.Reader, curve elliptic.Curve) (primitives.PrivateKey,
 }
 
 func newAsymmetricCipherFromPrivateKey(priv primitives.PrivateKey) (primitives.AsymmetricCipher, error) {
+	if priv == nil {
+		return nil, fmt.Errorf("Null Private Key")
+	}
+
 	es, err := newAsymmetricCipher()
 	if err != nil {
 		return nil, err
@@ -116,6 +167,10 @@ func newAsymmetricCipherFromPrivateKey(priv primitives.PrivateKey) (primitives.A
 }
 
 func newAsymmetricCipherFromPublicKey(pub primitives.PublicKey) (primitives.AsymmetricCipher, error) {
+	if pub == nil {
+		return nil, fmt.Errorf("Null Public Key")
+	}
+
 	es, err := newAsymmetricCipher()
 	if err != nil {
 		return nil, err
@@ -164,11 +219,8 @@ func (spi *spiImpl) NewAsymmetricCipherFromSerializedPrivateKey(priv []byte) (pr
 func (spi *spiImpl) NewPrivateKey(r io.Reader, params interface{}) (primitives.PrivateKey, error) {
 	switch t := params.(type) {
 	case *ecdsa.PrivateKey:
-		return newPrivateKeyFromECDSA(t)
+		return newPrivateKeyFromECDSA(r, t)
 	case elliptic.Curve:
-		if r == nil {
-			r = rand.Reader
-		}
 		return newPrivateKey(r, t)
 	default:
 		return nil, primitives.ErrInvalidKeyGeneratorParameter
@@ -180,10 +232,9 @@ func (spi *spiImpl) NewDefaultPrivateKey(r io.Reader) (primitives.PrivateKey, er
 }
 
 func (spi *spiImpl) NewPublicKey(r io.Reader, params interface{}) (primitives.PublicKey, error) {
-
 	switch t := params.(type) {
 	case *ecdsa.PublicKey:
-		return newPublicKeyFromECDSA(t)
+		return newPublicKeyFromECDSA(r, t)
 	default:
 		return nil, primitives.ErrInvalidKeyGeneratorParameter
 	}

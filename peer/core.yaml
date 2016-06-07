@@ -107,8 +107,6 @@ peer:
     # This case is useful for docker containers.
     addressAutoDetect: false
 
-    # Peer port to accept connections on
-    port:    30303
     # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
     gomaxprocs: -1
     workers: 2
@@ -197,6 +195,7 @@ peer:
 
         # The root nodes are used for bootstrapping purposes, and generally
         # supplied through ENV variables
+        # It can be either a single host or a comma separated list of hosts.
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers
