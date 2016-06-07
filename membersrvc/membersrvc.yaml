@@ -47,16 +47,16 @@ logging:
 # - auditing client: AUDITOR
 #
 eca:
-        # This hierarchy is used to create the Pre-key tree. Affiliation_group is the top of this hierarchy, 'banks_and_institutions' is used to create the key associated to auditors of both banks and
+        # This hierarchy is used to create the Pre-key tree, affiliations is the top of this hierarchy, 'banks_and_institutions' is used to create the key associated to auditors of both banks and
         # institutions, 'banks' is used to create a key associated to auditors of banks, 'bank_a' is used to create a key associated to auditors of bank_a, etc.
-        affiliation_groups:
+        affiliations:
            banks_and_institutions:
               banks:
-                  bank_a
-                  bank_b
-                  bank_c
+                  - bank_a
+                  - bank_b
+                  - bank_c
               institutions:
-                  institution_a
+                  - institution_a
         users:
                 # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
                 lukas: 1 NPKYL39uKbkj bank_a    00001
