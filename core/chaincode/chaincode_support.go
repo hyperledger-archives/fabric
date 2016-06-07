@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
+	"strings"
 )
 
 // ChainName is the name of the chain to which this chaincode support belongs to.
@@ -248,19 +249,29 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 }
 
 //get args and env given chaincodeID
-func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
-	envs = []string{"CORE_CHAINCODE_ID_NAME=" + cID.Name}
-
-	//chaincode executable will be same as the name of the chaincode
-	args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
-
-	chaincodeLogger.Debug("Executable is %s", args[0])
+func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLang pb.ChaincodeSpec_Type) (args []string, envs []string, err error) {
+	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
+	switch cLang {
+	case pb.ChaincodeSpec_GOLANG:
+		//chaincode executable will be same as the name of the chaincode
+		args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
+		chaincodeLogger.Debug("Executable is %s", args[0])
+	case pb.ChaincodeSpec_JAVA:
+		//TODO add security args
+		args = strings.Split(
+			fmt.Sprintf("/usr/bin/gradle run -p /root -PappArgs=[\"-a\",\"%s\",\"-i\",\"%s\"]"+
+				" -x compileJava -x processResources -x classes", viper.GetString("peer.address"), cID.Name),
+			" ")
+		chaincodeLogger.Debug("Executable is gradle run on chaincode ID %s", cID.Name)
+	default:
+		return nil, nil, fmt.Errorf("Unknown chaincodeType: %s", cLang)
+	}
 
 	return args, envs, nil
 }
 
 // launchAndWaitForRegister will launch container if not already running
-func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, uuid string) (bool, error) {
+func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, cLang pb.ChaincodeSpec_Type, uuid string) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
@@ -275,12 +286,13 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 		return true, nil
 	}
 	alreadyRunning := false
+
 	notfy := chaincodeSupport.preLaunchSetup(chaincode)
 	chaincodeSupport.runningChaincodes.Unlock()
 
 	//launch the chaincode
 
-	args, env, err := chaincodeSupport.getArgsAndEnv(cID)
+	args, env, err := chaincodeSupport.getArgsAndEnv(cID, cLang)
 	if err != nil {
 		return alreadyRunning, err
 	}
@@ -362,6 +374,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 	var cID *pb.ChaincodeID
 	var cMsg *pb.ChaincodeInput
 	var f *string
+	var cLang pb.ChaincodeSpec_Type
 	var initargs []string
 
 	cds := &pb.ChaincodeDeploymentSpec{}
@@ -372,6 +385,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		}
 		cID = cds.ChaincodeSpec.ChaincodeID
 		cMsg = cds.ChaincodeSpec.CtorMsg
+		cLang = cds.ChaincodeSpec.Type
 		f = &cMsg.Function
 		initargs = cMsg.Args
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
@@ -444,17 +458,20 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 				return cID, cMsg, fmt.Errorf("failed tx preexecution%s - %s", chaincode, err)
 			}
 		}
+		//Get lang from original deployment
+		orgSpec := &pb.ChaincodeDeploymentSpec{}
 		err := proto.Unmarshal(depTx.Payload, cds)
 		if err != nil {
 			return cID, cMsg, fmt.Errorf("failed to unmarshal deployment transactions for %s - %s", chaincode, err)
 		}
+		cLang = orgSpec.ChaincodeSpec.Type
 	}
 
 	//from here on : if we launch the container and get an error, we need to stop the container
 
 	//launch container if it is a System container or not in dev mode
 	if (!chaincodeSupport.userRunsCC || cds.ExecEnv == pb.ChaincodeDeploymentSpec_SYSTEM) && (chrte == nil || chrte.handler == nil) {
-		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid)
+		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, cLang, t.Uuid)
 		if err != nil {
 			chaincodeLogger.Debug("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
@@ -498,6 +515,7 @@ func (chaincodeSupport *ChaincodeSupport) getVMType(cds *pb.ChaincodeDeploymentS
 func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
+	cLang := cds.ChaincodeSpec.Type
 	err := proto.Unmarshal(t.Payload, cds)
 	if err != nil {
 		return nil, err
@@ -522,7 +540,7 @@ func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.
 	}
 	chaincodeSupport.runningChaincodes.Unlock()
 
-	args, envs, err := chaincodeSupport.getArgsAndEnv(cID)
+	args, envs, err := chaincodeSupport.getArgsAndEnv(cID, cLang)
 	if err != nil {
 		return cds, fmt.Errorf("error getting args for chaincode %s", err)
 	}
