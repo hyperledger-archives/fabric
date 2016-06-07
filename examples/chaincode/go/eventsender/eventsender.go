@@ -57,7 +57,7 @@ func (t *EventSender) Invoke(stub *shim.ChaincodeStub, function string, args []s
 		tosend = tosend + "," + s
 	}
 
-	err = stub.PutState("noevts", []byte(strconv.Itoa(noevts+1)))
+	err = stub.PutState("noevents", []byte(strconv.Itoa(noevts+1)))
 	if err != nil {
 		return nil, err
 	}
