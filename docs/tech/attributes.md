@@ -56,17 +56,17 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
     rpc FetchAttributes(ACAFetchAttrReq) returns (ACAFetchAttrResp);
 
     message ACAFetchAttrReq {
-      google.protobuf.Timestamp ts = 1;
-      Cert eCert = 2;                  // ECert of involved user.
-      Signature signature = 3;         // Signed using the ECA private key.
+        google.protobuf.Timestamp ts = 1;
+        Cert eCert = 2;                  // ECert of involved user.
+        Signature signature = 3;         // Signed using the ECA private key.
     }
 
     message ACAFetchAttrResp {
-      enum StatusCode {
-    	  SUCCESS = 000;
-    	  FAILURE = 100;
-	    }
-      StatusCode status = 1;
+        enum StatusCode {
+            SUCCESS = 000;
+            FAILURE = 100;
+        }
+        StatusCode status = 1;
     }
 ```
 
@@ -76,11 +76,11 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
     rpc RequestAttributes(ACAAttrReq) returns (ACAAttrResp);
 
     message ACAAttrReq {
-      google.protobuf.Timestamp ts = 1;
-      Identity id = 2;
-      Cert eCert = 3;                                // ECert of involved user.
-      repeated TCertAttributeHash attributes = 4;    // Pairs attribute-key, attribute-value-hash
-      Signature signature = 5;                       // Signed using the TCA private key.
+        google.protobuf.Timestamp ts = 1;
+        Identity id = 2;
+        Cert eCert = 3;                                // ECert of involved user.
+        repeated TCertAttributeHash attributes = 4;    // Pairs attribute-key, attribute-value-hash
+        Signature signature = 5;                       // Signed using the TCA private key.
     }
 
     message ACAAttrResp {
@@ -102,9 +102,9 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
     rpc RefreshAttributes(ACARefreshReq) returns (ACARefreshResp);
 
     message ACARefreshAttrReq {
-      google.protobuf.Timestamp ts = 1;
-      Cert eCert = 2;                              // ECert of the involved user.
-      Signature signature = 3;                     // Signed using enrollPrivKey
+        google.protobuf.Timestamp ts = 1;
+        Cert eCert = 2;                              // ECert of the involved user.
+        Signature signature = 3;                     // Signed using enrollPrivKey
     }
 
     message ACARefreshAttrResp {
@@ -112,7 +112,7 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
             SUCCESS = 000;
             FAILURE = 100;
 	    }
-      StatusCode status = 1;
+        StatusCode status = 1;
     }
 ```
 
