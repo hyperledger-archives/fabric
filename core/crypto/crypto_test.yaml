@@ -22,7 +22,8 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-
+    level: 256
+    hashAlgorithm: SHA3
 
 eca:
     affiliation_groups:
@@ -109,10 +110,12 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: ACompany
+        company: ACME
         position: "Software Engineer"
       abac:
         enabled: true
+    level: 256
+    hashAlgorithm: SHA3
 
 ###############################################################################
 #
@@ -148,7 +151,7 @@ logging:
     #   info                                       - Set default to INFO
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
-    peer:      debug
+    peer:      info
     crypto:    info
     status:    warning
     stop:      warning
