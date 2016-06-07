@@ -126,7 +126,7 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.lastExecution = tx
 	sc.executions++
 	sc.lastSeqNo = seqNo
-	sc.pe.manager.queue() <- execDoneEvent{}
+	go func() { sc.pe.manager.queue() <- execDoneEvent{} }()
 }
 
 func (sc *simpleConsumer) getState() []byte {
