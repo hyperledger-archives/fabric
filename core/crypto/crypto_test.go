@@ -17,6 +17,9 @@ limitations under the License.
 package crypto
 
 import (
+	obc "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
+
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -26,20 +29,18 @@ import (
 	"reflect"
 	"testing"
 
-	obc "github.com/hyperledger/fabric/protos"
-
 	"crypto/rand"
+
+	"runtime"
+	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"time"
-	"runtime"
 )
 
 type createTxFunc func(t *testing.T) (*obc.Transaction, *obc.Transaction, error)
@@ -63,7 +64,6 @@ var (
 	queryTxCreators   []createTxFunc
 
 	ksPwd = []byte("This is a very very very long pw")
-
 )
 
 func TestMain(m *testing.M) {
@@ -90,35 +90,35 @@ func TestMain(m *testing.M) {
 
 	//Third scenario using confidentialityProtocolVersion = 1.1
 	/*
-	properties["security.confidentialityProtocolVersion"] = "1.1"
-	ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
-	if ret != 0 {
-		os.Exit(ret)
-	}
+		properties["security.confidentialityProtocolVersion"] = "1.1"
+		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
+		if ret != 0 {
+			os.Exit(ret)
+		}
 
-	//Fourth scenario with security level = 384
-	properties["security.hashAlgorithm"] = "SHA3"
-	properties["security.level"] = "384"
-	ret = runTestsOnScenario(m, properties, "Using SHA3-384")
-	if ret != 0 {
-		os.Exit(ret)
-	}
+		//Fourth scenario with security level = 384
+		properties["security.hashAlgorithm"] = "SHA3"
+		properties["security.level"] = "384"
+		ret = runTestsOnScenario(m, properties, "Using SHA3-384")
+		if ret != 0 {
+			os.Exit(ret)
+		}
 
-	//Fifth scenario with SHA2
-	properties["security.hashAlgorithm"] = "SHA2"
-	properties["security.level"] = "256"
-	ret = runTestsOnScenario(m, properties, "Using SHA2-256")
-	if ret != 0 {
-		os.Exit(ret)
-	}
+		//Fifth scenario with SHA2
+		properties["security.hashAlgorithm"] = "SHA2"
+		properties["security.level"] = "256"
+		ret = runTestsOnScenario(m, properties, "Using SHA2-256")
+		if ret != 0 {
+			os.Exit(ret)
+		}
 
-	//Sixth scenario with SHA2
-	properties["security.hashAlgorithm"] = "SHA2"
-	properties["security.level"] = "384"
-	ret = runTestsOnScenario(m, properties, "Using SHA2-384")
-	if ret != 0 {
-		os.Exit(ret)
-	}
+		//Sixth scenario with SHA2
+		properties["security.hashAlgorithm"] = "SHA2"
+		properties["security.level"] = "384"
+		ret = runTestsOnScenario(m, properties, "Using SHA2-384")
+		if ret != 0 {
+			os.Exit(ret)
+		}
 	*/
 
 	os.Exit(ret)
@@ -302,7 +302,8 @@ func TestInitialization(t *testing.T) {
 }
 
 func TestClientDeployTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestClientDeployTransaction with [%d]\n", i)
 
@@ -325,7 +326,8 @@ func TestClientDeployTransaction(t *testing.T) {
 }
 
 func TestClientExecuteTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestClientExecuteTransaction with [%d]\n", i)
 
@@ -348,7 +350,8 @@ func TestClientExecuteTransaction(t *testing.T) {
 }
 
 func TestClientQueryTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestClientQueryTransaction with [%d]\n", i)
 
@@ -371,7 +374,8 @@ func TestClientQueryTransaction(t *testing.T) {
 }
 
 func TestClientMultiExecuteTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 	for i := 0; i < 24; i++ {
 		_, tx, err := createConfidentialExecuteTransaction(t)
 
@@ -392,7 +396,8 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 }
 
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	tcert, err := deployer.GetNextTCert()
 
@@ -461,7 +466,8 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	handler, err := deployer.GetTCertificateHandlerNext()
 
@@ -483,7 +489,8 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerFromDER(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	handler, err := deployer.GetTCertificateHandlerNext()
 	if err != nil {
@@ -511,7 +518,8 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 }
 
 func TestClientTCertHandlerSign(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	handlerDeployer, err := deployer.GetTCertificateHandlerNext()
 	if err != nil {
@@ -574,7 +582,8 @@ func TestClientTCertHandlerSign(t *testing.T) {
 }
 
 func TestClientGetEnrollmentCertHandler(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	handler, err := deployer.GetEnrollmentCertificateHandler()
 
@@ -596,7 +605,8 @@ func TestClientGetEnrollmentCertHandler(t *testing.T) {
 }
 
 func TestClientGetEnrollmentCertHandlerSign(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	handlerDeployer, err := deployer.GetEnrollmentCertificateHandler()
 	if err != nil {
@@ -631,7 +641,8 @@ func TestClientGetEnrollmentCertHandlerSign(t *testing.T) {
 }
 
 func TestPeerID(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	// Verify that any id modification doesn't change
 	id := peer.GetID()
@@ -652,7 +663,8 @@ func TestPeerID(t *testing.T) {
 }
 
 func TestPeerDeployTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestPeerDeployTransaction with [%d]\n", i)
@@ -679,7 +691,8 @@ func TestPeerDeployTransaction(t *testing.T) {
 		}
 
 		// Test no Cert
-		oldCert := tx.Cert; tx.Cert = nil;
+		oldCert := tx.Cert
+		tx.Cert = nil
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
 			t.Fatalf("Pre Validatiotn should fail. No Cert.", err)
@@ -687,7 +700,8 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Cert = oldCert
 
 		// Test no Signature
-		oldSig := tx.Signature; tx.Signature = nil;
+		oldSig := tx.Signature
+		tx.Signature = nil
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
 			t.Fatalf("Pre Validatiotn should fail. No Signature", err)
@@ -695,7 +709,8 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Signature = oldSig
 
 		// Test Invalid Cert
-		oldCert = tx.Cert; tx.Cert = []byte{0,1,2,3,4};
+		oldCert = tx.Cert
+		tx.Cert = []byte{0, 1, 2, 3, 4}
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
 			t.Fatalf("Pre Validatiotn should fail. Invalid Cert.", err)
@@ -703,7 +718,8 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Cert = oldCert
 
 		// Test invalid Signature
-		oldSig = tx.Signature; tx.Signature = []byte{0,1,2,3,4};
+		oldSig = tx.Signature
+		tx.Signature = []byte{0, 1, 2, 3, 4}
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
 			t.Fatalf("Pre Validatiotn should fail. Invalid Signature", err)
@@ -713,7 +729,8 @@ func TestPeerDeployTransaction(t *testing.T) {
 }
 
 func TestPeerExecuteTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestPeerExecuteTransaction with [%d]\n", i)
@@ -742,7 +759,8 @@ func TestPeerExecuteTransaction(t *testing.T) {
 }
 
 func TestPeerQueryTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestPeerQueryTransaction with [%d]\n", i)
@@ -771,7 +789,8 @@ func TestPeerQueryTransaction(t *testing.T) {
 }
 
 func TestPeerStateEncryptor(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	_, deployTx, err := createConfidentialDeployTransaction(t)
 	if err != nil {
@@ -792,7 +811,8 @@ func TestPeerStateEncryptor(t *testing.T) {
 }
 
 func TestPeerSignVerify(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	msg := []byte("Hello World!!!")
 	signature, err := peer.Sign(msg)
@@ -817,7 +837,8 @@ func TestPeerSignVerify(t *testing.T) {
 }
 
 func TestPeerVerify(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
@@ -852,7 +873,8 @@ func TestPeerVerify(t *testing.T) {
 }
 
 func TestValidatorID(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	// Verify that any id modification doesn't change
 	id := validator.GetID()
@@ -873,7 +895,8 @@ func TestValidatorID(t *testing.T) {
 }
 
 func TestValidatorDeployTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestValidatorDeployTransaction with [%d]\n", i)
@@ -900,7 +923,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 		}
 
 		// Test invalid ConfidentialityLevel
-		oldConfidentialityLevel := tx.ConfidentialityLevel; tx.ConfidentialityLevel = -1;
+		oldConfidentialityLevel := tx.ConfidentialityLevel
+		tx.ConfidentialityLevel = -1
 		_, err = validator.TransactionPreExecution(tx)
 		if err == nil {
 			t.Fatalf("TransactionPreExecution should fail. Invalid ConfidentialityLevel.", err)
@@ -919,7 +943,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			}
 
 			// Test no ToValidators
-			oldToValidators := tx.ToValidators; tx.ToValidators = nil;
+			oldToValidators := tx.ToValidators
+			tx.ToValidators = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. No ToValidators.", err)
@@ -927,7 +952,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ToValidators = oldToValidators
 
 			// Test invalid ToValidators
-			oldToValidators = tx.ToValidators; tx.ToValidators = []byte{0,1,2,3,4};
+			oldToValidators = tx.ToValidators
+			tx.ToValidators = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. Invalid ToValidators.", err)
@@ -935,7 +961,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ToValidators = oldToValidators
 
 			// Test no Payload
-			oldPayload := tx.Payload; tx.Payload = nil;
+			oldPayload := tx.Payload
+			tx.Payload = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. No Payload.", err)
@@ -943,7 +970,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.Payload = oldPayload
 
 			// Test invalid Payload
-			oldPayload = tx.Payload; tx.Payload = []byte{0,1,2,3,4};
+			oldPayload = tx.Payload
+			tx.Payload = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. Invalid Payload.", err)
@@ -951,7 +979,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.Payload = oldPayload
 
 			// Test no Payload
-			oldChaincodeID := tx.ChaincodeID; tx.ChaincodeID = nil;
+			oldChaincodeID := tx.ChaincodeID
+			tx.ChaincodeID = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. No ChaincodeID.", err)
@@ -959,7 +988,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ChaincodeID = oldChaincodeID
 
 			// Test invalid Payload
-			oldChaincodeID = tx.ChaincodeID; tx.ChaincodeID = []byte{0,1,2,3,4};
+			oldChaincodeID = tx.ChaincodeID
+			tx.ChaincodeID = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
 				t.Fatalf("TransactionPreExecution should fail. Invalid ChaincodeID.", err)
@@ -970,7 +1000,8 @@ func TestValidatorDeployTransaction(t *testing.T) {
 }
 
 func TestValidatorExecuteTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestValidatorExecuteTransaction with [%d]\n", i)
@@ -1008,7 +1039,8 @@ func TestValidatorExecuteTransaction(t *testing.T) {
 }
 
 func TestValidatorQueryTransaction(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestValidatorConfidentialQueryTransaction with [%d]\n", i)
@@ -1140,7 +1172,8 @@ func TestValidatorQueryTransaction(t *testing.T) {
 }
 
 func TestValidatorStateEncryptor(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	_, deployTx, err := createConfidentialDeployTransaction(t)
 	if err != nil {
@@ -1225,7 +1258,8 @@ func TestValidatorStateEncryptor(t *testing.T) {
 }
 
 func TestValidatorSignVerify(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
@@ -1240,7 +1274,8 @@ func TestValidatorSignVerify(t *testing.T) {
 }
 
 func TestValidatorVerify(t *testing.T) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
@@ -1275,7 +1310,8 @@ func TestValidatorVerify(t *testing.T) {
 }
 
 func BenchmarkTransactionCreation(b *testing.B) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	b.StopTimer()
 	b.ResetTimer()
@@ -1298,7 +1334,8 @@ func BenchmarkTransactionCreation(b *testing.B) {
 }
 
 func BenchmarkTransactionValidation(b *testing.B) {
-	initNodes(); defer closeNodes();
+	initNodes()
+	defer closeNodes()
 
 	b.StopTimer()
 	b.ResetTimer()
@@ -1564,7 +1601,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
-			Metadata: []byte("Hello World"),
+			Metadata:             []byte("Hello World"),
 		},
 		EffectiveDate: nil,
 		CodePackage:   nil,
@@ -1588,7 +1625,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
-			Metadata: []byte("Hello World"),
+			Metadata:             []byte("Hello World"),
 		},
 	}
 
@@ -1610,7 +1647,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
-			Metadata: []byte("Hello World"),
+			Metadata:             []byte("Hello World"),
 		},
 	}
 

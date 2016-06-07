@@ -1,14 +1,14 @@
 package primitives
 
 import (
-	"testing"
-	"fmt"
-	"os"
-	"math/big"
-	"reflect"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/asn1"
-	"crypto/ecdsa"
+	"fmt"
+	"math/big"
+	"os"
+	"reflect"
+	"testing"
 )
 
 type TestParameters struct {
@@ -26,20 +26,19 @@ var testParametersSet = []*TestParameters{
 	&TestParameters{"SHA2", 256},
 	&TestParameters{"SHA2", 384}}
 
-
 func TestMain(m *testing.M) {
 	for _, params := range testParametersSet {
 		err := InitSecurityLevel(params.hashFamily, params.securityLevel)
 		if err == nil {
 			m.Run()
-		}  else {
+		} else {
 			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
 		}
 
 		err = SetSecurityLevel(params.hashFamily, params.securityLevel)
 		if err == nil {
 			m.Run()
-		}  else {
+		} else {
 			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
 		}
 
@@ -75,23 +74,22 @@ func TestAES(t *testing.T) {
 		t.Fatalf("Failed generating AES key [%s]", err)
 	}
 
-
-	for i:=1; i< 100; i++ {
+	for i := 1; i < 100; i++ {
 		len, err := rand.Int(rand.Reader, big.NewInt(1024))
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
-		msg, err := GetRandomBytes(int(len.Int64())+1)
+		msg, err := GetRandomBytes(int(len.Int64()) + 1)
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
 
-		ct, err := CBCPKCS7Encrypt(key, msg);
+		ct, err := CBCPKCS7Encrypt(key, msg)
 		if err != nil {
 			t.Fatalf("Failed encrypting [%s]", err)
 		}
 
-		msg2, err := CBCPKCS7Decrypt(key, ct);
+		msg2, err := CBCPKCS7Decrypt(key, ct)
 		if err != nil {
 			t.Fatalf("Failed decrypting [%s]", err)
 		}
@@ -141,22 +139,22 @@ func TestECDSA(t *testing.T) {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	for i:=1; i< 100; i++ {
+	for i := 1; i < 100; i++ {
 		length, err := rand.Int(rand.Reader, big.NewInt(1024))
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
-		msg, err := GetRandomBytes(int(length.Int64())+1)
+		msg, err := GetRandomBytes(int(length.Int64()) + 1)
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
 
-		sigma, err := ECDSASign(key, msg);
+		sigma, err := ECDSASign(key, msg)
 		if err != nil {
 			t.Fatalf("Failed signing [%s]", err)
 		}
 
-		ok, err := ECDSAVerify(key.Public(), msg, sigma);
+		ok, err := ECDSAVerify(key.Public(), msg, sigma)
 		if err != nil {
 			t.Fatalf("Failed verifying [%s]", err)
 		}
@@ -164,7 +162,7 @@ func TestECDSA(t *testing.T) {
 			t.Fatalf("Failed verification.")
 		}
 
-		ok, err = ECDSAVerify(key.Public(), msg[:len(msg)-1], sigma);
+		ok, err = ECDSAVerify(key.Public(), msg[:len(msg)-1], sigma)
 		if err != nil {
 			t.Fatalf("Failed verifying [%s]", err)
 		}
@@ -172,7 +170,7 @@ func TestECDSA(t *testing.T) {
 			t.Fatalf("Verification should fail.")
 		}
 
-		ok, err = ECDSAVerify(key.Public(), msg[:1], sigma[:1]);
+		ok, err = ECDSAVerify(key.Public(), msg[:1], sigma[:1])
 		if err != nil {
 			t.Fatalf("Failed verifying [%s]", err)
 		}
@@ -187,7 +185,7 @@ func TestECDSA(t *testing.T) {
 		if sigma, err = asn1.Marshal(ECDSASignature{R, S}); err != nil {
 			t.Fatalf("Failed marshalling (R,S) [%s]", err)
 		}
-		ok, err = ECDSAVerify(key.Public(), msg, sigma);
+		ok, err = ECDSAVerify(key.Public(), msg, sigma)
 		if err != nil {
 			t.Fatalf("Failed verifying [%s]", err)
 		}
@@ -268,7 +266,7 @@ func TestECDSAKeys(t *testing.T) {
 }
 
 func TestRandom(t *testing.T) {
-	nonce, err := GetRandomNonce();
+	nonce, err := GetRandomNonce()
 	if err != nil {
 		t.Fatalf("Failed getting nonce [%s]", err)
 	}
@@ -284,19 +282,19 @@ func TestHMAC(t *testing.T) {
 		t.Fatalf("Failed generating AES key [%s]", err)
 	}
 
-	for i:=1; i< 100; i++ {
+	for i := 1; i < 100; i++ {
 		len, err := rand.Int(rand.Reader, big.NewInt(1024))
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
-		msg, err := GetRandomBytes(int(len.Int64())+1)
+		msg, err := GetRandomBytes(int(len.Int64()) + 1)
 		if err != nil {
 			t.Fatalf("Failed generating AES key [%s]", err)
 		}
 
-		out1 := HMACAESTruncated(key, msg);
-		out2 := HMACTruncated(key, msg, AESKeyLength);
-		out3 := HMAC(key, msg);
+		out1 := HMACAESTruncated(key, msg)
+		out2 := HMACTruncated(key, msg, AESKeyLength)
+		out3 := HMAC(key, msg)
 
 		if !reflect.DeepEqual(out1, out2) {
 			t.Fatalf("Wrong hmac output [%x][%x]", out1, out2)
@@ -318,7 +316,7 @@ func TestX509(t *testing.T) {
 	}
 
 	// Test DERCertToPEM
-	pem := DERCertToPEM(der);
+	pem := DERCertToPEM(der)
 	certFromPEM, derFromPem, err := PEMtoCertificateAndDER(pem)
 	if err != nil {
 		t.Fatalf("Failed converting PEM to (x509, DER) [%s]", err)
@@ -374,7 +372,6 @@ func TestX509(t *testing.T) {
 
 	certFromPEM.PublicKey = nil
 	if err := CheckCertPKAgainstSK(certFromPEM, key); err == nil {
-		t.Fatalf("Checking cert vk against sk shoud failed. Invalid VK [%s]")
+		t.Fatalf("Checking cert vk against sk shoud failed. Invalid VK [%s]", err)
 	}
 }
-

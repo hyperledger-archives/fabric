@@ -18,9 +18,10 @@ package aes
 
 import (
 	"crypto/rand"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"reflect"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestAES256GSMSPI(t *testing.T) {
@@ -77,6 +78,5 @@ func TestAES256GSMSPI(t *testing.T) {
 	if !reflect.DeepEqual(msg2, msg) {
 		t.Fatalf("Failed decrypting the right value [%x][%x]", msg, msg2)
 	}
-
 
 }
