@@ -658,7 +658,10 @@ func (instance *pbftCore) resubmitRequests() {
 		return
 	}
 
+	var submissionOrder []*Request
+
 outer:
+
 	for d, req := range instance.outstandingReqs {
 		for _, cert := range instance.certStore {
 			if cert.digest == d {
@@ -668,6 +671,17 @@ outer:
 		}
 		logger.Debug("Replica %d has detected request %s must be resubmitted", instance.id, d)
 
+		submissionOrder = append(submissionOrder, req)
+	}
+
+	if len(submissionOrder) == 0 {
+		return
+	}
+
+	// We sort the outstanding reqs by their timestamp for resubmission
+	sort.Sort(requestSlice(submissionOrder))
+
+	for _, req := range submissionOrder {
 		// This is a request that has not been pre-prepared yet
 		// Trigger request processing again.
 		instance.recvRequest(req)
@@ -1265,4 +1279,29 @@ func (instance *pbftCore) stopTimer() {
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
 	instance.newViewTimer.Stop()
+}
+
+type requestSlice []*Request
+
+func (a requestSlice) Len() int {
+	return len(a)
+}
+func (a requestSlice) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (a requestSlice) Less(i, j int) bool {
+	if a[i].Timestamp == nil {
+		// a[i] has no timestamp, handle it later, TODO, eventually this should be an error
+		return false
+	}
+
+	if a[j].Timestamp == nil {
+		// a[j] has no timestamp, handle it later, TODO, eventually this should be an error
+		return true
+	}
+
+	iTime := time.Unix(a[i].Timestamp.Seconds, int64(a[i].Timestamp.Nanos))
+	jTime := time.Unix(a[j].Timestamp.Seconds, int64(a[j].Timestamp.Nanos))
+
+	return jTime.After(iTime)
 }
