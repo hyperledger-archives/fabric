@@ -61,7 +61,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
@@ -103,7 +103,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
@@ -145,7 +145,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)

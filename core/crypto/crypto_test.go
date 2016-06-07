@@ -63,12 +63,72 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	setup()
+	//Define a map to store the scenarios properties
+	properties := make(map[string]interface{})
+	ret := 0
 
+	//First scenario with crypto_test.yaml
+	ret = runTestsOnScenario(m, properties, "Using crypto_test.yaml properties")
+	if ret != 0 {
+		return
+	}
+
+	//Second scenario with multithread
+	properties["security.multithreading.enabled"] = "true"
+	ret = runTestsOnScenario(m, properties, "Using multithread enabled")
+	if ret != 0 {
+		os.Exit(ret)
+	}
+
+	//Third scenario using confidentialityProtocolVersion = 1.1
+	/*
+		properties["security.confidentialityProtocolVersion"] = "1.1"
+		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
+		if ret != 0 {
+			os.Exit(ret)
+		}*/
+
+	//Fourth scenario with security level = 384
+	properties["security.hashAlgorithm"] = "SHA3"
+	properties["security.level"] = "384"
+	ret = runTestsOnScenario(m, properties, "Using SHA3-384")
+	if ret != 0 {
+		os.Exit(ret)
+	}
+
+	//Fifth scenario with SHA2
+	properties["security.hashAlgorithm"] = "SHA2"
+	properties["security.level"] = "256"
+	ret = runTestsOnScenario(m, properties, "Using SHA2-256")
+	if ret != 0 {
+		os.Exit(ret)
+	}
+
+	//Sixth scenario with SHA2
+	properties["security.hashAlgorithm"] = "SHA2"
+	properties["security.level"] = "384"
+	ret = runTestsOnScenario(m, properties, "Using SHA2-384")
+	if ret != 0 {
+		os.Exit(ret)
+	}
+
+	os.Exit(ret)
+}
+
+//loadConfigScennario loads the properties in the viper and returns the current values.
+func loadConfigScenario(properties map[string]interface{}) map[string]interface{} {
+	currentValues := make(map[string]interface{})
+	for k, v := range properties {
+		currentValues[k] = viper.Get(k)
+		viper.Set(k, v)
+	}
+	return currentValues
+}
+
+func before() {
 	// Init PKI
 	initPKI()
 	go startPKI()
-	defer cleanup()
 
 	// Init clients
 	err := initClients()
@@ -98,12 +158,31 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
 		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
 	}
+}
 
-	ret := m.Run()
-
+func after() {
 	cleanup()
+}
 
-	os.Exit(ret)
+func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenarioName string) int {
+	setup()
+
+	fmt.Printf("=== Start tests for scenario '%v' ===\n", scenarioName)
+	currentValues := make(map[string]interface{})
+	if len(properties) > 0 {
+		currentValues = loadConfigScenario(properties)
+	}
+	primitives.SetSecurityLevel(viper.GetString("security.hashAlgorithm"), viper.GetInt("security.level"))
+
+	before()
+	ret := m.Run()
+	after()
+
+	if len(properties) > 0 {
+		_ = loadConfigScenario(currentValues)
+	}
+	fmt.Printf("=== End tests for scenario '%v'  ===\n", scenarioName)
+	return ret
 }
 
 func TestParallelInitClose(t *testing.T) {
@@ -180,7 +259,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake peer
-	peer, err := InitPeer("", nil)
+	peer, err = InitPeer("", nil)
 	if err == nil || peer != nil {
 		t.Fatal("Init should fail")
 	}
@@ -190,7 +269,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake validator
-	validator, err := InitValidator("", nil)
+	validator, err = InitValidator("", nil)
 	if err == nil || validator != nil {
 		t.Fatal("Init should fail")
 	}
@@ -312,8 +391,44 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "IBM" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+	if attributeValue != "ACME" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
+	}
+}
+
+func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
+	_, _ = deployer.GetNextTCert()
+
+	after()  //Tear down the server.
+	before() //Start up again to use unsed TCerts
+
+	tcert, err := deployer.GetNextTCert()
+
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if tcert == nil {
+		t.Fatalf("TCert should be different from nil")
+	}
+
+	tcertDER := tcert.GetCertificate().Raw
+
+	if tcertDER == nil {
+		t.Fatalf("Cert should be different from nil")
+	}
+	if len(tcertDER) == 0 {
+		t.Fatalf("Cert should have length > 0")
+	}
+
+	attributeBytes, err := deployer.ReadAttribute("company", tcertDER)
+	if err != nil {
+		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
+	}
+
+	attributeValue := string(attributeBytes[:])
+
+	if attributeValue != "ACME" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
 	}
 }
 
@@ -767,25 +882,25 @@ func TestValidatorQueryTransaction(t *testing.T) {
 		if queryTx.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 
 			// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-			if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+			if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 				t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 			}
 			if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 				t.Fatalf("Failed pre-executing deploty transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 			}
 			if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-executing exec1 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 			}
 			if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-executing exec2 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(queryTx); err != nil {
+			if _, err = validator.TransactionPreValidation(queryTx); err != nil {
 				t.Fatalf("Failed pre-validating query transaction [%s].", err)
 			}
 			if queryTx, err = validator.TransactionPreExecution(queryTx); err != nil {
@@ -875,19 +990,19 @@ func TestValidatorStateEncryptor(t *testing.T) {
 	}
 
 	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-	if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+	if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 	if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
@@ -1157,7 +1272,7 @@ func initClients() error {
 
 	// Invoker
 	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
-	if err := RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	if err = RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	invoker, err = InitClient(invokerConf.Name, ksPwd)

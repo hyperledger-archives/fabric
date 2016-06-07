@@ -354,7 +354,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.
@@ -418,9 +418,11 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: IBM
+        company: ACME
         position: "Software Engineer"
 
+    # Confidentiality protocol version could be 1.1 or 1.2
+    confidentialityProtocolVersion: 1.2
 
 ################################################################################
 #

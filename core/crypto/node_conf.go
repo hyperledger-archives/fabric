@@ -56,8 +56,9 @@ type configuration struct {
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
 
-	securityLevel int
-	hashAlgorithm string
+	securityLevel                  int
+	hashAlgorithm                  string
+	confidentialityProtocolVersion string
 
 	tlsServerName string
 
@@ -118,6 +119,14 @@ func (conf *configuration) init() error {
 		ovveride := viper.GetString("security.hashAlgorithm")
 		if ovveride != "" {
 			conf.hashAlgorithm = ovveride
+		}
+	}
+
+	conf.confidentialityProtocolVersion = "1.2"
+	if viper.IsSet("security.confidentialityProtocolVersion") {
+		ovveride := viper.GetString("security.confidentialityProtocolVersion")
+		if ovveride != "" {
+			conf.confidentialityProtocolVersion = ovveride
 		}
 	}
 
@@ -295,4 +304,8 @@ func (conf *configuration) getTCertBatchSize() int {
 
 func (conf *configuration) getTCertAttributes() []*membersrvc.TCertAttribute {
 	return conf.tCertAttributes
+}
+
+func (conf *configuration) GetConfidentialityProtocolVersion() string {
+	return conf.confidentialityProtocolVersion
 }

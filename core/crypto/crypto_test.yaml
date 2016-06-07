@@ -22,7 +22,8 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-
+    level: 256
+    hashAlgorithm: SHA3
 
 eca:
     affiliation_groups:
@@ -30,7 +31,7 @@ eca:
             banks:
                 bank_a:
                 bank_b:
-                bank_c:              		
+                bank_c:
             institutions:
                 institution_a:
 
@@ -98,8 +99,10 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: IBM
+        company: ACME
         position: "Software Engineer"
+    level: 256
+    hashAlgorithm: SHA3
 
 ###############################################################################
 #
@@ -135,8 +138,8 @@ logging:
     #   info                                       - Set default to INFO
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
-    peer:      debug
-    crypto:    debug
+    peer:      info
+    crypto:    info
     status:    warning
     stop:      warning
     login:     warning
@@ -174,4 +177,3 @@ tests:
             userthread:
                 enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
-
