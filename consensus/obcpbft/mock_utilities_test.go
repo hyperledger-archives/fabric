@@ -25,8 +25,22 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 	gp "google/protobuf"
 )
+
+type inertTimer struct{}
+
+func (it *inertTimer) halt()                                               {}
+func (it *inertTimer) reset(duration time.Duration, event interface{})     {}
+func (it *inertTimer) softReset(duration time.Duration, event interface{}) {}
+func (it *inertTimer) stop()                                               {}
+
+type inertTimerFactory struct{}
+
+func (it *inertTimerFactory) createTimer() eventTimer {
+	return &inertTimer{}
+}
 
 type noopSecurity struct{}
 
@@ -78,6 +92,14 @@ func (p *mockPersist) StoreState(key string, value []byte) error {
 func (p *mockPersist) DelState(key string) {
 	p.initialize()
 	delete(p.store, key)
+}
+
+func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerStack) (*pbftCore, eventManager) {
+	manager := newEventManagerImpl()
+	core := newPbftCore(id, loadConfig(), stack, newEventTimerFactoryImpl(manager))
+	manager.setReceiver(core)
+	manager.start()
+	return core, manager
 }
 
 // Create a message of type `Message_CHAIN_TRANSACTION`

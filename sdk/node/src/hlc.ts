@@ -43,6 +43,9 @@
  *          the server side transaction processing path.
  */
 
+// Instruct boringssl to use ECC for tls.
+process.env['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA';
+
 var debugModule = require('debug');
 var fs = require('fs');
 var urlParser = require('url');
@@ -1523,10 +1526,14 @@ class MemberServicesImpl implements MemberServices {
      */
     constructor(url:string,pem:string) {
         let ep = new Endpoint(url,pem);
-        this.ecaaClient = new _caProto.ECAA(ep.addr, ep.creds);
-        this.ecapClient = new _caProto.ECAP(ep.addr, ep.creds);
-        this.tcapClient = new _caProto.TCAP(ep.addr, ep.creds);
-        this.tlscapClient = new _caProto.TLSCAP(ep.addr, ep.creds);
+        var options = {
+              'grpc.ssl_target_name_override' : 'tlsca',
+              'grpc.default_authority': 'tlsca'
+        };
+        this.ecaaClient = new _caProto.ECAA(ep.addr, ep.creds, options);
+        this.ecapClient = new _caProto.ECAP(ep.addr, ep.creds, options);
+        this.tcapClient = new _caProto.TCAP(ep.addr, ep.creds, options);
+        this.tlscapClient = new _caProto.TLSCAP(ep.addr, ep.creds, options);
         this.cryptoPrimitives = new crypto.Crypto(DEFAULT_HASH_ALGORITHM, DEFAULT_SECURITY_LEVEL);
     }
 
