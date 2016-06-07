@@ -144,9 +144,9 @@ proc pristine {} {
     note {} "    Killing all running and stopped Docker containers"
     catch {exec docker ps -a -q | xargs docker rm -f}
     
+    # This is hard to do as an 'exec' from Tcl, so we use the Make target.
     note {} "    Removing all chaincode containers"
-    catch {exec docker images | egrep '^dev-|^<none>' | \
-        awk '{print $3}' | xargs docker rmi -f}
+    catch {exec make -C [busywork::bin] docker_chaincode_clean}
     
     # Clean out BUSYWORK_HOME. If this fails, we blindly assume that we need
     # sudo privledge to clean out Docker logs and try again. That may fail

@@ -36,9 +36,11 @@ func (mr *mockReceiver) processEvent(event interface{}) interface{} {
 }
 
 func newMockManager(processEvent func(event interface{}) interface{}) eventManager {
-	return newEventManagerImpl(&mockReceiver{
+	manager := newEventManagerImpl()
+	manager.setReceiver(&mockReceiver{
 		processEventImpl: processEvent,
 	})
+	return manager
 }
 
 // Starts an event timer, waits for the event to be delivered

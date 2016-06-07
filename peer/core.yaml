@@ -90,15 +90,6 @@ peer:
     # networkId: test
     networkId: dev
 
-    Dockerfile:  |
-        from hyperledger/fabric-baseimage:latest
-        # Copy GOPATH src and install Peer
-        COPY src $GOPATH/src
-        RUN mkdir -p /var/hyperledger/db
-        WORKDIR $GOPATH/src/github.com/hyperledger/fabric/peer/
-        RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin
-
-
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:30303
     # The Address this Peer will bind to for providing services
@@ -107,8 +98,6 @@ peer:
     # This case is useful for docker containers.
     addressAutoDetect: false
 
-    # Peer port to accept connections on
-    port:    30303
     # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
     gomaxprocs: -1
     workers: 2
@@ -197,6 +186,7 @@ peer:
 
         # The root nodes are used for bootstrapping purposes, and generally
         # supplied through ENV variables
+        # It can be either a single host or a comma separated list of hosts.
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers
@@ -299,7 +289,7 @@ chaincode:
         # This is the basis for the CAR Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            FROM hyperledger/fabric-baseimage
+            FROM hyperledger/fabric-ccenv
 
     # These are the file types that will be packaged into the Docker image
     # when deploying a chaincode. All other file types will be excluded to

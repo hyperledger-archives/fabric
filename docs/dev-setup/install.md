@@ -30,8 +30,7 @@ make peer
 
 To see what commands are available, simply execute the following commands:
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer
+$ peer
 ```
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](../../peer/main.go) and the build creates the `peer` executable).
@@ -189,7 +188,7 @@ Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](h
 
 There is a **core.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden on the command line by setting ENV variables that match the configuration setting, but by prefixing with *'CORE_'*. For example, logging level manipulation through the environment is shown below:
 
-    CORE_PEER_LOGGING_LEVEL=CRITICAL ./peer
+    CORE_PEER_LOGGING_LEVEL=CRITICAL peer
 
 ## Logging <a name="logging"></a>
 

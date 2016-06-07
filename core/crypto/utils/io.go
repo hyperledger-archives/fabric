@@ -19,12 +19,8 @@ package utils
 import (
 	"encoding/base64"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
-	"strconv"
-	"sync"
-	"time"
 )
 
 // DirMissingOrEmpty checks is a directory is missin or empty
@@ -113,56 +109,4 @@ func IntArrayEquals(a []int, b []int) bool {
 		}
 	}
 	return true
-}
-
-// IsTCPPortOpen checks the tcp port is open
-func IsTCPPortOpen(laddr string) error {
-	lis, err := net.Listen("tcp", laddr)
-	if err != nil {
-		return err
-	}
-	lis.Close()
-	return nil
-}
-
-var seed uint32
-var randmu sync.Mutex
-
-func reseed() uint32 {
-	return uint32(time.Now().UnixNano() + int64(os.Getpid()))
-}
-
-func nextSuffix() string {
-	randmu.Lock()
-	r := seed
-	if r == 0 {
-		r = reseed()
-	}
-	r = r*1664525 + 1013904223 // constants from Numerical Recipes
-	seed = r
-	randmu.Unlock()
-	return strconv.Itoa(int(1e9 + r%1e9))[1:]
-}
-
-// TempFile returns a temporary file path with the respect the system temp dir.
-func TempFile(dir, prefix string) (name string, err error) {
-	if dir == "" {
-		dir = os.TempDir()
-	}
-
-	nconflict := 0
-	for i := 0; i < 10000; i++ {
-		name = filepath.Join(dir, prefix+nextSuffix())
-		f, err := os.Stat(name)
-		if f != nil || os.IsExist(err) {
-			if nconflict++; nconflict > 10 {
-				randmu.Lock()
-				seed = reseed()
-				randmu.Unlock()
-			}
-			continue
-		}
-		break
-	}
-	return
 }

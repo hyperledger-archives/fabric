@@ -14,18 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package crypto
+package helper
 
-import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-)
+import "testing"
 
-func (validator *validatorImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	sigma, err := primitives.ECDSASign(signKey, msg)
-
-	return sigma, err
-}
-
-func (validator *validatorImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
-	return primitives.ECDSAVerify(verKey, msg, signature)
+func TestHelper(t *testing.T) {
+	t.Skip("Helper functions already tested in other consensus components")
 }

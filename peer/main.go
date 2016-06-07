@@ -241,7 +241,6 @@ func main() {
 	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
 	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
 	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-port", 30303, "Port this peer listens to for incoming connections")
 	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
 	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
 
@@ -250,7 +249,6 @@ func main() {
 	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
 	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer_port", flags.Lookup("peer-port"))
 	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
 
@@ -308,7 +306,7 @@ func main() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer: %s", err))
+		panic(fmt.Errorf("Failed to initialize the crypto layer: %s", err))
 	}
 
 	// On failure Cobra prints the usage message and error string, so we only
@@ -401,6 +399,7 @@ func serve(args []string) error {
 		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
 		viper.Set("validator.validity-period.verification", "false")
 	}
+
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
@@ -432,7 +431,15 @@ func serve(args []string) error {
 	}
 
 	logger.Info("Security enabled status: %t", core.SecurityEnabled())
-	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
+	if viper.GetBool("security.privacy") {
+		if core.SecurityEnabled() {
+			logger.Info("Privacy enabled status: true")
+		} else {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
+		}
+	} else {
+		logger.Info("Privacy enabled status: false")
+	}
 
 	var opts []grpc.ServerOption
 	if comm.TLSEnabled() {
@@ -458,6 +465,8 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
+	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
+
 	//create the peerServer....
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
@@ -466,10 +475,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
 	}
 
 	if err != nil {
@@ -503,14 +512,11 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := core.GetRootNode()
-	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
-	}
+	rootNodes := discInstance.GetRootNodes()
 
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
+	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNode, peer.ValidatorEnabled())
+		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -831,6 +837,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
+		}
 	}
 
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
@@ -920,6 +933,13 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			}
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
+		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
 		}
 	}
 

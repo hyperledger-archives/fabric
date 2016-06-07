@@ -14,4 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ecies
+syntax = "proto3";
+
+package protos;
+
+//AttributesMetadataEntry is an entry within the metadata that store an attribute name with its respective key.
+message AttributesMetadataEntry {
+    string AttributeName = 1;
+    bytes AttributeKey = 2;
+}
+
+//AttributesMetadata holds both the original metadata bytes and the metadata required to access attributes.
+message AttributesMetadata {
+    //Original metadata bytes
+    bytes Metadata = 1;
+    //Entries for each attributes considered.
+    repeated AttributesMetadataEntry Entries = 2;
+}

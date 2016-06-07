@@ -60,13 +60,13 @@ func TestFuzz(t *testing.T) {
 	logging.SetBackend(logging.InitForTesting(logging.ERROR))
 
 	mock := newFuzzMock()
-	primary := newPbftCore(0, loadConfig(), mock)
-	primary.manager.start()
+	primary, pmanager := createRunningPbftWithManager(0, loadConfig(), mock)
 	defer primary.close()
+	defer pmanager.halt()
 	mock = newFuzzMock()
-	backup := newPbftCore(1, loadConfig(), mock)
-	backup.manager.start()
+	backup, bmanager := createRunningPbftWithManager(1, loadConfig(), mock)
 	defer backup.close()
+	defer bmanager.halt()
 
 	f := fuzz.New()
 
@@ -95,8 +95,8 @@ func TestFuzz(t *testing.T) {
 			senderID = nv.ReplicaId
 		}
 
-		primary.manager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
-		backup.manager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
+		pmanager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
+		bmanager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
 	}
 
 	logging.Reset()
@@ -141,7 +141,7 @@ func TestMinimalFuzz(t *testing.T) {
 	}
 
 	validatorCount := 4
-	net := makePBFTNetwork(validatorCount)
+	net := makePBFTNetwork(validatorCount, nil)
 	defer net.stop()
 	fuzzer := &protoFuzzer{r: rand.New(rand.NewSource(0))}
 	net.filterFn = fuzzer.fuzzPacket
@@ -162,7 +162,7 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 		for _, ep := range net.endpoints {
-			ep.(*pbftEndpoint).pbft.manager.queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+			ep.(*pbftEndpoint).manager.queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)

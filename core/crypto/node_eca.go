@@ -32,7 +32,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -54,7 +53,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 
 	// TODO: Test ECA cert againt root CA
 	// TODO: check response.Cert against rootCA
-	x509ECACert, err := utils.DERToX509Certificate(ecaCertRaw)
+	x509ECACert, err := primitives.DERToX509Certificate(ecaCertRaw)
 	if err != nil {
 		node.error("Failed parsing ECA certificate [%s].", err.Error())
 
@@ -119,7 +118,7 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 
 		node.debug("key [%s]...", string(enrollChainKey))
 
-		key, err := utils.PEMtoPrivateKey(enrollChainKey, nil)
+		key, err := primitives.PEMtoPrivateKey(enrollChainKey, nil)
 		if err != nil {
 			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
@@ -133,7 +132,7 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 		node.debug("Enrollment chain key for non-validator [%s]...", enrollID)
 		// enrollChainKey is a public key
 
-		key, err := utils.PEMtoPublicKey(enrollChainKey, nil)
+		key, err := primitives.PEMtoPublicKey(enrollChainKey, nil)
 		if err != nil {
 			node.error("Failed unmarshalling enrollment chain key [id=%s]: [%s]", enrollID, err)
 			return err
@@ -429,21 +428,21 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	// Verify cert for signing
 	node.debug("Enrollment certificate for signing [% x]", primitives.Hash(resp.Certs.Sign))
 
-	x509SignCert, err := utils.DERToX509Certificate(resp.Certs.Sign)
+	x509SignCert, err := primitives.DERToX509Certificate(resp.Certs.Sign)
 	if err != nil {
 		node.error("Failed parsing signing enrollment certificate for signing: [%s]", err)
 
 		return nil, nil, nil, err
 	}
 
-	_, err = utils.GetCriticalExtension(x509SignCert, ECertSubjectRole)
+	_, err = primitives.GetCriticalExtension(x509SignCert, ECertSubjectRole)
 	if err != nil {
 		node.error("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err)
 
 		return nil, nil, nil, err
 	}
 
-	err = utils.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
+	err = primitives.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
 	if err != nil {
 		node.error("Failed checking signing enrollment certificate for signing: [%s]", err)
 
@@ -453,21 +452,21 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	// Verify cert for encrypting
 	node.debug("Enrollment certificate for encrypting [% x]", primitives.Hash(resp.Certs.Enc))
 
-	x509EncCert, err := utils.DERToX509Certificate(resp.Certs.Enc)
+	x509EncCert, err := primitives.DERToX509Certificate(resp.Certs.Enc)
 	if err != nil {
 		node.error("Failed parsing signing enrollment certificate for encrypting: [%s]", err)
 
 		return nil, nil, nil, err
 	}
 
-	_, err = utils.GetCriticalExtension(x509EncCert, ECertSubjectRole)
+	_, err = primitives.GetCriticalExtension(x509EncCert, ECertSubjectRole)
 	if err != nil {
 		node.error("Failed parsing ECertSubjectRole in enrollment certificate for encrypting: [%s]", err)
 
 		return nil, nil, nil, err
 	}
 
-	err = utils.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
+	err = primitives.CheckCertAgainstSKAndRoot(x509EncCert, encPriv, node.ecaCertPool)
 	if err != nil {
 		node.error("Failed checking signing enrollment certificate for encrypting: [%s]", err)
 

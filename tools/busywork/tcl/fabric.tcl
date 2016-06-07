@@ -1,13 +1,13 @@
 # fabric.tcl - A Tcl support package for Hyperledger fabric scripts
 
 # Copyright IBM Corp. 2016. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # 		 http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,12 +33,12 @@ namespace eval ::fabric {}
 # If 'i_retry' is greater than 0, then HTTP failures are logged but retried up
 # to that many times. Incorrectly formatted data returned from a valid query
 # is never retried. We currently do not implememnt retry backoffs - it's
-# pedal-to-the-metal. 
+# pedal-to-the-metal.
 
 proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
 
     for {set retry $i_retry} {$retry >= 0} {incr retry -1} {
-        
+
         if {[catch {
             ::http::geturl http://$i_peer/devops/$i_method -query $i_query
         } token]} {
@@ -60,7 +60,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
                 "fabric::devops/$i_method $i_peer : ::http::geturl failed\n" \
                 $::errorInfo
         }
-        
+
         if {[http::ncode $token] != 200} {
             if {$retry > 0} {
                 if {$retry == $i_retry} {
@@ -85,7 +85,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
         }
 
         set response [http::data $token]
-    
+
         set err [catch {
             set parse [json::json2dict $response]
             set ok [dict get $parse OK]
@@ -103,7 +103,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
         }
         }]
         http::cleanup $token
-    
+
         if {$err} {
             err err \
                 "FABRIC '$i_method' response from $i_peer " \
@@ -123,7 +123,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
 
     return $result
 }
-    
+
 
 ############################################################################
 # deploy i_peer i_user i_chaincode i_fn i_args {i_retry 0}
@@ -288,33 +288,33 @@ proc ::fabric::checkForLocalDockerChaincodes {i_nPeers i_chaincodeNames} {
 # dockerLocalPeerIPs
 
 # Return a list of docker container IDs for all running containers based on
-# the 'hyperledger-peer' image.
+# the 'hyperledger/fabric-peer' image.
 
 proc ::fabric::dockerLocalPeerContainers {} {
 
     # This does not seem to work; membersrvc may (appear to?) be built from
-    # the hyperledger-peer image.
-    #return [exec docker ps -q -f status=running -f ancestor=hyperledger-peer]
-    
+    # the hyperledger/fabric-peer image.
+    #return [exec docker ps -q -f status=running -f ancestor=hyperledger/fabric-peer]
+
     return [exec docker ps --format="{{.Image}}\ {{.ID}}" | \
-                grep ^hyperledger-peer | cut -f 2 -d " " ]
+                grep ^hyperledger/fabric-peer | cut -f 2 -d " " ]
 }
 
 
 # Return a list of IP addresses of running containers based on the
-# 'hyperledger-peer' image. The IP addresses are returned in sorted order.
+# 'hyperledger/fabric-peer' image. The IP addresses are returned in sorted order.
 
 proc ::fabric::dockerLocalPeerIPs {} {
 
     return [lsort \
-                [mapeach container [dockerLocalPeerContainers] { 
+                [mapeach container [dockerLocalPeerContainers] {
                     exec docker inspect \
                         --format {{{.NetworkSettings.IPAddress}}} $container
                 }]]
 }
 
 # Return a list of pairs of {<name> <IP>} for running containers based on the
-# 'hyperledger-peer' image. The pairs are returned sorted on the container
+# 'hyperledger/fabric-peer' image. The pairs are returned sorted on the container
 # name.
 
 proc ::fabric::dockerLocalPeerNamesAndIPs {} {
@@ -357,7 +357,7 @@ proc ::fabric::caLogin {i_peer i_user i_secret} {
     http::cleanup $token
 }
 
-    
+
 ############################################################################
 # argify i_args
 
