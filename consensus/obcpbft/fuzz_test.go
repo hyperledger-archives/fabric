@@ -62,11 +62,11 @@ func TestFuzz(t *testing.T) {
 	mock := newFuzzMock()
 	primary, pmanager := createRunningPbftWithManager(0, loadConfig(), mock)
 	defer primary.close()
-	defer pmanager.halt()
+	defer pmanager.Halt()
 	mock = newFuzzMock()
 	backup, bmanager := createRunningPbftWithManager(1, loadConfig(), mock)
 	defer backup.close()
-	defer bmanager.halt()
+	defer bmanager.Halt()
 
 	f := fuzz.New()
 
@@ -95,8 +95,8 @@ func TestFuzz(t *testing.T) {
 			senderID = nv.ReplicaId
 		}
 
-		pmanager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
-		bmanager.queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
+		pmanager.Queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
+		bmanager.Queue() <- &pbftMessageEvent{msg: msg, sender: senderID}
 	}
 
 	logging.Reset()
@@ -162,7 +162,7 @@ func TestMinimalFuzz(t *testing.T) {
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 		for _, ep := range net.endpoints {
-			ep.(*pbftEndpoint).manager.queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+			ep.(*pbftEndpoint).manager.Queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)

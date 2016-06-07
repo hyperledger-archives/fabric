@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
 	pb "github.com/hyperledger/fabric/protos"
@@ -31,14 +32,14 @@ import (
 
 type inertTimer struct{}
 
-func (it *inertTimer) halt()                                               {}
-func (it *inertTimer) reset(duration time.Duration, event interface{})     {}
-func (it *inertTimer) softReset(duration time.Duration, event interface{}) {}
-func (it *inertTimer) stop()                                               {}
+func (it *inertTimer) Halt()                                                {}
+func (it *inertTimer) Reset(duration time.Duration, event events.Event)     {}
+func (it *inertTimer) SoftReset(duration time.Duration, event events.Event) {}
+func (it *inertTimer) Stop()                                                {}
 
 type inertTimerFactory struct{}
 
-func (it *inertTimerFactory) createTimer() eventTimer {
+func (it *inertTimerFactory) CreateTimer() events.Timer {
 	return &inertTimer{}
 }
 
@@ -94,11 +95,11 @@ func (p *mockPersist) DelState(key string) {
 	delete(p.store, key)
 }
 
-func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerStack) (*pbftCore, eventManager) {
-	manager := newEventManagerImpl()
-	core := newPbftCore(id, loadConfig(), stack, newEventTimerFactoryImpl(manager))
-	manager.setReceiver(core)
-	manager.start()
+func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerStack) (*pbftCore, events.Manager) {
+	manager := events.NewManagerImpl()
+	core := newPbftCore(id, loadConfig(), stack, events.NewTimerFactoryImpl(manager))
+	manager.SetReceiver(core)
+	manager.Start()
 	return core, manager
 }
 
