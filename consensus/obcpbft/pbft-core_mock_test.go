@@ -27,8 +27,9 @@ import (
 
 type pbftEndpoint struct {
 	*testEndpoint
-	pbft *pbftCore
-	sc   *simpleConsumer
+	pbft    *pbftCore
+	sc      *simpleConsumer
+	manager eventManager
 }
 
 func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
@@ -39,7 +40,7 @@ func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
 		panic("Told deliver something which did not unmarshal")
 	}
 
-	pe.pbft.manager.queue() <- &pbftMessage{msg: msg, sender: senderID}
+	pe.manager.queue() <- &pbftMessage{msg: msg, sender: senderID}
 }
 
 func (pe *pbftEndpoint) stop() {
@@ -56,7 +57,7 @@ func (pe *pbftEndpoint) isBusy() bool {
 	// channel, the send blocks until the thread has picked up the new work, still
 	// this will be removed pending the transition to an externally driven state machine
 	select {
-	case pe.pbft.manager.queue() <- nil:
+	case pe.manager.queue() <- nil:
 	default:
 		pe.net.debugMsg("TEST: Returning as busy no reply on idleChan\n")
 		return true
@@ -125,7 +126,7 @@ func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
 	sc.lastExecution = tx
 	sc.executions++
 	sc.lastSeqNo = seqNo
-	go sc.pe.pbft.execDone()
+	go func() { sc.pe.manager.queue() <- execDoneEvent{} }()
 }
 
 func (sc *simpleConsumer) getState() []byte {
@@ -150,15 +151,17 @@ func makePBFTNetwork(N int, config *viper.Viper) *pbftNetwork {
 		tep := makeTestEndpoint(id, net)
 		pe := &pbftEndpoint{
 			testEndpoint: tep,
+			manager:      newEventManagerImpl(),
 		}
 
 		pe.sc = &simpleConsumer{
 			pe: pe,
 		}
 
-		pe.pbft = newPbftCore(id, config, pe.sc)
+		pe.pbft = newPbftCore(id, config, pe.sc, newEventTimerFactoryImpl(pe.manager))
+		pe.manager.setReceiver(pe.pbft)
 
-		pe.pbft.manager.start()
+		pe.manager.start()
 
 		return pe
 

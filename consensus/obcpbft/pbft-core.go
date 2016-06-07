@@ -61,7 +61,6 @@ type innerStack interface {
 	getLastSeqNo() (uint64, error)
 	skipTo(seqNo uint64, snapshotID []byte, peers []uint64)
 	validate(txRaw []byte) error
-	viewChange(curView uint64)
 
 	sign(msg []byte) ([]byte, error)
 	verify(senderID uint64, signature []byte, message []byte) error
@@ -122,7 +121,6 @@ type pbftCore struct {
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
 	newViewTimer       eventTimer          // timeout triggering a view change
-	manager            eventManager        // TODO, remove eventually, the event manager which sends events to pbft
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	newViewTimerReason string              // what triggered the timer
@@ -188,7 +186,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf eventTimerFactory) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -201,10 +199,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
 
-	// TODO Ultimately, the timer factory will be passed in, and the existence of the manager
-	// will be hidden from pbftCore, but in the interest of a small PR, leaving it here for now
-	instance.manager = newEventManagerImpl(instance)
-	etf := newEventTimerFactoryImpl(instance.manager)
 	instance.newViewTimer = etf.createTimer()
 	instance.nullRequestTimer = etf.createTimer()
 
@@ -290,7 +284,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack) *pbftCore 
 
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.manager.halt()
 	instance.newViewTimer.halt()
 	instance.nullRequestTimer.halt()
 }
@@ -325,15 +318,15 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	case *Commit:
 		err = instance.recvCommit(et)
 	case *Checkpoint:
-		err = instance.recvCheckpoint(et)
+		return instance.recvCheckpoint(et)
 	case *ViewChange:
-		err = instance.recvViewChange(et)
+		return instance.recvViewChange(et)
 	case *NewView:
-		err = instance.recvNewView(et)
+		return instance.recvNewView(et)
 	case *FetchRequest:
 		err = instance.recvFetchRequest(et)
 	case returnRequestEvent:
-		err = instance.recvReturnRequest(et)
+		return instance.recvReturnRequest(et)
 	case stateUpdatingEvent:
 		update := et
 		instance.skipInProgress = true
@@ -355,8 +348,15 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 		instance.nullRequestHandler()
 	case workEvent:
 		et() // Used to allow the caller to steal use of the main thread, to be removed
+	case viewChangeQuorumEvent:
+		logger.Debug("Replica %d received view change quorum, processing new view", instance.id)
+		if instance.primary(instance.view) == instance.id {
+			return instance.sendNewView()
+		}
+
+		return instance.processNewView()
 	case viewChangedEvent:
-		instance.consumer.viewChange(instance.view)
+		// No-op, processed by plugins if needed
 	default:
 		logger.Warning("Replica %d received an unknown message type %T", instance.id, et)
 	}
@@ -364,13 +364,8 @@ func (instance *pbftCore) processEvent(e interface{}) interface{} {
 	if err != nil {
 		logger.Warning(err.Error())
 	}
-	return nil
-}
 
-// Allows the caller to inject work onto the main thread
-// This is useful when the caller wants to safely manipulate PBFT state
-func (instance *pbftCore) inject(work func()) {
-	instance.manager.queue() <- workEvent(work)
+	return nil
 }
 
 // =============================================================================
@@ -499,17 +494,6 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 // receive methods
 // =============================================================================
 
-// handle new consensus requests
-func (instance *pbftCore) requestSync(msgPayload []byte, senderID uint64) error {
-	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
-		ReplicaId: senderID}}}
-	instance.manager.inject(pbftMessageEvent{
-		sender: senderID,
-		msg:    msg,
-	})
-	return nil
-}
-
 func (instance *pbftCore) nullRequestHandler() {
 	if !instance.activeView {
 		return
@@ -525,22 +509,6 @@ func (instance *pbftCore) nullRequestHandler() {
 		logger.Info("Primary %d null request timer expired, sending null request", instance.id)
 		instance.sendPrePrepare(nil, "")
 	}
-}
-
-// handle internal consensus messages
-func (instance *pbftCore) receiveSync(msgPayload []byte, senderID uint64) error {
-	msg := &Message{}
-	err := proto.Unmarshal(msgPayload, msg)
-	if err != nil {
-		return fmt.Errorf("Error unpacking payload from message: %s", err)
-	}
-
-	instance.manager.inject(pbftMessageEvent{
-		msg:    msg,
-		sender: senderID,
-	})
-
-	return nil
 }
 
 func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, error) {
@@ -912,10 +880,8 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
-		// asynchronously execute
-		go func() {
-			instance.consumer.execute(idx.n, req.Payload)
-		}()
+		// synchronously execute, it is the other side's responsibility to execute in the background if needed
+		instance.consumer.execute(idx.n, req.Payload)
 	}
 	return true
 }
@@ -941,11 +907,6 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	instance.persistCheckpoint(seqNo, id)
 	instance.recvCheckpoint(chkpt)
 	instance.innerBroadcast(&Message{&Message_Checkpoint{chkpt}})
-}
-
-// execDone is an event telling us that the last execution has completed
-func (instance *pbftCore) execDone() {
-	instance.manager.queue() <- execDoneEvent{}
 }
 
 func (instance *pbftCore) execDoneSync() {
@@ -1091,7 +1052,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	}
 }
 
-func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) error {
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) event {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.Id)
 
@@ -1185,7 +1146,7 @@ func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
 	return
 }
 
-func (instance *pbftCore) recvReturnRequest(req *Request) (err error) {
+func (instance *pbftCore) recvReturnRequest(req *Request) event {
 	digest := hashReq(req)
 	if _, ok := instance.missingReqs[digest]; !ok {
 		return nil // either the wrong digest, or we got it already from someone else

@@ -75,7 +75,7 @@ type msgWithSender struct {
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
 		legacyGenericShim: legacyGenericShim{
-			obcGeneric: obcGeneric{stack: stack},
+			obcGeneric: &obcGeneric{stack: stack},
 		},
 		id: id,
 	}
@@ -84,8 +84,7 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 
 	op.restoreBlockNumber()
 
-	op.pbft = legacyPbftShim{newPbftCore(id, config, op)}
-	op.pbft.manager.start()
+	op.legacyGenericShim.init(id, config, op)
 	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
 	op.deduplicator = newDeduplicator()
 
@@ -209,7 +208,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 // Close tells us to release resources we are holding
 func (op *obcSieve) Close() {
 	op.complainer.Stop()
-	op.pbft.close()
+	op.legacyGenericShim.Close()
 }
 
 // called by pbft-core to multicast a message to all replicas
@@ -651,11 +650,13 @@ func (op *obcSieve) main() {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte) {
-	op.executeChan <- &pbftExecute{
-		seqNo: seqNo,
-		txRaw: raw,
-	}
-	logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	go func() {
+		op.executeChan <- &pbftExecute{
+			seqNo: seqNo,
+			txRaw: raw,
+		}
+		logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	}()
 }
 
 func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
