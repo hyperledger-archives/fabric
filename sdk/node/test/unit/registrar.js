@@ -23,6 +23,9 @@ var test = require('tape');
 var util = require('util');
 var fs = require('fs');
 
+var keyValStorePath = "/tmp/keyValStore"
+var keyValStorePath2 = keyValStorePath + "2";
+
 //
 // Run the registrar test
 //
@@ -50,27 +53,23 @@ function registrarTest(cb) {
    // Create and configure the test chain
    //
    var chain = hlc.newChain("testChain");
-   chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+   chain.setKeyValStore(hlc.newFileKeyValStore(keyValStorePath));
    chain.setMemberServicesUrl("grpc://localhost:50051");
-   chain.getMember("admin", function (err, admin) {
+   chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       if (err) return cb(err);
-      // Enroll the admin
-      admin.enroll("Xurw3yU9zI0l", function (err) {
-          if (err) return cb(err);
-          chain.setRegistrar(admin);
-          // Register and enroll webAdmin
-          registerAndEnroll("webAdmin", {roles:['client']}, chain, function(err,webAdmin) {
-             if (err) return cb(err);
-             chain.setRegistrar(webAdmin);
-             registerAndEnroll("webUser", null, chain, function(err, webUser) {
-                 if (err) return cb(err);
-                 chain.setRegistrar(webUser);
-                 registerAndEnroll("webUser2", null, chain, function(err) {
-                    if (!err) return cb(Error("webUser should not be allowed to register a client"));
-                    return cb();
-                 });
-             });
-          });
+      chain.setRegistrar(admin);
+      // Register and enroll webAdmin
+      registerAndEnroll("webAdmin", {roles:['client']}, chain, function(err,webAdmin) {
+         if (err) return cb(err);
+         chain.setRegistrar(webAdmin);
+         registerAndEnroll("webUser", null, chain, function(err, webUser) {
+            if (err) return cb(err);
+            chain.setRegistrar(webUser);
+            registerAndEnroll("webUser2", null, chain, function(err) {
+               if (!err) return cb(Error("webUser should not be allowed to register a client"));
+               return cb();
+            });
+         });
       });
    });
 }
@@ -78,25 +77,14 @@ function registrarTest(cb) {
 // Register and enroll user 'name' with registrar info 'registrar' for chain 'chain'
 function registerAndEnroll(name, registrar, chain, cb) {
     console.log("registerAndEnroll %s",name);
-    chain.getUser(name, function (err, user) {
-       if (err) return cb(err);
-       if (user.isEnrolled()) {
-           console.log("%s is already enrolled",name);
-           return cb(null,user);
-       }
-       // User is not enrolled yet, so perform both registration and enrollment
-       var registrationRequest = {
-           enrollmentID: name,
-           account: "bank_a",
-           affiliation: "00001",
-           registrar: registrar
-       };
-       console.log("%s is not yet enrolled",name);
-       user.registerAndEnroll(registrationRequest, function (err) {
-          if (err) return cb(err);
-          return cb(null,user);
-       });
-   });
+    // User is not enrolled yet, so perform both registration and enrollment
+    var registrationRequest = {
+         enrollmentID: name,
+         account: "bank_a",
+         affiliation: "00001",
+         registrar: registrar
+    };
+    chain.registerAndEnroll(registrationRequest,cb);
 }
 
 // Force the client to try to enroll admin again by creating a different chain
@@ -108,17 +96,15 @@ function enrollAgain(cb) {
    // Create and configure testChain2 so there is no shared state with testChain
    // This is necessary to start without a local cache.
    //
-   rmdir("/tmp/keyValStore");
+   fs.renameSync(keyValStorePath,keyValStorePath2);
    var chain = hlc.newChain("testChain2");
    chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
    chain.setMemberServicesUrl("grpc://localhost:50051");
-   chain.getMember("admin", function (err, admin) {
-      if (err) return cb(err);
-      // Re-enroll the admin
-      admin.enroll("Xurw3yU9zI0l", function (err) {
-          if (!err) return cb(Error("admin should not be allowed to re-enroll"));
-          return cb();
-      });
+   chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
+      rmdir(keyValStorePath);
+      fs.renameSync(keyValStorePath2,keyValStorePath);
+      if (!err) return cb(Error("admin should not be allowed to re-enroll"));
+      return cb();
    });
 }
 

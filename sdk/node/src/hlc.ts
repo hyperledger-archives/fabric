@@ -57,6 +57,7 @@ var sha3 = require('js-sha3');
 var uuid = require('node-uuid');
 var BN = require('bn.js');
 import * as crypto from "./crypto"
+import * as stats from "./stats"
 import events = require('events');
 
 let debug = debugModule('hlc');   // 'hlc' stands for 'HyperLedger Client'
@@ -204,6 +205,13 @@ export interface GetTCertBatchRequest {
     enrollment:Enrollment;
     // Number of tcerts to retrieve
     num:number;
+}
+
+// This is the data that is delivered as the result with the 'submitted' event
+// from a TransactionContext object.
+export interface SubmittedTransactionResponse {
+    // The transaction ID of a transaction which was successfully submitted.
+    uuid:string;
 }
 
 // A callback to the MemberServices.getTCertBatch method
@@ -361,6 +369,9 @@ export class Chain {
     // Is in dev mode or network mode
     private devMode:boolean = false;
 
+    // If in prefetch mode, we prefetch tcerts from member services to help performance
+    private preFetchMode:boolean = true;
+
     // The crypto primitives object
     cryptoPrimitives:crypto.Crypto;
 
@@ -441,6 +452,20 @@ export class Chain {
      */
     isSecurityEnabled():boolean {
         return this.memberServices !== undefined;
+    }
+
+    /**
+     * Determine if pre-fetch mode is enabled to prefetch tcerts.
+     */
+    isPreFetchMode():boolean {
+        return this.preFetchMode;
+    }
+
+    /**
+     * Set prefetch mode to true or false.
+     */
+    setPreFetchMode(preFetchMode:boolean):void {
+        this.preFetchMode = preFetchMode;
     }
 
     /**
@@ -526,6 +551,58 @@ export class Chain {
     }
 
     /**
+     * Register a user or other member type with the chain.
+     * @param registrationRequest Registration information.
+     * @param cb Callback with registration results
+     */
+    register(registrationRequest:RegistrationRequest, cb:RegisterCallback):void {
+        let self = this;
+        self.getMember(registrationRequest.enrollmentID, function(err, member) {
+            if (err) return cb(err);
+            member.register(registrationRequest,cb);
+        });
+    }
+
+    /**
+     * Enroll a user or other identity which has already been registered.
+     * If the user has already been enrolled, this will still succeed.
+     * @param name The name of the user or other member to enroll.
+     * @param secret The secret of the user or other member to enroll.
+     * @param cb The callback to return the user or other member.
+     */
+    enroll(name: string, secret: string, cb: GetMemberCallback) {
+        let self = this;
+        self.getMember(name, function(err, member) {
+            if (err) return cb(err);
+            member.enroll(secret,function(err) {
+                if (err) return cb(err);
+                return cb(null,member);
+            });
+        });
+    }
+
+    /**
+     * Register and enroll a user or other member type.
+     * This assumes that a registrar with sufficient privileges has been set.
+     * @param registrationRequest Registration information.
+     * @params
+     */
+    registerAndEnroll(registrationRequest: RegistrationRequest, cb: GetMemberCallback) {
+        let self = this;
+        self.getMember(registrationRequest.enrollmentID, function(err, member) {
+           if (err) return cb(err);
+           if (member.isEnrolled()) {
+               debug("already enrolled");
+               return cb(null,member);
+           }
+           member.registerAndEnroll(registrationRequest, function (err) {
+              if (err) return cb(err);
+              return cb(null,member);
+           });
+        });
+    }
+
+    /**
      * Send a transaction to a peer.
      * @param tx A transaction
      * @param eventEmitter An event emitter
@@ -578,6 +655,10 @@ export class Member {
     private keyValStoreName:string;
     private tcerts:any[] = [];
     private tcertBatchSize:number;
+    private arrivalRate:stats.Rate = new stats.Rate();
+    private getTCertResponseTime:stats.ResponseTime = new stats.ResponseTime();
+    private getTCertWaiters:GetTCertCallback[] = [];
+    private gettingTCerts:boolean = false;
 
     /**
      * Constructor for a member.
@@ -718,6 +799,9 @@ export class Member {
     register(registrationRequest:RegistrationRequest, cb:RegisterCallback):void {
         let self = this;
         cb = cb || nullCB;
+        if (registrationRequest.enrollmentID !== self.getName()) {
+            return cb(Error("registration enrollment ID and member name are not equal"));
+        }
         let enrollmentSecret = this.enrollmentSecret;
         if (enrollmentSecret) {
             debug("previously registered, enrollmentSecret=%s", enrollmentSecret);
@@ -829,7 +913,7 @@ export class Member {
      * Create a transaction context with which to issue build, deploy, invoke, or query transactions.
      * Only call this if you want to use the same tcert for multiple transactions.
      * @param {Object} tcert A transaction certificate from member services.  This is optional.
-     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     * @returns A transaction context.
      */
     newTransactionContext(tcert?:TCert):TransactionContext {
         return new TransactionContext(this, tcert);
@@ -842,25 +926,87 @@ export class Member {
     /**
      * Get the next available transaction certificate.
      * @param cb
-     * @returns
      */
     getNextTCert(cb:GetTCertCallback):void {
         let self = this;
         if (!self.isEnrolled()) {
             return cb(Error(util.format("user '%s' is not enrolled",self.getName())));
         }
-        if (self.tcerts.length > 0) {
-            return cb(null, self.tcerts.shift());
+        self.arrivalRate.tick();
+        var tcert = self.tcerts.length > 0? self.tcerts.shift() : undefined;
+        if (tcert) {
+            return cb(null,tcert);
+        } else {
+            self.getTCertWaiters.push(cb);
         }
+        if (self.shouldGetTCerts()) {
+            self.getTCerts();
+        }
+    }
+
+    // Determine if we should issue a request to get more tcerts now.
+    private shouldGetTCerts(): boolean {
+        let self = this;
+        // Do nothing if we are already getting more tcerts
+        if (self.gettingTCerts) {
+            debug("shouldGetTCerts: no, already getting tcerts");
+            return false;
+        }
+        // If there are none, then definitely get more
+        if (self.tcerts.length == 0) {
+            debug("shouldGetTCerts: yes, we have no tcerts");
+            return true;
+        }
+        // If we aren't in prefetch mode, return false;
+        if (!self.chain.isPreFetchMode()) {
+            debug("shouldGetTCerts: no, prefetch disabled");
+            return false;
+        }
+        // Otherwise, see if we should prefetch based on the arrival rate
+        // (i.e. the rate at which tcerts are requested) and the response
+        // time.
+        // 'arrivalRate' is in req/ms and 'responseTime' in ms,
+        // so 'tcertCountThreshold' is number of tcerts at which we should
+        // request the next batch of tcerts so we don't have to wait on the
+        // transaction path.  Note that we add 1 sec to the average response
+        // time to add a little buffer time so we don't have to wait.
+        let arrivalRate = self.arrivalRate.getValue();
+        let responseTime = self.getTCertResponseTime.getValue() + 1000;
+        let tcertThreshold = arrivalRate * responseTime;
+        let tcertCount = self.tcerts.length;
+        let result = tcertCount <= tcertThreshold;
+        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s",
+                           result, tcertThreshold, tcertCount, arrivalRate, responseTime));
+        return result;
+    }
+
+    // Call member services to get more tcerts
+    private getTCerts():void {
+        let self = this;
         let req = {
             name: self.getName(),
             enrollment: self.enrollment,
             num: self.getTCertBatchSize()
         };
+        self.getTCertResponseTime.start();
         self.memberServices.getTCertBatch(req, function (err, tcerts) {
-            if (err) return cb(err);
-            self.tcerts = tcerts;
-            return cb(null, self.tcerts.shift());
+            if (err) {
+                self.getTCertResponseTime.cancel();
+                // Error all waiters
+                while (self.getTCertWaiters.length > 0) {
+                    self.getTCertWaiters.shift()(err);
+                }
+                return;
+            }
+            self.getTCertResponseTime.stop();
+            // Add to member's tcert list
+            while (tcerts.length > 0) {
+                self.tcerts.push(tcerts.shift());
+            }
+            // Allow waiters to proceed
+            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
+                self.getTCertWaiters.shift()(null,self.tcerts.shift());
+            }
         });
     }
 
@@ -1439,7 +1585,7 @@ export class Peer {
                 case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
                     if (response.status === "SUCCESS") {
                         // Invoke transaction has been submitted
-                        eventEmitter.emit('submitted', response.msg);
+                        eventEmitter.emit('submitted', response.msg.toString());
                         self.waitToComplete(eventEmitter);
                     } else {
                         // Invoke completed with status "FAILURE" or "UNDEFINED"
@@ -1988,16 +2134,6 @@ export function getChain(chainName, create) {
         chain = newChain(name);
     }
     return chain;
-}
-
-/**
- * Stop/cleanup everything pertaining to this module.
- */
-export function stop() {
-    // Shutdown each chain
-    for (var chainName in _chains) {
-        _chains[chainName].shutdown();
-    }
 }
 
 /**
