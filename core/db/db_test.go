@@ -31,244 +31,119 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestGetDBPathEmptyPath(t *testing.T) {
-	originalSetting := viper.GetString("peer.fileSystemPath")
-	viper.Set("peer.fileSystemPath", "")
+func TestCreateDB_DirDoesNotExist(t *testing.T) {
+	defer deleteTestDBPath()
 	defer func() {
-		x := recover()
-		if x == nil {
-			t.Fatal("A panic should have been caused here.")
+		if r := recover(); r != nil {
+			t.Fatalf("Failed to create DB: %s", r)
 		}
 	}()
-	defer viper.Set("peer.fileSystemPath", originalSetting)
-	GetDBHandle()
-}
-
-func TestCreateDB_DirDoesNotExist(t *testing.T) {
-	err := CreateDB()
-	if err != nil {
-		t.Fatalf("Failed to create DB: %s", err)
-	}
-	deleteTestDB()
+	openchainDB := Create()
+	defer openchainDB.Close()
 }
 
 func TestCreateDB_NonEmptyDirExists(t *testing.T) {
 	createNonEmptyTestDBPath()
-	err := CreateDB()
-	if err == nil {
-		t.Fatal("Dir alrady exists. DB creation should throw error")
-	}
-	deleteTestDBPath()
-}
+	defer deleteTestDBPath()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("Dir alrady exists. DB creation should throw error")
+		}
+	}()
+	openchainDB := Create()
+	defer openchainDB.Close()
 
-func TestWriteAndRead(t *testing.T) {
-	createTestDB()
-	defer deleteTestDB()
-	performBasicReadWrite(t)
 }
 
 func TestOpenDB_DirDoesNotExist(t *testing.T) {
-	deleteTestDBPath()
-	defer deleteTestDB()
-	performBasicReadWrite(t)
+	openchainDB := Create()
+	defer deleteTestDBPath()
+	defer openchainDB.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Failed to open DB: %s", r)
+		}
+	}()
+	openchainDB.Open()
 }
 
-func TestOpenDB_DirEmpty(t *testing.T) {
+func TestOpenDB_NonEmptyDirExists(t *testing.T) {
+	openchainDB := Create()
 	deleteTestDBPath()
-	createTestDBPath()
-	defer deleteTestDB()
-	performBasicReadWrite(t)
+	createNonEmptyTestDBPath()
+
+	defer deleteTestDBPath()
+	defer openchainDB.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Failed to open DB: %s", r)
+		}
+	}()
+	openchainDB.Open()
+}
+
+func TestGetDB_DirDoesNotExist(t *testing.T) {
+	defer deleteTestDBPath()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Failed to open DB: %s", r)
+		}
+	}()
+	openchainDB := GetDBHandle()
+
+	defer openchainDB.Close()
+}
+
+func TestGetDB_NonEmptyDirExists(t *testing.T) {
+	createNonEmptyTestDBPath()
+	defer deleteTestDBPath()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Failed to open DB: %s", r)
+		}
+	}()
+	openchainDB := GetDBHandle()
+	defer openchainDB.Close()
+}
+
+func TestWriteAndRead(t *testing.T) {
+	openchainDB := GetDBHandle()
+	defer deleteTestDBPath()
+	defer openchainDB.Close()
+	performBasicReadWrite(openchainDB, t)
 }
 
 // This test verifies that when a new column family is added to the DB
 // users at an older level of the DB will still be able to open it with new code
 func TestDBColumnUpgrade(t *testing.T) {
-	deleteTestDBPath()
-	createTestDBPath()
-	err := CreateDB()
-	if nil != err {
-		t.Fatalf("Error creating DB")
-	}
-	db, err := openDB()
-	if nil != err {
-		t.Fatalf("Error opening DB")
-	}
-	db.CloseDB()
+	openchainDB := GetDBHandle()
+	openchainDB.Close()
 
 	oldcfs := columnfamilies
 	columnfamilies = append([]string{"Testing"}, columnfamilies...)
 	defer func() {
 		columnfamilies = oldcfs
 	}()
-	db, err = openDB()
-	if nil != err {
-		t.Fatalf("Error re-opening DB with upgraded columnFamilies")
-	}
-	db.CloseDB()
-}
+	openchainDB = GetDBHandle()
 
-func TestDeleteState(t *testing.T) {
-	testDBWrapper := NewTestDBWrapper()
-	testDBWrapper.CreateFreshDB(t)
-	openchainDB := GetDBHandle()
-	defer testDBWrapper.cleanup()
-	openchainDB.Put(openchainDB.StateCF, []byte("key1"), []byte("value1"))
-	openchainDB.Put(openchainDB.StateDeltaCF, []byte("key2"), []byte("value2"))
-	openchainDB.DeleteState()
-	value1, err := openchainDB.GetFromStateCF([]byte("key1"))
-	if err != nil {
-		t.Fatalf("Error getting in value: %s", err)
-	}
-	if value1 != nil {
-		t.Fatalf("A nil value expected. Found [%s]", value1)
-	}
-
-	value2, err := openchainDB.GetFromStateCF([]byte("key2"))
-	if err != nil {
-		t.Fatalf("Error getting in value: %s", err)
-	}
-	if value2 != nil {
-		t.Fatalf("A nil value expected. Found [%s]", value2)
-	}
-}
-
-func TestDBSnapshot(t *testing.T) {
-	testDBWrapper := NewTestDBWrapper()
-	testDBWrapper.CreateFreshDB(t)
-	openchainDB := GetDBHandle()
-	defer testDBWrapper.cleanup()
-
-	// write key-values
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key1"), []byte("value1"))
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key2"), []byte("value2"))
-
-	// create a snapshot
-	snapshot := openchainDB.GetSnapshot()
-
-	// add/delete/modify key-values
-	openchainDB.Delete(openchainDB.BlockchainCF, []byte("key1"))
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key2"), []byte("value2_new"))
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key3"), []byte("value3"))
-
-	// test key-values from latest data in db
-	v1, _ := openchainDB.GetFromBlockchainCF([]byte("key1"))
-	v2, _ := openchainDB.GetFromBlockchainCF([]byte("key2"))
-	v3, _ := openchainDB.GetFromBlockchainCF([]byte("key3"))
-	if !bytes.Equal(v1, nil) {
-		t.Fatalf("Expected value from db is 'nil', found [%s]", v1)
-	}
-	if !bytes.Equal(v2, []byte("value2_new")) {
-		t.Fatalf("Expected value from db [%s], found [%s]", "value2_new", v2)
-	}
-	if !bytes.Equal(v3, []byte("value3")) {
-		t.Fatalf("Expected value from db [%s], found [%s]", "value3", v3)
-	}
-
-	// test key-values from snapshot
-	v1, _ = openchainDB.GetFromBlockchainCFSnapshot(snapshot, []byte("key1"))
-	v2, _ = openchainDB.GetFromBlockchainCFSnapshot(snapshot, []byte("key2"))
-	v3, err := openchainDB.GetFromBlockchainCFSnapshot(snapshot, []byte("key3"))
-	if err != nil {
-		t.Fatalf("Error: %s", err)
-	}
-
-	if !bytes.Equal(v1, []byte("value1")) {
-		t.Fatalf("Expected value from db snapshot [%s], found [%s]", "value1", v1)
-	}
-
-	if !bytes.Equal(v2, []byte("value2")) {
-		t.Fatalf("Expected value from db snapshot [%s], found [%s]", "value1", v2)
-	}
-
-	if !bytes.Equal(v3, nil) {
-		t.Fatalf("Expected value from db snapshot is 'nil', found [%s]", v3)
-	}
-}
-
-func TestDBIteratorAndSnapshotIterator(t *testing.T) {
-	testDBWrapper := NewTestDBWrapper()
-	testDBWrapper.CreateFreshDB(t)
-	openchainDB := GetDBHandle()
-	defer testDBWrapper.cleanup()
-
-	// write key-values
-	openchainDB.Put(openchainDB.StateCF, []byte("key1"), []byte("value1"))
-	openchainDB.Put(openchainDB.StateCF, []byte("key2"), []byte("value2"))
-
-	// create a snapshot
-	snapshot := openchainDB.GetSnapshot()
-
-	// add/delete/modify key-values
-	openchainDB.Delete(openchainDB.StateCF, []byte("key1"))
-	openchainDB.Put(openchainDB.StateCF, []byte("key2"), []byte("value2_new"))
-	openchainDB.Put(openchainDB.StateCF, []byte("key3"), []byte("value3"))
-
-	// test snapshot iterator
-	itr := openchainDB.GetStateCFSnapshotIterator(snapshot)
-	defer itr.Close()
-	testIterator(t, itr, map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
-
-	// test iterator over latest data in stateCF
-	itr = openchainDB.GetStateCFIterator()
-	defer itr.Close()
-	testIterator(t, itr, map[string][]byte{"key2": []byte("value2_new"), "key3": []byte("value3")})
-
-	openchainDB.Put(openchainDB.StateDeltaCF, []byte("key4"), []byte("value4"))
-	openchainDB.Put(openchainDB.StateDeltaCF, []byte("key5"), []byte("value5"))
-	itr = openchainDB.GetStateDeltaCFIterator()
-	defer itr.Close()
-	testIterator(t, itr, map[string][]byte{"key4": []byte("value4"), "key5": []byte("value5")})
-
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key6"), []byte("value6"))
-	openchainDB.Put(openchainDB.BlockchainCF, []byte("key7"), []byte("value7"))
-	itr = openchainDB.GetBlockchainCFIterator()
-	defer itr.Close()
-	testIterator(t, itr, map[string][]byte{"key6": []byte("value6"), "key7": []byte("value7")})
-}
-
-func testIterator(t *testing.T, itr *gorocksdb.Iterator, expectedValues map[string][]byte) {
-	itrResults := make(map[string][]byte)
-	itr.SeekToFirst()
-	for ; itr.Valid(); itr.Next() {
-		key := itr.Key()
-		value := itr.Value()
-		k := makeCopy(key.Data())
-		v := makeCopy(value.Data())
-		itrResults[string(k)] = v
-	}
-	if len(itrResults) != len(expectedValues) {
-		t.Fatalf("Expected [%d] results from iterator, found [%d]", len(expectedValues), len(itrResults))
-	}
-	for k, v := range expectedValues {
-		if !bytes.Equal(itrResults[k], v) {
-			t.Fatalf("Wrong value for key [%s]. Expected [%s], found [%s]", k, itrResults[k], v)
+	defer deleteTestDBPath()
+	defer openchainDB.Close()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Error re-opening DB with upgraded columnFamilies")
 		}
-	}
+	}()
 }
 
 // db helper functions
-func createTestDBPath() {
-	dbPath := viper.GetString("peer.fileSystemPath")
-	os.MkdirAll(dbPath, 0775)
-}
-
 func createNonEmptyTestDBPath() {
 	dbPath := viper.GetString("peer.fileSystemPath")
 	os.MkdirAll(dbPath+"/db/tmpFile", 0775)
 }
 
-func createTestDB() error {
-	return CreateDB()
-}
-
 func deleteTestDBPath() {
 	dbPath := viper.GetString("peer.fileSystemPath")
 	os.RemoveAll(dbPath)
-}
-
-func deleteTestDB() {
-	GetDBHandle().CloseDB()
-	deleteTestDBPath()
 }
 
 func setupTestConfig() {
@@ -280,49 +155,23 @@ func setupTestConfig() {
 	deleteTestDBPath()
 }
 
-func performBasicReadWrite(t *testing.T) {
-	openchainDB := GetDBHandle()
+func performBasicReadWrite(openchainDB *OpenchainDB, t *testing.T) {
 	opt := gorocksdb.NewDefaultWriteOptions()
 	defer opt.Destroy()
 	writeBatch := gorocksdb.NewWriteBatch()
 	defer writeBatch.Destroy()
 	writeBatch.PutCF(openchainDB.BlockchainCF, []byte("dummyKey"), []byte("dummyValue"))
-	writeBatch.PutCF(openchainDB.StateCF, []byte("dummyKey1"), []byte("dummyValue1"))
-	writeBatch.PutCF(openchainDB.StateDeltaCF, []byte("dummyKey2"), []byte("dummyValue2"))
-	writeBatch.PutCF(openchainDB.IndexesCF, []byte("dummyKey3"), []byte("dummyValue3"))
 	err := openchainDB.DB.Write(opt, writeBatch)
 	if err != nil {
-		t.Fatalf("Error while writing to db: %s", err)
+		t.Fatal("Error while writing to db")
 	}
 	value, err := openchainDB.GetFromBlockchainCF([]byte("dummyKey"))
+
 	if err != nil {
 		t.Fatalf("read error = [%s]", err)
 	}
+
 	if !bytes.Equal(value, []byte("dummyValue")) {
-		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue", value)
-	}
-
-	value, err = openchainDB.GetFromStateCF([]byte("dummyKey1"))
-	if err != nil {
-		t.Fatalf("read error = [%s]", err)
-	}
-	if !bytes.Equal(value, []byte("dummyValue1")) {
-		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue1", value)
-	}
-
-	value, err = openchainDB.GetFromStateDeltaCF([]byte("dummyKey2"))
-	if err != nil {
-		t.Fatalf("read error = [%s]", err)
-	}
-	if !bytes.Equal(value, []byte("dummyValue2")) {
-		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue2", value)
-	}
-
-	value, err = openchainDB.GetFromIndexesCF([]byte("dummyKey3"))
-	if err != nil {
-		t.Fatalf("read error = [%s]", err)
-	}
-	if !bytes.Equal(value, []byte("dummyValue3")) {
-		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue3", value)
+		t.Fatal("read error. Bytes not equal")
 	}
 }

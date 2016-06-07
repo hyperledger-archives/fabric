@@ -26,7 +26,7 @@ import (
 func TestConfigInit(t *testing.T) {
 	configs := viper.GetStringMap("ledger.state.dataStructure.configs")
 	t.Logf("Configs loaded from yaml = %#v", configs)
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImpl := NewStateImpl()
 	stateImpl.Initialize(configs)
 	testutil.AssertEquals(t, conf.getNumBucketsAtLowestLevel(), configs[ConfigNumBuckets])

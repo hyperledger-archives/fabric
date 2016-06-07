@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	"github.com/hyperledger/fabric/core/comm"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
