@@ -144,7 +144,7 @@ func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
 	if emap := hl.handlers[e.GetChaincodeEvent().ChaincodeID]; emap != nil {
 		//get the handler map for the event
 		if handlerMap := emap[e.GetChaincodeEvent().EventName]; handlerMap != nil {
-			for h, _ := range handlerMap {
+			for h := range handlerMap {
 				action(h)
 			}
 		}
@@ -152,7 +152,7 @@ func (hl *chaincodeHandlerList) foreach(e *pb.Event, action func(h *handler)) {
 		//EventName is not already "" (chaincode should NOT send nameless events though)
 		if e.GetChaincodeEvent().EventName != "" {
 			if handlerMap := emap[""]; handlerMap != nil {
-				for h, _ := range handlerMap {
+				for h := range handlerMap {
 					action(h)
 				}
 			}

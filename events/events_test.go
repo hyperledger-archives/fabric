@@ -46,8 +46,8 @@ var obcEHClient *consumer.EventsClient
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
 	return []*ehpb.Interest{
 		&ehpb.Interest{EventType: ehpb.EventType_BLOCK},
-		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{&ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}}},
-		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{&ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}}},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}}},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}}},
 	}, nil
 	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }

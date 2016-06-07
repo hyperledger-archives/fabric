@@ -38,17 +38,17 @@ func newEventHandler(stream pb.Events_ChatServer) (*handler, error) {
 	return d, nil
 }
 
-func (h *handler) addInterest(interest *pb.Interest) {
-	n := len(h.interestedEvents)
-	if n == cap(h.interestedEvents) {
+func (d *handler) addInterest(interest *pb.Interest) {
+	n := len(d.interestedEvents)
+	if n == cap(d.interestedEvents) {
 		// Slice is full; must grow.
 		// We double its size and add 1, so if the size is zero we still grow.
-		newSlice := make([]*pb.Interest, len(h.interestedEvents), 2*len(h.interestedEvents)+1)
-		copy(newSlice, h.interestedEvents)
-		h.interestedEvents = newSlice
+		newSlice := make([]*pb.Interest, len(d.interestedEvents), 2*len(d.interestedEvents)+1)
+		copy(newSlice, d.interestedEvents)
+		d.interestedEvents = newSlice
 	}
-	h.interestedEvents = h.interestedEvents[0 : n+1]
-	h.interestedEvents[n] = interest
+	d.interestedEvents = d.interestedEvents[0 : n+1]
+	d.interestedEvents[n] = interest
 }
 
 // Stop stops this handler
