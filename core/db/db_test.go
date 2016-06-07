@@ -31,28 +31,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestCreateDB_DirDoesNotExist(t *testing.T) {
-	defer deleteTestDBPath()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Failed to create DB: %s", r)
-		}
-	}()
+func TestCreateDB(t *testing.T) {
 	openchainDB := Create()
-	defer openchainDB.Close()
-}
-
-func TestCreateDB_NonEmptyDirExists(t *testing.T) {
-	createNonEmptyTestDBPath()
+	openchainDB.Open()
 	defer deleteTestDBPath()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("Dir alrady exists. DB creation should throw error")
-		}
-	}()
-	openchainDB := Create()
 	defer openchainDB.Close()
-
 }
 
 func TestOpenDB_DirDoesNotExist(t *testing.T) {

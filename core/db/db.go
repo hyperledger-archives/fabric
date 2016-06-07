@@ -69,8 +69,6 @@ var once sync.Once
 
 // Create create an openchainDB instance
 func Create() *OpenchainDB {
-	dbPath := getDBPath()
-	mkDirIfNotExist(dbPath)
 	return &OpenchainDB{dbState: closed}
 }
 
