@@ -1425,7 +1425,7 @@ export class Peer {
                             eventEmitter.emit('error', 'the response is missing the transaction UUID');
                         } else {
                             eventEmitter.emit('submitted', response.msg);
-                            self.waitToComplete(eventEmitter);
+                            self.waitToComplete(eventEmitter, response.msg);
                         }
                     } else {
                         // Deploy completed with status "FAILURE" or "UNDEFINED"
@@ -1436,7 +1436,7 @@ export class Peer {
                     if (response.status === "SUCCESS") {
                         // Invoke transaction has been submitted
                         eventEmitter.emit('submitted', response.msg);
-                        self.waitToComplete(eventEmitter);
+                        self.waitToComplete(eventEmitter, response.msg);
                     } else {
                         // Invoke completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);
@@ -1463,11 +1463,11 @@ export class Peer {
      * This is a temporary hack until event notification is implemented.
      * TODO: implement this appropriately.
      */
-    private waitToComplete(eventEmitter:events.EventEmitter): void {
+    private waitToComplete(eventEmitter:events.EventEmitter, rmsg:Buffer): void {
         debug("waiting 5 seconds before emitting complete event");
         var emitComplete = function() {
             debug("emitting completion event");
-            eventEmitter.emit('complete');
+            eventEmitter.emit('complete',rmsg);
         };
         setTimeout(emitComplete,5000);
     }
