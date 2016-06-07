@@ -67,7 +67,9 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// Setup the test
 	setup()
+
 	//Define a map to store the scenarios properties
 	properties := make(map[string]interface{})
 	ret := 0
@@ -75,23 +77,24 @@ func TestMain(m *testing.M) {
 	//First scenario with crypto_test.yaml
 	ret = runTestsOnScenario(m, properties, "Using crypto_test.yaml properties")
 	if ret != 0 {
-		return
-	}
-
-	//Second scenario with multithread
-	properties["security.multithreading.enabled"] = "true"
-	ret = runTestsOnScenario(m, properties, "Using multithread enabled")
-	if ret != 0 {
 		os.Exit(ret)
 	}
 
+	////Second scenario with multithread
+	//properties["security.multithreading.enabled"] = "true"
+	//ret = runTestsOnScenario(m, properties, "Using multithread enabled")
+	//if ret != 0 {
+	//	os.Exit(ret)
+	//}
+	//properties["security.multithreading.enabled"] = "false"
+
 	//Third scenario using confidentialityProtocolVersion = 1.1
 	/*
-		properties["security.confidentialityProtocolVersion"] = "1.1"
-		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
-		if ret != 0 {
-			os.Exit(ret)
-		}*/
+	properties["security.confidentialityProtocolVersion"] = "1.1"
+	ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
+	if ret != 0 {
+		os.Exit(ret)
+	}
 
 	//Fourth scenario with security level = 384
 	properties["security.hashAlgorithm"] = "SHA3"
@@ -116,6 +119,7 @@ func TestMain(m *testing.M) {
 	if ret != 0 {
 		os.Exit(ret)
 	}
+	*/
 
 	os.Exit(ret)
 }
@@ -141,8 +145,6 @@ func after() {
 }
 
 func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenarioName string) int {
-	setup()
-
 	fmt.Printf("=== Start tests for scenario '%v' ===\n", scenarioName)
 	currentValues := make(map[string]interface{})
 	if len(properties) > 0 {
