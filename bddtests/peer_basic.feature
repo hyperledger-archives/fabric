@@ -315,6 +315,27 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+#    Arg[0] = a, base64 = 'YQ=='
+#    sha256 = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb'
+	Scenario: chaincode map single peer content generated UUID
+	    Given we compose "docker-compose-1.yml"
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/map" with ctor "init" to "vp0"
+	      ||
+              ||
+	    Then I should have received a chaincode name
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
+
+        When I invoke chaincode "map" function name "put" on "vp0" with "sha256base64"
+	    | arg1  |arg2|
+            | YQ==  | 10 |
+	    Then I should have received a transactionID
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
+	    Then I check the transaction ID if it is "ca978112-ca1b-bdca-fac2-31b39a23dc4d"
+
+#    @doNotDecompose
+#    @wip
 	Scenario: chaincode example 02 single peer
 	    Given we compose "docker-compose-1.yml"
 	    When requesting "/chain" from "vp0"
