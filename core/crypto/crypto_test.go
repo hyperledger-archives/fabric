@@ -19,13 +19,14 @@ package crypto
 import (
 	"bytes"
 	"fmt"
-	obc "github.com/hyperledger/fabric/protos"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	obc "github.com/hyperledger/fabric/protos"
 
 	"crypto/rand"
 
@@ -313,7 +314,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	attributeValue := string(attributeBytes[:])
 
 	if attributeValue != "ACompany" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
 }
 

@@ -293,7 +293,7 @@ func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
 		return dberr
 	}
 	for _, attr := range attrs {
-		if err := aca.populateAttribute(attr); err != nil {
+		if err := aca.populateAttribute(tx, attr); err != nil {
 			dberr = tx.Rollback()
 			if dberr != nil {
 				return dberr
@@ -308,9 +308,9 @@ func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
 	return nil
 }
 
-func (aca *ACA) populateAttribute(attr *AttributePair) error {
+func (aca *ACA) populateAttribute(tx *sql.Tx, attr *AttributePair) error {
 	var count int
-	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
+	err := tx.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName()).Scan(&count)
 
 	if err != nil {
@@ -318,13 +318,13 @@ func (aca *ACA) populateAttribute(attr *AttributePair) error {
 	}
 
 	if count > 0 {
-		_, err = aca.db.Exec("UPDATE Attributes SET validFrom = ?, validTo = ?,  attributeValue = ? WHERE  id=? AND affiliation =? AND attributeName =? AND validFrom < ?",
+		_, err = tx.Exec("UPDATE Attributes SET validFrom = ?, validTo = ?,  attributeValue = ? WHERE  id=? AND affiliation =? AND attributeName =? AND validFrom < ?",
 			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName(), attr.GetValidFrom())
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err = aca.db.Exec("INSERT INTO Attributes (validFrom , validTo,  attributeValue, id, affiliation, attributeName) VALUES (?,?,?,?,?,?)",
+		_, err = tx.Exec("INSERT INTO Attributes (validFrom , validTo,  attributeValue, id, affiliation, attributeName) VALUES (?,?,?,?,?,?)",
 			attr.GetValidFrom(), attr.GetValidTo(), attr.GetAttributeValue(), attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName())
 		if err != nil {
 			return err
