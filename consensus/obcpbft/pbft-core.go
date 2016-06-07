@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
 
 	"github.com/golang/protobuf/proto"
@@ -50,6 +51,29 @@ const (
 // =============================================================================
 // custom interfaces and structure definitions
 // =============================================================================
+
+// Event Types
+
+// workEvent is a temporary type, to inject work
+type workEvent func()
+
+// viewChangeTimerEvent is sent when the view change timer expires
+type viewChangeTimerEvent struct{}
+
+// execDoneEvent is sent when an execution completes
+type execDoneEvent struct{}
+
+// pbftMessageEvent is sent when a consensus messages is received to be sent to pbft
+type pbftMessageEvent pbftMessage
+
+// viewChangedEvent is sent when the view change timer expires
+type viewChangedEvent struct{}
+
+// returnRequestEvent is sent by pbft when we are forwarded a request
+type returnRequestEvent *Request
+
+// nullRequestEvent provides "keep-alive" null requests
+type nullRequestEvent struct{}
 
 // Unless otherwise noted, all methods consume the PBFT thread, and should therefore
 // not rely on PBFT accomplishing any work while that thread is being held
@@ -120,14 +144,14 @@ type pbftCore struct {
 
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
-	newViewTimer       eventTimer          // timeout triggering a view change
+	newViewTimer       events.Timer        // timeout triggering a view change
 	requestTimeout     time.Duration       // progress timeout for requests
 	newViewTimeout     time.Duration       // progress timeout for new views
 	newViewTimerReason string              // what triggered the timer
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
 	outstandingReqs    map[string]*Request // track whether we are waiting for requests to execute
 
-	nullRequestTimer   eventTimer    // timeout triggering a null request
+	nullRequestTimer   events.Timer  // timeout triggering a null request
 	nullRequestTimeout time.Duration // duration for this timeout
 	viewChangePeriod   uint64        // period between automatic view changes
 	viewChangeSeqNo    uint64        // next seqNo to perform view change
@@ -186,7 +210,7 @@ func (a sortableUint64Slice) Less(i, j int) bool {
 // constructors
 // =============================================================================
 
-func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf eventTimerFactory) *pbftCore {
+func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events.TimerFactory) *pbftCore {
 	var err error
 	instance := &pbftCore{}
 	instance.id = id
@@ -199,8 +223,8 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf eventT
 	instance.idleChan = make(chan struct{})
 	instance.injectChan = make(chan func())
 
-	instance.newViewTimer = etf.createTimer()
-	instance.nullRequestTimer = etf.createTimer()
+	instance.newViewTimer = etf.CreateTimer()
+	instance.nullRequestTimer = etf.CreateTimer()
 
 	instance.N = config.GetInt("general.N")
 	instance.f = config.GetInt("general.f")
@@ -284,12 +308,12 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf eventT
 
 // close tears down resources opened by newPbftCore
 func (instance *pbftCore) close() {
-	instance.newViewTimer.halt()
-	instance.nullRequestTimer.halt()
+	instance.newViewTimer.Halt()
+	instance.nullRequestTimer.Halt()
 }
 
 // allow the view-change protocol to kick-off when the timer expires
-func (instance *pbftCore) processEvent(e interface{}) interface{} {
+func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 	var err error
 
 	logger.Debug("Replica %d processing event", instance.id)
@@ -578,7 +602,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 	}
 
 	if instance.primary(instance.view) == instance.id && instance.activeView { // if we're primary of current view
-		instance.nullRequestTimer.stop()
+		instance.nullRequestTimer.Stop()
 		instance.sendPrePrepare(req, digest)
 	} else {
 		logger.Debug("Replica %d is backup, not sending pre-prepare for request %s", instance.id, digest)
@@ -711,7 +735,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	}
 
 	instance.softStartTimer(instance.requestTimeout, fmt.Sprintf("new pre-prepare for %s", preprep.RequestDigest))
-	instance.nullRequestTimer.stop()
+	instance.nullRequestTimer.Stop()
 
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
 		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
@@ -1052,7 +1076,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	}
 }
 
-func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) event {
+func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.Id)
 
@@ -1146,7 +1170,7 @@ func (instance *pbftCore) recvFetchRequest(fr *FetchRequest) (err error) {
 	return
 }
 
-func (instance *pbftCore) recvReturnRequest(req *Request) event {
+func (instance *pbftCore) recvReturnRequest(req *Request) events.Event {
 	digest := hashReq(req)
 	if _, ok := instance.missingReqs[digest]; !ok {
 		return nil // either the wrong digest, or we got it already from someone else
@@ -1220,7 +1244,7 @@ func (instance *pbftCore) startTimerIfOutstandingRequests() {
 			// we're waiting for the primary to deliver a null request - give it a bit more time
 			timeout += instance.requestTimeout
 		}
-		instance.nullRequestTimer.reset(timeout, nullRequestEvent{})
+		instance.nullRequestTimer.Reset(timeout, nullRequestEvent{})
 	}
 }
 
@@ -1228,17 +1252,17 @@ func (instance *pbftCore) softStartTimer(timeout time.Duration, reason string) {
 	logger.Debug("Replica %d soft starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.newViewTimerReason = reason
 	instance.timerActive = true
-	instance.newViewTimer.softReset(timeout, viewChangeTimerEvent{})
+	instance.newViewTimer.SoftReset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
 	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.timerActive = true
-	instance.newViewTimer.reset(timeout, viewChangeTimerEvent{})
+	instance.newViewTimer.Reset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) stopTimer() {
 	logger.Debug("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
-	instance.newViewTimer.stop()
+	instance.newViewTimer.Stop()
 }
