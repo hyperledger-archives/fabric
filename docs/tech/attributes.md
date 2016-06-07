@@ -135,7 +135,7 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
    * A list of attributes (e.g. Company:ACME, Position: Software Engineer)
 2. Under TLS TCA sends a RequestAttributes() to ACA to verify if the user is in possession of those attributes. This request is signed with TCA's private key and it contains:
    * User's ECert
-   * A list of key-value attributes where the values are hashed:
+   * A list of "attribute name, value hash" pairs where value hash is a hash of the attribute value:
      * Company: Hash(ACME)
      * Position: Hash(Software Engineer)
 3. ACA performs a query to the internal attributes database and there are three possible scenarios***:
