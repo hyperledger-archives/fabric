@@ -89,6 +89,9 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 	if err != nil {
 		return nil, err
 	}
+	if certRaw == nil {
+		return nil, errors.New("The certificate can't be nil.")
+	}
 	var tcert *x509.Certificate
 	tcert, err = primitives.DERToX509Certificate(certRaw)
 	if err != nil {
@@ -101,6 +104,9 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 	rawMetadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
+	}
+	if rawMetadata == nil {
+		return nil, errors.New("The rawMetadata can't be nil.")
 	}
 	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
 	if err != nil {
@@ -175,7 +181,7 @@ func (attributesHandler *AttributesHandlerImpl) VerifyAttributes(attrs ...*Attri
 	for _, attribute := range attrs {
 		val, err := attributesHandler.VerifyAttribute(attribute.Name, attribute.Value)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		if !val {
 			return val, nil
