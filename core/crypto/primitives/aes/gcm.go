@@ -19,18 +19,21 @@ package aes
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"fmt"
+	"io"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"io"
 )
 
 type aesSecretKeyImpl struct {
 	key []byte
+	r   io.Reader
 }
 
 func (sk *aesSecretKeyImpl) GetRand() io.Reader {
-	return nil
+	return sk.r
 }
 
 type aes256GSMStreamCipherImpl struct {
@@ -115,7 +118,7 @@ func (spi *aes256GSMStreamCipherSPIImpl) GenerateKey() (primitives.SecretKey, er
 		return nil, err
 	}
 
-	return &aesSecretKeyImpl{key}, nil
+	return &aesSecretKeyImpl{key, rand.Reader}, nil
 }
 
 func (spi *aes256GSMStreamCipherSPIImpl) GenerateKeyAndSerialize() (primitives.SecretKey, []byte, error) {
@@ -124,16 +127,19 @@ func (spi *aes256GSMStreamCipherSPIImpl) GenerateKeyAndSerialize() (primitives.S
 		return nil, nil, err
 	}
 
-	return &aesSecretKeyImpl{key}, utils.Clone(key), nil
+	return &aesSecretKeyImpl{key, rand.Reader}, utils.Clone(key), nil
 }
 
-func (spi *aes256GSMStreamCipherSPIImpl) NewSecretKey(rand io.Reader, params interface{}) (primitives.SecretKey, error) {
+func (spi *aes256GSMStreamCipherSPIImpl) NewSecretKey(r io.Reader, params interface{}) (primitives.SecretKey, error) {
 	switch t := params.(type) {
 	case []byte:
 		if len(t) != 32 {
 			return nil, fmt.Errorf("Invalid key lentgh. Len was [%d], expected [32].", len(t))
 		}
-		return &aesSecretKeyImpl{t}, nil
+		if r == nil {
+			r = rand.Reader
+		}
+		return &aesSecretKeyImpl{t, r}, nil
 	default:
 		return nil, primitives.ErrInvalidKeyGeneratorParameter
 	}
@@ -206,7 +212,7 @@ func (spi *aes256GSMStreamCipherSPIImpl) SerializeSecretKey(secret primitives.Se
 // DeserializePrivateKey deserializes to a private key
 func (spi *aes256GSMStreamCipherSPIImpl) DeserializeSecretKey(bytes []byte) (primitives.SecretKey, error) {
 	if len(bytes) >= 32 {
-		return &aesSecretKeyImpl{bytes[:32]}, nil
+		return &aesSecretKeyImpl{bytes[:32], rand.Reader}, nil
 	}
 	return nil, primitives.ErrInvalidKeyParameter
 }
