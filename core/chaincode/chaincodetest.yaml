@@ -40,14 +40,14 @@ logging:
 # - auditing client: AUDITOR
 #
 eca:
-        affiliation_groups:
+        affiliations:
            banks_and_institutions:
               banks:
-                  bank_a:
-                  bank_b:
-                  bank_c:              		
+                  - bank_a
+                  - bank_b
+                  - bank_c
               institutions:
-                  institution_a:
+                  - institution_a
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
                 lukas: 1 NPKYL39uKbkj institution_a	00001
@@ -429,7 +429,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.
