@@ -127,11 +127,6 @@ func (sts *coordinatorImpl) SyncToTarget(blockNumber uint64, blockHash []byte, p
 	return err, recoverable
 }
 
-// Start starts the block thread go routine
-func (sts *coordinatorImpl) Start() {
-	go sts.blockThread()
-}
-
 // Stop stops the blockthread go routine
 func (sts *coordinatorImpl) Stop() {
 	select {
@@ -702,7 +697,7 @@ func (sts *coordinatorImpl) attemptStateTransfer(mark *blockHashReply) (error, b
 }
 
 // blockUntilIdle makes a best effort to block until the state transfer is idle
-func (sts *coordinatorImpl) blockUntilIdle() {
+func (sts *StateTransferState) blockUntilIdle() {
 	logger.Debugf("%v caller requesting to block until idle", sts.id)
 	select {
 	case <-sts.blockThreadIdleChan:
