@@ -409,10 +409,12 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 }
 
 func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
-	Trace.Println("Reading certificate for " + id + ".")
+	Trace.Printf("Reading certificate for %s and usage %v", id, usage)
 
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
+
+	Trace.Printf("err %v", err)
 
 	return raw, err
 }
