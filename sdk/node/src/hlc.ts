@@ -48,6 +48,7 @@ process.env['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA';
 
 var debugModule = require('debug');
 var fs = require('fs');
+var targz = require('tar.gz');
 var urlParser = require('url');
 var grpc = require('grpc');
 var util = require('util');
@@ -1129,8 +1130,8 @@ export class TransactionContext extends events.EventEmitter {
      * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
    */
     deploy(deployRequest:DeployRequest):TransactionContext {
-        console.log("ENTER TransactionContext.deploy");
-        console.log("received deploy request: %j", deployRequest);
+        console.log("TransactionContext.deploy");
+        console.log("Received deploy request: %j", deployRequest);
 
         let self = this;
 
@@ -1143,17 +1144,17 @@ export class TransactionContext extends events.EventEmitter {
                 return self;
             }
 
-            console.log("got a TCert successfully, continue...");
+            console.log("Got a TCert successfully, continue...");
 
             self.newBuildOrDeployTransaction(deployRequest, false, function(err, deployTx) {
               if (err) {
-                console.error("Error in newBuildOrDeployTransaction ---> " + err);
+                console.log("Error in newBuildOrDeployTransaction [%s]", err);
                 self.emit('error', err);
 
                 return self;
               }
 
-              console.log("Calling execute ...");
+              console.log("Calling TransactionContext.execute");
 
               return self.execute(deployTx);
             });
@@ -1393,83 +1394,209 @@ export class TransactionContext extends events.EventEmitter {
      * @param request {Object} A BuildRequest or DeployRequest
      */
     private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
-      	console.log("ENTER newBuildOrDeployTransaction");
+      	console.log("newBuildOrDeployTransaction");
 
         let self = this;
 
         // Determine the user's $GOPATH
         let goPath =  process.env.GOPATH;
-        console.log("$GOPATH ---> " + goPath);
+        console.log("$GOPATH: " + goPath);
 
         // Compose the path to the chaincode project directory
         let projDir = goPath + "/src/" + request.chaincodePath;
-        console.log("projDir ---> " + projDir);
+        console.log("projDir: " + projDir);
 
         // Compute the hash of the chaincode deployment parameters
         let hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
 
         // Compute the hash of the project directory contents
         hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
-        console.log("hash --> " + hash);
+        console.log("hash: " + hash);
 
+        // Compose the Dockerfile commands
+     	  let dockerFileContents =
+        "from hyperledger/fabric-baseimage" + "\n" +
+     	  "COPY . $GOPATH/src/build-chaincode/" + "\n" +
+     	  "WORKDIR $GOPATH" + "\n\n" +
+     	  "RUN go install build-chaincode && cp src/build-chaincode/vendor/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/build-chaincode $GOPATH/bin/%s";
 
-        let tx = new _fabricProto.Transaction();
+     	  // Substitute the hashStrHash for the image name
+     	  dockerFileContents = util.format(dockerFileContents, hash);
 
-        /*
-        if (isBuildRequest) {
-            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
-        } else {
-            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
-        }
+     	  // Create a Docker file with dockerFileContents
+     	  let dockerFilePath = projDir + "/Dockerfile";
+     	  fs.writeFile(dockerFilePath, dockerFileContents, function(err) {
+            if (err) {
+                console.log(util.format("Error writing file [%s]: %s", dockerFilePath, err));
+                return cb(Error(util.format("Error writing file [%s]: %s", dockerFilePath, err)));
+            }
 
-        // Set the chaincodeID
-        let chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.chaincodeID);
-        debug("newBuildOrDeployTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
-        tx.setChaincodeID(chaincodeID.toBuffer());
+            console.log("Created Dockerfile at [%s]", dockerFilePath);
 
-        // Construct the ChaincodeSpec
-        let chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
-        // Set Type -- GOLANG is the only chaincode language supported at this time
-        chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
-        // Set chaincodeID
-        chaincodeSpec.setChaincodeID(chaincodeID);
-        // Set ctorMsg
-        let chaincodeInput = new _chaincodeProto.ChaincodeInput();
-        chaincodeInput.setFunction(request.fcn);
-        chaincodeInput.setArgs(request.args);
-        chaincodeSpec.setCtorMsg(chaincodeInput);
+            // Create the .tar.gz file of the chaincode package
+            let targzFilePath = "/tmp/deployment-package.tar.gz";
+            // Do not include top level directory as Dockerfile must be at root of package
+            let tarball = new targz({}, {
+                fromBase: true
+            });
+            // Create the compressed archive
+            tarball.compress(projDir, targzFilePath, function(err) {
+                if(err) {
+                    console.log(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
+                    return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
+                }
 
-        // Construct the ChaincodeDeploymentSpec (i.e. the payload)
-        let chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
-        chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
-        tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+                console.log(util.format("Created deployment archive at [%s]", targzFilePath));
 
-        // Set the transaction UUID
-        if (self.chain.isDevMode()) {
-            tx.setUuid(request.chaincodeID);
-        } else {
-            tx.setUuid(generateUUID());
-        }
+                //
+                // Initialize a transaction structure
+                //
 
-        // Set the transaction timestamp
-        tx.setTimestamp(generateTimestamp());
+                let tx = new _fabricProto.Transaction();
 
-        // Set confidentiality level
-        if (request.confidential) {
-            debug('Set confidentiality on');
-            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL)
-        } else {
-            debug('Set confidentiality on');
-            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC)
-        }
+                //
+                // Set the transaction type
+                //
 
-        if (request.metadata) {
-            tx.setMetadata(request.metadata)
-        }
-        */
+                if (isBuildRequest) {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+                } else {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+                }
 
-        return cb(null, tx);
+                //
+                // Set the chaincodeID
+                //
+
+                let chaincodeID = new _chaincodeProto.ChaincodeID();
+                chaincodeID.setName(hash);
+                console.log("chaincodeID: " + JSON.stringify(chaincodeID));
+                tx.setChaincodeID(chaincodeID.toBuffer());
+
+                //
+                // Set the payload
+                //
+
+                // Construct the ChaincodeSpec
+                let chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+
+                // Set Type -- GOLANG is the only chaincode language supported at this time
+                chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+                // Set chaincodeID
+                chaincodeSpec.setChaincodeID(chaincodeID);
+                // Set ctorMsg
+                let chaincodeInput = new _chaincodeProto.ChaincodeInput();
+                chaincodeInput.setFunction(request.fcn);
+                chaincodeInput.setArgs(request.args);
+                chaincodeSpec.setCtorMsg(chaincodeInput);
+                console.log("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+
+                // Construct the ChaincodeDeploymentSpec and set it as the Transaction payload
+                let chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
+                chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+
+                // Read in the .tar.zg and set it as the CodePackage in ChaincodeDeploymentSpec
+                fs.readFile(targzFilePath, function(err, data) {
+                    if(err) {
+                        console.log(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
+                        return cb(Error(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err)));
+                    }
+
+                    console.log(util.format("Read in deployment archive from [%s]", targzFilePath));
+
+                    chaincodeDeploymentSpec.setCodePackage(data);
+                    tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+
+                    //
+                    // Set the transaction UUID
+                    //
+
+                    if (self.chain.isDevMode()) {
+                        tx.setUuid(request.chaincodeID);
+                    } else {
+                        tx.setUuid(sdk_util.GenerateUUID());
+                    }
+
+                    //
+                    // Set the transaction timestamp
+                    //
+
+                    tx.setTimestamp(sdk_util.GenerateTimestamp());
+
+                    //
+                    // Set confidentiality level
+                    //
+
+                    if (request.confidential) {
+                        debug("Set confidentiality level to CONFIDENTIAL");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
+                    } else {
+                        debug("Set confidentiality level to PUBLIC");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
+                    }
+
+                    //
+                    // Set request metadata
+                    //
+
+                    if (request.metadata) {
+                        tx.setMetadata(request.metadata);
+                    }
+
+                    //
+                    // Set the user certificate data
+                    //
+
+                    if (request.userCert) {
+                        // cert based
+                        let certRaw = new Buffer(self.tcert.publicKey);
+                        // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+                        let nonceRaw = new Buffer(self.nonce);
+                        let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+                        // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+                        this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+                        // debug('========== Binding [%s]', this.binding.toString('hex'));
+                        let ctor = chaincodeSpec.getCtorMsg().toBuffer();
+                        // debug('========== Ctor [%s]', ctor.toString('hex'));
+                        let txmsg = Buffer.concat([ctor, this.binding]);
+                        // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
+                        let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+                        let sigma = new Buffer(mdsig.toDER());
+                        // debug('========== Sigma [%s]', sigma.toString('hex'));
+                        tx.setMetadata(sigma);
+                    }
+
+                    //
+                    // Clean up temporary files
+                    //
+
+                    // Remove the temporary .tar.gz with the deployment contents and the Dockerfile
+                    fs.unlink(targzFilePath, function(err) {
+                        if(err) {
+                            console.log(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
+                            return cb(Error(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err)));
+                        }
+
+                        console.log("Temporary archive deleted successfully ---> " + targzFilePath);
+
+                        fs.unlink(dockerFilePath, function(err) {
+                            if(err) {
+                                console.log(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
+                                return cb(Error(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err)));
+                            }
+
+                            console.log("File deleted successfully ---> " + dockerFilePath);
+
+                            //
+                            // Return the deploy transaction structure
+                            //
+
+                            return cb(null, tx);
+                        }); // end delete Dockerfile
+                    }); // end delete .tar.gz
+              }); // end reading .tar.zg and composing transaction
+	         }); // end writing .tar.gz
+	      }); // end writing Dockerfile
     } // end newBuildOrDeployTransaction
 
     /**
@@ -1611,19 +1738,19 @@ export class Peer {
 
             console.log("peer.sendTransaction: received %j", response);
 
-            // Check transaction type here, as deploy/invoke are asynchronous calls,
-            // whereas a query is a synchonous call. As such, deploy/invoke will emit
-            // 'submitted' and 'error', while a query will emit 'complete' and 'error'.
+            // Check transaction type here, as invoke is an asynchronous call,
+            // whereas a deploy and a query are synchonous calls. As such,
+            // invoke will emit 'submitted' and 'error', while a deploy/query
+            // will emit 'complete' and 'error'.
             let txType = tx.getType();
             switch (txType) {
-                case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
+                case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // sync
                     if (response.status === "SUCCESS") {
-                        // Deploy transaction has been submitted
+                        // Deploy transaction has been completed
                         if (!response.msg || response.msg === "") {
-                            eventEmitter.emit('error', 'the response is missing the transaction UUID');
+                            eventEmitter.emit('error', 'the deploy response is missing the transaction UUID');
                         } else {
-                            eventEmitter.emit('submitted', response.msg);
-                            self.waitToComplete(eventEmitter);
+                            eventEmitter.emit('complete', response.msg);
                         }
                     } else {
                         // Deploy completed with status "FAILURE" or "UNDEFINED"
@@ -1633,8 +1760,12 @@ export class Peer {
                 case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
                     if (response.status === "SUCCESS") {
                         // Invoke transaction has been submitted
-                        eventEmitter.emit('submitted', response.msg.toString());
-                        self.waitToComplete(eventEmitter);
+                        if (!response.msg || response.msg === "") {
+                            eventEmitter.emit('error', 'the invoke response is missing the transaction UUID');
+                        } else {
+                            eventEmitter.emit('submitted', response.msg);
+                            self.waitToComplete(eventEmitter);
+                        }
                     } else {
                         // Invoke completed with status "FAILURE" or "UNDEFINED"
                         eventEmitter.emit('error', response.msg);

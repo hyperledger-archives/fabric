@@ -7,6 +7,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 process.env['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA';
 var debugModule = require('debug');
 var fs = require('fs');
+var targz = require('tar.gz');
 var urlParser = require('url');
 var grpc = require('grpc');
 var util = require('util');
@@ -525,8 +526,8 @@ var TransactionContext = (function (_super) {
     };
     ;
     TransactionContext.prototype.deploy = function (deployRequest) {
-        console.log("ENTER TransactionContext.deploy");
-        console.log("received deploy request: %j", deployRequest);
+        console.log("TransactionContext.deploy");
+        console.log("Received deploy request: %j", deployRequest);
         var self = this;
         self.getMyTCert(function (err) {
             if (err) {
@@ -534,14 +535,14 @@ var TransactionContext = (function (_super) {
                 self.emit('error', err);
                 return self;
             }
-            console.log("got a TCert successfully, continue...");
+            console.log("Got a TCert successfully, continue...");
             self.newBuildOrDeployTransaction(deployRequest, false, function (err, deployTx) {
                 if (err) {
-                    console.error("Error in newBuildOrDeployTransaction ---> " + err);
+                    console.log("Error in newBuildOrDeployTransaction [%s]", err);
                     self.emit('error', err);
                     return self;
                 }
-                console.log("Calling execute ...");
+                console.log("Calling TransactionContext.execute");
                 return self.execute(deployTx);
             });
         });
@@ -685,17 +686,113 @@ var TransactionContext = (function (_super) {
         return this.chain.cryptoPrimitives.aes256GCMDecrypt(key, ct);
     };
     TransactionContext.prototype.newBuildOrDeployTransaction = function (request, isBuildRequest, cb) {
-        console.log("ENTER newBuildOrDeployTransaction");
+        console.log("newBuildOrDeployTransaction");
         var self = this;
         var goPath = process.env.GOPATH;
-        console.log("$GOPATH ---> " + goPath);
+        console.log("$GOPATH: " + goPath);
         var projDir = goPath + "/src/" + request.chaincodePath;
-        console.log("projDir ---> " + projDir);
+        console.log("projDir: " + projDir);
         var hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
         hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
-        console.log("hash --> " + hash);
-        var tx = new _fabricProto.Transaction();
-        return cb(null, tx);
+        console.log("hash: " + hash);
+        var dockerFileContents = "from hyperledger/fabric-baseimage" + "\n" +
+            "COPY . $GOPATH/src/build-chaincode/" + "\n" +
+            "WORKDIR $GOPATH" + "\n\n" +
+            "RUN go install build-chaincode && cp src/build-chaincode/vendor/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/build-chaincode $GOPATH/bin/%s";
+        dockerFileContents = util.format(dockerFileContents, hash);
+        var dockerFilePath = projDir + "/Dockerfile";
+        fs.writeFile(dockerFilePath, dockerFileContents, function (err) {
+            if (err) {
+                console.log(util.format("Error writing file [%s]: %s", dockerFilePath, err));
+                return cb(Error(util.format("Error writing file [%s]: %s", dockerFilePath, err)));
+            }
+            console.log("Created Dockerfile at [%s]", dockerFilePath);
+            var targzFilePath = "/tmp/deployment-package.tar.gz";
+            var tarball = new targz({}, {
+                fromBase: true
+            });
+            tarball.compress(projDir, targzFilePath, function (err) {
+                if (err) {
+                    console.log(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
+                    return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
+                }
+                console.log(util.format("Created deployment archive at [%s]", targzFilePath));
+                var tx = new _fabricProto.Transaction();
+                if (isBuildRequest) {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+                }
+                else {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+                }
+                var chaincodeID = new _chaincodeProto.ChaincodeID();
+                chaincodeID.setName(hash);
+                console.log("chaincodeID: " + JSON.stringify(chaincodeID));
+                tx.setChaincodeID(chaincodeID.toBuffer());
+                var chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+                chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+                chaincodeSpec.setChaincodeID(chaincodeID);
+                var chaincodeInput = new _chaincodeProto.ChaincodeInput();
+                chaincodeInput.setFunction(request.fcn);
+                chaincodeInput.setArgs(request.args);
+                chaincodeSpec.setCtorMsg(chaincodeInput);
+                console.log("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+                var chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
+                chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+                fs.readFile(targzFilePath, function (err, data) {
+                    if (err) {
+                        console.log(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
+                        return cb(Error(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err)));
+                    }
+                    console.log(util.format("Read in deployment archive from [%s]", targzFilePath));
+                    chaincodeDeploymentSpec.setCodePackage(data);
+                    tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+                    if (self.chain.isDevMode()) {
+                        tx.setUuid(request.chaincodeID);
+                    }
+                    else {
+                        tx.setUuid(sdk_util.GenerateUUID());
+                    }
+                    tx.setTimestamp(sdk_util.GenerateTimestamp());
+                    if (request.confidential) {
+                        debug("Set confidentiality level to CONFIDENTIAL");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
+                    }
+                    else {
+                        debug("Set confidentiality level to PUBLIC");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
+                    }
+                    if (request.metadata) {
+                        tx.setMetadata(request.metadata);
+                    }
+                    if (request.userCert) {
+                        var certRaw = new Buffer(self.tcert.publicKey);
+                        var nonceRaw = new Buffer(self.nonce);
+                        var bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+                        this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+                        var ctor = chaincodeSpec.getCtorMsg().toBuffer();
+                        var txmsg = Buffer.concat([ctor, this.binding]);
+                        var mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+                        var sigma = new Buffer(mdsig.toDER());
+                        tx.setMetadata(sigma);
+                    }
+                    fs.unlink(targzFilePath, function (err) {
+                        if (err) {
+                            console.log(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
+                            return cb(Error(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err)));
+                        }
+                        console.log("Temporary archive deleted successfully ---> " + targzFilePath);
+                        fs.unlink(dockerFilePath, function (err) {
+                            if (err) {
+                                console.log(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
+                                return cb(Error(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err)));
+                            }
+                            console.log("File deleted successfully ---> " + dockerFilePath);
+                            return cb(null, tx);
+                        });
+                    });
+                });
+            });
+        });
     };
     TransactionContext.prototype.newInvokeOrQueryTransaction = function (request, isInvokeRequest) {
         var self = this;
@@ -765,11 +862,10 @@ var Peer = (function () {
                     case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY:
                         if (response.status === "SUCCESS") {
                             if (!response.msg || response.msg === "") {
-                                eventEmitter.emit('error', 'the response is missing the transaction UUID');
+                                eventEmitter.emit('error', 'the deploy response is missing the transaction UUID');
                             }
                             else {
-                                eventEmitter.emit('submitted', response.msg);
-                                self.waitToComplete(eventEmitter);
+                                eventEmitter.emit('complete', response.msg);
                             }
                         }
                         else {
@@ -778,8 +874,13 @@ var Peer = (function () {
                         break;
                     case _fabricProto.Transaction.Type.CHAINCODE_INVOKE:
                         if (response.status === "SUCCESS") {
-                            eventEmitter.emit('submitted', response.msg.toString());
-                            self.waitToComplete(eventEmitter);
+                            if (!response.msg || response.msg === "") {
+                                eventEmitter.emit('error', 'the invoke response is missing the transaction UUID');
+                            }
+                            else {
+                                eventEmitter.emit('submitted', response.msg);
+                                self.waitToComplete(eventEmitter);
+                            }
                         }
                         else {
                             eventEmitter.emit('error', response.msg);

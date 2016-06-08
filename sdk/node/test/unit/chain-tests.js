@@ -234,7 +234,7 @@ test('Deploy a chaincode by enrolled user', function(t) {
     // Function to trigger
     fcn: "init",
     // Arguments to the initializing function
-    args: ["a", "101010", "b", "202020"]
+    args: ["a", "123", "b", "456"]
   };
 
   // Trigger the deploy transaction
@@ -246,7 +246,7 @@ test('Deploy a chaincode by enrolled user', function(t) {
 
     // Set the chaincode name (hash returned) for subsequent tests
     //testChaincodeName = deployRequest.tag;
-    t.pass("Successfully deployed chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> ChaincodeName : " + results);
+    t.pass("Successfully deployed chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> txUUID : " + results);
   });
   deployTx.on('error', function(results) {
     // Deploy request failed
@@ -398,7 +398,7 @@ test.skip('Query non-existing chaincode function by enrolled user', function (t)
 //
 
 test.skip('Invoke a chaincode by enrolled user', function (t) {
-    t.plan(2);
+    t.plan(1);
 
     // Construct the invoke request
     var invokeRequest = {
@@ -417,18 +417,9 @@ test.skip('Invoke a chaincode by enrolled user', function (t) {
     invokeTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
         t.pass("Successfully submitted chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.fcn + ", args: " + invokeRequest.args + " : " + results);
-
-        // Insure the txUUID returned is not an empty string
-        if (results === "") {
-            t.fail("Invoke transaction UUID is blank" + " ---> " + "UUID : " + results);
-        } else {
-            t.pass("Invoke transaction UUID is present" + " ---> " + "UUID : " + results);
-            t.end()
-        }
     });
     invokeTx.on('error', function (err) {
         // Invoke transaction submission failed
         t.fail("Failed to submit chaincode invoke transaction" + " ---> " + "function: " + invokeRequest.fcn + ", args: " + invokeRequest.args + " : " + err);
-        t.end(err);
     });
 });
