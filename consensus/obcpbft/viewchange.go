@@ -20,6 +20,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 )
 
 // viewChangeQuorumEvent is returned to the event loop when the number of view change matches is exactly the required quorum size
@@ -120,7 +122,7 @@ func (instance *pbftCore) calcQSet() map[qidx]*ViewChange_PQ {
 	return qset
 }
 
-func (instance *pbftCore) sendViewChange() event {
+func (instance *pbftCore) sendViewChange() events.Event {
 	instance.stopTimer()
 
 	delete(instance.newViewStore, instance.view)
@@ -173,7 +175,7 @@ func (instance *pbftCore) sendViewChange() event {
 	return instance.recvViewChange(vc)
 }
 
-func (instance *pbftCore) recvViewChange(vc *ViewChange) event {
+func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -246,7 +248,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) event {
 	return nil
 }
 
-func (instance *pbftCore) sendNewView() event {
+func (instance *pbftCore) sendNewView() events.Event {
 
 	if _, ok := instance.newViewStore[instance.view]; ok {
 		logger.Debug("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
@@ -282,7 +284,7 @@ func (instance *pbftCore) sendNewView() event {
 	return instance.processNewView()
 }
 
-func (instance *pbftCore) recvNewView(nv *NewView) event {
+func (instance *pbftCore) recvNewView(nv *NewView) events.Event {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
@@ -303,7 +305,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) event {
 	return instance.processNewView()
 }
 
-func (instance *pbftCore) processNewView() event {
+func (instance *pbftCore) processNewView() events.Event {
 	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
@@ -388,11 +390,11 @@ func (instance *pbftCore) processNewView() event {
 	return nil
 }
 
-func (instance *pbftCore) processNewView2(nv *NewView) event {
+func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.stopTimer()
-	instance.nullRequestTimer.stop()
+	instance.nullRequestTimer.Stop()
 
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)

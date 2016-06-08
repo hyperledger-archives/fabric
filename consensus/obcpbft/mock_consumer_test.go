@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -52,7 +53,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case ce.consumer.getManager().queue() <- nil:
+	case ce.consumer.getManager().Queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
@@ -102,7 +103,7 @@ type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
-	getManager() eventManager // TODO, remove, this is a temporary measure
+	getManager() events.Manager // TODO, remove, this is a temporary measure
 	Close()
 	idleChannel() <-chan struct{}
 }
