@@ -17,7 +17,9 @@ limitations under the License.
 package ca
 
 import (
+	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"google/protobuf"
 	"io/ioutil"
@@ -58,7 +60,7 @@ func TestCreateCertificateSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ecert, priv, err := loadECertAndEnrollmentPrivateKey("test_user0")
+	ecert, priv, err := loadECertAndEnrollmentPrivateKey("test_user0", "MS9qrN8hFjlE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,8 +83,23 @@ func TestCreateCertificateSet(t *testing.T) {
 	}
 }
 
-func loadECertAndEnrollmentPrivateKey(enrollmentID string) (*x509.Certificate, []byte, error) {
-	enrollmentPrivateKey, err := ioutil.ReadFile("./test_resources/key_" + enrollmentID + ".dump")
+func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+	cooked, err := ioutil.ReadFile("./test_resources/key_" + enrollmentID + ".dump")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	block, _ := pem.Decode(cooked)
+	decryptedBlock, err := x509.DecryptPEMBlock(block, []byte(password))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	enrollmentPrivateKey, err := x509.ParseECPrivateKey(decryptedBlock)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -122,7 +139,7 @@ func initTCA() (*TCA, error) {
 	return tca, nil
 }
 
-func buildCertificateSetRequest(enrollID string, enrollmentPrivKey []byte, num int) (*protos.TCertCreateSetReq, error) {
+func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.PrivateKey, num int) (*protos.TCertCreateSetReq, error) {
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
