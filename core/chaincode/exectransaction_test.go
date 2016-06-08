@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/fabric/core/container"
+	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/system_chaincode"
@@ -409,7 +410,7 @@ func checkFinalState(uuid string, chaincodeID string) error {
 }
 
 // Invoke chaincode_example02
-func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string) error {
+func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string, destroyImage bool) error {
 
 	f := "init"
 	argsDeploy := []string{"a", "100", "b", "200"}
@@ -421,6 +422,17 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	}
 
 	time.Sleep(time.Second)
+
+	if destroyImage {
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		dir := container.DestroyImageReq{CCID: ccintf.CCID{ChaincodeSpec: spec, NetworkID: GetChain(DefaultChain).peerNetworkID, PeerID: GetChain(DefaultChain).peerID}, Force: true, NoPrune: true}
+
+		_, err = container.VMCProcess(ctxt, container.DOCKER, dir)
+		if err != nil {
+			err = fmt.Errorf("Error destroying image: %s", err)
+			return err
+		}
+	}
 
 	f = "invoke"
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
@@ -485,7 +497,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	chaincodeID := &pb.ChaincodeID{Path: url}
 
 	args := []string{"a", "b", "10"}
-	err = invokeExample02Transaction(ctxt, chaincodeID, args)
+	err = invokeExample02Transaction(ctxt, chaincodeID, args, true)
 	if err != nil {
 		t.Fail()
 		t.Logf("Error invoking transaction: %s", err)
@@ -667,7 +679,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 
 	//FAIL, FAIL!
 	args := []string{"x", "-1"}
-	err = invokeExample02Transaction(ctxt, chaincodeID, args)
+	err = invokeExample02Transaction(ctxt, chaincodeID, args, false)
 
 	//this HAS to fail with expectedDeltaStringPrefix
 	if err != nil {
