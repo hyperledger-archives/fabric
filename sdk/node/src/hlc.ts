@@ -186,10 +186,13 @@ export interface EnrollmentRequest {
 export interface GetMemberCallback { (err:Error, member?:Member):void }
 
 // The callback from the Chain.register method
-export interface RegisterCallback {(err:Error, enrollmentPassword?:string):void }
+export interface RegisterCallback { (err:Error, enrollmentPassword?:string):void }
 
 // The callback from the Chain.enroll method
-export interface EnrollCallback {(err:Error, enrollment?:Enrollment):void }
+export interface EnrollCallback { (err:Error, enrollment?:Enrollment):void }
+
+// The callback from the newBuildOrDeployTransaction
+export interface DeployTransactionCallback { (err:Error, deployTx?:Transaction):void }
 
 // Enrollment metadata
 export interface Enrollment {
@@ -283,6 +286,8 @@ export interface TransactionRequest {
  * Deploy request.
  */
 export interface DeployRequest extends TransactionRequest {
+    // The local path containing the chaincode to deploy.
+    chaincodePath:string;
 }
 
 /**
@@ -882,6 +887,8 @@ export class Member {
      * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
      */
     deploy(deployRequest:DeployRequest):TransactionContext {
+        console.log("ENTER Member.deploy");
+
         let tx = this.newTransactionContext();
         tx.deploy(deployRequest);
         return tx;
@@ -1121,17 +1128,34 @@ export class TransactionContext extends events.EventEmitter {
      * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
    */
     deploy(deployRequest:DeployRequest):TransactionContext {
+        console.log("ENTER TransactionContext.deploy");
+        console.log("received deploy request: %j", deployRequest);
+
         let self = this;
-        debug("received deploy request: %j",deployRequest);
+
+        // Get a TCert to use in the deployment transaction
         self.getMyTCert(function (err) {
             if (err) {
-                debug('Failed getting a new TCert [%s]', err);
+                console.log('Failed getting a new TCert [%s]', err);
                 self.emit('error', err);
 
-                return self
+                return self;
             }
 
-            return self.execute(self.newBuildOrDeployTransaction(deployRequest, false));
+            console.log("got a TCert successfully, continue...");
+
+            self.newBuildOrDeployTransaction(deployRequest, false, function(err, deployTx) {
+              if (err) {
+                console.error("Error in newBuildOrDeployTransaction ---> " + err);
+                self.emit('error', err);
+
+                return self;
+              }
+
+              console.log("Calling _execute ...");
+
+              return self.execute(deployTx);
+            });
         });
         return self;
     }
@@ -1181,7 +1205,7 @@ export class TransactionContext extends events.EventEmitter {
      * @param tx {Transaction} The transaction.
      */
     private execute(tx:Transaction):TransactionContext {
-        debug('Executing transaction [%j]', tx);
+        console.log('Executing transaction [%j]', tx);
 
         let self = this;
         // Get the TCert
@@ -1367,14 +1391,24 @@ export class TransactionContext extends events.EventEmitter {
      * Create a deploy transaction.
      * @param request {Object} A BuildRequest or DeployRequest
      */
-    private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean):Transaction {
+    private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+      	console.log("ENTER newBuildOrDeployTransaction");
+
         let self = this;
+
+        // Determine the user's $GOPATH
+        let goPath =  process.env.GOPATH;
+        console.log("$GOPATH ---> " + goPath);
+
         let tx = new _fabricProto.Transaction();
+
+        /*
         if (isBuildRequest) {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
         } else {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
         }
+
         // Set the chaincodeID
         let chaincodeID = new _chaincodeProto.ChaincodeID();
         chaincodeID.setName(request.chaincodeID);
@@ -1420,9 +1454,10 @@ export class TransactionContext extends events.EventEmitter {
         if (request.metadata) {
             tx.setMetadata(request.metadata)
         }
+        */
 
-        return tx;
-    }
+        return cb(null, tx);
+    } // end newBuildOrDeployTransaction
 
     /**
      * Create an invoke or query transaction.
@@ -1550,7 +1585,7 @@ export class Peer {
     sendTransaction = function (tx:Transaction, eventEmitter:events.EventEmitter) {
         var self = this;
 
-        //debug("peer.sendTransaction: sending %j", tx);
+        console.log("peer.sendTransaction: sending %j", tx);
 
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
@@ -1561,7 +1596,7 @@ export class Peer {
                 return eventEmitter.emit('error', err);
             }
 
-            debug("peer.sendTransaction: received %j", response);
+            console.log("peer.sendTransaction: received %j", response);
 
             // Check transaction type here, as deploy/invoke are asynchronous calls,
             // whereas a query is a synchonous call. As such, deploy/invoke will emit
@@ -1604,8 +1639,7 @@ export class Peer {
                 default: // not implemented
                     eventEmitter.emit('error', new Error("processTransaction for this transaction type is not yet implemented!"));
              }
-          }
-      );
+          });
     };
 
     /**
