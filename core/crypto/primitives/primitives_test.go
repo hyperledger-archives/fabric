@@ -243,6 +243,37 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed converting PEM to private key. Invalid Y coordinate.")
 	}
 
+	// Nil Private Key <-> PEM
+	_, err = PrivateKeyToPEM(nil, nil)
+	if err == nil {
+		t.Fatalf("PublicKeyToPEM should fail on nil")
+	}
+
+	_, err = PEMtoPrivateKey(nil, nil)
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on nil")
+	}
+
+	_, err = PEMtoPrivateKey([]byte{0,1,3,4}, nil)
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail invalid PEM")
+	}
+
+	_, err = DERToPrivateKey(nil)
+	if err == nil {
+		t.Fatalf("DERToPrivateKey should fail on nil")
+	}
+
+	_, err = DERToPrivateKey([]byte{0,1,3,4})
+	if err == nil {
+		t.Fatalf("DERToPrivateKey should fail on invalid DER")
+	}
+
+	_, err = PrivateKeyToDER(nil)
+	if err == nil {
+		t.Fatalf("DERToPrivateKey should fail on nil")
+	}
+
 	// Private Key Encrypted PEM format
 	encPEM, err := PrivateKeyToPEM(key, []byte("passwd"))
 	if err != nil {
@@ -282,7 +313,23 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed converting PEM to private key. Invalid Y coordinate.")
 	}
 
-	// Private Key Encrypted PEM format
+	// Nil Public Key <-> PEM
+	_, err = PublicKeyToPEM(nil, nil)
+	if err == nil {
+		t.Fatalf("PublicKeyToPEM should fail on nil")
+	}
+
+	_, err = PEMtoPublicKey(nil, nil)
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on nil")
+	}
+
+	_, err = PEMtoPublicKey([]byte{0,1,3,4}, nil)
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on invalid PEM")
+	}
+
+	// Public Key Encrypted PEM format
 	encPEM, err = PublicKeyToPEM(&key.PublicKey, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting private key to encrypted PEM [%s]", err)
@@ -298,6 +345,31 @@ func TestECDSAKeys(t *testing.T) {
 	}
 	if key.Y.Cmp(ecdsaPkFromEncPEM.Y) != 0 {
 		t.Fatalf("Failed converting encrypted PEM to private key. Invalid Y coordinate.")
+	}
+
+	_, err = PEMtoPublicKey(encPEM, []byte("passw"))
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on wrong password")
+	}
+
+	_, err = PEMtoPublicKey(encPEM, []byte("passw"))
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on nil password")
+	}
+
+	_, err = PEMtoPublicKey(nil, []byte("passwd"))
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on nil PEM")
+	}
+
+	_, err = PEMtoPublicKey([]byte{0,1,3,4}, []byte("passwd"))
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on invalid PEM")
+	}
+
+	_, err = PEMtoPublicKey(nil, []byte("passw"))
+	if err == nil {
+		t.Fatalf("PEMtoPublicKey should fail on nil PEM and wrong password")
 	}
 }
 
@@ -363,6 +435,7 @@ func TestX509(t *testing.T) {
 	if !reflect.DeepEqual(der, derFromPem) {
 		t.Fatalf("Invalid der from PEM [%x][%x]", der, derFromPem)
 	}
+
 	if err := CheckCertPKAgainstSK(certFromPEM, key); err != nil {
 		t.Fatalf("Failed checking cert vk against sk [%s]", err)
 	}

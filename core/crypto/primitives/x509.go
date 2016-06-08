@@ -163,8 +163,8 @@ func NewSelfSignedCert() ([]byte, interface{}, error) {
 				},
 			},
 		},
-		NotBefore: time.Unix(1000, 0),
-		NotAfter:  time.Unix(100000, 0),
+		NotBefore: time.Now().Add(-1 * time.Hour),
+		NotAfter:  time.Now().Add(1 * time.Hour),
 
 		SignatureAlgorithm: x509.ECDSAWithSHA384,
 
