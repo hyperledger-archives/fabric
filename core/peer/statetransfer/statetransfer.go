@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
-	"sync"
 	"time"
 
 	_ "github.com/hyperledger/fabric/core" // Logging format init
@@ -57,69 +56,29 @@ type PartialStack interface {
 	GetRemoteLedger(receiver *protos.PeerID) (peer.RemoteLedger, error)
 }
 
-// Listener is an interface which allows for other modules to register to receive events about the progress of state transfer
-type Listener interface {
-	Initiated(uint64, []byte, []*protos.PeerID, interface{})      // Called when the state transfer thread starts a new state transfe
-	Errored(uint64, []byte, []*protos.PeerID, interface{}, error) // Called when an error is encountered during state transfer, only the error is guaranteed to be set, other fields will be set on a best effort basis
-	Completed(uint64, []byte, []*protos.PeerID, interface{})      // Called when the state transfer is completed
-}
-
-// ProtoListener provides a simple base implementation of a state transfer listener which implementors can extend anonymously
-// Unset fields result in no action for that event
-type ProtoListener struct {
-	InitiatedImpl func(uint64, []byte, []*protos.PeerID, interface{})
-	ErroredImpl   func(uint64, []byte, []*protos.PeerID, interface{}, error)
-	CompletedImpl func(uint64, []byte, []*protos.PeerID, interface{})
-}
-
-// Initiated invokes the corresponding InitiatedImpl if it has been overwritten
-func (pstl *ProtoListener) Initiated(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}) {
-	if nil != pstl.InitiatedImpl {
-		pstl.InitiatedImpl(bn, bh, pids, m)
-	}
-}
-
-// Errored invokes the corresponding ErroredImpl if it has been overwritten
-func (pstl *ProtoListener) Errored(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}, e error) {
-	if nil != pstl.ErroredImpl {
-		pstl.ErroredImpl(bn, bh, pids, m, e)
-	}
-}
-
-// Completed invokes the corresponding CompletedImpl if it has been overwritten
-func (pstl *ProtoListener) Completed(bn uint64, bh []byte, pids []*protos.PeerID, m interface{}) {
-	if nil != pstl.CompletedImpl {
-		pstl.CompletedImpl(bn, bh, pids, m)
-	}
-}
-
 // StateTransferState is the structure used to manage the state of state transfer
 type StateTransferState struct {
 	stack PartialStack
 
 	DiscoveryThrottleTime time.Duration // The amount of time to wait after discovering there are no connected peers
 
-	asynchronousTransferInProgress bool // To be used by the main consensus thread, not atomic, so do not use by other threads
-
 	id *protos.PeerID // Useful log messages and not attempting to recover from ourselves
 
 	stateValid bool // Are we currently operating under the assumption that the state is valid?
+	inProgress bool // Set when state transfer is in progress so that the state may not be consistent
 
 	blockVerifyChunkSize uint64        // The max block length to attempt to sync at once, this prevents state transfer from being delayed while the blockchain is validated
 	validBlockRanges     []*blockRange // Used by the block thread to track which pieces of the blockchain have already been hashed
 	RecoverDamage        bool          // Whether state transfer should ever modify or delete existing blocks if they are determined to be corrupted
 
-	initiateStateSync chan *blockHashReply // Used to ensure only one state transfer at a time occurs, write to only from the main consensus thread
 	blockHashReceiver chan *blockHashReply // Used to process incoming valid block hashes, write only from the state thread
 	blockSyncReq      chan *blockSyncReq   // Used to request a block sync, new requests cause the existing request to abort, write only from the state thread
 
 	threadExit chan struct{} // Used to inform the threads that we are shutting down
 
 	blockThreadIdle bool // Used to check if the block thread is idle
-	stateThreadIdle bool // Used to check if the state thread is idle
 
 	blockThreadIdleChan chan struct{} // Used to block until the block thread is idle
-	stateThreadIdleChan chan struct{} // Used to block until the state thread is idle
 
 	BlockRequestTimeout         time.Duration // How long to wait for a peer to respond to a block request
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
@@ -129,154 +88,34 @@ type StateTransferState struct {
 	maxBlockRange      uint64 // The maximum number blocks to attempt to retrieve at once, to prevent from overflowing the peer's buffer
 	maxStateDeltaRange uint64 // The maximum number of state deltas to attempt to retrieve at once, to prevent from overflowing the peer's buffer
 
-	stateTransferListeners     []Listener  // A list of listeners to call when state transfer is initiated/errored/completed
-	stateTransferListenersLock *sync.Mutex // Used to lock the above list when adding a listener
+	currentStateBlockNumber uint64 // When state transfer does not complete successfully, the current state does not always correspond to the block height
 }
 
-// BlockingAddTarget Adds a target and blocks until that target's success or failure
-// If peerIDs is nil, all peers will be considered sync candidates
-// The function returns nil on success or error
-// If state sync completes, but to a different target, this is still considered an error
-func (sts *StateTransferState) BlockingAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) error {
-	result := make(chan error)
-
-	listener := struct{ ProtoListener }{}
-
-	listener.ErroredImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}, err error) {
-		result <- err
-	}
-
-	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
-		result <- nil
-	}
-
-	sts.RegisterListener(&listener)
-	defer sts.UnregisterListener(&listener)
-
-	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
-
-	return <-result
-}
-
-// BlockingUntilSuccessAddTarget adds a target and blocks until that target's success
-// If peerIDs is nil, all peers will be considered sync candidates
-// This call should only be used in scenarios where an error should result in a panic, as this could otherwise cause a deadlock
-func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) {
-	result := make(chan error)
-
-	listener := struct{ ProtoListener }{}
-
-	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
-		result <- nil
-	}
-
-	sts.RegisterListener(&listener)
-	defer sts.UnregisterListener(&listener)
-
-	sts.AddTarget(blockNumber, blockHash, peerIDs, nil)
-
-	<-result
-}
-
-// AddTarget Informs the asynchronous sync of a new valid block hash, as well as a list of peers which should be capable of supplying that block
-// If the peerIDs are nil, then all peers are assumed to have the given block.  If state transfer has not been initiated already,
-// this will kick state transfer off
-func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
-	logger.Debugf("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
+// SyncToTarget consumes the calling thread and attempts to perform state transfer until success or an error occurs
+// If the peerIDs are nil, then all peers are assumed to have the given block.
+// If the call returns an error, a boolean is included which indicates if the error may be transient and the caller should retry
+func (sts *StateTransferState) SyncToTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) (error, bool) {
+	logger.Debugf("%v attempting to sync to target %x for block number %d with peers %v", sts.id, blockHash, blockNumber, peerIDs)
 	bhr := &blockHashReply{
 		syncMark: syncMark{
 			blockNumber: blockNumber,
 			peerIDs:     peerIDs,
 		},
 		blockHash: blockHash,
-		metadata:  metadata,
 	}
 
-	sts.stateTransferListenersLock.Lock()
-	if sts.asynchronousTransferInProgress {
-		logger.Debugf("%v state transfer already in progress, not kicking off", sts.id)
-		sts.stateTransferListenersLock.Unlock()
-	} else {
-		sts.asynchronousTransferInProgress = true
-		sts.stateTransferListenersLock.Unlock()
-		select {
-		case sts.initiateStateSync <- &blockHashReply{
-			syncMark: syncMark{
-				blockNumber: 0,
-				peerIDs:     peerIDs,
-			},
-			blockHash: blockHash,
-			metadata:  metadata,
-		}:
-			logger.Debugf("%v initiating a new state transfer request", sts.id)
-		case <-sts.threadExit:
-			logger.Debugf("%v state transfer has been told to exit", sts.id)
-			return
-		}
+	if !sts.inProgress {
+		sts.currentStateBlockNumber = sts.stack.GetBlockchainSize() - 1 // The block height is one more than the latest block number
+		sts.inProgress = true
 	}
 
-	for {
-		select {
-		// This channel has a buffer of one, so this loop should always exit eventually
-		case sts.blockHashReceiver <- bhr:
-			logger.Debugf("%v block hash reply for block %d queued for state transfer", sts.id, blockNumber)
-			return
+	err, recoverable := sts.attemptStateTransfer(bhr)
 
-		case lastHash := <-sts.blockHashReceiver:
-			logger.Debugf("%v block hash reply for block %d discarded", sts.id, lastHash.blockNumber)
-		}
+	if err == nil {
+		sts.inProgress = false
 	}
 
-}
-
-// RegisterListener registers a listener which will be invoked whenever state transfer is initiated or completed, or encounters an error
-func (sts *StateTransferState) RegisterListener(listener Listener) {
-	sts.stateTransferListenersLock.Lock()
-	defer func() {
-		sts.stateTransferListenersLock.Unlock()
-	}()
-
-	sts.stateTransferListeners = append(sts.stateTransferListeners, listener)
-}
-
-// UnregisterListener unregisters a listener so that it no longer receive state transfer updates
-// Listeners must be comparable in order to be unregistered
-func (sts *StateTransferState) UnregisterListener(listener Listener) {
-	sts.stateTransferListenersLock.Lock()
-	defer func() {
-		sts.stateTransferListenersLock.Unlock()
-	}()
-
-	for i, l := range sts.stateTransferListeners {
-		if listener == l {
-			for j := i + 1; j < len(sts.stateTransferListeners); j++ {
-				sts.stateTransferListeners[j-1] = sts.stateTransferListeners[j]
-			}
-			sts.stateTransferListeners = sts.stateTransferListeners[:len(sts.stateTransferListeners)-1]
-			return
-		}
-	}
-}
-
-// CompletionChannel is a simple convenience method, for listeners who wish only to be notified that the state transfer has completed, without any additional information
-// For more sophisticated information, use the RegisterListener call.  This channel never closes but receives a message every time transfer completes
-func (sts *StateTransferState) CompletionChannel() chan struct{} {
-	complete := make(chan struct{}, 1)
-	listener := struct{ ProtoListener }{}
-	listener.CompletedImpl = func(bn uint64, bh []byte, pids []*protos.PeerID, md interface{}) {
-		select {
-		case complete <- struct{}{}:
-		default:
-		}
-	}
-	sts.RegisterListener(&listener)
-	return complete
-}
-
-// InProgress returns whether state transfer is currently occurring.  Note, this is not a thread safe call, it is expected
-// that the caller synchronizes around state transfer if it is to be accessed in a non-serial fashion
-func (sts *StateTransferState) InProgress() bool {
-	return sts.asynchronousTransferInProgress
+	return err, recoverable
 }
 
 // InvalidateState informs state transfer that the current state is invalid.  This will trigger an immediate full state snapshot sync
@@ -305,8 +144,6 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	var err error
 	sts := &StateTransferState{}
 
-	sts.stateTransferListenersLock = &sync.Mutex{}
-
 	sts.stack = stack
 	ep, err := stack.GetPeerEndpoint()
 
@@ -327,17 +164,13 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 		panic(fmt.Errorf("Must set statetransfer.blocksperrequest to be nonzero"))
 	}
 
-	sts.initiateStateSync = make(chan *blockHashReply)
-	sts.blockHashReceiver = make(chan *blockHashReply, 1)
 	sts.blockSyncReq = make(chan *blockSyncReq)
 
 	sts.threadExit = make(chan struct{})
 
 	sts.blockThreadIdle = true
-	sts.stateThreadIdle = true
 
 	sts.blockThreadIdleChan = make(chan struct{})
-	sts.stateThreadIdleChan = make(chan struct{})
 
 	sts.DiscoveryThrottleTime = 1 * time.Second // TODO make this configurable
 
@@ -378,7 +211,6 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 func NewStateTransferState(stack PartialStack) *StateTransferState {
 	sts := threadlessNewStateTransferState(stack)
 
-	go sts.stateThread()
 	go sts.blockThread()
 
 	return sts
@@ -388,14 +220,6 @@ func NewStateTransferState(stack PartialStack) *StateTransferState {
 // custom interfaces and structure definitions
 // =============================================================================
 
-type stateTransferUpdate int
-
-const (
-	initiated stateTransferUpdate = iota
-	errored
-	completed
-)
-
 type syncMark struct {
 	blockNumber uint64
 	peerIDs     []*protos.PeerID
@@ -404,7 +228,6 @@ type syncMark struct {
 type blockHashReply struct {
 	syncMark
 	blockHash []byte
-	metadata  interface{}
 }
 
 type blockSyncReq struct {
@@ -794,224 +617,99 @@ func (sts *StateTransferState) blockThread() {
 	}
 }
 
-func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uint64, mark **blockHashReply, blockHReply **blockHashReply, blocksValid *bool) error {
+func (sts *StateTransferState) attemptStateTransfer(mark *blockHashReply) (error, bool) {
 	var err error
+
+	if sts.currentStateBlockNumber+uint64(sts.maxStateDeltas) < mark.blockNumber {
+		sts.InvalidateState()
+	}
 
 	if !sts.stateValid {
 		// Our state is currently bad, so get a new one
-		*currentStateBlockNumber, err = sts.syncStateSnapshot((*mark).blockNumber, (*mark).peerIDs)
+		sts.currentStateBlockNumber, err = sts.syncStateSnapshot(mark.blockNumber, mark.peerIDs)
 
 		if nil != err {
-			*mark = &blockHashReply{ // Let's try to just sync state from anyone, for any sequence number
-				syncMark: syncMark{
-					blockNumber: 0,
-					peerIDs:     nil,
-				},
-			}
-			return fmt.Errorf("%v could not retrieve state as recent as %d from any of specified peers", sts.id, (*mark).blockNumber)
+			return fmt.Errorf("%v could not retrieve state as recent as %d from any of specified peers", sts.id, mark.blockNumber), true
 		}
 
-		logger.Debugf("%v completed state transfer to block %d", sts.id, *currentStateBlockNumber)
-	} else {
-		*currentStateBlockNumber = sts.stack.GetBlockchainSize() - 1 // The block height is one more than the latest block number
+		logger.Debugf("%v completed state transfer to block %d", sts.id, sts.currentStateBlockNumber)
 	}
 
 	// TODO, eventually we should allow lower block numbers and rewind transactions as needed
-	if nil == *blockHReply || (*blockHReply).blockNumber < *currentStateBlockNumber {
-
-		if nil == *blockHReply {
-			logger.Debugf("%v has no valid block hash to validate the blockchain with yet, waiting for a known valid block hash", sts.id)
-		} else {
-			logger.Debugf("%v already has valid blocks through %d but needs to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
-		}
-
-	outer:
-		for {
-			select {
-			case *blockHReply = <-sts.blockHashReceiver:
-				if (*blockHReply).blockNumber < *currentStateBlockNumber {
-					logger.Debugf("%v received a block hash reply for block number %d, which is not high enough", sts.id, (*blockHReply).blockNumber)
-				} else {
-					break outer
-				}
-			case <-sts.threadExit:
-				logger.Debug("Received request for state thread to exit while waiting for block hash")
-				return fmt.Errorf("Interrupted with request to exit while in state transfer.")
-			}
-		}
-		logger.Debugf("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
-		*blocksValid = false // We retrieved a new hash, we will need to sync to a new block
-
-		if *currentStateBlockNumber+uint64(sts.maxStateDeltas) < (*blockHReply).blockNumber {
-			sts.InvalidateState()
-			return fmt.Errorf("%v has a state for block %d which is too far out of date to play forward to block %d, max deltas are %d, invalidating",
-				sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.maxStateDeltas)
-		}
+	if mark.blockNumber < sts.currentStateBlockNumber {
+		return fmt.Errorf("%v cannot validate its state, because its current state corresponds to a higher block number %d than was supplied %d", sts.id, sts.currentStateBlockNumber, mark.blockNumber), false
 	}
 
-	if !*blocksValid {
-		(*mark) = *blockHReply // We now know of a more recent block hash
+	blockReplyChannel := make(chan error)
 
-		blockReplyChannel := make(chan error)
+	req := &blockSyncReq{
+		syncMark:       mark.syncMark,
+		reportOnBlock:  sts.currentStateBlockNumber,
+		replyChan:      blockReplyChannel,
+		firstBlockHash: mark.blockHash,
+	}
 
-		req := &blockSyncReq{
-			syncMark:       (*mark).syncMark,
-			reportOnBlock:  *currentStateBlockNumber,
-			replyChan:      blockReplyChannel,
-			firstBlockHash: (*blockHReply).blockHash,
-		}
+	select {
+	case sts.blockSyncReq <- req:
+	case <-sts.threadExit:
+		logger.Debug("Received request for a calling thread to exit while waiting for block sync reply")
+		return fmt.Errorf("Interrupted with request to exit while waiting for block sync reply."), false
+	}
 
-		select {
-		case sts.blockSyncReq <- req:
-		case <-sts.threadExit:
-			logger.Debug("Received request for state thread to exit while waiting for block sync reply")
-			return fmt.Errorf("Interrupted with request to exit while waiting for block sync reply.")
-		}
+	logger.Debugf("%v state transfer thread waiting for block sync to complete", sts.id)
+	select {
+	case err = <-blockReplyChannel:
+	case <-sts.threadExit:
+		return fmt.Errorf("Interrupted while waiting for block sync reply"), false
+	}
+	logger.Debugf("%v state transfer thread continuing", sts.id)
 
-		logger.Debugf("%v state transfer thread waiting for block sync to complete", sts.id)
-		err = <-blockReplyChannel // TODO, double check we can't get stuck here in shutdown
-		logger.Debugf("%v state transfer thread continuing", sts.id)
-
-		if err != nil {
-			return fmt.Errorf("%v could not retrieve all blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
-		}
-
-		*blocksValid = true
-	} else {
-		logger.Debugf("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+	if err != nil {
+		return fmt.Errorf("%v could not retrieve all blocks as recent as %d as requested: %s", sts.id, mark.blockNumber, err), true
 	}
 
 	stateHash, err := sts.stack.GetCurrentStateHash()
 	if nil != err {
 		sts.stateValid = false
-		return fmt.Errorf("%v could not compute its current state hash: %x", sts.id, err)
+		return fmt.Errorf("%v could not compute its current state hash: %s", sts.id, err), true
 
 	}
 
-	block, err := sts.stack.GetBlockByNumber(*currentStateBlockNumber)
-	if nil != err {
-		*blocksValid = false
-		return fmt.Errorf("%v believed its state for block %d to be valid, but it could not retrieve it : %s", sts.id, *currentStateBlockNumber, err)
+	block, err := sts.stack.GetBlockByNumber(sts.currentStateBlockNumber)
+	if err != nil {
+		return fmt.Errorf("%v could not get block %d though we just retreived it: %s", sts.id, sts.currentStateBlockNumber, err), true
 	}
 
 	if !bytes.Equal(stateHash, block.StateHash) {
 		if sts.stateValid {
 			sts.stateValid = false
-			return fmt.Errorf("%v believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, (*currentStateBlockNumber), stateHash, block.StateHash)
+			return fmt.Errorf("%v believed its state for block %d to be valid, but its hash (%x) did not match the recovered blockchain's (%x)", sts.id, sts.currentStateBlockNumber, stateHash, block.StateHash), true
 		}
-		return fmt.Errorf("%v recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, *currentStateBlockNumber, stateHash, block.StateHash)
+		return fmt.Errorf("%v recovered to an incorrect state at block number %d, (%x, %x)", sts.id, sts.currentStateBlockNumber, stateHash, block.StateHash), true
 	}
 
 	logger.Debugf("%v state is now valid", sts.id)
 
 	sts.stateValid = true
 
-	if *currentStateBlockNumber < (*blockHReply).blockNumber {
-		*currentStateBlockNumber, err = sts.playStateUpToBlockNumber(*currentStateBlockNumber+uint64(1), (*blockHReply).blockNumber, (*blockHReply).peerIDs)
+	if sts.currentStateBlockNumber < mark.blockNumber {
+		sts.currentStateBlockNumber, err = sts.playStateUpToBlockNumber(sts.currentStateBlockNumber+uint64(1), mark.blockNumber, mark.peerIDs)
 		if nil != err {
 			// This is unlikely, in the future, we may wish to play transactions forward rather than retry
 			sts.stateValid = false
-			return fmt.Errorf("%v was unable to play the state from block number %d forward to block %d, retrying with new state : %s", sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, err)
+			return fmt.Errorf("%v was unable to play the state from block number %d forward to block %d: %s", sts.id, sts.currentStateBlockNumber, mark.blockNumber, err), true
 		}
 	}
 
-	return nil
-}
-
-// A thread to process state transfer
-func (sts *StateTransferState) stateThread() {
-	for {
-		sts.stateThreadIdle = true
-		select {
-		// Wait for state sync to become necessary
-		case mark := <-sts.initiateStateSync:
-			sts.informListeners(mark.blockNumber, mark.blockHash, mark.peerIDs, mark.metadata, nil, initiated)
-			sts.stateThreadIdle = false
-
-			logger.Debugf("%v is initiating state transfer", sts.id)
-
-			var currentStateBlockNumber uint64
-			var blockHReply *blockHashReply
-			blocksValid := false
-
-			for {
-				if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
-					logger.Errorf("%s", err)
-					sts.informListeners(0, nil, mark.peerIDs, nil, err, errored)
-					select {
-					case <-sts.threadExit:
-						logger.Debug("Received request for state thread to exit, aborting state transfer")
-						return
-					default:
-						// Do nothing
-
-					}
-					continue
-				}
-
-				break
-			}
-
-			logger.Debugf("%v is completing state transfer", sts.id)
-
-			sts.asynchronousTransferInProgress = false
-
-			sts.informListeners(blockHReply.blockNumber, blockHReply.blockHash, blockHReply.peerIDs, blockHReply.metadata, nil, completed)
-		case sts.stateThreadIdleChan <- struct{}{}:
-			logger.Debugf("%v state thread reporting as idle to unblock someone", sts.id)
-			continue
-		case <-sts.threadExit:
-			logger.Debug("Received request for state thread to exit")
-			sts.stateThreadIdle = true
-			return
-		}
-	}
+	return nil, true
 }
 
 // blockUntilIdle makes a best effort to block until the state transfer is idle
-// This is not an atomic operation, and no locking is performed
-// so it is possible in rare cases that this may unblock prematurely
 func (sts *StateTransferState) blockUntilIdle() {
 	logger.Debugf("%v caller requesting to block until idle", sts.id)
-	for i := 0; i < 3; i++ {
-		// The goal is that both threads are simulatenously idle
-		// but checking idle-ness is not atomic, so checking 3 times
-		// increases the likelihood that things are in a consistent state
-		select {
-		case <-sts.blockThreadIdleChan:
-		case <-sts.threadExit: // In case the block thread is gone
-			return
-		}
-		select {
-		case <-sts.stateThreadIdleChan:
-		case <-sts.threadExit: // In case the state thread is gone
-			return
-		}
-	}
-}
-
-// isIdle determines whether state transfer is currently doing nothing
-// Note, this is different from state transfer in progress, as for instance
-// block recovery can be being performed in the background
-func (sts *StateTransferState) isIdle() bool {
-	return sts.stateThreadIdle && sts.blockThreadIdle
-}
-
-func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}, err error, update stateTransferUpdate) {
-	sts.stateTransferListenersLock.Lock()
-	defer func() {
-		sts.stateTransferListenersLock.Unlock()
-	}()
-
-	for _, listener := range sts.stateTransferListeners {
-		switch update {
-		case initiated:
-			listener.Initiated(blockNumber, blockHash, peerIDs, metadata)
-		case errored:
-			listener.Errored(blockNumber, blockHash, peerIDs, metadata, err)
-		case completed:
-			listener.Completed(blockNumber, blockHash, peerIDs, metadata)
-		}
+	select {
+	case <-sts.blockThreadIdleChan:
+	case <-sts.threadExit: // In case the block thread is gone
 	}
 }
 
