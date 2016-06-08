@@ -34,21 +34,21 @@ type ledgerHandler interface {
 }
 
 // SystemChaincode is type representing the chaincode
-// It has a ledgerHandler to be able to get TXs by ID
+// In general, one should not use vars in memory that can hold state
+// across invokes but this is used JUST for MOCKING
 type SystemChaincode struct {
-	ledgerH ledgerHandler
+	mockLedgerH ledgerHandler
 }
 
 func (t *SystemChaincode) getLedger() ledgerHandler {
-	if t.ledgerH == nil {
+	if t.mockLedgerH == nil {
 		lh, err := ld.GetLedger()
 		if err == nil {
 			return lh
-		} else {
-			panic("Chaincode is unable to get the ledger.")
 		}
+		panic("Chaincode is unable to get the ledger.")
 	} else {
-		return t.ledgerH
+		return t.mockLedgerH
 	}
 }
 

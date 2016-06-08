@@ -26,6 +26,16 @@ import (
 
 var something = "c29tZXRoaW5n"
 
+func TestMocking(t *testing.T) {
+	var mockledger, ledger ledgerHandler
+	mockledger = mockLedger{}
+	var noop = SystemChaincode{mockledger}
+	ledger = noop.getLedger()
+	if mockledger != ledger {
+		t.Errorf("Mocking functionality of Noop system chaincode does not work.")
+	}
+}
+
 func TestInvokeUnsupported(t *testing.T) {
 	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Invoke(nil, "unsupported_operation", []string{"arg1", "arg2"})
