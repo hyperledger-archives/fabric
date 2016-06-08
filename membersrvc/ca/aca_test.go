@@ -33,10 +33,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-var identity string = "diego"
+var identity string = "test_user0"
 
 func loadECert(identityId string) (*x509.Certificate, error) {
-	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert.dump")
+	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert_" + identityId + ".dump")
 	if err != nil {
 		return nil, err
 	}
