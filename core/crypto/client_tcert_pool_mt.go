@@ -64,6 +64,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 }
 
 func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
+
 	// The MT is considered WIP. We are going to add this support in the next round of refactoring, but added this
 	// for external API consistency for now
 	if nCerts != 1 {
@@ -77,9 +78,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int) (tCerts 
 	}
 
 	tCerts = []tCert{tcert}
-
-	tCertPool.client.error("Failed getting next transaction certificate [%s].", err.Error())
-	return nil, err
+	return tCerts, nil
 }
 
 func (tCertPool *tCertPoolMultithreadingImpl) getNextTCert() (tCert tCert, err error) {
