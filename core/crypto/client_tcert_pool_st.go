@@ -77,6 +77,9 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
+	tCertPool.m.Lock()
+	defer tCertPool.m.Unlock()
+
 	tCerts = make([]tCert, nCerts)
 	for i := 0; i < nCerts; i++ {
 		tcert, err := tCertPool.getNextTCert()
