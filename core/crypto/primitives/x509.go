@@ -25,10 +25,11 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 var (

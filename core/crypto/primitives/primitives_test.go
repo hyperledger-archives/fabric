@@ -254,7 +254,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("PEMtoPublicKey should fail on nil")
 	}
 
-	_, err = PEMtoPrivateKey([]byte{0,1,3,4}, nil)
+	_, err = PEMtoPrivateKey([]byte{0, 1, 3, 4}, nil)
 	if err == nil {
 		t.Fatalf("PEMtoPublicKey should fail invalid PEM")
 	}
@@ -264,7 +264,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("DERToPrivateKey should fail on nil")
 	}
 
-	_, err = DERToPrivateKey([]byte{0,1,3,4})
+	_, err = DERToPrivateKey([]byte{0, 1, 3, 4})
 	if err == nil {
 		t.Fatalf("DERToPrivateKey should fail on invalid DER")
 	}
@@ -324,7 +324,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("PEMtoPublicKey should fail on nil")
 	}
 
-	_, err = PEMtoPublicKey([]byte{0,1,3,4}, nil)
+	_, err = PEMtoPublicKey([]byte{0, 1, 3, 4}, nil)
 	if err == nil {
 		t.Fatalf("PEMtoPublicKey should fail on invalid PEM")
 	}
@@ -362,7 +362,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("PEMtoPublicKey should fail on nil PEM")
 	}
 
-	_, err = PEMtoPublicKey([]byte{0,1,3,4}, []byte("passwd"))
+	_, err = PEMtoPublicKey([]byte{0, 1, 3, 4}, []byte("passwd"))
 	if err == nil {
 		t.Fatalf("PEMtoPublicKey should fail on invalid PEM")
 	}

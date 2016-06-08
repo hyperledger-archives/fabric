@@ -23,8 +23,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"fmt"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // PrivateKeyToDER marshals a private key to der
