@@ -48,12 +48,13 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 	// Get next available (not yet used) transaction certificate
 	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed to obtain a (not yet used) TCert for Chaincode Deploy[%s].", err.Error())
 		return nil, err
 	}
+
 	if len(tCerts) != 1 {
-		client.error("Failed obtaining a TCert for Chaincode execution [%s].", err.Error())
-		return nil, err
+		client.error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Deploy Transaction using TCert. Expected exactly one returned TCert.")
 	}
 
 	// Create Transaction
@@ -74,7 +75,7 @@ func (client *clientImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) 
 	// Get next available (not yet used) transaction certificate
 	tCerts, err = client.tCertPool.GetNextTCerts(nCerts)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed getting [%d] (not yet used) Transaction Certificates (TCerts) [%s].", nCerts, err.Error())
 		return nil, err
 	}
 
@@ -91,13 +92,13 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 	// Get next available (not yet used) transaction certificate
 	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed to obtain a (not yet used) TCert [%s].", err.Error())
 		return nil, err
 	}
 
 	if len(tCerts) != 1 {
-		client.error("Failed obtaining a TCert for Chaincode execution [%s].", err.Error())
-		return nil, err
+		client.error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Execution. Expected exactly one returned TCert.")
 	}
 
 	// Create Transaction
@@ -114,13 +115,13 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 	// Get next available (not yet used) transaction certificate
 	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed to obtain a (not yet used) TCert [%s].", err.Error())
 		return nil, err
 	}
 
 	if len(tCerts) != 1 {
-		client.error("Failed obtaining a TCert for Chaincode query [%s].", err.Error())
-		return nil, err
+		client.error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Invocation. Expected exactly one returned TCert.")
 	}
 
 	// Create Transaction
@@ -155,13 +156,13 @@ func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, erro
 	// Get next TCert
 	tCerts, err := client.tCertPool.GetNextTCerts(1)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.error("Failed to obtain a (not yet used) TCert for creating a CertificateHandler [%s].", err.Error())
 		return nil, err
 	}
 
 	if len(tCerts) != 1 {
-		client.error("Failed obtaining a TCert for creating a TCertHandler [%s].", err.Error())
-		return nil, err
+		client.error("Failed to obtain a TCert for creating a CertificateHandler.")
+		return nil, errors.New("Failed to obtain a TCert for creating a CertificateHandler")
 	}
 
 	// Return the handler
