@@ -418,7 +418,7 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: ACME
+        company: ACompany
         position: "Software Engineer"
 
     # Confidentiality protocol version could be 1.1 or 1.2

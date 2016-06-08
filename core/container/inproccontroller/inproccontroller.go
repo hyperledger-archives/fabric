@@ -143,7 +143,7 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 }
 
 //Start starts a previously registered system codechain
-func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	path := ccid.ChaincodeSpec.ChaincodeID.Path
 
 	ipctemplate := typeRegistry[path]
@@ -206,6 +206,12 @@ func (vm *InprocVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 
 	delete(instRegistry, ccid.ChaincodeSpec.ChaincodeID.Name)
 	//TODO stop
+	return nil
+}
+
+//Destroy destroys an image
+func (vm *InprocVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, noprune bool) error {
+	//not implemented
 	return nil
 }
 
