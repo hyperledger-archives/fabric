@@ -29,23 +29,26 @@ import (
 const (
 	RegisterType = "register"
 	BlockType    = "block"
+	GenericType  = "generic"
 )
 
-func getMessageType(e *pb.Event) string {
+func getMessageType(e *pb.Event) pb.EventType {
 	switch e.Event.(type) {
 	case *pb.Event_Register:
-		return "register"
+		return pb.EventType_REGISTER
 	case *pb.Event_Block:
-		return "block"
+		return pb.EventType_BLOCK
 	case *pb.Event_Generic:
-		return "generic"
+		return pb.EventType_GENERIC
+	case *pb.Event_ChaincodeEvent:
+		return pb.EventType_CHAINCODE
 	default:
-		return ""
+		return -1
 	}
 }
 
 //should be called at init time to register supported internal events
 func addInternalEventTypes() {
-	AddEventType(BlockType)
-	AddEventType(RegisterType)
+	AddEventType(pb.EventType_BLOCK)
+	AddEventType(pb.EventType_CHAINCODE)
 }

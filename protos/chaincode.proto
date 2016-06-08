@@ -18,6 +18,7 @@ syntax = "proto3";
 
 package protos;
 
+import "chaincodeevent.proto";
 import "google/protobuf/timestamp.proto";
 
 
@@ -141,6 +142,11 @@ message ChaincodeMessage {
     bytes payload = 3;
     string uuid = 4;
     ChaincodeSecurityContext securityContext = 5;
+
+    //event emmited by chaincode. Used only with Init or Invoke.
+    // This event is then stored (currently)
+    //with Block.NonHashData.TransactionResult
+    ChaincodeEvent chaincodeEvent = 6;
 }
 
 message PutStateInfo {
