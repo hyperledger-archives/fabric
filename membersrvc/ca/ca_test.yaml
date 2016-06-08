@@ -323,9 +323,26 @@ hosts:
         tlsca: localhost
 
 eca:
+        affiliation_groups:
+           banks_and_institutions:
+              banks:
+                  bank_a:
+                  bank_b:
+                  bank_c:
+              institutions:
+                  institution_a:
+
         users:
-                system_chaincode_invoker: 1 DRJ20pEql15a
-                diego: 2 DRJ23pEQl16a
+            test_user0: 1 MS9qrN8hFjlE bank_a        00001
+            test_user1: 1 jGlNl6ImkuDo institution_a 00002
+            test_user2: 1 zMflqOKezFiA bank_c        00003
+            test_user3: 1 vWdLCE00vJy0 bank_a        00004
+            test_user4: 1 4nXSrfoYGFCP institution_a 00005
+            test_user5: 1 yg5DVhm0er1z bank_b        00006
+            test_user6: 1 b7pmSxzKNFiw bank_a        00007
+            test_user7: 1 YsWZD4qQmYxo institution_a 00008
+            test_user8: 1 W8G0usrU7jRk bank_a        00009
+            test_user9: 1 H80SiB5ODKKQ institution_a 00010
 
 pki:
         validity-period:
