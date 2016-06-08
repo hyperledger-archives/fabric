@@ -19,16 +19,17 @@ package aes
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"fmt"
+	"io"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"io"
-	"crypto/rand"
 )
 
 type aesSecretKeyImpl struct {
 	key []byte
-	r io.Reader
+	r   io.Reader
 }
 
 func (sk *aesSecretKeyImpl) GetRand() io.Reader {

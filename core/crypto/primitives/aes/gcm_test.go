@@ -142,12 +142,12 @@ func TestAES256GSMSPINewStreamCipher(t *testing.T) {
 		t.Fatalf("NewStreamCipherForEncryptionFromKey should fail on nil")
 	}
 
-	_, err = spi.NewStreamCipherForEncryptionFromSerializedKey([]byte{0,1,2})
+	_, err = spi.NewStreamCipherForEncryptionFromSerializedKey([]byte{0, 1, 2})
 	if err == nil {
 		t.Fatalf("NewStreamCipherForEncryptionFromKey should fail on invalid serialized key")
 	}
 
-	_, err = spi.NewStreamCipherForDecryptionFromSerializedKey([]byte{0,1,2})
+	_, err = spi.NewStreamCipherForDecryptionFromSerializedKey([]byte{0, 1, 2})
 	if err == nil {
 		t.Fatalf("NewStreamCipherForEncryptionFromKey should fail on invalid serialized key")
 	}
@@ -175,7 +175,7 @@ func TestAES256GSMSPIDencryption(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Decryption should fail on nil")
 	}
-	_, err = sc.Process([]byte{0,1,2})
+	_, err = sc.Process([]byte{0, 1, 2})
 	if err == nil {
 		t.Fatalf("Decryption should fail on invalid ciphertext")
 	}
