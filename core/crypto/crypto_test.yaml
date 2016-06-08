@@ -26,14 +26,14 @@ security:
     hashAlgorithm: SHA3
 
 eca:
-    affiliation_groups:
+    affiliations:
         banks_and_institutions:
             banks:
-                bank_a
-                bank_b
-                bank_c
+                - bank_a
+                - bank_b
+                - bank_c
             institutions:
-                institution_a
+                - institution_a
 
     users:
         # clients
@@ -110,7 +110,7 @@ security:
         # The size of the batch of TCerts
         size:  200
       attributes:
-        company: ACME
+        company: ACompany
         position: "Software Engineer"
       abac:
         enabled: true

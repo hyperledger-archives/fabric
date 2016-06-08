@@ -170,23 +170,30 @@ func (eca *ECA) populateUsersTable() {
 
 // populateAffiliationGroup populates the affiliation groups table.
 //
-func (eca *ECA) populateAffiliationGroup(name, parent, key string) {
+func (eca *ECA) populateAffiliationGroup(name, parent, key string, level int) {
 	eca.registerAffiliationGroup(name, parent)
 	newKey := key + "." + name
-	affiliationGroups := viper.GetStringMapString(newKey)
-	for childName := range affiliationGroups {
-		eca.populateAffiliationGroup(childName, name, newKey)
-	}
 
+	if level == 1 {
+		affiliationGroups := viper.GetStringSlice(newKey)
+		for ci := range affiliationGroups {
+			eca.registerAffiliationGroup(affiliationGroups[ci], name)
+		}
+	} else {
+		affiliationGroups := viper.GetStringMapString(newKey)
+		for childName := range affiliationGroups {
+			eca.populateAffiliationGroup(childName, name, newKey, level+1)
+		}
+	}
 }
 
 // populateAffiliationGroupsTable populates affiliation groups table.
 //
 func (eca *ECA) populateAffiliationGroupsTable() {
-	key := "eca.affiliation_groups"
+	key := "eca.affiliations"
 	affiliationGroups := viper.GetStringMapString(key)
 	for name := range affiliationGroups {
-		eca.populateAffiliationGroup(name, "", key)
+		eca.populateAffiliationGroup(name, "", key, 0)
 	}
 }
 

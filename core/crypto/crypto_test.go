@@ -65,7 +65,7 @@ var (
 
 	ksPwd = []byte("This is a very very very long pw")
 
-	attrs          = map[string]string{"company": "ACME", "position": "Software Engineer"}
+	attrs          = map[string]string{"company": "ACompany", "position": "Software Engineer"}
 	attributeNames = []string{"company", "position"}
 )
 
@@ -372,7 +372,7 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
-//TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACME".
+//TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACompany".
 func TestClientGetAttributesFromTCert(t *testing.T) {
 	tcert, err := deployer.GetNextTCert(attrs)
 
@@ -399,8 +399,8 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "ACME" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
+	if attributeValue != "ACompany" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
 }
 
@@ -466,7 +466,7 @@ func TestShimAttributeVerification(t *testing.T) {
 		t.Error(err)
 	}
 
-	isOk, err := handler.VerifyAttribute("company", []byte("ACME"))
+	isOk, err := handler.VerifyAttribute("company", []byte("ACompany"))
 	if err != nil {
 		t.Fatalf("Error verifying 'company' %v", err)
 	}
@@ -502,7 +502,7 @@ func TestShimAttributeVerificationWithTwoHandlers(t *testing.T) {
 		t.Error(err)
 	}
 
-	isOk, err := handler.VerifyAttribute("company", []byte("ACME"))
+	isOk, err := handler.VerifyAttribute("company", []byte("ACompany"))
 	if err != nil {
 		t.Fatalf("Error verifying 'company' %v", err)
 	}
@@ -611,8 +611,8 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "ACME" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACME", attributeValue)
+	if attributeValue != "ACompany" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
 }
 

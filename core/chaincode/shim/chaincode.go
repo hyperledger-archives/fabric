@@ -31,7 +31,7 @@ import (
 	gp "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ac"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	"github.com/hyperledger/fabric/core/comm"
 	pb "github.com/hyperledger/fabric/protos"
@@ -39,7 +39,6 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 // Logger for the shim package.
@@ -279,38 +278,37 @@ func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
 }
 
-<<<<<<< HEAD
 //ReadCertAttribute is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
 // Example:
 //  attrValue,error:=stub.ReadCertAttribute("position")
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
-	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
 	if err != nil {
 		return nil, err
 	}
-	return abacHandler.GetValue(attributeName)
+	return attributesHandler.GetValue(attributeName)
 }
 
 //VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
 //Example:
 //    containsAttr, error := stub.VerifyAttribute("position", "Software Engineer")
 func (stub *ChaincodeStub) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
-	abacHandler, err := ac.NewABACHandlerImpl(stub)
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
 	if err != nil {
 		return false, err
 	}
-	return abacHandler.VerifyAttribute(attributeName, attributeValue)
+	return attributesHandler.VerifyAttribute(attributeName, attributeValue)
 }
 
 //VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
 // Example:
-//    containsAttrs, error:= stub.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
-func (stub *ChaincodeStub) VerifyAttributes(attrs ...*ac.Attribute) (bool, error) {
-	abacHandler, err := ac.NewABACHandlerImpl(stub)
+//    containsAttrs, error:= stub.VerifyAttributes(&attr.Attribute{"position",  "Software Engineer"}, &attr.Attribute{"company", "ACompany"})
+func (stub *ChaincodeStub) VerifyAttributes(attrs ...*attr.Attribute) (bool, error) {
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
 	if err != nil {
 		return false, err
 	}
-	return abacHandler.VerifyAttributes(attrs...)
+	return attributesHandler.VerifyAttributes(attrs...)
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of

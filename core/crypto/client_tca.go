@@ -250,7 +250,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
-	x509Cert, err := primitives.DERToX509Certificate(der)
+	x509Cert, err := primitives.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
 		client.debug("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
@@ -260,7 +260,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Handle Critical Extenstion TCertEncTCertIndex
 	tCertIndexCT, err := primitives.GetCriticalExtension(x509Cert, primitives.TCertEncTCertIndex)
 	if err != nil {
-		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
+		client.error("Failed getting extension TCERT_ENC_TCERTINDEX [%v].", err.Error())
 
 		return
 	}
