@@ -480,4 +480,20 @@ func sendProducerBlockEvent(block *protos.Block) {
 	}
 
 	producer.Send(producer.CreateBlockEvent(block))
+
+	//when we send block event, send chaincode events as well
+	sendChaincodeEvents(block)
+}
+
+//send chaincode events created by transactions in the block
+func sendChaincodeEvents(block *protos.Block) {
+	nonHashData := block.GetNonHashData()
+	if nonHashData != nil {
+		trs := nonHashData.GetTransactionResults()
+		for _,tr := range trs {
+			if tr.ChaincodeEvent != nil {
+				producer.Send(producer.CreateChaincodeEvent(tr.ChaincodeEvent))
+			}
+		}
+	}
 }

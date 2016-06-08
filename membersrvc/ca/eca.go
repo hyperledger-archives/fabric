@@ -174,7 +174,7 @@ func (eca *ECA) populateAffiliationGroup(name, parent, key string, level int) {
 	eca.registerAffiliationGroup(name, parent)
 	newKey := key + "." + name
 
-	if level == 1 {
+	if level == 0 {
 		affiliationGroups := viper.GetStringSlice(newKey)
 		for ci := range affiliationGroups {
 			eca.registerAffiliationGroup(affiliationGroups[ci], name)
@@ -182,7 +182,7 @@ func (eca *ECA) populateAffiliationGroup(name, parent, key string, level int) {
 	} else {
 		affiliationGroups := viper.GetStringMapString(newKey)
 		for childName := range affiliationGroups {
-			eca.populateAffiliationGroup(childName, name, newKey, level+1)
+			eca.populateAffiliationGroup(childName, name, newKey, level-1)
 		}
 	}
 }
@@ -193,7 +193,7 @@ func (eca *ECA) populateAffiliationGroupsTable() {
 	key := "eca.affiliations"
 	affiliationGroups := viper.GetStringMapString(key)
 	for name := range affiliationGroups {
-		eca.populateAffiliationGroup(name, "", key, 0)
+		eca.populateAffiliationGroup(name, "", key, 1)
 	}
 }
 
