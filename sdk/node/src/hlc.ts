@@ -58,6 +58,7 @@ var uuid = require('node-uuid');
 var BN = require('bn.js');
 import * as crypto from "./crypto"
 import * as stats from "./stats"
+import * as sdk_util from "./sdk_util"
 import events = require('events');
 
 let debug = debugModule('hlc');   // 'hlc' stands for 'HyperLedger Client'
@@ -1152,7 +1153,7 @@ export class TransactionContext extends events.EventEmitter {
                 return self;
               }
 
-              console.log("Calling _execute ...");
+              console.log("Calling execute ...");
 
               return self.execute(deployTx);
             });
@@ -1205,7 +1206,7 @@ export class TransactionContext extends events.EventEmitter {
      * @param tx {Transaction} The transaction.
      */
     private execute(tx:Transaction):TransactionContext {
-        console.log('Executing transaction [%j]', tx);
+        debug('Executing transaction [%j]', tx);
 
         let self = this;
         // Get the TCert
@@ -1400,6 +1401,18 @@ export class TransactionContext extends events.EventEmitter {
         let goPath =  process.env.GOPATH;
         console.log("$GOPATH ---> " + goPath);
 
+        // Compose the path to the chaincode project directory
+        let projDir = goPath + "/src/" + request.chaincodePath;
+        console.log("projDir ---> " + projDir);
+
+	      // Compute the hash of the chaincode deployment parameters
+        let hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
+
+        // Compute the hash of the project directory contents
+        hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
+        console.log("hash --> " + hash);
+
+
         let tx = new _fabricProto.Transaction();
 
         /*
@@ -1585,7 +1598,7 @@ export class Peer {
     sendTransaction = function (tx:Transaction, eventEmitter:events.EventEmitter) {
         var self = this;
 
-        console.log("peer.sendTransaction: sending %j", tx);
+        debug("peer.sendTransaction: sending %j", tx);
 
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
