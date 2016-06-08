@@ -1405,7 +1405,7 @@ export class TransactionContext extends events.EventEmitter {
         let projDir = goPath + "/src/" + request.chaincodePath;
         console.log("projDir ---> " + projDir);
 
-	      // Compute the hash of the chaincode deployment parameters
+        // Compute the hash of the chaincode deployment parameters
         let hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
 
         // Compute the hash of the project directory contents

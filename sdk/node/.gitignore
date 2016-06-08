@@ -2,4 +2,13 @@
 node_modules/*
 /.idea/
 /node.iml
+/lib/crypto.d.ts
+/lib/crypto.js
+/lib/crypto.js.map
+/lib/hlc.d.ts
+/lib/hlc.js
+/lib/hlc.js.map
+/lib/sdk_util.d.ts
+/lib/sdk_util.js
+/lib/sdk_util.js.map
 /typings/
