@@ -201,7 +201,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	// DER format
+	// Private Key DER format
 	der, err := PrivateKeyToDER(key)
 	if err != nil {
 		t.Fatalf("Failed converting private key to DER [%s]", err)
@@ -222,7 +222,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed converting DER to private key. Invalid Y coordinate.")
 	}
 
-	// PEM format
+	// Private Key PEM format
 	pem, err := PrivateKeyToPEM(key, nil)
 	if err != nil {
 		t.Fatalf("Failed converting private key to PEM [%s]", err)
@@ -243,7 +243,7 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed converting PEM to private key. Invalid Y coordinate.")
 	}
 
-	// Encrypted PEM format
+	// Private Key Encrypted PEM format
 	encPEM, err := PrivateKeyToPEM(key, []byte("passwd"))
 	if err != nil {
 		t.Fatalf("Failed converting private key to encrypted PEM [%s]", err)
@@ -261,6 +261,42 @@ func TestECDSAKeys(t *testing.T) {
 		t.Fatalf("Failed converting encrypted PEM to private key. Invalid X coordinate.")
 	}
 	if key.Y.Cmp(ecdsaKeyFromEncPEM.Y) != 0 {
+		t.Fatalf("Failed converting encrypted PEM to private key. Invalid Y coordinate.")
+	}
+
+	// Public Key PEM format
+	pem, err = PublicKeyToPEM(&key.PublicKey, nil)
+	if err != nil {
+		t.Fatalf("Failed converting public key to PEM [%s]", err)
+	}
+	keyFromPEM, err = PEMtoPublicKey(pem, nil)
+	if err != nil {
+		t.Fatalf("Failed converting DER to public key [%s]", err)
+	}
+	ecdsaPkFromPEM := keyFromPEM.(*ecdsa.PublicKey)
+	// TODO: check the curve
+	if key.X.Cmp(ecdsaPkFromPEM.X) != 0 {
+		t.Fatalf("Failed converting PEM to private key. Invalid X coordinate.")
+	}
+	if key.Y.Cmp(ecdsaPkFromPEM.Y) != 0 {
+		t.Fatalf("Failed converting PEM to private key. Invalid Y coordinate.")
+	}
+
+	// Private Key Encrypted PEM format
+	encPEM, err = PublicKeyToPEM(&key.PublicKey, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting private key to encrypted PEM [%s]", err)
+	}
+	pkFromEncPEM, err := PEMtoPublicKey(encPEM, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting DER to private key [%s]", err)
+	}
+	ecdsaPkFromEncPEM := pkFromEncPEM.(*ecdsa.PublicKey)
+	// TODO: check the curve
+	if key.X.Cmp(ecdsaPkFromEncPEM.X) != 0 {
+		t.Fatalf("Failed converting encrypted PEM to private key. Invalid X coordinate.")
+	}
+	if key.Y.Cmp(ecdsaPkFromEncPEM.Y) != 0 {
 		t.Fatalf("Failed converting encrypted PEM to private key. Invalid Y coordinate.")
 	}
 }
