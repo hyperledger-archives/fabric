@@ -39,13 +39,21 @@ type SystemChaincode struct {
 	ledgerH ledgerHandler
 }
 
+func (t *SystemChaincode) getLedger() ledgerHandler {
+	if t.ledgerH == nil {
+		lh, err := ld.GetLedger()
+		if err == nil {
+			return lh
+		} else {
+			panic("Chaincode is unable to get the ledger.")
+		}
+	} else {
+		return t.ledgerH
+	}
+}
+
 // Init initailizes the system chaincode
 func (t *SystemChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var ledger, err = ld.GetLedger()
-	if nil != err {
-		return nil, err
-	}
-	t.ledgerH = ledger
 	logger.SetLevel(shim.LogDebug)
 	logger.Debugf("NOOP INIT")
 	return nil, nil
@@ -53,9 +61,7 @@ func (t *SystemChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 
 // Invoke runs an invocation on the system chaincode
 func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
 	switch function {
-
 	case "execute":
 
 		if len(args) < 1 {
@@ -67,14 +73,11 @@ func (t *SystemChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
-
 }
 
 // Query callback representing the query of a chaincode
 func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
 	switch function {
-
 	case "getTran":
 		if len(args) < 1 {
 			return nil, errors.New("getTran operation must include a single argument, the TX hash hex")
@@ -83,7 +86,7 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		logger.Infof("--> %x", args[0])
 
 		var txHashHex = args[0]
-		var tx, txerr = t.ledgerH.GetTransactionByUUID(txHashHex)
+		var tx, txerr = t.getLedger().GetTransactionByUUID(txHashHex)
 		if nil != txerr || nil == tx {
 			return nil, txerr
 		}
@@ -101,5 +104,4 @@ func (t *SystemChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
-
 }

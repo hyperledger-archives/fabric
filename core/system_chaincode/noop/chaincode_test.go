@@ -27,7 +27,7 @@ import (
 var something = "c29tZXRoaW5n"
 
 func TestInvokeUnsupported(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Invoke(nil, "unsupported_operation", []string{"arg1", "arg2"})
 	if res != nil || err == nil {
 		t.Errorf("Invoke has to return nil and error when called with unsupported operation!")
@@ -35,7 +35,7 @@ func TestInvokeUnsupported(t *testing.T) {
 }
 
 func TestInvokeExecuteNotEnoughArgs(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Invoke(nil, "execute", []string{})
 	if res != nil || err == nil {
 		t.Errorf("Invoke.execute has to indicate error if called with less than one arguments!")
@@ -43,7 +43,7 @@ func TestInvokeExecuteNotEnoughArgs(t *testing.T) {
 }
 
 func TestInvokeExecuteOneArgReturnsNothing(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Invoke(nil, "execute", []string{"arg1"})
 	if res != nil || err != nil {
 		t.Errorf("Invoke.execute has to return nil with no error.")
@@ -51,7 +51,7 @@ func TestInvokeExecuteOneArgReturnsNothing(t *testing.T) {
 }
 
 func TestInvokeExecuteMoreArgsReturnsNothing(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Invoke(nil, "execute", []string{"arg1", "arg2"})
 	if res != nil || err != nil {
 		t.Errorf("Invoke.execute has to return nil with no error.")
@@ -59,7 +59,7 @@ func TestInvokeExecuteMoreArgsReturnsNothing(t *testing.T) {
 }
 
 func TestQueryUnsupported(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Query(nil, "unsupported_operation", []string{"arg1", "arg2"})
 	if res != nil || err == nil {
 		t.Errorf("Invoke has to return nil and error when called with unsupported operation!")
@@ -67,7 +67,7 @@ func TestQueryUnsupported(t *testing.T) {
 }
 
 func TestQueryGetTranNotEnoughArgs(t *testing.T) {
-	var noop = SystemChaincode{}
+	var noop = SystemChaincode{mockLedger{}}
 	var res, err = noop.Query(nil, "getTran", []string{})
 	if res != nil || err == nil {
 		t.Errorf("Invoke has to return nil and error when called with unsupported operation!")
