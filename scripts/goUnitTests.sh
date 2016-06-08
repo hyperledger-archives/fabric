@@ -16,4 +16,4 @@ trap cleanup 0
 echo "DONE!"
 
 echo "Running tests..."
-go test -timeout=20m $PKGS
+go test -cover -timeout=20m $PKGS

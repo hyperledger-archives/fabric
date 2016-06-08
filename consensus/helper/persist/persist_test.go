@@ -14,4 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ecies
+package persist
+
+import "testing"
+
+func TestPersist(t *testing.T) {
+	t.Skip("Persist functions already tested in other consensus components")
+}

@@ -30,15 +30,17 @@ ifeq (make, targets)
 # Compilation and Docker image building
 
 build build_peer build_membersrvc
-new
+rebuild new
 
-    The 'build*' targets do a rebuild (go build) of the peer and
-    membersrvc servers, or both. The 'new' target can be run after every 'git
-    pull' to 'build' both servers and the 'images'. Use the ARGS variable with
-    these targets to pass args to 'go build'. E.g., to do 'go build -a',
-    execute 
+    The 'build*' targets do a 'go build' of the peer and membersrvc servers,
+    or both.  Use the ARGS variable with these targets to pass args to 'go
+    build'. E.g., to do 'go build -a', execute
 
         make build ARGS=-a
+
+    The 'rebuild' target does the above (-a) for both the peer and membersrvc
+    servers. The 'new' can be run after every 'git pull' to 'rebuild' both
+    servers and the 'images'.
 
 images peer_image membersrvc_image
 
@@ -136,9 +138,12 @@ null:
 ############################################################################
 # Compilation and Docker image building
 
-.PHONY: new build build_peer build_membersrvc
+.PHONY: build build_peer build_membersrvc new rebuild
 
-new: build images
+rebuild:
+	$(MAKE) build ARGS=-a
+
+new: rebuild images
 
 build: build_peer build_membersrvc
 

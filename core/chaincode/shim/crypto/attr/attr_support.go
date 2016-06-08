@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ac
+package attr
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/attributes"
 	attributespb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 //Attribute defines a key, value pair to be verified.
@@ -41,21 +41,21 @@ type chaincodeHolder interface {
 	GetCallerMetadata() ([]byte, error)
 }
 
-//ABACHandler is an entity can be used to both verify and read attributes.
+//AttributesHandler is an entity can be used to both verify and read attributes.
 //		The hanlder can retrieve the attributes, and the propertly keys to decrypt the values from the chaincodeHolder
 //		The functions declared can be used to access the attributes stored in the transaction certificates from the application layer. Can be used directly from the ChaincodeStub API but
 //		 if you need multiple access create a hanlder is better:
 // 	Multiple accesses
-// 		If multiple calls to the functions above are required, a best practice is to create an ABACHandler instead of calling the functions multiple times, this practice will avoid creating a new abacHandler for each of these calls thus eliminating an unnecessary overhead.
+// 		If multiple calls to the functions above are required, a best practice is to create an AttributesHandler instead of calling the functions multiple times, this practice will avoid creating a new AttributesHandler for each of these calls thus eliminating an unnecessary overhead.
 //    Example:
 //
-//		abacHandler, err := ac.NewABACHandlerImpl(stub)
+//		AttributesHandler, err := ac.NewAttributesHandlerImpl(stub)
 //		if err != nil {
 //			return false, err
 //		}
-//		abacHandler.VerifyAttribute(attributeName, attributeValue)
-//		... you can make other verifications and/or read attribute values by using the abacHandler
-type ABACHandler interface {
+//		AttributesHandler.VerifyAttribute(attributeName, attributeValue)
+//		... you can make other verifications and/or read attribute values by using the AttributesHandler
+type AttributesHandler interface {
 
 	//VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
 	// Example:
@@ -73,8 +73,8 @@ type ABACHandler interface {
 	GetValue(attributeName string) ([]byte, error)
 }
 
-//ABACHandlerImpl is an implementation of ABACHandler interface.
-type ABACHandlerImpl struct {
+//AttributesHandlerImpl is an implementation of AttributesHandler interface.
+type AttributesHandlerImpl struct {
 	cert      *x509.Certificate
 	cache     map[string][]byte
 	keys      map[string][]byte
@@ -82,15 +82,18 @@ type ABACHandlerImpl struct {
 	encrypted bool
 }
 
-//NewABACHandlerImpl creates a new ABACHandlerImpl from a pb.ChaincodeSecurityContext object.
-func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
+//NewAttributesHandlerImpl creates a new AttributesHandlerImpl from a pb.ChaincodeSecurityContext object.
+func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, error) {
 	// Getting certificate
 	certRaw, err := holder.GetCallerCertificate()
 	if err != nil {
 		return nil, err
 	}
+	if certRaw == nil {
+		return nil, errors.New("The certificate can't be nil.")
+	}
 	var tcert *x509.Certificate
-	tcert, err = utils.DERToX509Certificate(certRaw)
+	tcert, err = primitives.DERToX509Certificate(certRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +104,10 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 	rawMetadata, err = holder.GetCallerMetadata()
 	if err != nil {
 		return nil, err
+	}
+
+	if rawMetadata == nil {
+		return nil, errors.New("The rawMetadata can't be nil.")
 	}
 
 	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
@@ -115,55 +122,55 @@ func NewABACHandlerImpl(holder chaincodeHolder) (*ABACHandlerImpl, error) {
 	}
 
 	cache := make(map[string][]byte)
-	return &ABACHandlerImpl{tcert, cache, keys, nil, false}, nil
+	return &AttributesHandlerImpl{tcert, cache, keys, nil, false}, nil
 }
 
-func (abacHandler *ABACHandlerImpl) readHeader() (map[string]int, bool, error) {
-	if abacHandler.header != nil {
-		return abacHandler.header, abacHandler.encrypted, nil
+func (attributesHandler *AttributesHandlerImpl) readHeader() (map[string]int, bool, error) {
+	if attributesHandler.header != nil {
+		return attributesHandler.header, attributesHandler.encrypted, nil
 	}
-	header, encrypted, err := attributes.ReadAttributeHeader(abacHandler.cert, abacHandler.keys[attributes.HeaderAttributeName])
+	header, encrypted, err := attributes.ReadAttributeHeader(attributesHandler.cert, attributesHandler.keys[attributes.HeaderAttributeName])
 	if err != nil {
 		return nil, false, err
 	}
-	abacHandler.header = header
-	abacHandler.encrypted = encrypted
+	attributesHandler.header = header
+	attributesHandler.encrypted = encrypted
 	return header, encrypted, nil
 }
 
 //GetValue is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
 //	Example:
 //  	attrValue,error:=handler.GetValue("position")
-func (abacHandler *ABACHandlerImpl) GetValue(attributeName string) ([]byte, error) {
-	if abacHandler.cache[attributeName] != nil {
-		return abacHandler.cache[attributeName], nil
+func (attributesHandler *AttributesHandlerImpl) GetValue(attributeName string) ([]byte, error) {
+	if attributesHandler.cache[attributeName] != nil {
+		return attributesHandler.cache[attributeName], nil
 	}
-	header, encrypted, err := abacHandler.readHeader()
+	header, encrypted, err := attributesHandler.readHeader()
 	if err != nil {
 		return nil, err
 	}
-	value, err := attributes.ReadTCertAttributeByPosition(abacHandler.cert, header[attributeName])
+	value, err := attributes.ReadTCertAttributeByPosition(attributesHandler.cert, header[attributeName])
 	if err != nil {
 		return nil, errors.New("error reading attribute value '" + err.Error() + "'")
 	}
-	if abacHandler.keys[attributeName] == nil {
+	if attributesHandler.keys[attributeName] == nil {
 		return nil, errors.New("There isn't a key")
 	}
 	if encrypted {
-		value, err = attributes.DecryptAttributeValue(abacHandler.keys[attributeName], value)
+		value, err = attributes.DecryptAttributeValue(attributesHandler.keys[attributeName], value)
 		if err != nil {
 			return nil, errors.New("error decrypting value '" + err.Error() + "'")
 		}
 	}
-	abacHandler.cache[attributeName] = value
+	attributesHandler.cache[attributeName] = value
 	return value, nil
 }
 
 //VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
 //	Example:
 //  	containsAttr, error := handler.VerifyAttribute("position", "Software Engineer")
-func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
-	valueHash, err := abacHandler.GetValue(attributeName)
+func (attributesHandler *AttributesHandlerImpl) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
+	valueHash, err := attributesHandler.GetValue(attributeName)
 	if err != nil {
 		return false, err
 	}
@@ -173,11 +180,11 @@ func (abacHandler *ABACHandlerImpl) VerifyAttribute(attributeName string, attrib
 //VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
 //	Example:
 //  	containsAttrs, error:= handler.VerifyAttributes(&ac.Attribute{"position",  "Software Engineer"}, &ac.Attribute{"company", "ACompany"})
-func (abacHandler *ABACHandlerImpl) VerifyAttributes(attrs ...*Attribute) (bool, error) {
+func (attributesHandler *AttributesHandlerImpl) VerifyAttributes(attrs ...*Attribute) (bool, error) {
 	for _, attribute := range attrs {
-		val, err := abacHandler.VerifyAttribute(attribute.Name, attribute.Value)
+		val, err := attributesHandler.VerifyAttribute(attribute.Name, attribute.Value)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		if !val {
 			return val, nil
