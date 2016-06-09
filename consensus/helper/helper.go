@@ -333,10 +333,11 @@ func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 				}
 				if err != nil {
 					h.Completed(info.Height-1, info.CurrentBlockHash, peers, tag)
+					break
 				}
 			}
-
 			h.stateTransfering = false
+
 		}()
 	}
 }
