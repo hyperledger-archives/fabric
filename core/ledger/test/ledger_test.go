@@ -91,7 +91,6 @@ var _ = Describe("Ledger", func() {
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
-
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
 			Expect(state).To(Equal([]byte("value1")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
@@ -411,6 +410,7 @@ var _ = Describe("Ledger", func() {
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
+
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(BeNil())
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -458,6 +458,7 @@ var _ = Describe("Ledger", func() {
 				ledgerPtr.TxBegin("txUuid" + strconv.Itoa(i))
 				Expect(ledgerPtr.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))).To(BeNil())
 				ledgerPtr.TxFinished("txUuid"+strconv.Itoa(i), true)
+
 				uuid := util.GenerateUUID()
 				tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 				Expect(err).To(BeNil())
@@ -556,11 +557,13 @@ var _ = Describe("Ledger", func() {
 			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2A"))).To(BeNil())
 			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3A"))).To(BeNil())
 			ledgerPtr.TxFinished("txUuid1", true)
+
 			uuid := util.GenerateUUID()
 			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
+
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1A")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -718,6 +721,7 @@ var _ = Describe("Ledger", func() {
 	Describe("Ledger InvalidOrderDelta", func() {
 		ledgerPtr := InitSpec()
 		var delta *statemgmt.StateDelta
+
 		// Block 0
 		It("creates, populates and finishes a batch", func() {
 			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
@@ -735,6 +739,7 @@ var _ = Describe("Ledger", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should return committed state from batch 1", func() {
+
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1A")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
