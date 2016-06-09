@@ -1,7 +1,7 @@
 # Local build binaries
 node-cli/node-cli
 *.pyc
-/build/_workspace
+/build/*
 /bin
 .idea
 *.iml
@@ -18,3 +18,5 @@ tags
 *.log
 # go-carpet output files
 go-carpet-coverage*
+# make node-sdk copied files
+sdk/node/lib/protos/*
