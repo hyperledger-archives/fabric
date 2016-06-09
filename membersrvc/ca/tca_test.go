@@ -67,12 +67,7 @@ func TestCreateCertificateSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-		ecert, err := x509.ParseCertificate(ecertRaw)
-		if err != nil {
-			return nil, nil, err
-		}
-	*/
+
 	certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, 1)
 	if err != nil {
 		t.Fatal(err)
