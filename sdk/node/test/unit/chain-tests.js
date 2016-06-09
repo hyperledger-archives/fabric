@@ -241,7 +241,7 @@ test('Deploy a chaincode by enrolled user', function(t) {
     // Function to trigger
     fcn: "init",
     // Arguments to the initializing function
-    args: ["a", "123", "b", "456"]
+    args: ["a", initA, "b", initB]
   };
 
   // Trigger the deploy transaction

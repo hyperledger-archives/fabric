@@ -54,7 +54,6 @@ var util = require('util');
 var jsrsa = require('jsrsasign');
 var elliptic = require('elliptic');
 var sha3 = require('js-sha3');
-var uuid = require('node-uuid');
 var BN = require('bn.js');
 import * as crypto from "./crypto"
 import * as stats from "./stats"
@@ -67,7 +66,6 @@ var asn1Builder = require('asn1');
 
 let _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
 let _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
-let _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 let net = require('net');
 
@@ -1632,10 +1630,10 @@ export class TransactionContext extends events.EventEmitter {
         tx.setPayload(chaincodeInvocationSpec.toBuffer());
 
         // Set the transaction UUID
-        tx.setUuid(generateUUID());
+        tx.setUuid(sdk_util.GenerateUUID());
 
         // Set the transaction timestamp
-        tx.setTimestamp(generateTimestamp());
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
 
         // Set confidentiality level
         if (request.confidential) {
@@ -1973,7 +1971,7 @@ class MemberServicesImpl implements MemberServices {
 
         // create the proto message
         var eCertCreateRequest = new _caProto.ECertCreateReq();
-        var timestamp = new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
+        var timestamp = sdk_util.GenerateTimestamp();
         eCertCreateRequest.setTs(timestamp);
         eCertCreateRequest.setId({id: req.enrollmentID});
         eCertCreateRequest.setTok({tok: new Buffer(req.enrollmentSecret)});
@@ -2056,7 +2054,7 @@ class MemberServicesImpl implements MemberServices {
         let self = this;
         cb = cb || nullCB;
 
-        let timestamp = new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
+        let timestamp = sdk_util.GenerateTimestamp();
 
         // create the proto
         let tCertCreateSetReq = new _caProto.TCertCreateSetReq();
@@ -2203,21 +2201,6 @@ class FileKeyValStore implements KeyValStore {
     }
 
 } // end FileKeyValStore
-
-/**
- * generateUUID returns an RFC4122 compliant UUID.
- *    http://www.ietf.org/rfc/rfc4122.txt
- */
-function generateUUID() {
-    return uuid.v4();
-};
-
-/**
- * generateTimestamp returns the current time in the google/protobuf/timestamp.proto structure.
- */
-function generateTimestamp() {
-    return new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
-}
 
 function toKeyValStoreName(name:string):string {
     return "member." + name;
