@@ -10,8 +10,9 @@
   "files": [
     "typings/globals/node/index.d.ts",
     "typings/globals/debug/index.d.ts",
+    "./src/hlc.ts",
     "./src/crypto.ts",
-    "./src/hlc.ts"
+    "./src/stats.ts"
   ],
   "exclude": [
     "node_modules"
