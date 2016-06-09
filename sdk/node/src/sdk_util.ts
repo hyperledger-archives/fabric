@@ -23,8 +23,11 @@
 //
 
 var fs = require('fs');
+var tar = require("tar-fs");
 var grpc = require('grpc');
 var uuid = require('node-uuid');
+var path = require("path");
+var zlib = require("zlib");
 
 //
 // Load required crypto stuff.
@@ -125,4 +128,59 @@ export function GenerateDirectoryHash(rootDir, chaincodeDir, hash) {
   }
 
   return hash;
+}
+
+//
+// GenerateTarGz creates a .tar.gz file from contents in the src directory and
+// saves them in a dest file.
+//
+
+export function GenerateTarGz(src, dest, cb) {
+  console.log("GenerateTarGz");
+
+  // A list of file extensions that should be packaged into the .tar.gz.
+  // Files with all other file extenstions will be excluded to minimize the size
+  // of the deployment transaction payload.
+  var keep = [
+    ".go",
+    ".yaml",
+    ".json",
+    ".c",
+    ".h"
+  ];
+
+  // Create the pack stream specifying the ignore/filtering function
+  var pack = tar.pack(src, {
+    ignore: function(name) {
+      // Check whether the entry is a file or a directory
+      if (fs.statSync(name).isDirectory()) {
+        // If the entry is a directory, keep it in order to examine it further
+        return false
+      } else {
+        // If the entry is a file, check to see if it's the Dockerfile
+        if (name.indexOf("Dockerfile") > -1) {
+          return false
+        }
+
+        // If it is not the Dockerfile, check its extension
+        var ext = path.extname(name);
+
+        // Ignore any file who's extension is not in the keep list
+        if (keep.indexOf(ext) === -1) {
+          return true
+        } else {
+          return false
+        }
+      }
+    }
+  })
+  .pipe(zlib.Gzip())
+  .pipe(fs.createWriteStream(dest));
+
+  pack.on("close", function() {
+    return cb(null);
+  });
+  pack.on("error", function() {
+    return cb(Error("Error on fs.createWriteStream"));
+  });
 }

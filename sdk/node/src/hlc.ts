@@ -1435,12 +1435,8 @@ export class TransactionContext extends events.EventEmitter {
 
             // Create the .tar.gz file of the chaincode package
             let targzFilePath = "/tmp/deployment-package.tar.gz";
-            // Do not include top level directory as Dockerfile must be at root of package
-            let tarball = new targz({}, {
-                fromBase: true
-            });
             // Create the compressed archive
-            tarball.compress(projDir, targzFilePath, function(err) {
+            sdk_util.GenerateTarGz(projDir, targzFilePath, function(err) {
                 if(err) {
                     console.log(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
                     return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
