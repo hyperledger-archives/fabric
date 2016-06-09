@@ -17,6 +17,7 @@ limitations under the License.
 package crypto
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -24,7 +25,6 @@ import (
 type tCertPoolSingleThreadImpl struct {
 	client *clientImpl
 
-	len    int
 	tCerts []tCert
 	m      sync.Mutex
 }
@@ -67,49 +67,55 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	tCertPool.client.debug("Found %d unused TCerts...", tCertPool.len)
+	tCertPool.client.debug("Found %d unused TCerts...", len(tCertPool.tCerts))
 
-	tCertPool.client.ks.storeUnusedTCerts(tCertPool.tCerts[:tCertPool.len])
+	tCertPool.client.ks.storeUnusedTCerts(tCertPool.tCerts)
 
 	tCertPool.client.debug("Store unused TCerts...done!")
 
 	return
 }
 
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
+
+	if nCerts < 1 {
+		return nil, errors.New("Number of requested TCerts has to be positive!")
+	}
+
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	if tCertPool.len <= 0 {
-		// Reload
-		if err := tCertPool.client.getTCertsFromTCA(tCertPool.client.conf.getTCertBatchSize()); err != nil {
-
+	if len(tCertPool.tCerts) < nCerts {
+		// We don't have enough TCerts in the pool - reload from the TCA
+		nTCerts2Generate := tCertPool.client.conf.getTCertBatchSize() + nCerts - len(tCertPool.tCerts)
+		tCertPool.client.debug("Called tCertPool.client.getTCertsFromTCA(%d)", nTCerts2Generate)
+		if err := tCertPool.client.getTCertsFromTCA(nTCerts2Generate); err != nil {
 			return nil, fmt.Errorf("Failed loading TCerts from TCA")
 		}
 	}
 
-	tCert = tCertPool.tCerts[tCertPool.len-1]
-	tCertPool.len--
+	// We should have enough TCerts in the pool by now - but just to be sure that we don't panic (out of range)
+	if len(tCertPool.tCerts) < nCerts {
+		return nil, fmt.Errorf("Failed to obtain %d in the TCertPool", nCerts)
+	}
 
-	return
+	tCerts = make([]tCert, nCerts)
+	copy(tCerts, tCertPool.tCerts[:nCerts])
+	tCertPool.tCerts = tCertPool.tCerts[nCerts:]
+
+	return tCerts, nil
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCert tCert) (err error) {
 	tCertPool.client.debug("Adding new Cert [% x].", tCert.GetCertificate().Raw)
 
-	tCertPool.len++
-	tCertPool.tCerts[tCertPool.len-1] = tCert
-
+	tCertPool.tCerts = append(tCertPool.tCerts, tCert)
 	return nil
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
-
 	tCertPool.client.debug("Init TCert Pool...")
-
-	tCertPool.tCerts = make([]tCert, tCertPool.client.conf.getTCertBatchSize())
-	tCertPool.len = 0
 
 	return
 }

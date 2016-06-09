@@ -395,20 +395,57 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+func TestClientGetNextTCerts(t *testing.T) {
+
+	// Some positive flow tests here
+	var nCerts int = 1
+	for i := 1; i < 3; i++ {
+		nCerts *= 10
+		fmt.Println(fmt.Sprintf("Calling GetNextTCerts(%d)", nCerts))
+		rvCerts, err := deployer.GetNextTCerts(nCerts)
+		if err != nil {
+			t.Fatalf("Could not receive %d TCerts", nCerts)
+		}
+		if len(rvCerts) != nCerts {
+			t.Fatalf("Expected exactly '%d' TCerts as a return from GetNextTCert(%d)", nCerts, nCerts)
+		}
+
+		for nPos, cert := range rvCerts {
+			if cert == nil {
+				t.Fatalf("Returned TCert (at position %d) cannot be nil", nPos)
+			}
+		}
+	}
+
+	// Some negative flow tests here
+	_, err := deployer.GetNextTCerts(0)
+	if err == nil {
+		t.Fatalf("Requesting 0 TCerts: expected an error when calling GetNextTCerts(0)")
+	}
+
+	_, err = deployer.GetNextTCerts(-1)
+	if err == nil {
+		t.Fatalf("Requesting -1 TCerts: expected an error when calling GetNextTCerts(-1)")
+	}
+
+}
+
 func TestClientGetAttributesFromTCert(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	tcert, err := deployer.GetNextTCert()
-
+	tCerts, err := deployer.GetNextTCerts(1)
 	if err != nil {
-		t.Fatalf("Failed getting tcert: [%s]", err)
+		t.Fatalf("Failed getting TCert by calling GetNextTCerts(1): [%s]", err)
 	}
-	if tcert == nil {
+	if tCerts == nil {
 		t.Fatalf("TCert should be different from nil")
 	}
+	if len(tCerts) != 1 {
+		t.Fatalf("Expected one TCert returned from GetNextTCerts(1)")
+	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tCerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")
@@ -430,21 +467,24 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 }
 
 func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
-	_, _ = deployer.GetNextTCert()
+	_, _ = deployer.GetNextTCerts(1)
 
 	after()  //Tear down the server.
 	before() //Start up again to use unsed TCerts
 
-	tcert, err := deployer.GetNextTCert()
+	tcerts, err := deployer.GetNextTCerts(1)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
-	if tcert == nil {
-		t.Fatalf("TCert should be different from nil")
+	if tcerts == nil {
+		t.Fatalf("Returned TCerts slice should be different from nil")
+	}
+	if tcerts[0] == nil {
+		t.Fatalf("Returned TCerts slice's first entry should be different from nil")
 	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tcerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")

@@ -63,7 +63,25 @@ func (tCertPool *tCertPoolMultithreadingImpl) Stop() (err error) {
 	return
 }
 
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert() (tCert tCert, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int) (tCerts []tCert, err error) {
+
+	// The MT is considered WIP. We are going to add this support in the next round of refactoring, but added this
+	// for external API consistency for now
+	if nCerts != 1 {
+		return nil, errors.New("The multithreaded TCertPool implementation is here for testing and supports only a single TCert request at a time")
+	}
+
+	tcert, err := tCertPool.getNextTCert()
+	if err != nil {
+		tCertPool.client.error("Failed getting next transaction certificate [%s].", err.Error())
+		return nil, err
+	}
+
+	tCerts = []tCert{tcert}
+	return tCerts, nil
+}
+
+func (tCertPool *tCertPoolMultithreadingImpl) getNextTCert() (tCert tCert, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPool.client.debug("Getting next TCert... %d out of 3", i)
 		select {
