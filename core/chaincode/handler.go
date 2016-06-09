@@ -1094,6 +1094,16 @@ func (handler *Handler) enterInitState(e *fsm.Event, state string) {
 func (handler *Handler) enterReadyState(e *fsm.Event, state string) {
 	// Now notify
 	msg, ok := e.Args[0].(*pb.ChaincodeMessage)
+	//we have to encrypt chaincode event payload. We cannot encrypt event type as
+	//it is needed by the event system to filter clients by
+	if ok && msg.ChaincodeEvent != nil && msg.ChaincodeEvent.Payload != nil {
+		var err error
+		if msg.Payload, err = handler.encrypt(msg.Uuid, msg.Payload); nil != err {
+			chaincodeLogger.Debug("[%s]Failed to encrypt chaincode event payload", msg.Uuid)
+			msg.Payload = []byte(fmt.Sprintf("Failed to encrypt chaincode event payload %s", err.Error()))
+			msg.Type = pb.ChaincodeMessage_ERROR
+		}
+	}
 	handler.deleteIsTransaction(msg.Uuid)
 	if !ok {
 		e.Cancel(fmt.Errorf("Received unexpected message type"))

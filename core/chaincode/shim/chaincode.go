@@ -69,6 +69,7 @@ type Chaincode interface {
 type ChaincodeStub struct {
 	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
+	chaincodeEvent  *pb.ChaincodeEvent
 }
 
 // Peer address derived from command line or env var
@@ -884,6 +885,13 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 	}
 
 	return true, nil
+}
+
+// ------------- ChaincodeEvent API ----------------------
+// SetEvent saves the event to be sent when a transaction is made part of a block 
+func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
+	stub.chaincodeEvent = &pb.ChaincodeEvent{ EventName: name, Payload: payload }
+	return nil
 }
 
 // ------------- Logging Control and Chaincode Loggers ---------------

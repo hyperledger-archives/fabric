@@ -44,9 +44,11 @@ eca:
 
         # peers
         peer: 2 9gvZQRwhUq9q bank_a	00001
+        peerthread: 2 9gvZQRwhUq9q bank_a	00001
 
         # validators
         validator: 4 9gvZQRwhUq9q bank_a 00001
+        validatorthread: 4 9gvZQRwhUq9q bank_a	00001
 
 tca:
     attribute-encryption:
@@ -108,7 +110,7 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  200
+        size:  10
       attributes:
         company: ACompany
         position: "Software Engineer"
@@ -177,8 +179,16 @@ tests:
                 enrollid: validator
                 enrollpw: 9gvZQRwhUq9q
 
+            validatorthread:
+                enrollid: validatorthread
+                enrollpw: 9gvZQRwhUq9q
+
             peer:
                 enrollid: peer
+                enrollpw: 9gvZQRwhUq9q
+
+            peerthread:
+                enrollid: peerthread
                 enrollpw: 9gvZQRwhUq9q
 
             TestRegistrationSameEnrollIDDifferentRole:

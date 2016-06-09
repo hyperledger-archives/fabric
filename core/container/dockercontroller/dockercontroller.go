@@ -48,11 +48,7 @@ func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client,
 	return nil
 }
 
-//Deploy use the reader containing targz to create a docker image
-//for docker inputbuf is tar reader ready for use by docker.Client
-//the stream from end client to peer could directly be this tar stream
-//talk to docker daemon using docker Client and build the image
-func (vm *DockerVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
+func (vm *DockerVM) deployImage(client *docker.Client, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	id, _ := vm.GetVMName(ccid)
 	outputbuf := bytes.NewBuffer(nil)
 	opts := docker.BuildImageOptions{
@@ -61,14 +57,28 @@ func (vm *DockerVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string
 		InputStream:  reader,
 		OutputStream: outputbuf,
 	}
+
+	if err := client.BuildImage(opts); err != nil {
+		dockerLogger.Error(fmt.Sprintf("Error building images: %s", err))
+		return err
+	}
+
+	dockerLogger.Debug("Created image: %s", id)
+
+	return nil
+}
+
+//Deploy use the reader containing targz to create a docker image
+//for docker inputbuf is tar reader ready for use by docker.Client
+//the stream from end client to peer could directly be this tar stream
+//talk to docker daemon using docker Client and build the image
+func (vm *DockerVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	client, err := cutil.NewDockerClient()
 	switch err {
 	case nil:
-		if err = client.BuildImage(opts); err != nil {
-			dockerLogger.Error(fmt.Sprintf("Error building Peer container: %s", err))
+		if err = vm.deployImage(client, ccid, args, env, attachstdin, attachstdout, reader); err != nil {
 			return err
 		}
-		dockerLogger.Debug("Created image: %s", id)
 	default:
 		return fmt.Errorf("Error creating docker client: %s", err)
 	}
@@ -76,7 +86,7 @@ func (vm *DockerVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string
 }
 
 //Start starts a container using a previously created docker image
-func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	imageID, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
@@ -93,9 +103,29 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 	dockerLogger.Debug("Start container %s", containerID)
 	err = vm.createContainer(ctxt, client, imageID, containerID, args, env, attachstdin, attachstdout)
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
-		return err
+		//if image not found try to create image and retry
+		if err == docker.ErrNoSuchImage {
+			if reader != nil {
+				dockerLogger.Debug("start-could not find image ...attempt to recreate image %s", err)
+				if err = vm.deployImage(client, ccid, args, env, attachstdin, attachstdout, reader); err != nil {
+					return err
+				}
+
+				dockerLogger.Debug("start-recreated image successfully")
+				if err = vm.createContainer(ctxt, client, imageID, containerID, args, env, attachstdin, attachstdout); err != nil {
+					dockerLogger.Error(fmt.Sprintf("start-could not recreate container post recreate image: %s", err))
+					return err
+				}
+			} else {
+				dockerLogger.Error(fmt.Sprintf("start-could not find image: %s", err))
+				return err
+			}
+		} else {
+			dockerLogger.Error(fmt.Sprintf("start-could not recreate container %s", err))
+			return err
+		}
 	}
+
 	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
 	if err != nil {
 		dockerLogger.Error(fmt.Sprintf("start-could not start container %s", err))
@@ -144,6 +174,27 @@ func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 			dockerLogger.Debug("Removed container %s", id)
 		}
 	}
+	return err
+}
+
+//Destroy destroys an image
+func (vm *DockerVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, noprune bool) error {
+	id, _ := vm.GetVMName(ccid)
+	client, err := cutil.NewDockerClient()
+	if err != nil {
+		dockerLogger.Error(fmt.Sprintf("destroy-cannot create client %s", err))
+		return err
+	}
+	id = strings.Replace(id, ":", "_", -1)
+
+	err = client.RemoveImageExtended(id, docker.RemoveImageOptions{Force: force, NoPrune: noprune})
+
+	if err != nil {
+		dockerLogger.Error(fmt.Sprintf("error while destroying image: %s", err))
+	} else {
+		dockerLogger.Debug("Destroyed image %s", id)
+	}
+
 	return err
 }
 

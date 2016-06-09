@@ -25,10 +25,11 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 var (
@@ -163,8 +164,8 @@ func NewSelfSignedCert() ([]byte, interface{}, error) {
 				},
 			},
 		},
-		NotBefore: time.Unix(1000, 0),
-		NotAfter:  time.Unix(100000, 0),
+		NotBefore: time.Now().Add(-1 * time.Hour),
+		NotAfter:  time.Now().Add(1 * time.Hour),
 
 		SignatureAlgorithm: x509.ECDSAWithSHA384,
 
