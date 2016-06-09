@@ -22,6 +22,7 @@ var hlc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
+var sleep = require('sleep');
 
 //
 //  Create a test chain
@@ -81,11 +82,19 @@ var test_user_Member1;
 // across multiple tests.
 //
 
-var testChaincodePath = "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02";
+// Path to the local directory containing the chaincode project under $GOPATH
+var testChaincodePath = "github.com/angrbrd/build-chaincode";
+
+// Chaincode name/hash that will be filled in by the deployment operation
 var testChaincodeName = "";
+
+// Initializing values for chaincode parameters
 var initA = "100";
 var initB = "200";
 var deltaAB = "1";
+
+// A number of seconds to sleep after a chaincode deploy operation
+var sleepSec = 20;
 
 function getUser(name, cb) {
     chain.getUser(name, function (err, user) {
@@ -129,7 +138,7 @@ test('Enroll WebAppAdmin', function (t) {
             t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
             t.end(err);
         } else {
-            t.pass("Successfully got WebAppAdmin member" + " ---> " /*+ JSON.stringify(crypto)*/);
+            t.pass("Successfully got WebAppAdmin member" /*+ " ---> " + JSON.stringify(crypto)*/);
 
             // Enroll the WebAppAdmin member with the certificate authority using
             // the one time password hard coded inside the membersrvc.yaml.
@@ -139,14 +148,14 @@ test('Enroll WebAppAdmin', function (t) {
                     t.fail("Failed to enroll WebAppAdmin member " + " ---> " + err);
                     t.end(err);
                 } else {
-                    t.pass("Successfully enrolled WebAppAdmin member" + " ---> " /*+ JSON.stringify(crypto)*/);
+                    t.pass("Successfully enrolled WebAppAdmin member" /*+ " ---> " + JSON.stringify(crypto)*/);
 
                     // Confirm that the WebAppAdmin token has been created in the key value store
                     path = chain.getKeyValStore().dir + "/member." + WebAppAdmin.getName();
 
                     fs.exists(path, function (exists) {
                         if (exists) {
-                            t.pass("Successfully stored client token for" + " ---> " + WebAppAdmin.getName());
+                            t.pass("Successfully stored client token" /*+ " ---> " + WebAppAdmin.getName()*/);
                         } else {
                             t.fail("Failed to store client token for " + WebAppAdmin.getName() + " ---> " + err);
                         }
@@ -173,13 +182,13 @@ test('Set chain registrar', function (t) {
             t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
             t.end(err);
         } else {
-            t.pass("Successfully got WebAppAdmin member" + " ---> " /*+ WebAppAdmin*/);
+            t.pass("Successfully got WebAppAdmin member");
 
             // Set the WebAppAdmin as the designated chain registrar
             chain.setRegistrar(WebAppAdmin);
 
             // Confirm that the chain registrar is now WebAppAdmin
-            t.equal(chain.getRegistrar().getName(), "WebAppAdmin", "Successfully set chain registrar to" + " ---> " + WebAppAdmin.getName());
+            t.equal(chain.getRegistrar().getName(), "WebAppAdmin", "Successfully set chain registrar");
         }
     });
 });
@@ -199,15 +208,13 @@ test('Register and enroll a new user', function (t) {
         } else {
             test_user_Member1 = user;
 
-            console.log("[Test][test_user_Member1][%j]", test_user_Member1);
-
-            t.pass("Successfully registered and enrolled " + test_user1.name + " ---> " + test_user_Member1.getName());
+            t.pass("Successfully registered and enrolled " + test_user_Member1.getName());
 
             // Confirm that the user token has been created in the key value store
             path = chain.getKeyValStore().dir + "/member." + test_user1.name;
             fs.exists(path, function (exists) {
                 if (exists) {
-                    t.pass("Successfully stored client token for" + " ---> " + test_user1.name);
+                    t.pass("Successfully stored client token" /*+ " ---> " + test_user1.name*/);
                     t.end()
                 } else {
                     t.fail("Failed to store client token for " + test_user1.name + " ---> " + err);
@@ -230,7 +237,7 @@ test('Deploy a chaincode by enrolled user', function(t) {
   // Construct the deploy request
   var deployRequest = {
     // Path (under $GOPATH) required for deploy
-    chaincodePath: "github.com/angrbrd/build-chaincode",
+    chaincodePath: testChaincodePath,
     // Function to trigger
     fcn: "init",
     // Arguments to the initializing function
@@ -241,11 +248,16 @@ test('Deploy a chaincode by enrolled user', function(t) {
   var deployTx = test_user_Member1.deploy(deployRequest);
 
   // Print the deploy results
-  deployTx.on('complete', function(results) {
+  deployTx.on('complete', function(results, chaincodeHash) {
     // Deploy request completed successfully
 
+    // Sleep for sleepSec to allow the chaincode Docker container to come up
+    console.log(util.format("Sleeping for [%s] seconds...", sleepSec));
+    sleep.sleep(sleepSec);
+
     // Set the chaincode name (hash returned) for subsequent tests
-    //testChaincodeName = deployRequest.tag;
+    testChaincodeName = chaincodeHash;
+    console.log("testChaincodeName:" + chaincodeHash);
     t.pass("Successfully deployed chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> txUUID : " + results);
   });
   deployTx.on('error', function(results) {
@@ -260,11 +272,11 @@ test('Deploy a chaincode by enrolled user', function(t) {
 // state variable with a transaction certificate batch size of 1.
 //
 
-test.skip('Query existing chaincode state by enrolled user with batch size of 1', function (t) {
+test('Query existing chaincode state by enrolled user with batch size of 1', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -296,13 +308,13 @@ test.skip('Query existing chaincode state by enrolled user with batch size of 1'
 // state variable with a transaction certificate batch size of 100.
 //
 
-test.skip('Query existing chaincode state by enrolled user with batch size of 100', function (t) {
+test('Query existing chaincode state by enrolled user with batch size of 100', function (t) {
     t.plan(1);
 
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -332,13 +344,13 @@ test.skip('Query existing chaincode state by enrolled user with batch size of 10
 // state variable.
 //
 
-test.skip('Query non-existing chaincode state by enrolled user', function (t) {
+test('Query non-existing chaincode state by enrolled user', function (t) {
     t.plan(1);
 
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -365,13 +377,13 @@ test.skip('Query non-existing chaincode state by enrolled user', function (t) {
 // function.
 //
 
-test.skip('Query non-existing chaincode function by enrolled user', function (t) {
+test('Query non-existing chaincode function by enrolled user', function (t) {
     t.plan(1);
 
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "BOGUS",
         // Existing state variable to retrieve
@@ -397,13 +409,13 @@ test.skip('Query non-existing chaincode function by enrolled user', function (t)
 // registered and enrolled in the UT above.
 //
 
-test.skip('Invoke a chaincode by enrolled user', function (t) {
+test('Invoke a chaincode by enrolled user', function (t) {
     t.plan(1);
 
     // Construct the invoke request
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "invoke",
         // Parameters for the invoke function
