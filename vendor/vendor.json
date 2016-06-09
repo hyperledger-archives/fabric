@@ -180,6 +180,18 @@
 			"revisionTime": "2015-07-16T22:11:58-07:00"
 		},
 		{
+			"checksumSHA1": "7Ezm4Rq77LAlKtbsXY8uWskqZgA=",
+			"path": "github.com/onsi/ginkgo/ginkgo",
+			"revision": "5437a97bf824dec14e58d68c56ee36e772670c2e",
+			"revisionTime": "2016-05-09T18:20:50Z"
+		},
+		{
+			"checksumSHA1": "zdF3YUjpElA/o2AS+YE9j5Lu+NU=",
+			"path": "github.com/onsi/gomega",
+			"revision": "c73e51675ad2455a4515b6213eb7145eaade4824",
+			"revisionTime": "2016-05-16T22:24:31Z"
+		},
+		{
 			"path": "github.com/op/go-logging",
 			"revision": "e8d5414f0947014548c2334044a0fac13187dfee",
 			"revisionTime": "2015-05-25T13:26:48+02:00"
