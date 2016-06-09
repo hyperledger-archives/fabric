@@ -102,6 +102,9 @@ export interface GetTCertBatchRequest {
     enrollment: Enrollment;
     num: number;
 }
+export interface SubmittedTransactionResponse {
+    uuid: string;
+}
 export interface GetTCertBatchCallback {
     (err: Error, tcerts?: TCert[]): void;
 }
@@ -224,6 +227,7 @@ export declare class Chain {
     private memberServices;
     private keyValStore;
     private devMode;
+    private preFetchMode;
     cryptoPrimitives: crypto.Crypto;
     constructor(name: string);
     /**
@@ -270,6 +274,14 @@ export declare class Chain {
      */
     isSecurityEnabled(): boolean;
     /**
+     * Determine if pre-fetch mode is enabled to prefetch tcerts.
+     */
+    isPreFetchMode(): boolean;
+    /**
+     * Set prefetch mode to true or false.
+     */
+    setPreFetchMode(preFetchMode: boolean): void;
+    /**
      * Determine if dev mode is enabled.
      */
     isDevMode(): boolean;
@@ -307,6 +319,27 @@ export declare class Chain {
     getUser(name: string, cb: GetMemberCallback): void;
     private getMemberHelper(name, cb);
     /**
+     * Register a user or other member type with the chain.
+     * @param registrationRequest Registration information.
+     * @param cb Callback with registration results
+     */
+    register(registrationRequest: RegistrationRequest, cb: RegisterCallback): void;
+    /**
+     * Enroll a user or other identity which has already been registered.
+     * If the user has already been enrolled, this will still succeed.
+     * @param name The name of the user or other member to enroll.
+     * @param secret The secret of the user or other member to enroll.
+     * @param cb The callback to return the user or other member.
+     */
+    enroll(name: string, secret: string, cb: GetMemberCallback): void;
+    /**
+     * Register and enroll a user or other member type.
+     * This assumes that a registrar with sufficient privileges has been set.
+     * @param registrationRequest Registration information.
+     * @params
+     */
+    registerAndEnroll(registrationRequest: RegistrationRequest, cb: GetMemberCallback): void;
+    /**
      * Send a transaction to a peer.
      * @param tx A transaction
      * @param eventEmitter An event emitter
@@ -330,6 +363,10 @@ export declare class Member {
     private keyValStoreName;
     private tcerts;
     private tcertBatchSize;
+    private arrivalRate;
+    private getTCertResponseTime;
+    private getTCertWaiters;
+    private gettingTCerts;
     /**
      * Constructor for a member.
      * @param cfg {string | RegistrationRequest} The member name or registration request.
@@ -440,16 +477,17 @@ export declare class Member {
      * Create a transaction context with which to issue build, deploy, invoke, or query transactions.
      * Only call this if you want to use the same tcert for multiple transactions.
      * @param {Object} tcert A transaction certificate from member services.  This is optional.
-     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     * @returns A transaction context.
      */
     newTransactionContext(tcert?: TCert): TransactionContext;
     getUserCert(cb: GetTCertCallback): void;
     /**
      * Get the next available transaction certificate.
      * @param cb
-     * @returns
      */
     getNextTCert(cb: GetTCertCallback): void;
+    private shouldGetTCerts();
+    private getTCerts();
     /**
      * Save the state of this member to the key value store.
      * @param cb Callback of the form: {function(err}
@@ -587,10 +625,6 @@ export declare function newChain(name: any): any;
  * @return {Chain} Returns the chain, or null if it doesn't exist and create is false.
  */
 export declare function getChain(chainName: any, create: any): any;
-/**
- * Stop/cleanup everything pertaining to this module.
- */
-export declare function stop(): void;
 /**
  * Create an instance of a FileKeyValStore.
  */

@@ -23,19 +23,28 @@ var hlc = require('..');
 var fs = require('fs');
 var util = require('util');
 
+function usage(msg) {
+    if (msg) console.log("ERROR: %s",msg);
+    console.log("Usage: hlc test <config-file>");
+    process.exit(0);
+}
+
 function main() {
    var argv = process.argv.splice(2);
-   if (argv.length !== 1) {
-       console.log("Usage: hlc test <config-file>");
-       process.exit(0);
+   if (argv.length < 1) usage();
+   var cmd = argv[0];
+   argv = argv.splice(1);
+   if (cmd == 'test') {
+      if (argv.length != 1) usage("missiing <test.json> argument");
+      var cfgFile = argv[0];
+      if ((!cfgFile.indexOf(".")) || (!cfgFile.indexOf("/"))) {
+         cfgFile = "./"+cfgFile;
+      }
+      runTests(cfgFile);
+   } else {
+      usage("invalid command: "+cmd);
    }
 
-   var cfgFile = argv[0];
-   if ((!cfgFile.indexOf(".")) || (!cfgFile.indexOf("/"))) {
-      cfgFile = "./"+cfgFile;
-   }
-
-   runTests(cfgFile);
 }
 
 function runTests(cfgFile) {
@@ -62,7 +71,7 @@ function runTests(cfgFile) {
         if (err) throw Error("Failed enrolling registrar: "+err);
         chain.setRegistrar(user);
         // Initialization complete, start tests
-        console.log("beginning tests")
+        console.log("beginning tests");
         var numUsers = getVal(cfg,"numUsers");
         var iterations = getVal(cfg,"iterations");
         var tests = getVal(cfg,"tests");

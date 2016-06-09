@@ -60,6 +60,7 @@ var sha3 = require('js-sha3');
 var uuid = require('node-uuid');
 var BN = require('bn.js');
 var crypto = require("./crypto");
+var stats = require("./stats");
 var events = require('events');
 var debug = debugModule('hlc'); // 'hlc' stands for 'HyperLedger Client'
 var asn1 = jsrsa.asn1;
@@ -135,6 +136,8 @@ var Chain = (function () {
         this.tcertBatchSize = 200;
         // Is in dev mode or network mode
         this.devMode = false;
+        // If in prefetch mode, we prefetch tcerts from member services to help performance
+        this.preFetchMode = true;
         this.name = name;
     }
     /**
@@ -205,6 +208,18 @@ var Chain = (function () {
      */
     Chain.prototype.isSecurityEnabled = function () {
         return this.memberServices !== undefined;
+    };
+    /**
+     * Determine if pre-fetch mode is enabled to prefetch tcerts.
+     */
+    Chain.prototype.isPreFetchMode = function () {
+        return this.preFetchMode;
+    };
+    /**
+     * Set prefetch mode to true or false.
+     */
+    Chain.prototype.setPreFetchMode = function (preFetchMode) {
+        this.preFetchMode = preFetchMode;
     };
     /**
      * Determine if dev mode is enabled.
@@ -285,6 +300,60 @@ var Chain = (function () {
         });
     };
     /**
+     * Register a user or other member type with the chain.
+     * @param registrationRequest Registration information.
+     * @param cb Callback with registration results
+     */
+    Chain.prototype.register = function (registrationRequest, cb) {
+        var self = this;
+        self.getMember(registrationRequest.enrollmentID, function (err, member) {
+            if (err)
+                return cb(err);
+            member.register(registrationRequest, cb);
+        });
+    };
+    /**
+     * Enroll a user or other identity which has already been registered.
+     * If the user has already been enrolled, this will still succeed.
+     * @param name The name of the user or other member to enroll.
+     * @param secret The secret of the user or other member to enroll.
+     * @param cb The callback to return the user or other member.
+     */
+    Chain.prototype.enroll = function (name, secret, cb) {
+        var self = this;
+        self.getMember(name, function (err, member) {
+            if (err)
+                return cb(err);
+            member.enroll(secret, function (err) {
+                if (err)
+                    return cb(err);
+                return cb(null, member);
+            });
+        });
+    };
+    /**
+     * Register and enroll a user or other member type.
+     * This assumes that a registrar with sufficient privileges has been set.
+     * @param registrationRequest Registration information.
+     * @params
+     */
+    Chain.prototype.registerAndEnroll = function (registrationRequest, cb) {
+        var self = this;
+        self.getMember(registrationRequest.enrollmentID, function (err, member) {
+            if (err)
+                return cb(err);
+            if (member.isEnrolled()) {
+                debug("already enrolled");
+                return cb(null, member);
+            }
+            member.registerAndEnroll(registrationRequest, function (err) {
+                if (err)
+                    return cb(err);
+                return cb(null, member);
+            });
+        });
+    };
+    /**
      * Send a transaction to a peer.
      * @param tx A transaction
      * @param eventEmitter An event emitter
@@ -333,6 +402,10 @@ var Member = (function () {
      */
     function Member(cfg, chain) {
         this.tcerts = [];
+        this.arrivalRate = new stats.Rate();
+        this.getTCertResponseTime = new stats.ResponseTime();
+        this.getTCertWaiters = [];
+        this.gettingTCerts = false;
         if (util.isString(cfg)) {
             this.name = cfg;
         }
@@ -462,6 +535,9 @@ var Member = (function () {
     Member.prototype.register = function (registrationRequest, cb) {
         var self = this;
         cb = cb || nullCB;
+        if (registrationRequest.enrollmentID !== self.getName()) {
+            return cb(Error("registration enrollment ID and member name are not equal"));
+        }
         var enrollmentSecret = this.enrollmentSecret;
         if (enrollmentSecret) {
             debug("previously registered, enrollmentSecret=%s", enrollmentSecret);
@@ -570,7 +646,7 @@ var Member = (function () {
      * Create a transaction context with which to issue build, deploy, invoke, or query transactions.
      * Only call this if you want to use the same tcert for multiple transactions.
      * @param {Object} tcert A transaction certificate from member services.  This is optional.
-     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     * @returns A transaction context.
      */
     Member.prototype.newTransactionContext = function (tcert) {
         return new TransactionContext(this, tcert);
@@ -581,26 +657,85 @@ var Member = (function () {
     /**
      * Get the next available transaction certificate.
      * @param cb
-     * @returns
      */
     Member.prototype.getNextTCert = function (cb) {
         var self = this;
         if (!self.isEnrolled()) {
             return cb(Error(util.format("user '%s' is not enrolled", self.getName())));
         }
-        if (self.tcerts.length > 0) {
-            return cb(null, self.tcerts.shift());
+        self.arrivalRate.tick();
+        var tcert = self.tcerts.length > 0 ? self.tcerts.shift() : undefined;
+        if (tcert) {
+            return cb(null, tcert);
         }
+        else {
+            self.getTCertWaiters.push(cb);
+        }
+        if (self.shouldGetTCerts()) {
+            self.getTCerts();
+        }
+    };
+    // Determine if we should issue a request to get more tcerts now.
+    Member.prototype.shouldGetTCerts = function () {
+        var self = this;
+        // Do nothing if we are already getting more tcerts
+        if (self.gettingTCerts) {
+            debug("shouldGetTCerts: no, already getting tcerts");
+            return false;
+        }
+        // If there are none, then definitely get more
+        if (self.tcerts.length == 0) {
+            debug("shouldGetTCerts: yes, we have no tcerts");
+            return true;
+        }
+        // If we aren't in prefetch mode, return false;
+        if (!self.chain.isPreFetchMode()) {
+            debug("shouldGetTCerts: no, prefetch disabled");
+            return false;
+        }
+        // Otherwise, see if we should prefetch based on the arrival rate
+        // (i.e. the rate at which tcerts are requested) and the response
+        // time.
+        // 'arrivalRate' is in req/ms and 'responseTime' in ms,
+        // so 'tcertCountThreshold' is number of tcerts at which we should
+        // request the next batch of tcerts so we don't have to wait on the
+        // transaction path.  Note that we add 1 sec to the average response
+        // time to add a little buffer time so we don't have to wait.
+        var arrivalRate = self.arrivalRate.getValue();
+        var responseTime = self.getTCertResponseTime.getValue() + 1000;
+        var tcertThreshold = arrivalRate * responseTime;
+        var tcertCount = self.tcerts.length;
+        var result = tcertCount <= tcertThreshold;
+        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s", result, tcertThreshold, tcertCount, arrivalRate, responseTime));
+        return result;
+    };
+    // Call member services to get more tcerts
+    Member.prototype.getTCerts = function () {
+        var self = this;
         var req = {
             name: self.getName(),
             enrollment: self.enrollment,
             num: self.getTCertBatchSize()
         };
+        self.getTCertResponseTime.start();
         self.memberServices.getTCertBatch(req, function (err, tcerts) {
-            if (err)
-                return cb(err);
-            self.tcerts = tcerts;
-            return cb(null, self.tcerts.shift());
+            if (err) {
+                self.getTCertResponseTime.cancel();
+                // Error all waiters
+                while (self.getTCertWaiters.length > 0) {
+                    self.getTCertWaiters.shift()(err);
+                }
+                return;
+            }
+            self.getTCertResponseTime.stop();
+            // Add to member's tcert list
+            while (tcerts.length > 0) {
+                self.tcerts.push(tcerts.shift());
+            }
+            // Allow waiters to proceed
+            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
+                self.getTCertWaiters.shift()(null, self.tcerts.shift());
+            }
         });
     };
     /**
@@ -1068,7 +1203,7 @@ var Peer = (function () {
                     case _fabricProto.Transaction.Type.CHAINCODE_INVOKE:
                         if (response.status === "SUCCESS") {
                             // Invoke transaction has been submitted
-                            eventEmitter.emit('submitted', response.msg);
+                            eventEmitter.emit('submitted', response.msg.toString());
                             self.waitToComplete(eventEmitter);
                         }
                         else {
@@ -1569,16 +1704,6 @@ function getChain(chainName, create) {
     return chain;
 }
 exports.getChain = getChain;
-/**
- * Stop/cleanup everything pertaining to this module.
- */
-function stop() {
-    // Shutdown each chain
-    for (var chainName in _chains) {
-        _chains[chainName].shutdown();
-    }
-}
-exports.stop = stop;
 /**
  * Create an instance of a FileKeyValStore.
  */

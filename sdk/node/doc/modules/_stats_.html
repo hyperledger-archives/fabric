@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>KeyValStore | Hyperledger OpenBlockChain</title>
+	<title>&quot;stats&quot; | Hyperledger OpenBlockChain</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -57,13 +57,10 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="../modules/_hlc_.html">&quot;hlc&quot;</a>
-				</li>
-				<li>
-					<a href="_hlc_.keyvalstore.html">KeyValStore</a>
+					<a href="_stats_.html">&quot;stats&quot;</a>
 				</li>
 			</ul>
-			<h1>Interface KeyValStore</h1>
+			<h1>External module &quot;stats&quot;</h1>
 		</div>
 	</div>
 </header>
@@ -73,108 +70,56 @@
 			<section class="tsd-panel tsd-comment">
 				<div class="tsd-comment tsd-typography">
 					<div class="lead">
-						<p>The KeyValStore interface used for persistent storage.</p>
+						<p>Copyright 2016 IBM</p>
 					</div>
+					<p>Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+						you may not use this file except in compliance with the License.
+					You may obtain a copy of the License at</p>
+					<p>   <a href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0</a></p>
+					<p> Unless required by applicable law or agreed to in writing, software
+						distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+						WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+						See the License for the specific language governing permissions and
+					limitations under the License.</p>
 				</div>
-			</section>
-			<section class="tsd-panel tsd-hierarchy">
-				<h3>Hierarchy</h3>
-				<ul class="tsd-hierarchy">
-					<li>
-						<span class="target">KeyValStore</span>
-					</li>
-				</ul>
-			</section>
-			<section class="tsd-panel">
-				<h3>Implemented by</h3>
-				<ul class="tsd-hierarchy">
-					<li><a href="../classes/_hlc_.filekeyvalstore.html" class="tsd-signature-type">FileKeyValStore</a></li>
-				</ul>
 			</section>
 			<section class="tsd-panel-group tsd-index-group">
 				<h2>Index</h2>
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
-							<h3>Methods</h3>
+							<h3>Classes</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-method tsd-parent-kind-interface"><a href="_hlc_.keyvalstore.html#getvalue" class="tsd-kind-icon">get<wbr>Value</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-interface"><a href="_hlc_.keyvalstore.html#setvalue" class="tsd-kind-icon">set<wbr>Value</a></li>
+								<li class="tsd-kind-class tsd-parent-kind-external-module"><a href="../classes/_stats_.average.html" class="tsd-kind-icon">Average</a></li>
+								<li class="tsd-kind-class tsd-parent-kind-external-module"><a href="../classes/_stats_.rate.html" class="tsd-kind-icon">Rate</a></li>
+								<li class="tsd-kind-class tsd-parent-kind-external-module"><a href="../classes/_stats_.responsetime.html" class="tsd-kind-icon">Response<wbr>Time</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section tsd-is-not-exported">
+							<h3>Functions</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported"><a href="_stats_.html#getcurtimeinms" class="tsd-kind-icon">get<wbr>Cur<wbr>Time<wbr>InMs</a></li>
 							</ul>
 						</section>
 					</div>
 				</section>
 			</section>
-			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Methods</h2>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-interface">
-					<a name="getvalue" class="tsd-anchor"></a>
-					<h3>get<wbr>Value</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-interface">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Value<span class="tsd-signature-symbol">(</span>name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, cb<span class="tsd-signature-symbol">: </span><a href="_hlc_.getvaluecallback.html" class="tsd-signature-type">GetValueCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+			<section class="tsd-panel-group tsd-member-group tsd-is-not-exported">
+				<h2>Functions</h2>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+					<a name="getcurtimeinms" class="tsd-anchor"></a>
+					<h3>get<wbr>Cur<wbr>Time<wbr>InMs</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Cur<wbr>Time<wbr>InMs<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L89">hlc.ts:89</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L145">stats.ts:145</a></li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Get the value associated with name.</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>name: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>cb: <a href="_hlc_.getvaluecallback.html" class="tsd-signature-type">GetValueCallback</a></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>function(err,value)</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-interface">
-					<a name="setvalue" class="tsd-anchor"></a>
-					<h3>set<wbr>Value</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-interface">
-						<li class="tsd-signature tsd-kind-icon">set<wbr>Value<span class="tsd-signature-symbol">(</span>name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, cb<span class="tsd-signature-symbol">: </span><a href="_hlc_.errorcallback.html" class="tsd-signature-type">ErrorCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L96">hlc.ts:96</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Set the value associated with name.</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>name: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>value: <span class="tsd-signature-type">string</span></h5>
-								</li>
-								<li>
-									<h5>cb: <a href="_hlc_.errorcallback.html" class="tsd-signature-type">ErrorCallback</a></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>function(err)</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -187,33 +132,30 @@
 						<a href="../globals.html"><em>Globals</em></a>
 					</li>
 					<li class=" tsd-kind-external-module">
-						<a href="../modules/_crypto_.html">"crypto"</a>
-					</li>
-					<li class="current tsd-kind-external-module">
-						<a href="../modules/_hlc_.html">"hlc"</a>
+						<a href="_crypto_.html">"crypto"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
-						<a href="../modules/_stats_.html">"stats"</a>
+						<a href="_hlc_.html">"hlc"</a>
+					</li>
+					<li class="current tsd-kind-external-module">
+						<a href="_stats_.html">"stats"</a>
 					</li>
 				</ul>
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-				</ul>
-				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_hlc_.keyvalstore.html" class="tsd-kind-icon">Key<wbr>Val<wbr>Store</a>
-						<ul>
-							<li class=" tsd-kind-method tsd-parent-kind-interface">
-								<a href="_hlc_.keyvalstore.html#getvalue" class="tsd-kind-icon">get<wbr>Value</a>
-							</li>
-							<li class=" tsd-kind-method tsd-parent-kind-interface">
-								<a href="_hlc_.keyvalstore.html#setvalue" class="tsd-kind-icon">set<wbr>Value</a>
-							</li>
-						</ul>
+					<li class=" tsd-kind-class tsd-parent-kind-external-module">
+						<a href="../classes/_stats_.average.html" class="tsd-kind-icon">Average</a>
 					</li>
-				</ul>
-				<ul class="after-current">
+					<li class=" tsd-kind-class tsd-parent-kind-external-module">
+						<a href="../classes/_stats_.rate.html" class="tsd-kind-icon">Rate</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-external-module">
+						<a href="../classes/_stats_.responsetime.html" class="tsd-kind-icon">Response<wbr>Time</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="_stats_.html#getcurtimeinms" class="tsd-kind-icon">get<wbr>Cur<wbr>Time<wbr>InMs</a>
+					</li>
 				</ul>
 			</nav>
 		</div>

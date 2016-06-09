@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>Peer | Hyperledger OpenBlockChain</title>
+	<title>Average | Hyperledger OpenBlockChain</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -57,13 +57,13 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="../modules/_hlc_.html">&quot;hlc&quot;</a>
+					<a href="../modules/_stats_.html">&quot;stats&quot;</a>
 				</li>
 				<li>
-					<a href="_hlc_.peer.html">Peer</a>
+					<a href="_stats_.average.html">Average</a>
 				</li>
 			</ul>
-			<h1>Class Peer</h1>
+			<h1>Class Average</h1>
 		</div>
 	</div>
 </header>
@@ -73,7 +73,8 @@
 			<section class="tsd-panel tsd-comment">
 				<div class="tsd-comment tsd-typography">
 					<div class="lead">
-						<p>The Peer class represents a peer to which HLC sends deploy, invoke, or query requests.</p>
+						<p>The Average class keeps a rolling average based on sample values.
+						The sample weight determines how heavily to weight the most recent sample in calculating the current average.</p>
 					</div>
 				</div>
 			</section>
@@ -81,7 +82,7 @@
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">Peer</span>
+						<span class="target">Average</span>
 					</li>
 				</ul>
 			</section>
@@ -92,26 +93,24 @@
 						<section class="tsd-index-section ">
 							<h3>Constructors</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="_hlc_.peer.html#constructor" class="tsd-kind-icon">constructor</a></li>
+								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="_stats_.average.html#constructor" class="tsd-kind-icon">constructor</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section tsd-is-private tsd-is-private-protected">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.peer.html#chain" class="tsd-kind-icon">chain</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.peer.html#ep" class="tsd-kind-icon">ep</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.peer.html#peerclient" class="tsd-kind-icon">peer<wbr>Client</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.peer.html#url" class="tsd-kind-icon">url</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_stats_.average.html#avg" class="tsd-kind-icon">avg</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_stats_.average.html#avgweight" class="tsd-kind-icon">avg<wbr>Weight</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_stats_.average.html#sampleweight" class="tsd-kind-icon">sample<wbr>Weight</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
 							<h3>Methods</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.peer.html#getchain" class="tsd-kind-icon">get<wbr>Chain</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.peer.html#geturl" class="tsd-kind-icon">get<wbr>Url</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.peer.html#remove" class="tsd-kind-icon">remove</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.peer.html#sendtransaction" class="tsd-kind-icon">send<wbr>Transaction</a></li>
-								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.peer.html#waittocomplete" class="tsd-kind-icon">wait<wbr>ToComplete</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_stats_.average.html#addsample" class="tsd-kind-icon">add<wbr>Sample</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_stats_.average.html#getsampleweight" class="tsd-kind-icon">get<wbr>Sample<wbr>Weight</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_stats_.average.html#getvalue" class="tsd-kind-icon">get<wbr>Value</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_stats_.average.html#setsampleweight" class="tsd-kind-icon">set<wbr>Sample<wbr>Weight</a></li>
 							</ul>
 						</section>
 					</div>
@@ -123,39 +122,16 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>Peer<span class="tsd-signature-symbol">(</span>url<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, chain<span class="tsd-signature-symbol">: </span><a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a>, pem<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.peer.html" class="tsd-signature-type">Peer</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Average<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_stats_.average.html" class="tsd-signature-type">Average</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1514">hlc.ts:1514</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L33">stats.ts:33</a></li>
 								</ul>
 							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Constructor for a peer given the endpoint config for the peer.</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>url: <span class="tsd-signature-type">string</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>The URL of</p>
-										</div>
-									</div>
-								</li>
-								<li>
-									<h5>chain: <a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a></h5>
-								</li>
-								<li>
-									<h5>pem: <span class="tsd-signature-type">string</span></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="_hlc_.peer.html" class="tsd-signature-type">Peer</a></h4>
-							<p>The new peer.</p>
+							<h4 class="tsd-returns-title">Returns <a href="_stats_.average.html" class="tsd-signature-type">Average</a></h4>
 						</li>
 					</ul>
 				</section>
@@ -163,42 +139,32 @@
 			<section class="tsd-panel-group tsd-member-group tsd-is-private tsd-is-private-protected">
 				<h2>Properties</h2>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
-					<a name="chain" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> chain</h3>
-					<div class="tsd-signature tsd-kind-icon">chain<span class="tsd-signature-symbol">:</span> <a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a></div>
+					<a name="avg" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> avg</h3>
+					<div class="tsd-signature tsd-kind-icon">avg<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1512">hlc.ts:1512</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L31">stats.ts:31</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
-					<a name="ep" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> ep</h3>
-					<div class="tsd-signature tsd-kind-icon">ep<span class="tsd-signature-symbol">:</span> <a href="_hlc_.endpoint.html" class="tsd-signature-type">Endpoint</a></div>
+					<a name="avgweight" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> avg<wbr>Weight</h3>
+					<div class="tsd-signature tsd-kind-icon">avg<wbr>Weight<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1513">hlc.ts:1513</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L33">stats.ts:33</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
-					<a name="peerclient" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> peer<wbr>Client</h3>
-					<div class="tsd-signature tsd-kind-icon">peer<wbr>Client<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<a name="sampleweight" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> sample<wbr>Weight</h3>
+					<div class="tsd-signature tsd-kind-icon">sample<wbr>Weight<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1514">hlc.ts:1514</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
-					<a name="url" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> url</h3>
-					<div class="tsd-signature tsd-kind-icon">url<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1511">hlc.ts:1511</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L32">stats.ts:32</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -206,138 +172,100 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Methods</h2>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="getchain" class="tsd-anchor"></a>
-					<h3>get<wbr>Chain</h3>
+					<a name="addsample" class="tsd-anchor"></a>
+					<h3>add<wbr>Sample</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Chain<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a></li>
+						<li class="tsd-signature tsd-kind-icon">add<wbr>Sample<span class="tsd-signature-symbol">(</span>sample<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1533">hlc.ts:1533</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L47">stats.ts:47</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Get the chain of which this peer is a member.</p>
-								</div>
-							</div>
-							<h4 class="tsd-returns-title">Returns <a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a></h4>
-							<p>The chain of which this peer is a member.</p>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="geturl" class="tsd-anchor"></a>
-					<h3>get<wbr>Url</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Url<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1541">hlc.ts:1541</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Get the URL of the peer.</p>
-								</div>
-							</div>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
-							<p>Get the URL associated with the peer.</p>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="remove" class="tsd-anchor"></a>
-					<h3>remove</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">remove<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1628">hlc.ts:1628</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Remove the peer from the chain.</p>
-								</div>
-							</div>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="sendtransaction" class="tsd-anchor"></a>
-					<h3>send<wbr>Transaction</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">send<wbr>Transaction<span class="tsd-signature-symbol">(</span>tx<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a>, eventEmitter<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">EventEmitter</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1550">hlc.ts:1550</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Send a transaction to this peer.</p>
+									<p>Add a sample.</p>
 								</div>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>tx: <a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>A transaction</p>
-										</div>
-									</div>
-								</li>
-								<li>
-									<h5>eventEmitter: <span class="tsd-signature-type">EventEmitter</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>The event emitter</p>
-										</div>
-									</div>
+									<h5>sample: <span class="tsd-signature-type">number</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
-					<a name="waittocomplete" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> wait<wbr>ToComplete</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">wait<wbr>ToComplete<span class="tsd-signature-symbol">(</span>eventEmitter<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">EventEmitter</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="getsampleweight" class="tsd-anchor"></a>
+					<h3>get<wbr>Sample<wbr>Weight</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Sample<wbr>Weight<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1616">hlc.ts:1616</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L59">stats.ts:59</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>For now, just wait 5 seconds and then fire the complete event.
-										This is a temporary hack until event notification is implemented.
-									TODO: implement this appropriately.</p>
+									<p>Get the weight.
+									The weight determines how heavily to weight the most recent sample in calculating the average.</p>
 								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="getvalue" class="tsd-anchor"></a>
+					<h3>get<wbr>Value</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Value<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L40">stats.ts:40</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="setsampleweight" class="tsd-anchor"></a>
+					<h3>set<wbr>Sample<wbr>Weight</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">set<wbr>Sample<wbr>Weight<span class="tsd-signature-symbol">(</span>weight<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/stats.ts#L67">stats.ts:67</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Set the weight.</p>
+								</div>
+								<dl class="tsd-comment-tags">
+									<dt>params</dt>
+									<dd><p>weight A value between 0 and 1.</p>
+									</dd>
+								</dl>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>eventEmitter: <span class="tsd-signature-type">EventEmitter</span></h5>
+									<h5>weight: <span class="tsd-signature-type">number</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -355,10 +283,10 @@
 					<li class=" tsd-kind-external-module">
 						<a href="../modules/_crypto_.html">"crypto"</a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_hlc_.html">"hlc"</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="../modules/_stats_.html">"stats"</a>
 					</li>
 				</ul>
@@ -368,42 +296,45 @@
 				</ul>
 				<ul class="current">
 					<li class="current tsd-kind-class tsd-parent-kind-external-module">
-						<a href="_hlc_.peer.html" class="tsd-kind-icon">Peer</a>
+						<a href="_stats_.average.html" class="tsd-kind-icon">Average</a>
 						<ul>
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
-								<a href="_hlc_.peer.html#constructor" class="tsd-kind-icon">constructor</a>
+								<a href="_stats_.average.html#constructor" class="tsd-kind-icon">constructor</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
-								<a href="_hlc_.peer.html#chain" class="tsd-kind-icon">chain</a>
+								<a href="_stats_.average.html#avg" class="tsd-kind-icon">avg</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
-								<a href="_hlc_.peer.html#ep" class="tsd-kind-icon">ep</a>
+								<a href="_stats_.average.html#avgweight" class="tsd-kind-icon">avg<wbr>Weight</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
-								<a href="_hlc_.peer.html#peerclient" class="tsd-kind-icon">peer<wbr>Client</a>
-							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
-								<a href="_hlc_.peer.html#url" class="tsd-kind-icon">url</a>
+								<a href="_stats_.average.html#sampleweight" class="tsd-kind-icon">sample<wbr>Weight</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="_hlc_.peer.html#getchain" class="tsd-kind-icon">get<wbr>Chain</a>
+								<a href="_stats_.average.html#addsample" class="tsd-kind-icon">add<wbr>Sample</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="_hlc_.peer.html#geturl" class="tsd-kind-icon">get<wbr>Url</a>
+								<a href="_stats_.average.html#getsampleweight" class="tsd-kind-icon">get<wbr>Sample<wbr>Weight</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="_hlc_.peer.html#remove" class="tsd-kind-icon">remove</a>
+								<a href="_stats_.average.html#getvalue" class="tsd-kind-icon">get<wbr>Value</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="_hlc_.peer.html#sendtransaction" class="tsd-kind-icon">send<wbr>Transaction</a>
-							</li>
-							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
-								<a href="_hlc_.peer.html#waittocomplete" class="tsd-kind-icon">wait<wbr>ToComplete</a>
+								<a href="_stats_.average.html#setsampleweight" class="tsd-kind-icon">set<wbr>Sample<wbr>Weight</a>
 							</li>
 						</ul>
 					</li>
 				</ul>
 				<ul class="after-current">
+					<li class=" tsd-kind-class tsd-parent-kind-external-module">
+						<a href="_stats_.rate.html" class="tsd-kind-icon">Rate</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-external-module">
+						<a href="_stats_.responsetime.html" class="tsd-kind-icon">Response<wbr>Time</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="../modules/_stats_.html#getcurtimeinms" class="tsd-kind-icon">get<wbr>Cur<wbr>Time<wbr>InMs</a>
+					</li>
 				</ul>
 			</nav>
 		</div>

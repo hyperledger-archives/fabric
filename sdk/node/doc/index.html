@@ -87,7 +87,7 @@
 				<p>This purpose of this section is to help you quickly get a feel for HLC and how you may use it.  It is not intended to demonstrate all of it&#39;s power, but to demonstrate a common use case by example.</p>
 				<h3 id="some-basic-terminology">Some basic terminology</h3>
 				<p>First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both <strong>registered</strong> and <strong>enrolled</strong>.</p>
-				<p>Think of <strong>registration</strong> as <em>issuing a user invitation</em> to join a blockchain.  It consists of adding a user name (also called an <em>enrollment ID</em>).  This can be done programatically with the <strong>Member.register</strong> method, or by adding the enrollment ID to the member services configuration file in <code>fabric/membersrvc/membersrvc.yaml</code>. </p>
+				<p>Think of <strong>registration</strong> as <em>issuing a user invitation</em> to join a blockchain.  It consists of adding a user name (also called an <em>enrollment ID</em>).  This can be done programatically with the <strong>Member.register</strong> method, or by adding the enrollment ID to the member services configuration file in <code>fabric/membersrvc/membersrvc.yaml</code>.</p>
 				<p>Think of <strong>enrollment</strong> as <em>accepting a user invitation</em> to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the <strong>Member.enroll</strong> method.</p>
 				<h3 id="learn-by-example">Learn by example</h3>
 				<p>The best way to quickly learn HLC is by example.</p>
@@ -124,10 +124,16 @@ chain.setMemberServicesUrl(<span class="hljs-string">"grpc://localhost:50051"</s
 chain.addPeer(<span class="hljs-string">"grpc://localhost:30303"</span>);
 
 <span class="hljs-comment">// Enroll "WebAppAdmin" which is already registered because it is</span>
-<span class="hljs-comment">// listed in fabric/membersrvc/membersrvc.yaml.</span>
-enrollRegistrar(<span class="hljs-string">"WebAppAdmin"</span>, <span class="hljs-string">"DJY27pEnl16d"</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err</span>) </span>{
+<span class="hljs-comment">// listed in fabric/membersrvc/membersrvc.yaml with it's one time password.</span>
+<span class="hljs-comment">// If "WebAppAdmin" has already been registered, this will still succeed</span>
+<span class="hljs-comment">// because it stores the state in the KeyValStore</span>
+<span class="hljs-comment">// (i.e. in '/tmp/keyValStore' in this sample).</span>
+chain.enroll(<span class="hljs-string">"WebAppAdmin"</span>, <span class="hljs-string">"DJY27pEnl16d"</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err, webAppAdmin</span>) </span>{
    <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"ERROR: failed to register %s: %s"</span>,err);
-   <span class="hljs-comment">// Successfully enrolled WebAppAdmin during initialization</span>
+   <span class="hljs-comment">// Successfully enrolled WebAppAdmin during initialization.</span>
+   <span class="hljs-comment">// Set this user as the chain's registrar which is authorized to register other users.</span>
+   chain.setRegistrar(webAppAdmin);
+   <span class="hljs-comment">// Now begin listening for web app requests</span>
    listenForUserRequests();
 });
 
@@ -145,9 +151,19 @@ enrollRegistrar(<span class="hljs-string">"WebAppAdmin"</span>, <span class="hlj
 
 <span class="hljs-comment">// Handle a user request</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">handleUserRequest</span>(<span class="hljs-params">userName, chaincodeID, fcn, args</span>) </span>{
-   getUserForChain(userName, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err,user</span>) </span>{
+   <span class="hljs-comment">// Register and enroll this user.</span>
+   <span class="hljs-comment">// If this user has already been registered and/or enrolled, this will</span>
+   <span class="hljs-comment">// still succeed because the state is kept in the KeyValStore</span>
+   <span class="hljs-comment">// (i.e. in '/tmp/keyValStore' in this sample).</span>
+   <span class="hljs-keyword">var</span> registrationRequest = {
+        enrollmentID: userName,
+        <span class="hljs-comment">// Customize account &amp; affiliation</span>
+        account: <span class="hljs-string">"bank_a"</span>,
+        affiliation: <span class="hljs-string">"00001"</span>
+   };
+   chain.registerAndEnroll( registrationRequest, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err, user</span>) </span>{
       <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"ERROR: %s"</span>,err);
-      <span class="hljs-comment">// This is an invoke request</span>
+      <span class="hljs-comment">// Issue an invoke request</span>
       <span class="hljs-keyword">var</span> invokeRequest = {
         <span class="hljs-comment">// Name (hash) required for invoke</span>
         chaincodeID: chaincodeID,
@@ -164,54 +180,14 @@ enrollRegistrar(<span class="hljs-string">"WebAppAdmin"</span>, <span class="hlj
      });
      <span class="hljs-comment">// Listen for the 'complete' event.</span>
      tx.on(<span class="hljs-string">'complete'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">results</span>) </span>{
-        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"completed invoke: %j"</span>,results; 
-     }); 
+        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"completed invoke: %j"</span>,results;
+     });
      <span class="hljs-comment">// Listen for the 'error' event.</span>
      tx.on(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err</span>) </span>{
         <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"error on invoke: %j"</span>,err);
      });
    });
 }
-
-<span class="hljs-comment">// Enroll the web app and set it as the registrar to register and enroll</span>
-<span class="hljs-comment">// web app users.</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">enrollRegistrar</span>(<span class="hljs-params">userName,password,cb</span>) </span>{
-   <span class="hljs-comment">// Get the "WebAppAdmin" user, which is already registered because</span>
-   <span class="hljs-comment">// it is listed in fabric/membersrvc/membersrvc.yaml.</span>
-   chain.getUser(userName, <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params">err, user</span>) </span>{
-      <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> cb(err);
-      <span class="hljs-comment">// Enroll with the one-time password listed in membersrvc.yaml.</span>
-      <span class="hljs-comment">// If the user has already been registered, user.enroll recognizes</span>
-      <span class="hljs-comment">// and handles it appropriately.</span>
-      user.enroll(pw,<span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err</span>) </span>{
-         <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> cb(err);
-         <span class="hljs-comment">// Successfully enrolled the user, so set it as the</span>
-         <span class="hljs-comment">// registrar to register &amp; enroll other users.</span>
-         chain.setRegistrar(user);
-         <span class="hljs-keyword">return</span> cb();
-      });
-   }
-}
-
-<span class="hljs-comment">// Get a user object to transact with on the chain</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getUserForChain</span>(<span class="hljs-params">userName, cb</span>) </span>{
-   chain.getUser(userName, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err,user</span>) </span>{
-      <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> cb(err);
-      <span class="hljs-keyword">if</span> (user.isEnrolled()) <span class="hljs-keyword">return</span> cb(<span class="hljs-literal">null</span>,user);
-      <span class="hljs-comment">// The user has not yet been registered &amp; enrolled.</span>
-      <span class="hljs-comment">// You must provide an account and affiliation.</span>
-      <span class="hljs-keyword">var</span> registrationRequest = {
-            enrollmentID: userName,
-            <span class="hljs-comment">// Customize account &amp; affiliation</span>
-            account: <span class="hljs-string">"bank_a"</span>,
-            affiliation: <span class="hljs-string">"00001"</span>
-      };
-      user.registerAndEnroll( registrationRequest, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err</span>) </span>{
-         <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> cb(err);
-         <span class="hljs-keyword">return</span> cb(<span class="hljs-literal">null</span>, user);
-      });
-   }); 
-});
 </code></pre><p><a name="Getting Set Up"></p>
 				<h2 id="getting-set-up">Getting Set Up</h2>
 				<p></a></p>
@@ -343,6 +319,9 @@ CORE_CHAINCODE_ID_NAME=assetmgmt CORE_PEER_ADDRESS=<span class="hljs-number">0.0
 					</li>
 					<li class=" tsd-kind-external-module">
 						<a href="modules/_hlc_.html">"hlc"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="modules/_stats_.html">"stats"</a>
 					</li>
 				</ul>
 			</nav>

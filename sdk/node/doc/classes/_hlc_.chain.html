@@ -105,6 +105,7 @@
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#members" class="tsd-kind-icon">members</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#name" class="tsd-kind-icon">name</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#peers" class="tsd-kind-icon">peers</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#prefetchmode" class="tsd-kind-icon">pre<wbr>Fetch<wbr>Mode</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#registrar" class="tsd-kind-icon">registrar</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#securityenabled" class="tsd-kind-icon">security<wbr>Enabled</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#tcertbatchsize" class="tsd-kind-icon">tcert<wbr>Batch<wbr>Size</a></li>
@@ -114,6 +115,7 @@
 							<h3>Methods</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#addpeer" class="tsd-kind-icon">add<wbr>Peer</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#enroll" class="tsd-kind-icon">enroll</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#getkeyvalstore" class="tsd-kind-icon">get<wbr>Key<wbr>Val<wbr>Store</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#getmember" class="tsd-kind-icon">get<wbr>Member</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.chain.html#getmemberhelper" class="tsd-kind-icon">get<wbr>Member<wbr>Helper</a></li>
@@ -124,12 +126,16 @@
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#gettcertbatchsize" class="tsd-kind-icon">getTCert<wbr>Batch<wbr>Size</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#getuser" class="tsd-kind-icon">get<wbr>User</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#isdevmode" class="tsd-kind-icon">is<wbr>Dev<wbr>Mode</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#isprefetchmode" class="tsd-kind-icon">is<wbr>Pre<wbr>Fetch<wbr>Mode</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#issecurityenabled" class="tsd-kind-icon">is<wbr>Security<wbr>Enabled</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#register" class="tsd-kind-icon">register</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#registerandenroll" class="tsd-kind-icon">register<wbr>And<wbr>Enroll</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#sendtransaction" class="tsd-kind-icon">send<wbr>Transaction</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setdevmode" class="tsd-kind-icon">set<wbr>Dev<wbr>Mode</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setkeyvalstore" class="tsd-kind-icon">set<wbr>Key<wbr>Val<wbr>Store</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setmemberservices" class="tsd-kind-icon">set<wbr>Member<wbr>Services</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setmemberservicesurl" class="tsd-kind-icon">set<wbr>Member<wbr>Services<wbr>Url</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setprefetchmode" class="tsd-kind-icon">set<wbr>Pre<wbr>Fetch<wbr>Mode</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#setregistrar" class="tsd-kind-icon">set<wbr>Registrar</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.chain.html#settcertbatchsize" class="tsd-kind-icon">setTCert<wbr>Batch<wbr>Size</a></li>
 							</ul>
@@ -149,7 +155,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L365">hlc.ts:365</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L376">hlc.ts:376</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -171,7 +177,7 @@
 					<div class="tsd-signature tsd-kind-icon">crypto<wbr>Primitives<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">crypto.Crypto</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L365">hlc.ts:365</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L376">hlc.ts:376</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -181,7 +187,7 @@
 					<div class="tsd-signature tsd-kind-icon">dev<wbr>Mode<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> =&nbsp;false</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L362">hlc.ts:362</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L370">hlc.ts:370</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -191,7 +197,7 @@
 					<div class="tsd-signature tsd-kind-icon">key<wbr>Val<wbr>Store<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_hlc_.keyvalstore.html" class="tsd-signature-type">KeyValStore</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L359">hlc.ts:359</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L367">hlc.ts:367</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -201,7 +207,7 @@
 					<div class="tsd-signature tsd-kind-icon">member<wbr>Services<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_hlc_.memberservices.html" class="tsd-signature-type">MemberServices</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L356">hlc.ts:356</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L364">hlc.ts:364</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -211,7 +217,7 @@
 					<div class="tsd-signature tsd-kind-icon">members<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">object</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L347">hlc.ts:347</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L355">hlc.ts:355</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -229,7 +235,7 @@
 					<div class="tsd-signature tsd-kind-icon">name<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L337">hlc.ts:337</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L345">hlc.ts:345</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -239,7 +245,17 @@
 					<div class="tsd-signature tsd-kind-icon">peers<span class="tsd-signature-symbol">:</span> <a href="_hlc_.peer.html" class="tsd-signature-type">Peer</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> =&nbsp;[]</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L340">hlc.ts:340</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L348">hlc.ts:348</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="prefetchmode" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> pre<wbr>Fetch<wbr>Mode</h3>
+					<div class="tsd-signature tsd-kind-icon">pre<wbr>Fetch<wbr>Mode<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> =&nbsp;true</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L373">hlc.ts:373</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -249,7 +265,7 @@
 					<div class="tsd-signature tsd-kind-icon">registrar<span class="tsd-signature-symbol">:</span> <a href="_hlc_.member.html" class="tsd-signature-type">Member</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L353">hlc.ts:353</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L361">hlc.ts:361</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -259,7 +275,7 @@
 					<div class="tsd-signature tsd-kind-icon">security<wbr>Enabled<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> =&nbsp;true</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L343">hlc.ts:343</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L351">hlc.ts:351</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -269,7 +285,7 @@
 					<div class="tsd-signature tsd-kind-icon">tcert<wbr>Batch<wbr>Size<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;200</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L350">hlc.ts:350</a></li>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L358">hlc.ts:358</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -286,7 +302,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L384">hlc.ts:384</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L395">hlc.ts:395</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -309,6 +325,50 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="enroll" class="tsd-anchor"></a>
+					<h3>enroll</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">enroll<span class="tsd-signature-symbol">(</span>name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, secret<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.getmembercallback.html" class="tsd-signature-type">GetMemberCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L573">hlc.ts:573</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Enroll a user or other identity which has already been registered.
+									If the user has already been enrolled, this will still succeed.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>name: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The name of the user or other member to enroll.</p>
+									</div>
+								</li>
+								<li>
+									<h5>secret: <span class="tsd-signature-type">string</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The secret of the user or other member to enroll.</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.getmembercallback.html" class="tsd-signature-type">GetMemberCallback</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The callback to return the user or other member.</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="getkeyvalstore" class="tsd-anchor"></a>
 					<h3>get<wbr>Key<wbr>Val<wbr>Store</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -318,7 +378,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L464">hlc.ts:464</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L489">hlc.ts:489</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -341,7 +401,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L493">hlc.ts:493</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L518">hlc.ts:518</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -375,7 +435,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L515">hlc.ts:515</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L540">hlc.ts:540</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -401,7 +461,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L425">hlc.ts:425</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L436">hlc.ts:436</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -424,7 +484,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L375">hlc.ts:375</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L386">hlc.ts:386</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -447,7 +507,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L393">hlc.ts:393</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L404">hlc.ts:404</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -469,7 +529,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L401">hlc.ts:401</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L412">hlc.ts:412</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -491,7 +551,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L478">hlc.ts:478</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L503">hlc.ts:503</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -513,7 +573,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L509">hlc.ts:509</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L534">hlc.ts:534</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -546,12 +606,34 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L449">hlc.ts:449</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L474">hlc.ts:474</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
 									<p>Determine if dev mode is enabled.</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="isprefetchmode" class="tsd-anchor"></a>
+					<h3>is<wbr>Pre<wbr>Fetch<wbr>Mode</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">is<wbr>Pre<wbr>Fetch<wbr>Mode<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L460">hlc.ts:460</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Determine if pre-fetch mode is enabled to prefetch tcerts.</p>
 								</div>
 							</div>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
@@ -568,7 +650,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L442">hlc.ts:442</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L453">hlc.ts:453</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -577,6 +659,82 @@
 								</div>
 							</div>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="register" class="tsd-anchor"></a>
+					<h3>register</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">register<span class="tsd-signature-symbol">(</span>registrationRequest<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.registercallback.html" class="tsd-signature-type">RegisterCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L558">hlc.ts:558</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Register a user or other member type with the chain.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>registrationRequest: <a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Registration information.</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.registercallback.html" class="tsd-signature-type">RegisterCallback</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Callback with registration results</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="registerandenroll" class="tsd-anchor"></a>
+					<h3>register<wbr>And<wbr>Enroll</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">register<wbr>And<wbr>Enroll<span class="tsd-signature-symbol">(</span>registrationRequest<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.getmembercallback.html" class="tsd-signature-type">GetMemberCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L590">hlc.ts:590</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Register and enroll a user or other member type.
+									This assumes that a registrar with sufficient privileges has been set.</p>
+								</div>
+								<dl class="tsd-comment-tags">
+									<dt>params</dt>
+									<dd></dd>
+								</dl>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>registrationRequest: <a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Registration information.</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.getmembercallback.html" class="tsd-signature-type">GetMemberCallback</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -590,7 +748,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L533">hlc.ts:533</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L610">hlc.ts:610</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -627,7 +785,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L456">hlc.ts:456</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L481">hlc.ts:481</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -655,7 +813,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L471">hlc.ts:471</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L496">hlc.ts:496</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -683,7 +841,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L432">hlc.ts:432</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L443">hlc.ts:443</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -711,7 +869,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L417">hlc.ts:417</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L428">hlc.ts:428</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -736,6 +894,34 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="setprefetchmode" class="tsd-anchor"></a>
+					<h3>set<wbr>Pre<wbr>Fetch<wbr>Mode</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">set<wbr>Pre<wbr>Fetch<wbr>Mode<span class="tsd-signature-symbol">(</span>preFetchMode<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L467">hlc.ts:467</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Set prefetch mode to true or false.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>preFetchMode: <span class="tsd-signature-type">boolean</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="setregistrar" class="tsd-anchor"></a>
 					<h3>set<wbr>Registrar</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -745,7 +931,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L409">hlc.ts:409</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L420">hlc.ts:420</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -776,7 +962,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/a94f5a7/sdk/node/src/hlc.ts#L485">hlc.ts:485</a></li>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L510">hlc.ts:510</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -807,6 +993,9 @@
 					</li>
 					<li class="current tsd-kind-external-module">
 						<a href="../modules/_hlc_.html">"hlc"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="../modules/_stats_.html">"stats"</a>
 					</li>
 				</ul>
 			</nav>
@@ -842,6 +1031,9 @@
 								<a href="_hlc_.chain.html#peers" class="tsd-kind-icon">peers</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="_hlc_.chain.html#prefetchmode" class="tsd-kind-icon">pre<wbr>Fetch<wbr>Mode</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
 								<a href="_hlc_.chain.html#registrar" class="tsd-kind-icon">registrar</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
@@ -852,6 +1044,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#addpeer" class="tsd-kind-icon">add<wbr>Peer</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.chain.html#enroll" class="tsd-kind-icon">enroll</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#getkeyvalstore" class="tsd-kind-icon">get<wbr>Key<wbr>Val<wbr>Store</a>
@@ -884,7 +1079,16 @@
 								<a href="_hlc_.chain.html#isdevmode" class="tsd-kind-icon">is<wbr>Dev<wbr>Mode</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.chain.html#isprefetchmode" class="tsd-kind-icon">is<wbr>Pre<wbr>Fetch<wbr>Mode</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#issecurityenabled" class="tsd-kind-icon">is<wbr>Security<wbr>Enabled</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.chain.html#register" class="tsd-kind-icon">register</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.chain.html#registerandenroll" class="tsd-kind-icon">register<wbr>And<wbr>Enroll</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#sendtransaction" class="tsd-kind-icon">send<wbr>Transaction</a>
@@ -900,6 +1104,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#setmemberservicesurl" class="tsd-kind-icon">set<wbr>Member<wbr>Services<wbr>Url</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.chain.html#setprefetchmode" class="tsd-kind-icon">set<wbr>Pre<wbr>Fetch<wbr>Mode</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.chain.html#setregistrar" class="tsd-kind-icon">set<wbr>Registrar</a>

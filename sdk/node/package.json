@@ -1,6 +1,6 @@
 {
   "name": "hlc",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "bin": "./bin/main.js",
   "typings": "hlc.d.ts",
   "main": "index.js",
