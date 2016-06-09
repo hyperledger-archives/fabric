@@ -1,4 +1,3 @@
-
 import subprocess
 from steps.bdd_test_util import cli_call
 
@@ -52,4 +51,4 @@ def after_scenario(context, scenario):
 
 # stop any running peer that could get in the way before starting the tests
 def before_all(context):
-        cli_call(context, ["../peer/peer", "node", "stop"], expect_success=False)
+        cli_call(context, ["../build/bin/peer", "node", "stop"], expect_success=False)

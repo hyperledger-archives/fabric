@@ -27,9 +27,21 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 )
 
 var vmLogger = logging.MustGetLogger("container")
+
+// stringInSlice is a helper function to determine whether a given string, str,
+// is inside an array of strings, slice.
+func stringInSlice(str string, slice []string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
 
 //WriteGopathSrc tars up files under gopath src
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
@@ -45,11 +57,14 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		excludeDir = excludeDir + "/"
 	}
 
+	// Determine which file extensions should be packaged
+	fileExt := viper.GetStringSlice("chaincode.filetypes")
+
 	rootDirLen := len(rootDirectory)
 	walkFn := func(path string, info os.FileInfo, err error) error {
 
-		// If path includes .git, ignore
-		if strings.Contains(path, ".git") {
+		// Only package files with file extensions speficied within the core.yaml configuration file
+		if !stringInSlice(filepath.Ext(path), fileExt) {
 			return nil
 		}
 
