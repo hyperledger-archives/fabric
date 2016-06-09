@@ -771,6 +771,7 @@ func (sts *StateTransferState) blockThread() {
 
 		logger.Debug("%v has validated its blockchain to the genesis block", sts.id)
 
+	outer:
 		for {
 			sts.blockThreadIdle = true
 			select {
@@ -779,7 +780,7 @@ func (sts *StateTransferState) blockThread() {
 				sts.blockThreadIdle = false
 				logger.Debug("Block thread received request for block transfer thread to sync")
 				sts.syncBlockchainToCheckpoint(blockSyncReq)
-				break
+				break outer
 			case sts.blockThreadIdleChan <- struct{}{}:
 				logger.Debug("%v block thread reporting as idle to unblock someone", sts.id)
 				continue
@@ -841,6 +842,11 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		logger.Debug("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
 		*blocksValid = false // We retrieved a new hash, we will need to sync to a new block
 
+		if *currentStateBlockNumber+uint64(sts.maxStateDeltas) < (*blockHReply).blockNumber {
+			sts.InvalidateState()
+			return fmt.Errorf("%v has a state for block %d which is too far out of date to play forward to block %d, max deltas are %d, invalidating",
+				sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.maxStateDeltas)
+		}
 	}
 
 	if !*blocksValid {
@@ -873,11 +879,6 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		*blocksValid = true
 	} else {
 		logger.Debug("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
-	}
-
-	if *currentStateBlockNumber+uint64(sts.maxStateDeltas) < (*blockHReply).blockNumber {
-		return fmt.Errorf("%v has a state for block %d which is too far out of date to play forward to block %d, max deltas are %d, invalidating",
-			sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.maxStateDeltas)
 	}
 
 	stateHash, err := sts.stack.GetCurrentStateHash()

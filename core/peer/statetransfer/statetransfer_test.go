@@ -245,6 +245,17 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 		t.Fatalf("State delta retrieval should not occur during this test")
 	}
 
+	select {
+	case <-sts.blockThreadIdleChan:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Timed out waiting for block sync to complete")
+	}
+
+	for i := uint64(0); i <= 7; i++ {
+		if _, err := ml.GetBlockByNumber(i); err != nil {
+			t.Errorf("Expected block %d but got error %s", i, err)
+		}
+	}
 }
 
 func TestCatchupSyncBlocksErrors(t *testing.T) {
