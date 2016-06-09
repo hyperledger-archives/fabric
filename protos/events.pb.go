@@ -23,21 +23,18 @@ type EventType int32
 const (
 	EventType_REGISTER  EventType = 0
 	EventType_BLOCK     EventType = 1
-	EventType_GENERIC   EventType = 2
-	EventType_CHAINCODE EventType = 3
+	EventType_CHAINCODE EventType = 2
 )
 
 var EventType_name = map[int32]string{
 	0: "REGISTER",
 	1: "BLOCK",
-	2: "GENERIC",
-	3: "CHAINCODE",
+	2: "CHAINCODE",
 }
 var EventType_value = map[string]int32{
 	"REGISTER":  0,
 	"BLOCK":     1,
-	"GENERIC":   2,
-	"CHAINCODE": 3,
+	"CHAINCODE": 2,
 }
 
 func (x EventType) String() string {
@@ -47,9 +44,8 @@ func (x EventType) String() string {
 // ChaincodeReg is used for registering chaincode Interests
 // when EventType is CHAINCODE
 type ChaincodeReg struct {
-	ChaincodeID    string `protobuf:"bytes,1,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
-	EventName      string `protobuf:"bytes,2,opt,name=eventName" json:"eventName,omitempty"`
-	AnyTransaction bool   `protobuf:"varint,3,opt,name=anyTransaction" json:"anyTransaction,omitempty"`
+	ChaincodeID string `protobuf:"bytes,1,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	EventName   string `protobuf:"bytes,2,opt,name=eventName" json:"eventName,omitempty"`
 }
 
 func (m *ChaincodeReg) Reset()         { *m = ChaincodeReg{} }
@@ -153,18 +149,6 @@ func (m *Register) GetEvents() []*Interest {
 	return nil
 }
 
-// ---------- producer events ---------
-// Generic is used for encoding payload as JSON or raw bytes
-// string type - "generic"
-type Generic struct {
-	EventType string `protobuf:"bytes,1,opt,name=eventType" json:"eventType,omitempty"`
-	Payload   []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
-}
-
-func (m *Generic) Reset()         { *m = Generic{} }
-func (m *Generic) String() string { return proto.CompactTextString(m) }
-func (*Generic) ProtoMessage()    {}
-
 // Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
@@ -172,7 +156,6 @@ type Event struct {
 	// Types that are valid to be assigned to Event:
 	//	*Event_Register
 	//	*Event_Block
-	//	*Event_Generic
 	//	*Event_ChaincodeEvent
 	Event isEvent_Event `protobuf_oneof:"Event"`
 }
@@ -191,16 +174,12 @@ type Event_Register struct {
 type Event_Block struct {
 	Block *Block `protobuf:"bytes,2,opt,name=block,oneof"`
 }
-type Event_Generic struct {
-	Generic *Generic `protobuf:"bytes,3,opt,name=generic,oneof"`
-}
 type Event_ChaincodeEvent struct {
-	ChaincodeEvent *ChaincodeEvent `protobuf:"bytes,4,opt,name=chaincodeEvent,oneof"`
+	ChaincodeEvent *ChaincodeEvent `protobuf:"bytes,3,opt,name=chaincodeEvent,oneof"`
 }
 
 func (*Event_Register) isEvent_Event()       {}
 func (*Event_Block) isEvent_Event()          {}
-func (*Event_Generic) isEvent_Event()        {}
 func (*Event_ChaincodeEvent) isEvent_Event() {}
 
 func (m *Event) GetEvent() isEvent_Event {
@@ -224,13 +203,6 @@ func (m *Event) GetBlock() *Block {
 	return nil
 }
 
-func (m *Event) GetGeneric() *Generic {
-	if x, ok := m.GetEvent().(*Event_Generic); ok {
-		return x.Generic
-	}
-	return nil
-}
-
 func (m *Event) GetChaincodeEvent() *ChaincodeEvent {
 	if x, ok := m.GetEvent().(*Event_ChaincodeEvent); ok {
 		return x.ChaincodeEvent
@@ -243,7 +215,6 @@ func (*Event) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 	return _Event_OneofMarshaler, _Event_OneofUnmarshaler, []interface{}{
 		(*Event_Register)(nil),
 		(*Event_Block)(nil),
-		(*Event_Generic)(nil),
 		(*Event_ChaincodeEvent)(nil),
 	}
 }
@@ -262,13 +233,8 @@ func _Event_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		if err := b.EncodeMessage(x.Block); err != nil {
 			return err
 		}
-	case *Event_Generic:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Generic); err != nil {
-			return err
-		}
 	case *Event_ChaincodeEvent:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
+		b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.ChaincodeEvent); err != nil {
 			return err
 		}
@@ -298,15 +264,7 @@ func _Event_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Event = &Event_Block{msg}
 		return true, err
-	case 3: // Event.generic
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Generic)
-		err := b.DecodeMessage(msg)
-		m.Event = &Event_Generic{msg}
-		return true, err
-	case 4: // Event.chaincodeEvent
+	case 3: // Event.chaincodeEvent
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
