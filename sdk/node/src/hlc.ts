@@ -48,7 +48,6 @@ process.env['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA';
 
 var debugModule = require('debug');
 var fs = require('fs');
-var targz = require('tar.gz');
 var urlParser = require('url');
 var grpc = require('grpc');
 var util = require('util');
@@ -1723,6 +1722,13 @@ export class Peer {
 
         debug("peer.sendTransaction: sending %j", tx);
 
+        // Get the chaincode hash generated during deploy operation
+        let hashBuf = tx.getChaincodeID().buffer;
+        // It is unclear why, but to get the hash to be correct, you have to
+        // convert starting with index 2, not 0. If I convert starting at index
+        // 0, a @ character is appended to the beginning of the hash string.
+        let hashStr = hashBuf.toString('utf8', 2, hashBuf.length);
+
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
         //     rpc ProcessTransaction(Transaction) returns (Response) {}
@@ -1746,7 +1752,7 @@ export class Peer {
                         if (!response.msg || response.msg === "") {
                             eventEmitter.emit('error', 'the deploy response is missing the transaction UUID');
                         } else {
-                            eventEmitter.emit('complete', response.msg);
+                            eventEmitter.emit('complete', response.msg, hashStr);
                         }
                     } else {
                         // Deploy completed with status "FAILURE" or "UNDEFINED"
