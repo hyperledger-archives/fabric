@@ -81,7 +81,7 @@ func (tCertPoolEntry *tCertPoolEntry) AddTCert(tCertBlock *TCertBlock) (err erro
 }
 
 //GetNextTCert gets the next tcert of the pool.
-func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes []string) (tCertBlock *TCertBlock, err error) {
+func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes ...string) (tCertBlock *TCertBlock, err error) {
 	for i := 0; i < 3; i++ {
 		tCertPoolEntry.client.debug("Getting next TCert... %d out of 3", i)
 		select {
@@ -120,7 +120,7 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 	full := false
 	tCertPoolEntry.client.debug("Filler()")
 
-	attributeHash := CalculateAttributesHash(tCertPoolEntry.attributes)
+	attributeHash := calculateAttributesHash(tCertPoolEntry.attributes)
 	for {
 		// Check if Stop was called
 		select {
@@ -209,7 +209,7 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 
 				tCertPoolEntry.client.info("Refilling [%d] TCerts.", numTCerts)
 
-				err := tCertPoolEntry.client.getTCertsFromTCA(CalculateAttributesHash(tCertPoolEntry.attributes), tCertPoolEntry.attributes, numTCerts)
+				err := tCertPoolEntry.client.getTCertsFromTCA(calculateAttributesHash(tCertPoolEntry.attributes), tCertPoolEntry.attributes, numTCerts)
 				if err != nil {
 					tCertPoolEntry.client.error("Failed getting TCerts from the TCA: [%s]", err)
 				}
@@ -274,7 +274,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntryFromHash(attributeHash
 //Returns a tCertPoolEntry for the attributes "attributes", if the tCertPoolEntry doesn't exists a new tCertPoolEntry will be create for that attributes.
 func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntry(attributes []string) (*tCertPoolEntry, error) {
 	tCertPool.client.debug("Getting pool entry %v \n", attributes)
-	attributeHash := CalculateAttributesHash(attributes)
+	attributeHash := calculateAttributesHash(attributes)
 	tCertPool.lockEntries()
 	defer tCertPool.releaseEntries()
 	poolEntry := tCertPool.poolEntries[attributeHash]
@@ -293,13 +293,13 @@ func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntry(attributes []string) 
 }
 
 //GetNextTCert returns a TCert from the pool valid to the passed attributes. If no TCert is available TCA is invoked to generate it.
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes []string) (tCertBlock *TCertBlock, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes ...string) (tCertBlock *TCertBlock, err error) {
 	poolEntry, err := tCertPool.getPoolEntry(attributes)
 	if err != nil {
 		return nil, err
 	}
-	tCertPool.client.debug("Requesting tcert to the pool entry. %v", CalculateAttributesHash(attributes))
-	return poolEntry.GetNextTCert(attributes)
+	tCertPool.client.debug("Requesting tcert to the pool entry. %v", calculateAttributesHash(attributes))
+	return poolEntry.GetNextTCert(attributes...)
 }
 
 //AddTCert adds a TCert into the pool is invoked by the client after TCA is called.

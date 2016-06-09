@@ -23,7 +23,7 @@ type tCertPool interface {
 
 	Stop() error
 
-	GetNextTCert(attributes []string) (*TCertBlock, error)
+	GetNextTCert(attributes ...string) (*TCertBlock, error)
 
 	AddTCert(tCertBlock *TCertBlock) (err error)
 }

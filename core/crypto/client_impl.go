@@ -37,14 +37,14 @@ type clientImpl struct {
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
-func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, attributes []string, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert(attributes)
+	tCert, err := client.tCertPool.GetNextTCert(attributes...)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -55,14 +55,14 @@ func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec 
 }
 
 // GetNextTCert Gets next available (not yet used) transaction certificate.
-func (client *clientImpl) GetNextTCert(attributes []string) (tCert, error) {
+func (client *clientImpl) GetNextTCert(attributes ...string) (tCert, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert(attributes)
+	tCert, err := client.tCertPool.GetNextTCert(attributes...)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -72,14 +72,14 @@ func (client *clientImpl) GetNextTCert(attributes []string) (tCert, error) {
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, attributes []string, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert(attributes)
+	tCertHandler, err := client.tCertPool.GetNextTCert(attributes...)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -90,14 +90,14 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
-func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, attributes []string, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert(attributes)
+	tCertHandler, err := client.tCertPool.GetNextTCert(attributes...)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err
@@ -126,14 +126,14 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 }
 
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
-func (client *clientImpl) GetTCertificateHandlerNext(attributes []string) (CertificateHandler, error) {
+func (client *clientImpl) GetTCertificateHandlerNext(attributes ...string) (CertificateHandler, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next TCert
-	tCert, err := client.tCertPool.GetNextTCert(attributes)
+	tCert, err := client.tCertPool.GetNextTCert(attributes...)
 	if err != nil {
 		client.error("Failed getting next transaction certificate [%s].", err.Error())
 		return nil, err

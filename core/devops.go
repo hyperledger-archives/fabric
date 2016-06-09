@@ -139,7 +139,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Creating secure transaction %s", transID)
 		}
-		tx, err = sec.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, spec.Attributes, transID)
+		tx, err = sec.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, transID, spec.Attributes...)
 		if nil != err {
 			return nil, err
 		}
@@ -219,9 +219,9 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, attributes []str
 			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
 		}
 		if invokeTx {
-			tx, err = sec.NewChaincodeExecute(spec, attributes, uuid)
+			tx, err = sec.NewChaincodeExecute(spec, uuid, attributes...)
 		} else {
-			tx, err = sec.NewChaincodeQuery(spec, attributes, uuid)
+			tx, err = sec.NewChaincodeQuery(spec, uuid, attributes...)
 		}
 		if nil != err {
 			return nil, err

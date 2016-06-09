@@ -1618,7 +1618,7 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, attrs, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1640,7 +1640,7 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, attrs, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1967,7 +1967,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, attrs, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1987,7 +1987,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, attrs, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, uuid, attrs...)
 	return otx, tx, err
 }
 

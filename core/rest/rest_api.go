@@ -507,7 +507,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Obtain the client CertificateHandler
 		// TODO - Replace empty attributes map
 		attributes := []string{}
-		handler, err := sec.GetTCertificateHandlerNext(attributes)
+		handler, err := sec.GetTCertificateHandlerNext(attributes...)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)

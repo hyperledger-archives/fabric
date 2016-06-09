@@ -162,7 +162,7 @@ func createDeployTransaction(dspec *pb.ChaincodeDeploymentSpec, uuid string) (*p
 			return nil, err
 		}
 
-		tx, err = sec.NewChaincodeDeployTransaction(dspec, attributes, uuid)
+		tx, err = sec.NewChaincodeDeployTransaction(dspec, uuid, attributes...)
 		if nil != err {
 			return nil, err
 		}
@@ -186,9 +186,9 @@ func createTransaction(invokeTx bool, spec *pb.ChaincodeInvocationSpec, uuid str
 			return nil, err
 		}
 		if invokeTx {
-			tx, err = sec.NewChaincodeExecute(spec, attributes, uuid)
+			tx, err = sec.NewChaincodeExecute(spec, uuid, attributes...)
 		} else {
-			tx, err = sec.NewChaincodeQuery(spec, attributes, uuid)
+			tx, err = sec.NewChaincodeQuery(spec, uuid, attributes...)
 		}
 		if nil != err {
 			return nil, err
