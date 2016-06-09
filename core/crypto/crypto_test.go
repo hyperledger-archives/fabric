@@ -66,8 +66,7 @@ var (
 
 	ksPwd = []byte("This is a very very very long pw")
 
-	attrs          = []string{"company", "position"}
-	attributeNames = []string{"company", "position"}
+	attrs = []string{"company", "position"}
 )
 
 func TestMain(m *testing.M) {
@@ -1693,7 +1692,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs)
 
 	// Check binding consistency
 	binding, err := txHandler.GetBinding()
@@ -1747,7 +1746,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1792,7 +1791,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1839,7 +1838,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1884,7 +1883,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1929,7 +1928,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attributeNames)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
