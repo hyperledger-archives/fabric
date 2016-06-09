@@ -104,6 +104,24 @@ func TestVerifyAttribute(t *testing.T) {
 	}
 }
 
+func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, _, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	tcertder := tcert.Raw
+	attributeMetadata := []byte{123, 22, 34, 56, 78, 44}
+
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	_, err = NewAttributesHandlerImpl(stub)
+	if err == nil {
+		t.Error("Test should have failed, metadata is invalid.")
+	}
+}
+
 func TestNewAttributesHandlerImpl_CertificateError(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
@@ -227,7 +245,36 @@ func TestVerifyAttributes(t *testing.T) {
 	}
 }
 
-/*func TestVerifyAttributes_InvalidHeader(t *testing.T) {
+func TestVerifyAttributes_Invalid(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+	if err != nil {
+		t.Error(err)
+	}
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	isOk, err := handler.VerifyAttributes(&Attribute{Name: "position", Value: []byte("Software Engineer")}, &Attribute{Name: "position", Value: []byte("18")})
+	if err != nil {
+		t.Error(err)
+	}
+
+	if isOk {
+		t.Fatal("Attribute position=18 should have failed")
+	}
+}
+
+func TestVerifyAttributes_InvalidHeader(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
 	tcert, prek0, err := loadTCertAndPreK0()
@@ -236,16 +283,7 @@ func TestVerifyAttributes(t *testing.T) {
 	}
 
 	//Change header extensions
-	headerIdx := 0
-	for idx, ext := range tcert.Extensions {
-		if utils.IntArrayEquals(ext.Id, attributes.TCertAttributesHeaders) {
-			headerIdx = idx
-		}
-	}
-
-	fmt.Printf("Before header idx %v value %v\n", headerIdx, tcert.Extensions[headerIdx].Value[0])
-	tcert.Extensions[headerIdx].Value[0] = tcert.Extensions[headerIdx].Value[0] + 1
-	fmt.Printf("After header idx %v value %v\n", headerIdx, tcert.Extensions[headerIdx].Value[0])
+	tcert.Raw[583] = tcert.Raw[583] + 124
 
 	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
@@ -263,7 +301,36 @@ func TestVerifyAttributes(t *testing.T) {
 	if err == nil {
 		t.Fatal("Error can't be nil.")
 	}
-}*/
+}
+
+func TestVerifyAttributes_InvalidAttributeValue(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+
+	//Change header extensions
+	tcert.Raw[371] = tcert.Raw[371] + 124
+
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+	if err != nil {
+		t.Error(err)
+	}
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	v, err := handler.GetValue("position")
+	if err == nil {
+		t.Fatal("Error can't be nil." + string(v))
+	}
+}
 
 func TestVerifyAttributes_Null(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
@@ -355,6 +422,41 @@ func TestGetValue_InvalidAttribute(t *testing.T) {
 	_, err = handler.GetValue("age")
 	if err == nil {
 		t.Error(err)
+	}
+}
+
+func TestGetValue_InvalidAttribute_ValidAttribute(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+	if err != nil {
+		t.Error(err)
+	}
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = handler.GetValue("age")
+	if err == nil {
+		t.Error(err)
+	}
+
+	//Second time read a valid attribute from the TCert.
+	value, err := handler.GetValue("position")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
+		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
 	}
 }
 
