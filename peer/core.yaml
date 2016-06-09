@@ -417,10 +417,10 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-    # Enable the release of keys needed to decrypt attributes from TCerts in 
+    # Enable the release of keys needed to decrypt attributes from TCerts in
     # the chaincode using the metadata field of the transaction (requires
     # security to be enabled).
-    abac:
+    attributes:
       enabled: false
     multithreading:
       enabled: false

@@ -23,11 +23,17 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // PrivateKeyToDER marshals a private key to der
 func PrivateKeyToDER(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	if privateKey == nil {
+		return nil, utils.ErrNilArgument
+	}
+
 	return x509.MarshalECPrivateKey(privateKey)
 }
 
@@ -111,12 +117,18 @@ func DERToPrivateKey(der []byte) (key interface{}, err error) {
 
 // PEMtoPrivateKey unmarshals a pem to private key
 func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
+	if len(raw) == 0 {
+		return nil, utils.ErrNilArgument
+	}
 	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, fmt.Errorf("Failed decoding [% x]", raw)
+	}
 
 	// TODO: derive from header the type of the key
 
 	if x509.IsEncryptedPEMBlock(block) {
-		if pwd == nil {
+		if len(pwd) == 0 {
 			return nil, errors.New("Encrypted Key. Need a password!!!")
 		}
 
@@ -141,10 +153,16 @@ func PEMtoPrivateKey(raw []byte, pwd []byte) (interface{}, error) {
 
 // PEMtoAES extracts from the PEM an AES key
 func PEMtoAES(raw []byte, pwd []byte) ([]byte, error) {
+	if len(raw) == 0 {
+		return nil, utils.ErrNilArgument
+	}
 	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, fmt.Errorf("Failed decoding [% x]", raw)
+	}
 
 	if x509.IsEncryptedPEMBlock(block) {
-		if pwd == nil {
+		if len(pwd) == 0 {
 			return nil, errors.New("Encrypted Key. Need a password!!!")
 		}
 
@@ -250,11 +268,17 @@ func PublicKeyToEncryptedPEM(publicKey interface{}, pwd []byte) ([]byte, error) 
 
 // PEMtoPublicKey unmarshals a pem to public key
 func PEMtoPublicKey(raw []byte, pwd []byte) (interface{}, error) {
+	if len(raw) == 0 {
+		return nil, utils.ErrNilArgument
+	}
 	block, _ := pem.Decode(raw)
-	// TODO: derive from header the type of the key
+	if block == nil {
+		return nil, fmt.Errorf("Failed decoding [% x]", raw)
+	}
 
+	// TODO: derive from header the type of the key
 	if x509.IsEncryptedPEMBlock(block) {
-		if pwd == nil {
+		if len(pwd) == 0 {
 			return nil, errors.New("Encrypted Key. Need a password!!!")
 		}
 

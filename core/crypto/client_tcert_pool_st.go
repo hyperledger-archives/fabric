@@ -99,11 +99,11 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 }
 
 //CalculateAttributesHash generates a unique hash using the passed attributes.
-func CalculateAttributesHash(attributes map[string]string) (attrHash string) {
+func CalculateAttributesHash(attributes []string) (attrHash string) {
 
 	keys := make([]string, len(attributes))
 
-	for k := range attributes {
+	for _, k := range attributes {
 		keys = append(keys, k)
 	}
 
@@ -112,26 +112,18 @@ func CalculateAttributesHash(attributes map[string]string) (attrHash string) {
 	values := make([]byte, len(keys))
 
 	for _, k := range keys {
-
 		vb := []byte(k)
 		for _, bval := range vb {
 			values = append(values, bval)
 		}
-
-		vb = []byte(attributes[k])
-		for _, bval := range vb {
-			values = append(values, bval)
-		}
 	}
-
 	attributesHash := primitives.Hash(values)
-
 	return hex.EncodeToString(attributesHash)
 
 }
 
 //GetNextTCert returns a TCert from the pool valid to the passed attributes. If no TCert is available TCA is invoked to generate it.
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes map[string]string) (tCert *TCertBlock, err error) {
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes []string) (tCert *TCertBlock, err error) {
 
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()

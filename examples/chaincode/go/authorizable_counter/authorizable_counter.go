@@ -40,6 +40,8 @@ func (t *AuthorizableCounterChaincode) Invoke(stub *shim.ChaincodeStub, function
 	if function != "increment" {
 		return nil, errors.New("Invalid invoke function name. Expecting \"increment\"")
 	}
+	val, err := stub.ReadCertAttribute("position")
+	fmt.Printf("Position => %v error %v \n", string(val), err)
 	isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer")) // Here the ABAC API is called to verify the attribute, just if the value is verified the counter will be incremented.
 	if isOk {
 		counter, err := stub.GetState("counter")

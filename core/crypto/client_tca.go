@@ -375,7 +375,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	return
 }
 
-func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[string]string, num int) error {
+func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string, num int) error {
 	client.debug("Get [%d] certificates from the TCA...", num)
 
 	// Contact the TCA
@@ -559,18 +559,16 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes map[strin
 	return nil
 }
 
-func (client *clientImpl) callTCACreateCertificateSet(num int, attributes map[string]string) ([]byte, []*membersrvc.TCert, error) {
+func (client *clientImpl) callTCACreateCertificateSet(num int, attributes []string) ([]byte, []*membersrvc.TCert, error) {
 	// Get a TCA Client
 	sock, tcaP, err := client.getTCAClient()
 	defer sock.Close()
 
-	attributesList := make([]*membersrvc.TCertAttribute, 0)
+	var attributesList []*membersrvc.TCertAttribute
 
-	for k, value := range attributes {
+	for _, k := range attributes {
 		tcertAttr := new(membersrvc.TCertAttribute)
 		tcertAttr.AttributeName = k
-		tcertAttr.AttributeValue = value
-
 		attributesList = append(attributesList, tcertAttr)
 	}
 

@@ -17,7 +17,6 @@ limitations under the License.
 package ca
 
 import (
-	"bytes"
 	"encoding/asn1"
 	"errors"
 	"math/big"
@@ -226,7 +225,7 @@ func (attrPair *AttributePair) ToACAAttribute() *pb.ACAAttribute {
 		to = &google_protobuf.Timestamp{Seconds: attrPair.validTo.Unix(), Nanos: int32(attrPair.validTo.UnixNano())}
 
 	}
-	return &pb.ACAAttribute{attrPair.attributeName, attrPair.attributeValue, from, to}
+	return &pb.ACAAttribute{AttributeName: attrPair.attributeName, AttributeValue: attrPair.attributeValue, ValidFrom: from, ValidTo: to}
 }
 
 // NewACA sets up a new ACA.
@@ -346,7 +345,7 @@ func (aca *ACA) fetchAndPopulateAttributes(id, affiliation string) error {
 	return nil
 }
 
-func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, valueHash []byte) (*AttributePair, error) {
+func (aca *ACA) findAttribute(owner *AttributeOwner, attributeName string) (*AttributePair, error) {
 	var count int
 
 	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
@@ -368,10 +367,6 @@ func (aca *ACA) verifyAttribute(owner *AttributeOwner, attributeName string, val
 		return nil, err
 	}
 
-	hashValue := primitives.Hash(attValue)
-	if bytes.Compare(hashValue, valueHash) != 0 {
-		return nil, nil
-	}
 	return &AttributePair{owner, attName, attValue, validFrom, validTo}, nil
 }
 
@@ -423,15 +418,15 @@ func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (
 }
 
 func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCode, cert *pb.Cert) *pb.ACAAttrResp {
-	resp := &pb.ACAAttrResp{status, cert, nil}
+	resp := &pb.ACAAttrResp{Status: status, Cert: cert, Signature: nil}
 	rawReq, err := proto.Marshal(resp)
 	if err != nil {
-		return &pb.ACAAttrResp{pb.ACAAttrResp_FAILURE, nil, nil}
+		return &pb.ACAAttrResp{Status: pb.ACAAttrResp_FAILURE, Cert: nil, Signature: nil}
 	}
 
 	r, s, err := primitives.ECDSASignDirect(acap.aca.priv, rawReq)
 	if err != nil {
-		return &pb.ACAAttrResp{pb.ACAAttrResp_FAILURE, nil, nil}
+		return &pb.ACAAttrResp{Status: pb.ACAAttrResp_FAILURE, Cert: nil, Signature: nil}
 	}
 
 	R, _ := r.MarshalText()
@@ -498,7 +493,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	var attributes = make([]AttributePair, 0)
 	owner := &AttributeOwner{id, affiliation}
 	for _, attrPair := range in.Attributes {
-		verifiedPair, _ := acap.aca.verifyAttribute(owner, attrPair.AttributeName, attrPair.AttributeValueHash)
+		verifiedPair, _ := acap.aca.findAttribute(owner, attrPair.AttributeName)
 		if verifiedPair != nil {
 			verifyCounter++
 			attributes = append(attributes, *verifiedPair)
@@ -518,15 +513,15 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 	}
 
 	if verifyCounter == 0 {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, &pb.Cert{raw}), nil
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_NO_ATTRIBUTES_FOUND, &pb.Cert{Cert: raw}), nil
 	}
 
 	count := len(in.Attributes)
 
 	if count == verifyCounter {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FULL_SUCCESSFUL, &pb.Cert{raw}), nil
+		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FULL_SUCCESSFUL, &pb.Cert{Cert: raw}), nil
 	}
-	return acap.createRequestAttributeResponse(pb.ACAAttrResp_PARTIAL_SUCCESSFUL, &pb.Cert{raw}), nil
+	return acap.createRequestAttributeResponse(pb.ACAAttrResp_PARTIAL_SUCCESSFUL, &pb.Cert{Cert: raw}), nil
 }
 
 func (acap *ACAP) addAttributesToExtensions(attributes *[]AttributePair, extensions []pkix.Extension) ([]pkix.Extension, error) {
@@ -550,7 +545,7 @@ func (acap *ACAP) addAttributesToExtensions(attributes *[]AttributePair, extensi
 func (acap *ACAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
 	Trace.Println("grpc ACAP:ReadCACertificate")
 
-	return &pb.Cert{acap.aca.raw}, nil
+	return &pb.Cert{Cert: acap.aca.raw}, nil
 }
 
 func (aca *ACA) startACAP(srv *grpc.Server) {

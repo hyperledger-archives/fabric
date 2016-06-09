@@ -31,7 +31,6 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
-
 )
 
 var devopsLogger = logging.MustGetLogger("devops")
@@ -165,7 +164,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	return chaincodeDeploymentSpec, err
 }
 
-func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, attributes map[string]string, invoke bool) (*pb.Response, error) {
+func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, attributes []string, invoke bool) (*pb.Response, error) {
 
 	if chaincodeInvocationSpec.ChaincodeSpec.ChaincodeID.Name == "" {
 		return nil, fmt.Errorf("name not given for invoke/query")
@@ -188,7 +187,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-	
+
 	transaction, err = d.createExecTx(chaincodeInvocationSpec, attributes, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
@@ -210,11 +209,11 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	return resp, err
 }
 
-func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, attributes map[string]string , uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, attributes []string, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
 
-//TODO What should we do with the attributes
+	//TODO What should we do with the attributes
 	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
 			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
@@ -247,12 +246,12 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, attributes map[s
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
 func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
-	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, chaincodeInvocationSpec.ChaincodeSpec.Attributes,  true)
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, chaincodeInvocationSpec.ChaincodeSpec.Attributes, true)
 }
 
 // Query performs the supplied query on the specified chaincode through a transaction
 func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
-	return d.invokeOrQuery(ctx, chaincodeInvocationSpec,  chaincodeInvocationSpec.ChaincodeSpec.Attributes, false)
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, chaincodeInvocationSpec.ChaincodeSpec.Attributes, false)
 }
 
 // CheckSpec to see if chaincode resides within current package capture for language.

@@ -13,17 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+syntax = "proto3";
+package protos;
 
-package crypto
-
-type tCertPool interface {
-	init(client *clientImpl) error
-
-	Start() error
-
-	Stop() error
-
-	GetNextTCert(attributes []string) (*TCertBlock, error)
-
-	AddTCert(tCertBlock *TCertBlock) (err error)
+//Chaincode is used for events and registrations that are specific to chaincode
+//string type - "chaincode"
+message ChaincodeEvent {
+      string chaincodeID = 1;
+      string txID = 2;
+      string eventName = 3;
+      bytes payload = 4;
 }

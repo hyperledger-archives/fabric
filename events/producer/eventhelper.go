@@ -24,3 +24,13 @@ import (
 func CreateBlockEvent(te *ehpb.Block) *ehpb.Event {
 	return &ehpb.Event{&ehpb.Event_Block{Block: te}}
 }
+
+//CreateGenericEvent creates a Event from a Generic
+func CreateGenericEvent(te *ehpb.Generic) *ehpb.Event {
+	return &ehpb.Event{&ehpb.Event_Generic{Generic: te}}
+}
+
+//CreateChaincodeEvent creates a Event from a Generic
+func CreateChaincodeEvent(te *ehpb.ChaincodeEvent) *ehpb.Event {
+	return &ehpb.Event{&ehpb.Event_ChaincodeEvent{ChaincodeEvent: te}}
+}

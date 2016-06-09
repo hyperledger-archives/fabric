@@ -40,8 +40,8 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
-	pb "github.com/hyperledger/fabric/protos"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var restLogger = logging.MustGetLogger("rest")
@@ -506,7 +506,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 
 		// Obtain the client CertificateHandler
 		// TODO - Replace empty attributes map
-		attributes := map[string]string{}
+		attributes := []string{}
 		handler, err := sec.GetTCertificateHandlerNext(attributes)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
