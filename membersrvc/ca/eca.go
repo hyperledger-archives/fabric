@@ -28,6 +28,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"google/protobuf"
 	"io/ioutil"
 	"math/big"
 	"strconv"
@@ -42,8 +43,6 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"google/protobuf"
 )
 
 var (
@@ -224,7 +223,7 @@ func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert
 }
 
 func (ecap *ECAP) fetchAttributes(cert *pb.Cert) error {
-	//TODO we are creating a new client connection per each ecer request. We should implement a connections pool.
+	//TODO we are creating a new client connection per each ecert request. We should implement a connections pool.
 	sock, acaP, err := GetACAClient()
 	if err != nil {
 		return err
@@ -312,6 +311,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		}
 
 		out, err := ecies.Process(tok)
+
 		return &pb.ECertCreateResp{Certs: nil, Chain: nil, Pkchain: nil, Tok: &pb.Token{Tok: out}}, err
 
 	case state == 1:
@@ -384,6 +384,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 				}
 			}
 		}
+
 		return &pb.ECertCreateResp{Certs: &pb.CertPair{Sign: sraw, Enc: eraw}, Chain: &pb.Token{Tok: ecap.eca.obcKey}, Pkchain: obcECKey, Tok: nil, FetchResult: &fetchResult}, nil
 	}
 

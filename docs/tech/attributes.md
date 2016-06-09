@@ -132,12 +132,10 @@ Attribute Certificate Authority (ACA) has the responsibility of certify the owne
 1. When the user needs TCerts to create a new transaction it requests a batch of TCerts to the TCA, and provides the following:
    * The batch size (i.e. how many TCerts the user is expecting)
    * Its ECert
-   * A list of attributes (e.g. Company:ACompany, Position: Software Engineer)
+   * A list of attributes (e.g. Company, Position)
 2. Under TLS TCA sends a RequestAttributes() to ACA to verify if the user is in possession of those attributes. This request is signed with TCA's private key and it contains:
    * User's ECert
-   * A list of "attribute name, value hash" pairs where value hash is a hash of the attribute value:
-     * Company: Hash(ACompany)
-     * Position: Hash(Software Engineer)
+   * A list of attribute names "company, position, ..."
 3. ACA performs a query to the internal attributes database and there are three possible scenarios***:
      a. The user does not have any of the specified attributes – An error is returned.
      b. The user has all the specified attributes – An X.509 certificate (ACert) with all the specified attributes and the ECert public key is returned.
