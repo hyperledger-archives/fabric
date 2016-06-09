@@ -31,6 +31,7 @@ import (
 	gp "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
 	"github.com/hyperledger/fabric/core/comm"
 	pb "github.com/hyperledger/fabric/protos"
@@ -276,6 +277,39 @@ func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 // DelState removes the specified `key` and its value from the ledger.
 func (stub *ChaincodeStub) DelState(key string) error {
 	return handler.handleDelState(key, stub.UUID)
+}
+
+//ReadCertAttribute is used to read an specific attribute from the transaction certificate, *attributeName* is passed as input parameter to this function.
+// Example:
+//  attrValue,error:=stub.ReadCertAttribute("position")
+func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
+	if err != nil {
+		return nil, err
+	}
+	return attributesHandler.GetValue(attributeName)
+}
+
+//VerifyAttribute is used to verify if the transaction certificate has an attribute with name *attributeName* and value *attributeValue* which are the input parameters received by this function.
+//Example:
+//    containsAttr, error := stub.VerifyAttribute("position", "Software Engineer")
+func (stub *ChaincodeStub) VerifyAttribute(attributeName string, attributeValue []byte) (bool, error) {
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
+	if err != nil {
+		return false, err
+	}
+	return attributesHandler.VerifyAttribute(attributeName, attributeValue)
+}
+
+//VerifyAttributes does the same as VerifyAttribute but it checks for a list of attributes and their respective values instead of a single attribute/value pair
+// Example:
+//    containsAttrs, error:= stub.VerifyAttributes(&attr.Attribute{"position",  "Software Engineer"}, &attr.Attribute{"company", "ACompany"})
+func (stub *ChaincodeStub) VerifyAttributes(attrs ...*attr.Attribute) (bool, error) {
+	attributesHandler, err := attr.NewAttributesHandlerImpl(stub)
+	if err != nil {
+		return false, err
+	}
+	return attributesHandler.VerifyAttributes(attrs...)
 }
 
 // StateRangeQueryIterator allows a chaincode to iterate over a range of
@@ -798,9 +832,9 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 }
 
 // ------------- ChaincodeEvent API ----------------------
-// SetEvent saves the event to be sent when a transaction is made part of a block
+// SetEvent saves the event to be sent when a transaction is made part of a block 
 func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
-	stub.chaincodeEvent = &pb.ChaincodeEvent{EventName: name, Payload: payload}
+	stub.chaincodeEvent = &pb.ChaincodeEvent{ EventName: name, Payload: payload }
 	return nil
 }
 
