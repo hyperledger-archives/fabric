@@ -46,6 +46,8 @@ const (
 	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
 	//ErrorTypeResourceNotFound used to indicate if a resource is not found
 	ErrorTypeResourceNotFound = ErrorType("ResourceNotFound")
+	//ErrorTypeBlockNotFound used to indicate if a block is not found when looked up by it's hash
+	ErrorTypeBlockNotFound = ErrorType("ErrorTypeBlockNotFound")
 )
 
 //Error can be used for throwing an error from ledger code.

@@ -104,7 +104,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 
 	// -----------------------------<Genesis block>-------------------------------
 	// Add the first (genesis block)
-	block1 := protos.NewBlock(nil, nil)
+	block1 := protos.NewBlock(nil, []byte(testutil.GenerateUUID(testWrapper.t)))
 	allBlocks = append(allBlocks, block1)
 	allHashes = append(allHashes, []byte("stateHash1"))
 	testWrapper.addNewBlock(block1, []byte("stateHash1"))
