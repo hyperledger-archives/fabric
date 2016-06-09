@@ -29,6 +29,9 @@ var uuid = require('node-uuid');
 var path = require("path");
 var zlib = require("zlib");
 
+var debugModule = require('debug');
+let debug = debugModule('hlc'); // 'hlc' stands for 'HyperLedger Client'
+
 //
 // Load required crypto stuff.
 //
@@ -67,11 +70,11 @@ export function GenerateTimestamp() {
 //
 
 export function GenerateParameterHash(path, func, args) {
-  console.log("ENTER GenerateParameterHash...");
+  debug("GenerateParameterHash...");
 
-  console.log("path = " + path);
-  console.log("func = " + func);
-  console.log("args = " + args);
+  debug("path: " + path);
+  debug("func: " + func);
+  debug("args: " + args);
 
   // Append the arguments
   var argLength = args.length;
@@ -82,11 +85,11 @@ export function GenerateParameterHash(path, func, args) {
 
   // Append the path + function + arguments
   var str = path + func + argStr;
-  console.log("str ---> " + str);
+  debug("str: " + str);
 
   // Compute the hash
   var strHash = sha3_256(str);
-  console.log("Hash of str ---> " + strHash);
+  debug("strHash: " + strHash);
 
   return strHash;
 }
@@ -136,7 +139,7 @@ export function GenerateDirectoryHash(rootDir, chaincodeDir, hash) {
 //
 
 export function GenerateTarGz(src, dest, cb) {
-  console.log("GenerateTarGz");
+  debug("GenerateTarGz");
 
   // A list of file extensions that should be packaged into the .tar.gz.
   // Files with all other file extenstions will be excluded to minimize the size

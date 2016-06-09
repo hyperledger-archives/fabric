@@ -886,7 +886,7 @@ export class Member {
      * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
      */
     deploy(deployRequest:DeployRequest):TransactionContext {
-        console.log("ENTER Member.deploy");
+        debug("Member.deploy");
 
         let tx = this.newTransactionContext();
         tx.deploy(deployRequest);
@@ -1127,31 +1127,31 @@ export class TransactionContext extends events.EventEmitter {
      * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
    */
     deploy(deployRequest:DeployRequest):TransactionContext {
-        console.log("TransactionContext.deploy");
-        console.log("Received deploy request: %j", deployRequest);
+        debug("TransactionContext.deploy");
+        debug("Received deploy request: %j", deployRequest);
 
         let self = this;
 
         // Get a TCert to use in the deployment transaction
         self.getMyTCert(function (err) {
             if (err) {
-                console.log('Failed getting a new TCert [%s]', err);
+                debug('Failed getting a new TCert [%s]', err);
                 self.emit('error', err);
 
                 return self;
             }
 
-            console.log("Got a TCert successfully, continue...");
+            debug("Got a TCert successfully, continue...");
 
             self.newBuildOrDeployTransaction(deployRequest, false, function(err, deployTx) {
               if (err) {
-                console.log("Error in newBuildOrDeployTransaction [%s]", err);
+                debug("Error in newBuildOrDeployTransaction [%s]", err);
                 self.emit('error', err);
 
                 return self;
               }
 
-              console.log("Calling TransactionContext.execute");
+              debug("Calling TransactionContext.execute");
 
               return self.execute(deployTx);
             });
@@ -1391,24 +1391,24 @@ export class TransactionContext extends events.EventEmitter {
      * @param request {Object} A BuildRequest or DeployRequest
      */
     private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
-      	console.log("newBuildOrDeployTransaction");
+      	debug("newBuildOrDeployTransaction");
 
         let self = this;
 
         // Determine the user's $GOPATH
         let goPath =  process.env.GOPATH;
-        console.log("$GOPATH: " + goPath);
+        debug("$GOPATH: " + goPath);
 
         // Compose the path to the chaincode project directory
         let projDir = goPath + "/src/" + request.chaincodePath;
-        console.log("projDir: " + projDir);
+        debug("projDir: " + projDir);
 
         // Compute the hash of the chaincode deployment parameters
         let hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
 
         // Compute the hash of the project directory contents
         hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
-        console.log("hash: " + hash);
+        debug("hash: " + hash);
 
         // Compose the Dockerfile commands
      	  let dockerFileContents =
@@ -1424,22 +1424,22 @@ export class TransactionContext extends events.EventEmitter {
      	  let dockerFilePath = projDir + "/Dockerfile";
      	  fs.writeFile(dockerFilePath, dockerFileContents, function(err) {
             if (err) {
-                console.log(util.format("Error writing file [%s]: %s", dockerFilePath, err));
+                debug(util.format("Error writing file [%s]: %s", dockerFilePath, err));
                 return cb(Error(util.format("Error writing file [%s]: %s", dockerFilePath, err)));
             }
 
-            console.log("Created Dockerfile at [%s]", dockerFilePath);
+            debug("Created Dockerfile at [%s]", dockerFilePath);
 
             // Create the .tar.gz file of the chaincode package
             let targzFilePath = "/tmp/deployment-package.tar.gz";
             // Create the compressed archive
             sdk_util.GenerateTarGz(projDir, targzFilePath, function(err) {
                 if(err) {
-                    console.log(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
+                    debug(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
                     return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
                 }
 
-                console.log(util.format("Created deployment archive at [%s]", targzFilePath));
+                debug(util.format("Created deployment archive at [%s]", targzFilePath));
 
                 //
                 // Initialize a transaction structure
@@ -1463,7 +1463,7 @@ export class TransactionContext extends events.EventEmitter {
 
                 let chaincodeID = new _chaincodeProto.ChaincodeID();
                 chaincodeID.setName(hash);
-                console.log("chaincodeID: " + JSON.stringify(chaincodeID));
+                debug("chaincodeID: " + JSON.stringify(chaincodeID));
                 tx.setChaincodeID(chaincodeID.toBuffer());
 
                 //
@@ -1482,7 +1482,7 @@ export class TransactionContext extends events.EventEmitter {
                 chaincodeInput.setFunction(request.fcn);
                 chaincodeInput.setArgs(request.args);
                 chaincodeSpec.setCtorMsg(chaincodeInput);
-                console.log("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+                debug("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
 
                 // Construct the ChaincodeDeploymentSpec and set it as the Transaction payload
                 let chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
@@ -1491,11 +1491,11 @@ export class TransactionContext extends events.EventEmitter {
                 // Read in the .tar.zg and set it as the CodePackage in ChaincodeDeploymentSpec
                 fs.readFile(targzFilePath, function(err, data) {
                     if(err) {
-                        console.log(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
+                        debug(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
                         return cb(Error(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err)));
                     }
 
-                    console.log(util.format("Read in deployment archive from [%s]", targzFilePath));
+                    debug(util.format("Read in deployment archive from [%s]", targzFilePath));
 
                     chaincodeDeploymentSpec.setCodePackage(data);
                     tx.setPayload(chaincodeDeploymentSpec.toBuffer());
@@ -1566,19 +1566,19 @@ export class TransactionContext extends events.EventEmitter {
                     // Remove the temporary .tar.gz with the deployment contents and the Dockerfile
                     fs.unlink(targzFilePath, function(err) {
                         if(err) {
-                            console.log(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
+                            debug(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
                             return cb(Error(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err)));
                         }
 
-                        console.log("Temporary archive deleted successfully ---> " + targzFilePath);
+                        debug("Temporary archive deleted successfully ---> " + targzFilePath);
 
                         fs.unlink(dockerFilePath, function(err) {
                             if(err) {
-                                console.log(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
+                                debug(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
                                 return cb(Error(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err)));
                             }
 
-                            console.log("File deleted successfully ---> " + dockerFilePath);
+                            debug("File deleted successfully ---> " + dockerFilePath);
 
                             //
                             // Return the deploy transaction structure
@@ -1736,7 +1736,7 @@ export class Peer {
                 return eventEmitter.emit('error', err);
             }
 
-            console.log("peer.sendTransaction: received %j", response);
+            debug("peer.sendTransaction: received %j", response);
 
             // Check transaction type here, as invoke is an asynchronous call,
             // whereas a deploy and a query are synchonous calls. As such,
