@@ -84,8 +84,8 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 }
 
 func getMetadata(chaincodeSpec *obc.ChaincodeSpec, tCert tCert, attrs ...string) ([]byte, error) {
-	isAbac := viper.GetBool("security.abac.enabled")
-	if !isAbac {
+	isAttributesEnabled := viper.GetBool("security.attributes.enabled")
+	if !isAttributesEnabled {
 		return chaincodeSpec.Metadata, nil
 	}
 
