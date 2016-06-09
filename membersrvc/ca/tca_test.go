@@ -63,24 +63,23 @@ func TestCreateCertificateSet(t *testing.T) {
 	enrollmentID := "test_user0"
 	enrollmentPassword := "MS9qrN8hFjlE"
 
-	createCertificateRequest, error := buildCreateCertificateRequest(enrollmentID)
+	ecertRaw, priv, err := loadECertAndEnrollmentPrivateKey(enrollmentID, enrollmentPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tca.eca.CreateCertificatePair(context.Background(), createCertificateRequest)
-
-	_, priv, err := loadECertAndEnrollmentPrivateKey(enrollmentID, enrollmentPassword)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	/*
+		ecert, err := x509.ParseCertificate(ecertRaw)
+		if err != nil {
+			return nil, nil, err
+		}
+	*/
 	certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tcap := &TCAP{tca}
-	response, err := tcap.CreateCertificateSet(context.Background(), certificateSetRequest)
+	response, err := tcap.createCertificateSet(context.Background(), ecertRaw, certificateSetRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +91,7 @@ func TestCreateCertificateSet(t *testing.T) {
 	}
 }
 
-func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) ([]byte, *ecdsa.PrivateKey, error) {
 	cooked, err := ioutil.ReadFile("./test_resources/key_" + enrollmentID + ".dump")
 	if err != nil {
 		return nil, nil, err
@@ -118,12 +117,7 @@ func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) (*x5
 		return nil, nil, err
 	}
 
-	ecert, err := x509.ParseCertificate(ecertRaw)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return ecert, enrollmentPrivateKey, nil
+	return ecertRaw, enrollmentPrivateKey, nil
 }
 
 func initTCA() (*TCA, error) {
@@ -146,20 +140,6 @@ func initTCA() (*TCA, error) {
 	}
 
 	return tca, nil
-}
-
-func buildCreateCertificateRequest(enrollID string) (*protos.ECertCreateReq, error) {
-	now := time.Now()
-	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
-
-	req := &protos.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:   &protos.Identity{Id: id},
-		Tok:  &protos.Token{Tok: []byte(pw)},
-		Sign: &protos.PublicKey{Type: protos.CryptoType_ECDSA, Key: signPub},
-		Enc:  &protos.PublicKey{Type: protos.CryptoType_ECDSA, Key: encPub},
-		Sig:  nil}
-
 }
 
 func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.PrivateKey, num int) (*protos.TCertCreateSetReq, error) {
