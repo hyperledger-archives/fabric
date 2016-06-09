@@ -428,9 +428,9 @@ Feature: lanching 3 peers
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
         |   docker-compose-4-consensus-noops.yml   |      60      |
-        |   docker-compose-4-consensus-classic.yml |      60      |
+#       |   docker-compose-4-consensus-classic.yml |      60      |
         |   docker-compose-4-consensus-batch.yml   |      60      |
-        |   docker-compose-4-consensus-sieve.yml   |      60      |
+#       |   docker-compose-4-consensus-sieve.yml   |      60      |
 
 
     #@doNotDecompose
@@ -512,9 +512,9 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-        |   docker-compose-4-consensus-classic.yml   |      60      |
+#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
-        |   docker-compose-4-consensus-sieve.yml     |      60      |
+#       |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 
 #    @doNotDecompose
@@ -639,9 +639,9 @@ Feature: lanching 3 peers
 
    Examples: Consensus Options
        |          ComposeFile                       |   WaitTime   |
-       |   docker-compose-4-consensus-classic.yml   |      60      |
+#      |   docker-compose-4-consensus-classic.yml   |      60      |
        |   docker-compose-4-consensus-batch.yml     |      60      |
-       |   docker-compose-4-consensus-sieve.yml     |      60      |
+#      |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 #@doNotDecompose
 #@wip
@@ -700,9 +700,9 @@ Feature: lanching 3 peers
 
  Examples: Consensus Options
      |          ComposeFile                       |   WaitTime   |
-     |   docker-compose-4-consensus-classic.yml   |      60      |
+#    |   docker-compose-4-consensus-classic.yml   |      60      |
      |   docker-compose-4-consensus-batch.yml     |      60      |
-     |   docker-compose-4-consensus-sieve.yml     |      60      |
+#    |   docker-compose-4-consensus-sieve.yml     |      60      |
 
      #@doNotDecompose
      #@wip
@@ -744,9 +744,9 @@ Feature: lanching 3 peers
 
       Examples: Consensus Options
           |          ComposeFile                                   |   WaitTime   |
-          |   docker-compose-4-consensus-classic-1-byzantine.yml   |      60      |
+#         |   docker-compose-4-consensus-classic-1-byzantine.yml   |      60      |
           |   docker-compose-4-consensus-batch-1-byzantine.yml     |      60      |
-          |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
+#         |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
 
 
   #@doNotDecompose
@@ -842,7 +842,7 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-        |   docker-compose-4-consensus-classic.yml   |      60      |
+#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
         #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
 
@@ -916,5 +916,5 @@ Feature: lanching 3 peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-        |   docker-compose-4-consensus-classic.yml   |      60      |
+#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
