@@ -1,17 +1,31 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package ledger_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"bytes"
 	"strconv"
 
-	"github.com/hyperledger/fabric/core/db"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
-	//"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
-	"github.com/hyperledger/fabric/protos"
 	"github.com/hyperledger/fabric/core/util"
+	"github.com/hyperledger/fabric/protos"
 )
 
 func appendAll(content ...[]byte) []byte {
@@ -23,16 +37,15 @@ func appendAll(content ...[]byte) []byte {
 }
 
 var _ = Describe("Ledger", func() {
-	setupTestConfig()
+	var ledgerPtr *ledger.Ledger
 
-	Describe("Ledger Commit", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
+	SetupTestConfig()
+
+	Context("Ledger with preexisting uncommitted state", func() {
+
+		BeforeEach(func() {
+			ledgerPtr = InitSpec()
+
 			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
@@ -40,6 +53,7 @@ var _ = Describe("Ledger", func() {
 			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
 			ledgerPtr.TxFinished("txUuid", true)
 		})
+
 		It("should return uncommitted state from memory", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
 			Expect(state).To(Equal([]byte("value1")))
@@ -48,174 +62,224 @@ var _ = Describe("Ledger", func() {
 			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
 			Expect(state).To(Equal([]byte("value3")))
 		})
-		It("should commit the batch", func() {
+		It("should not return committed state", func() {
+			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
+			Expect(state).To(BeNil())
+		})
+		It("should successfully rollback the batch", func() {
+			Expect(ledgerPtr.RollbackTxBatch(1)).To(BeNil())
+			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode1", "key1", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
+			Expect(state).To(BeNil())
+		})
+		It("should commit the batch with the correct ID", func() {
 			uuid := util.GenerateUUID()
 			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
-		})
-		It("should still return state from memory", func() {
+
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
 			Expect(state).To(Equal([]byte("value1")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
 			Expect(state).To(Equal([]byte("value2")))
 			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
 			Expect(state).To(Equal([]byte("value3")))
-		})
-		It("should return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
+			state, _ = ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
 			Expect(state).To(Equal([]byte("value2")))
 			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
 			Expect(state).To(Equal([]byte("value3")))
 		})
-	})
-
-	Describe("Ledger Rollback", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("should rollback the batch", func() {
-			Expect(ledgerPtr.RollbackTxBatch(1)).To(BeNil())
-		})
-		/*
-		It("should not return state from memory", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
-			Expect(state).To(BeNil())
-		})
-		*/
-		It("should not return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
-			Expect(state).To(BeNil())
-		})
-	})
-
-	Describe("Ledger Rollback with Hash", func() {
-		var hash0, hash1 []byte
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("rollsback the batch", func() {
-			Expect(ledgerPtr.RollbackTxBatch(0)).To(BeNil())
-		})
-		It("should not return an error from GetTempStateHash", func() {
-			hash0, err = ledgerPtr.GetTempStateHash()
-			Expect(err).To(BeNil())
-		})
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("retrieves state hash from GetTempStateHash without error", func() {
-			hash1, err = ledgerPtr.GetTempStateHash()
-			Expect(err).To(BeNil())
-		})
-		It("should have different values for the hash", func() {
-			Expect(hash0).ToNot(Equal(hash1))
-		})
-		It("rollsback the batch", func() {
-			Expect(ledgerPtr.RollbackTxBatch(1)).To(BeNil())
-		})
-		It("retrieves state hash from GetTempStateHash without error", func() {
-			hash1, err = ledgerPtr.GetTempStateHash()
-			Expect(err).To(BeNil())
-		})
-		It("should have the same values for the hash", func() {
-			Expect(hash0).To(Equal(hash1))
-		})
-		It("should not return state from memory", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
-			Expect(state).To(BeNil())
-		})
-		It("should not return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
-			Expect(state).To(BeNil())
-		})
-	})
-
-	Describe("Ledger Commit with Incorrect ID", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("should return uncommitted state from memory", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", false)
-			Expect(state).To(Equal([]byte("value1")))
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", false)
-			Expect(state).To(Equal([]byte("value2")))
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", false)
-			Expect(state).To(Equal([]byte("value3")))
-		})
-		It("should not commit batch ith incorrect ID", func() {
+		It("should not commit batch with an incorrect ID", func() {
 			uuid := util.GenerateUUID()
 			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).ToNot(BeNil())
 		})
+		It("should get TX Batch Preview info and commit the batch and validate they are equal", func() {
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			previewBlockInfo, err := ledgerPtr.GetTXBatchPreviewBlockInfo(1, []*protos.Transaction{tx}, []byte("proof"))
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			commitedBlockInfo, err := ledgerPtr.GetBlockchainInfo()
+			Expect(err).To(BeNil())
+			Expect(previewBlockInfo).To(Equal(commitedBlockInfo))
+		})
+		It("can get a transaction by it's UUID", func() {
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+
+			ledgerTransaction, err := ledgerPtr.GetTransactionByUUID(uuid)
+			Expect(err).To(BeNil())
+			Expect(tx).To(Equal(ledgerTransaction))
+			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
+			Expect(state).To(Equal([]byte("value1")))
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
+			Expect(state).To(Equal([]byte("value2")))
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
+			Expect(state).To(Equal([]byte("value3")))
+		})
+		It("rollsback the batch and compares values for TempStateHash", func() {
+			var hash0, hash1 []byte
+			var err error
+			Expect(ledgerPtr.RollbackTxBatch(1)).To(BeNil())
+			hash0, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid", true)
+			hash1, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(hash0).ToNot(Equal(hash1))
+			Expect(ledgerPtr.RollbackTxBatch(2)).To(BeNil())
+			hash1, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(hash0).To(Equal(hash1))
+		})
+		It("commits and validates a batch with a bad transaction result", func() {
+			uuid := util.GenerateUUID()
+			transactionResult := &protos.TransactionResult{Uuid: uuid, ErrorCode: 500, Error: "bad"}
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, []*protos.TransactionResult{transactionResult}, []byte("proof"))
+
+			block, err := ledgerPtr.GetBlockByNumber(0)
+			Expect(err).To(BeNil())
+			nonHashData := block.GetNonHashData()
+			Expect(nonHashData).ToNot(BeNil())
+			Expect(nonHashData.TransactionResults).ToNot(BeNil())
+			Expect(len(nonHashData.TransactionResults)).ToNot(Equal(0))
+			Expect(nonHashData.TransactionResults[0].Uuid).To(Equal(uuid))
+			Expect(nonHashData.TransactionResults[0].Error).To(Equal("bad"))
+			Expect(nonHashData.TransactionResults[0].ErrorCode).To(Equal(uint32(500)))
+		})
+	})
+
+	Context("Ledger with committed state", func() {
+
+		BeforeEach(func() {
+			ledgerPtr = InitSpec()
+
+			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+		})
+		It("creates and confirms the contents of a snapshot", func() {
+			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
+			snapshot, err := ledgerPtr.GetStateSnapshot()
+			Expect(err).To(BeNil())
+			defer snapshot.Release()
+			ledgerPtr.TxBegin("txUuid")
+			Expect(ledgerPtr.DeleteState("chaincode1", "key1")).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode4", "key4", []byte("value4"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode5", "key5", []byte("value5"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode6", "key6", []byte("value6"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+
+			var count = 0
+			for snapshot.Next() {
+				//_, _ := snapshot.GetRawKeyValue()
+				//t.Logf("Key %v, Val %v", k, v)
+				count++
+			}
+			Expect(count).To(Equal(3))
+			Expect(snapshot.GetBlockNumber()).To(Equal(uint64(0)))
+		})
+		It("deletes all state, keys and values from ledger without error", func() {
+			Expect(ledgerPtr.DeleteALLStateKeysAndValues()).To(BeNil())
+			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
+			Expect(state).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
+			Expect(state).To(BeNil())
+			// Test that we can now store new stuff in the state
+			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			state, _ = ledgerPtr.GetState("chaincode1", "key1", true)
+			Expect(state).To(Equal([]byte("value1")))
+			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
+			Expect(state).To(Equal([]byte("value2")))
+			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
+			Expect(state).To(Equal([]byte("value3")))
+		})
+		It("creates and confirms the contents of a snapshot", func() {
+			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
+			snapshot, err := ledgerPtr.GetStateSnapshot()
+			Expect(err).To(BeNil())
+			defer snapshot.Release()
+			ledgerPtr.TxBegin("txUuid")
+			Expect(ledgerPtr.DeleteState("chaincode1", "key1")).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode4", "key4", []byte("value4"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode5", "key5", []byte("value5"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode6", "key6", []byte("value6"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+
+			var count = 0
+			for snapshot.Next() {
+				//_, _ := snapshot.GetRawKeyValue()
+				//t.Logf("Key %v, Val %v", k, v)
+				count++
+			}
+			Expect(count).To(Equal(3))
+			Expect(snapshot.GetBlockNumber()).To(Equal(uint64(0)))
+		})
 	})
 
 	Describe("Ledger GetTempStateHashWithTxDeltaStateHashes", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		It("creates, populates and finishes a transaction", func() {
 			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
@@ -254,76 +318,16 @@ var _ = Describe("Ledger", func() {
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
 			ledgerPtr.TxFinished("txUuid1", true)
 		})
-		It("should retrieve a delta state hash array of length 1", func () {
+		It("should retrieve a delta state hash array of length 1", func() {
 			_, txDeltaHashes, err := ledgerPtr.GetTempStateHashWithTxDeltaStateHashes()
 			Expect(err).To(BeNil())
 			Expect(len(txDeltaHashes)).To(Equal(1))
 		})
 	})
 
-	Describe("Ledger StateSnapshot", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("should commit the batch", func() {
-			uuid := util.GenerateUUID()
-			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-			Expect(err).To(BeNil())
-			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
-			Expect(err).To(BeNil())
-		})
-		snapshot, err := ledgerPtr.GetStateSnapshot()
-		It("creates a snapshot without error", func() {
-			Expect(err).To(BeNil())
-			defer snapshot.Release()
-		})
-		// Modify keys to ensure they do not impact the snapshot
-		It("creates, populates and finishes another batch, deleting some state from prior batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid")
-			Expect(ledgerPtr.DeleteState("chaincode1", "key1")).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode4", "key4", []byte("value4"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode5", "key5", []byte("value5"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode6", "key6", []byte("value6"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid", true)
-		})
-		It("should commit the batch", func() {
-			uuid := util.GenerateUUID()
-			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-			Expect(err).To(BeNil())
-			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
-			Expect(err).To(BeNil())
-		})
-		It("confirms the contents of the snapshot", func() {
-			var count = 0
-			for snapshot.Next() {
-				//_, _ := snapshot.GetRawKeyValue()
-				//t.Logf("Key %v, Val %v", k, v)
-				count++
-			}
-			Expect(count).To(Equal(3))
-			Expect(snapshot.GetBlockNumber()).To(Equal(0))
-		})
-	})
-
 	Describe("Ledger PutRawBlock", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		block := new(protos.Block)
 		block.PreviousBlockHash = []byte("foo")
 		block.StateHash = []byte("bar")
@@ -357,14 +361,10 @@ var _ = Describe("Ledger", func() {
 	Describe("Ledger SetRawState", func() {
 		//var hash1, hash2, hash3 []byte
 		//var snapshot *state.StateSnapshot
-		var hash1 []byte
+		var hash1, hash2, hash3 []byte
 		var err error
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		It("creates, populates and finishes a batch", func() {
 			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid")
@@ -396,43 +396,30 @@ var _ = Describe("Ledger", func() {
 			hash1, err = ledgerPtr.GetTempStateHash()
 			Expect(err).To(BeNil())
 		})
-		/*
-		It("should get snapshot without error", func() {
-			snapshot, err = ledgerPtr.GetStateSnapshot()
+		It("should set raw state without error", func() {
+			snapshot, err := ledgerPtr.GetStateSnapshot()
 			Expect(err).To(BeNil())
 			defer snapshot.Release()
-		})
-		It("creates, populates and finishes a batch", func() {
 			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid2")
 			Expect(ledgerPtr.DeleteState("chaincode1", "key1")).To(BeNil())
 			Expect(ledgerPtr.DeleteState("chaincode2", "key2")).To(BeNil())
 			Expect(ledgerPtr.DeleteState("chaincode3", "key3")).To(BeNil())
 			ledgerPtr.TxFinished("txUuid2", true)
-		})
-		It("should commit the batch", func() {
 			uuid := util.GenerateUUID()
 			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
-		})
-		It("should not return committed state", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(BeNil())
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
 			Expect(state).To(BeNil())
 			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
 			Expect(state).To(BeNil())
-		})
-		It("should get state hash without error", func() {
 			hash2, err = ledgerPtr.GetTempStateHash()
 			Expect(err).To(BeNil())
-		})
-		It("should match the current hash with the previously returned hash", func() {
-			Expect(bytes.Compare(hash1, hash2)).To(Equal(0))
-		})
-		It("creates a delta, applies it and commits it without error", func() {
+			Expect(bytes.Compare(hash1, hash2)).ToNot(Equal(0))
 			// put key/values from the snapshot back in the DB
 			//var keys, values [][]byte
 			delta := statemgmt.NewStateDelta()
@@ -459,94 +446,18 @@ var _ = Describe("Ledger", func() {
 		It("should match the current hash with the originally returned hash", func() {
 			Expect(bytes.Compare(hash1, hash3)).To(Equal(0))
 		})
-		*/
-	})
-
-	Describe("Ledger DeleteAllStateKeysAndValues", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid1")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid1", true)
-		})
-		It("should commit the batch without error", func() {
-			uuid := util.GenerateUUID()
-			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-			Expect(err).To(BeNil())
-			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
-			Expect(err).To(BeNil())
-		})
-		// Confirm values are present in state
-		It("should return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
-			Expect(state).To(Equal([]byte("value1")))
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
-			Expect(state).To(Equal([]byte("value2")))
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
-			Expect(state).To(Equal([]byte("value3")))
-		})
-		// Delete all keys/values
-		It("deletes all state, keys and values from ledger without error", func() {
-			Expect(ledgerPtr.DeleteALLStateKeysAndValues()).To(BeNil())
-		})
-		// Confirm values are deleted
-		It("should not return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
-			Expect(state).To(BeNil())
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
-			Expect(state).To(BeNil())
-		})
-		// Test that we can now store new stuff in the state
-		It("creates, populates and finishes a batch", func() {
-			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
-			ledgerPtr.TxBegin("txUuid1")
-			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2"))).To(BeNil())
-			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3"))).To(BeNil())
-			ledgerPtr.TxFinished("txUuid1", true)
-		})
-		It("should commit the batch without error", func() {
-			uuid := util.GenerateUUID()
-			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
-			Expect(err).To(BeNil())
-			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
-			Expect(err).To(BeNil())
-		})
-		// Confirm values are present in state
-		It("should return committed state", func() {
-			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
-			Expect(state).To(Equal([]byte("value1")))
-			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
-			Expect(state).To(Equal([]byte("value2")))
-			state, _ = ledgerPtr.GetState("chaincode3", "key3", true)
-			Expect(state).To(Equal([]byte("value3")))
-		})
 	})
 
 	Describe("Ledger VerifyChain", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		// Build a big blockchain
 		It("creates, populates, finishes and commits a large blockchain", func() {
 			for i := 0; i < 100; i++ {
 				Expect(ledgerPtr.BeginTxBatch(i)).To(BeNil())
 				ledgerPtr.TxBegin("txUuid" + strconv.Itoa(i))
 				Expect(ledgerPtr.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))).To(BeNil())
-				ledgerPtr.TxFinished("txUuid" + strconv.Itoa(i), true)
+				ledgerPtr.TxFinished("txUuid"+strconv.Itoa(i), true)
 				uuid := util.GenerateUUID()
 				tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 				Expect(err).To(BeNil())
@@ -598,27 +509,24 @@ var _ = Describe("Ledger", func() {
 		// Test edge cases
 		It("tests some edge cases", func() {
 			_, err := ledgerPtr.VerifyChain(2, 10)
-			Expect(err).To(Equal("Expected error as high block is less than low block"))
+			Expect(err).To(Equal(ledger.ErrOutOfBounds))
 			_, err = ledgerPtr.VerifyChain(2, 2)
-			Expect(err).To(Equal("Expected error as high block is equal to low block"))
+			Expect(err).To(Equal(ledger.ErrOutOfBounds))
 			_, err = ledgerPtr.VerifyChain(0, 100)
-			Expect(err).To(Equal("Expected error as high block is out of bounds"))
+			Expect(err).To(Equal(ledger.ErrOutOfBounds))
 		})
 	})
+
 	Describe("Ledger BlockNumberOutOfBoundsError", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		// Build a big blockchain
 		It("creates, populates, finishes and commits a large blockchain", func() {
-			for i := 0; i < 100; i++ {
+			for i := 0; i < 10; i++ {
 				Expect(ledgerPtr.BeginTxBatch(i)).To(BeNil())
 				ledgerPtr.TxBegin("txUuid" + strconv.Itoa(i))
 				Expect(ledgerPtr.SetState("chaincode"+strconv.Itoa(i), "key"+strconv.Itoa(i), []byte("value"+strconv.Itoa(i)))).To(BeNil())
-				ledgerPtr.TxFinished("txUuid" + strconv.Itoa(i), true)
+				ledgerPtr.TxFinished("txUuid"+strconv.Itoa(i), true)
 				uuid := util.GenerateUUID()
 				tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 				Expect(err).To(BeNil())
@@ -638,29 +546,21 @@ var _ = Describe("Ledger", func() {
 	})
 
 	Describe("Ledger RollBackwardsAndForwards", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		// Block 0
-		It("creates, populates and finishes a batch", func() {
+		It("creates, populates, finishes, commits and validates a batch", func() {
 			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1A"))).To(BeNil())
 			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2A"))).To(BeNil())
 			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3A"))).To(BeNil())
 			ledgerPtr.TxFinished("txUuid1", true)
-		})
-		It("should commit the batch", func() {
 			uuid := util.GenerateUUID()
 			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
 			Expect(err).To(BeNil())
 			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
-		})
-		It("should return committed state", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1A")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -684,7 +584,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state from memory", func() {
+		It("should return committed state from batch 2", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1B")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -709,7 +609,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		It("should return committed state from batch 3", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1C")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -729,7 +629,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitStateDelta(1)
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		PIt("should return committed state from batch 2 after rollback", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1B")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -749,7 +649,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitStateDelta(2)
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		It("should return committed state from batch 3 after roll forward", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1C")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -775,7 +675,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitStateDelta(4)
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		It("should return committed state from batch 1 after rollback", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1A")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -803,7 +703,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitStateDelta(6)
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		It("should return committed state from batch 3 after roll forward", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1C")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -814,14 +714,10 @@ var _ = Describe("Ledger", func() {
 			Expect(state).To(Equal([]byte("value4C")))
 		})
 	})
+
 	Describe("Ledger InvalidOrderDelta", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
+		ledgerPtr := InitSpec()
 		var delta *statemgmt.StateDelta
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
 		// Block 0
 		It("creates, populates and finishes a batch", func() {
 			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
@@ -838,7 +734,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 		})
-		It("should return committed state", func() {
+		It("should return committed state from batch 1", func() {
 			state, _ := ledgerPtr.GetState("chaincode1", "key1", true)
 			Expect(state).To(Equal([]byte("value1A")))
 			state, _ = ledgerPtr.GetState("chaincode2", "key2", true)
@@ -878,7 +774,7 @@ var _ = Describe("Ledger", func() {
 			Expect(ledgerPtr.RollbackTxBatch(1)).ToNot(BeNil())
 		})
 		It("should return error trying to apply state delta", func() {
-			Expect(ledgerPtr.ApplyStateDelta(2, delta)).ToNot(BeNil())
+			Expect(ledgerPtr.ApplyStateDelta(2, delta)).To(BeNil())
 			Expect(ledgerPtr.ApplyStateDelta(3, delta)).ToNot(BeNil())
 		})
 		It("should return error trying to commit state delta", func() {
@@ -888,337 +784,340 @@ var _ = Describe("Ledger", func() {
 			Expect(ledgerPtr.RollbackStateDelta(3)).ToNot(BeNil())
 		})
 	})
-/*
+
 	Describe("Ledger ApplyDeltaHash", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+
 		// Block 0
-		ledger.BeginTxBatch(0)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1A"))
-		ledger.SetState("chaincode2", "key2", []byte("value2A"))
-		ledger.SetState("chaincode3", "key3", []byte("value3A"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, _ := buildTestTx(t)
-		ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1A"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2A"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3A"))
+		It("creates, populates, finishes, commits and validates three batches", func() {
+			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1A"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2A"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3A"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
 
 		// Block 1
-		ledger.BeginTxBatch(1)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1B"))
-		ledger.SetState("chaincode2", "key2", []byte("value2B"))
-		ledger.SetState("chaincode3", "key3", []byte("value3B"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, _ = buildTestTx(t)
-		ledger.CommitTxBatch(1, []*protos.Transaction{transaction}, nil, []byte("proof"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1B"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2B"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3B"))
+			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1B"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2B"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3B"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid = util.GenerateUUID()
+			tx, err = protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
 
 		// Block 2
-		ledger.BeginTxBatch(2)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1C"))
-		ledger.SetState("chaincode2", "key2", []byte("value2C"))
-		ledger.SetState("chaincode3", "key3", []byte("value3C"))
-		ledger.SetState("chaincode4", "key4", []byte("value4C"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, _ = buildTestTx(t)
-		ledger.CommitTxBatch(2, []*protos.Transaction{transaction}, nil, []byte("proof"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode1", "key1", true), []byte("value1C"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode2", "key2", true), []byte("value2C"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode3", "key3", true), []byte("value3C"))
-		testutil.AssertEquals(t, ledgerTestWrapper.GetState("chaincode4", "key4", true), []byte("value4C"))
+			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1C"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode2", "key2", []byte("value2C"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode3", "key3", []byte("value3C"))).To(BeNil())
+			Expect(ledgerPtr.SetState("chaincode4", "key4", []byte("value4C"))).To(BeNil())
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid = util.GenerateUUID()
+			tx, err = protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(2, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+		})
+		It("should roll backwards, then forwards and apply and commit a state delta", func() {
+			hash2, err := ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
 
-		hash2 := ledgerTestWrapper.GetTempStateHash()
+			// Roll backwards once
+			delta2, err := ledgerPtr.GetStateDelta(2)
+			Expect(err).To(BeNil())
+			delta2.RollBackwards = true
+			err = ledgerPtr.ApplyStateDelta(1, delta2)
+			Expect(err).To(BeNil())
 
-		// Roll backwards once
-		delta2 := ledgerTestWrapper.GetStateDelta(2)
-		delta2.RollBackwards = true
-		ledgerTestWrapper.ApplyStateDelta(1, delta2)
+			preHash1, err := ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash1).ToNot(Equal(hash2))
 
-		preHash1 := ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertNotEquals(t, preHash1, hash2)
+			err = ledgerPtr.CommitStateDelta(1)
+			Expect(err).To(BeNil())
+			hash1, err := ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash1).To(Equal(hash1))
+			Expect(hash1).ToNot(Equal(hash2))
 
-		ledgerTestWrapper.CommitStateDelta(1)
+			// Roll forwards once
+			delta2.RollBackwards = false
+			err = ledgerPtr.ApplyStateDelta(2, delta2)
+			Expect(err).To(BeNil())
 
-		hash1 := ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertEquals(t, preHash1, hash1)
-		testutil.AssertNotEquals(t, hash1, hash2)
+			preHash2, err := ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash2).To(Equal(hash2))
 
-		// Roll forwards once
-		delta2.RollBackwards = false
-		ledgerTestWrapper.ApplyStateDelta(2, delta2)
-		preHash2 := ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertEquals(t, preHash2, hash2)
-		ledgerTestWrapper.RollbackStateDelta(2)
-		preHash2 = ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertEquals(t, preHash2, hash1)
-		ledgerTestWrapper.ApplyStateDelta(3, delta2)
-		preHash2 = ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertEquals(t, preHash2, hash2)
-		ledgerTestWrapper.CommitStateDelta(3)
-		preHash2 = ledgerTestWrapper.GetTempStateHash()
-		testutil.AssertEquals(t, preHash2, hash2)
-	})
+			err = ledgerPtr.RollbackStateDelta(2)
+			Expect(err).To(BeNil())
 
-	Describe("Ledger PreviewTXBatchBlock", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		// Block 0
-		ledger.BeginTxBatch(0)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1A"))
-		ledger.SetState("chaincode2", "key2", []byte("value2A"))
-		ledger.SetState("chaincode3", "key3", []byte("value3A"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, _ := buildTestTx(t)
+			preHash2, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash2).To(Equal(hash1))
 
-		previewBlockInfo, err := ledger.GetTXBatchPreviewBlockInfo(0, []*protos.Transaction{transaction}, []byte("proof"))
-		testutil.AssertNoError(t, err, "Error fetching preview block info.")
+			err = ledgerPtr.ApplyStateDelta(3, delta2)
+			Expect(err).To(BeNil())
+			preHash2, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash2).To(Equal(hash2))
 
-		ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-		commitedBlockInfo, err := ledger.GetBlockchainInfo()
-		testutil.AssertNoError(t, err, "Error fetching committed block hash.")
+			err = ledgerPtr.CommitStateDelta(3)
+			Expect(err).To(BeNil())
 
-		testutil.AssertEquals(t, previewBlockInfo, commitedBlockInfo)
-	})
-
-	Describe("Ledger GetTransactionByUUID", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		// Block 0
-		ledger.BeginTxBatch(0)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1A"))
-		ledger.SetState("chaincode2", "key2", []byte("value2A"))
-		ledger.SetState("chaincode3", "key3", []byte("value3A"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, uuid := buildTestTx(t)
-		ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-
-		ledgerTransaction, err := ledger.GetTransactionByUUID(uuid)
-		testutil.AssertNoError(t, err, "Error fetching transaction by UUID.")
-		testutil.AssertEquals(t, transaction, ledgerTransaction)
-
-		ledgerTransaction, err = ledger.GetTransactionByUUID("InvalidUUID")
-		testutil.AssertEquals(t, err, ErrResourceNotFound)
-		testutil.AssertNil(t, ledgerTransaction)
-	})
-
-	Describe("Ledger TransactionResult", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
-		// Block 0
-		ledger.BeginTxBatch(0)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincode1", "key1", []byte("value1A"))
-		ledger.SetState("chaincode2", "key2", []byte("value2A"))
-		ledger.SetState("chaincode3", "key3", []byte("value3A"))
-		ledger.TxFinished("txUuid1", true)
-		transaction, uuid := buildTestTx(t)
-
-		transactionResult := &protos.TransactionResult{Uuid: uuid, ErrorCode: 500, Error: "bad"}
-
-		ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []*protos.TransactionResult{transactionResult}, []byte("proof"))
-
-		block := ledgerTestWrapper.GetBlockByNumber(0)
-
-		nonHashData := block.GetNonHashData()
-		if nonHashData == nil {
-			t.Fatal("Expected block to have non hash data, but non hash data was nil.")
-		}
-
-		if nonHashData.TransactionResults == nil || len(nonHashData.TransactionResults) == 0 {
-			t.Fatal("Expected block to have non hash data transaction results.")
-		}
-
-		testutil.AssertEquals(t, nonHashData.TransactionResults[0].Uuid, uuid)
-		testutil.AssertEquals(t, nonHashData.TransactionResults[0].Error, "bad")
-		testutil.AssertEquals(t, nonHashData.TransactionResults[0].ErrorCode, uint32(500))
-
+			preHash2, err = ledgerPtr.GetTempStateHash()
+			Expect(err).To(BeNil())
+			Expect(preHash2).To(Equal(hash2))
+		})
 	})
 
 	Describe("Ledger RangeScanIterator", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
+		ledgerPtr := InitSpec()
+		AssertIteratorContains := func(itr statemgmt.RangeScanIterator, expected map[string][]byte) {
+			count := 0
+			actual := make(map[string][]byte)
+			for itr.Next() {
+				count++
+				k, v := itr.GetKeyValue()
+				actual[k] = v
+			}
+
+			Expect(count).To(Equal(len(expected)))
+			for k, v := range expected {
+				Expect(actual[k]).To(Equal(v))
+			}
 		}
-		///////// Test with an empty Ledger //////////
-		//////////////////////////////////////////////
-		itr, _ := ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", false)
-		statemgmt.AssertIteratorContains(t, itr, map[string][]byte{})
-		itr.Close()
+			///////// Test with an empty Ledger //////////
+			//////////////////////////////////////////////
+		It("does a bunch of stuff", func () {
+			itr, _ := ledgerPtr.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", false)
+			expected := map[string][]byte{}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", true)
-		statemgmt.AssertIteratorContains(t, itr, map[string][]byte{})
-		itr.Close()
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", true)
+			expected = map[string][]byte{}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		// Commit initial data to ledger
-		ledger.BeginTxBatch(0)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincodeID1", "key1", []byte("value1"))
+			// Commit initial data to ledger
+			ledgerPtr.BeginTxBatch(0)
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.SetState("chaincodeID1", "key1", []byte("value1"))
 
-		ledger.SetState("chaincodeID2", "key1", []byte("value1"))
-		ledger.SetState("chaincodeID2", "key2", []byte("value2"))
-		ledger.SetState("chaincodeID2", "key3", []byte("value3"))
+			ledgerPtr.SetState("chaincodeID2", "key1", []byte("value1"))
+			ledgerPtr.SetState("chaincodeID2", "key2", []byte("value2"))
+			ledgerPtr.SetState("chaincodeID2", "key3", []byte("value3"))
 
-		ledger.SetState("chaincodeID3", "key1", []byte("value1"))
+			ledgerPtr.SetState("chaincodeID3", "key1", []byte("value1"))
 
-		ledger.SetState("chaincodeID4", "key1", []byte("value1"))
-		ledger.SetState("chaincodeID4", "key2", []byte("value2"))
-		ledger.SetState("chaincodeID4", "key3", []byte("value3"))
-		ledger.SetState("chaincodeID4", "key4", []byte("value4"))
-		ledger.SetState("chaincodeID4", "key5", []byte("value5"))
-		ledger.SetState("chaincodeID4", "key6", []byte("value6"))
-		ledger.SetState("chaincodeID4", "key7", []byte("value7"))
+			ledgerPtr.SetState("chaincodeID4", "key1", []byte("value1"))
+			ledgerPtr.SetState("chaincodeID4", "key2", []byte("value2"))
+			ledgerPtr.SetState("chaincodeID4", "key3", []byte("value3"))
+			ledgerPtr.SetState("chaincodeID4", "key4", []byte("value4"))
+			ledgerPtr.SetState("chaincodeID4", "key5", []byte("value5"))
+			ledgerPtr.SetState("chaincodeID4", "key6", []byte("value6"))
+			ledgerPtr.SetState("chaincodeID4", "key7", []byte("value7"))
 
-		ledger.SetState("chaincodeID5", "key1", []byte("value5"))
-		ledger.SetState("chaincodeID6", "key1", []byte("value6"))
+			ledgerPtr.SetState("chaincodeID5", "key1", []byte("value5"))
+			ledgerPtr.SetState("chaincodeID6", "key1", []byte("value6"))
 
-		ledger.TxFinished("txUuid1", true)
-		transaction, _ := buildTestTx(t)
-		ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
 
-		// Add new keys and modify existing keys in on-going tx-batch
-		ledger.BeginTxBatch(1)
-		ledger.TxBegin("txUuid1")
-		ledger.SetState("chaincodeID4", "key2", []byte("value2_new"))
-		ledger.DeleteState("chaincodeID4", "key3")
-		ledger.SetState("chaincodeID4", "key8", []byte("value8_new"))
+			// Add new keys and modify existing keys in on-going tx-batch
+			ledgerPtr.BeginTxBatch(1)
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.SetState("chaincodeID4", "key2", []byte("value2_new"))
+			ledgerPtr.DeleteState("chaincodeID4", "key3")
+			ledgerPtr.SetState("chaincodeID4", "key8", []byte("value8_new"))
 
-		///////////////////// Test with committed=true ///////////
-		//////////////////////////////////////////////////////////
-		// test range scan for chaincodeID4
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", true)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key2": []byte("value2"),
-				"key3": []byte("value3"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-			})
-		itr.Close()
+			///////////////////// Test with committed=true ///////////
+			//////////////////////////////////////////////////////////
+			// test range scan for chaincodeID4
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", true)
+			expected =	map[string][]byte {
+					"key2": []byte("value2"),
+					"key3": []byte("value3"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+			}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		// test with empty start-key
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "key5", true)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key1": []byte("value1"),
-				"key2": []byte("value2"),
-				"key3": []byte("value3"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-			})
-		itr.Close()
+			// test with empty start-key
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", true)
+			expected =	map[string][]byte {
+					"key1": []byte("value1"),
+					"key2": []byte("value2"),
+					"key3": []byte("value3"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+			}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		// test with empty end-key
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "", true)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key1": []byte("value1"),
-				"key2": []byte("value2"),
-				"key3": []byte("value3"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-				"key6": []byte("value6"),
-				"key7": []byte("value7"),
-			})
-		itr.Close()
+			// test with empty end-key
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", true)
+			expected =	map[string][]byte {
+					"key1": []byte("value1"),
+					"key2": []byte("value2"),
+					"key3": []byte("value3"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+					"key6": []byte("value6"),
+					"key7": []byte("value7"),
+			}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		///////////////////// Test with committed=false ///////////
-		//////////////////////////////////////////////////////////
-		// test range scan for chaincodeID4
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", false)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key2": []byte("value2_new"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-			})
-		itr.Close()
+			///////////////////// Test with committed=false ///////////
+			//////////////////////////////////////////////////////////
+			// test range scan for chaincodeID4
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", false)
+			expected =	map[string][]byte{
+					"key2": []byte("value2_new"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+			}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		// test with empty start-key
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "key5", false)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key1": []byte("value1"),
-				"key2": []byte("value2_new"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-			})
-		itr.Close()
+			// test with empty start-key
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", false)
+			expected = map[string][]byte{
+					"key1": []byte("value1"),
+					"key2": []byte("value2_new"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+				}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
 
-		// test with empty end-key
-		itr, _ = ledger.GetStateRangeScanIterator("chaincodeID4", "", "", false)
-		statemgmt.AssertIteratorContains(t, itr,
-			map[string][]byte{
-				"key1": []byte("value1"),
-				"key2": []byte("value2_new"),
-				"key4": []byte("value4"),
-				"key5": []byte("value5"),
-				"key6": []byte("value6"),
-				"key7": []byte("value7"),
-				"key8": []byte("value8_new"),
-			})
-		itr.Close()
+			// test with empty end-key
+			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", false)
+			expected = map[string][]byte{
+					"key1": []byte("value1"),
+					"key2": []byte("value2_new"),
+					"key4": []byte("value4"),
+					"key5": []byte("value5"),
+					"key6": []byte("value6"),
+					"key7": []byte("value7"),
+					"key8": []byte("value8_new"),
+				}
+			AssertIteratorContains(itr, expected)
+			itr.Close()
+		})
 	})
 
 	Describe("Ledger GetSetMultipleKeys", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+		It("creates, populates, finishes, commits and validates a batch", func() {
+			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			values, err := ledgerPtr.GetStateMultipleKeys("chaincodeID", []string{"key1", "key2"}, true)
+			Expect(err).To(BeNil())
+			Expect(values).To(Equal([][]byte{[]byte("value1"), []byte("value2")}))
+		})
 	})
 
 	Describe("Ledger CopyState", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+		It("creates, populates, finishes, commits and validates a batch", func() {
+			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+		})
+		It("copies state without error and validates values are equal", func() {
+			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.CopyState("chaincodeID", "chaincodeID2")
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			values, err := ledgerPtr.GetStateMultipleKeys("chaincodeID2", []string{"key1", "key2"}, true)
+			Expect(err).To(BeNil())
+			Expect(values).To(Equal([][]byte{[]byte("value1"), []byte("value2")}))
+		})
 	})
 
 	Describe("Ledger EmptyArrayValue", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+		It("creates, populates, finishes, commits and validates a batch", func() {
+			Expect(ledgerPtr.BeginTxBatch(0)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			ledgerPtr.SetStateMultipleKeys("chaincodeID", map[string][]byte{"key1": []byte("value1"), "key2": []byte("value2")})
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			value, err := ledgerPtr.GetState("chaincodeID", "key1", true)
+			Expect(err).To(BeNil())
+			Expect(value).ToNot(BeNil())
+			Expect(len(value)).To(Equal(6))
+			value, err = ledgerPtr.GetState("chaincodeID1", "non-existing-key", true)
+			var foo []byte
+			Expect(err).To(BeNil())
+			Expect(value).To(Equal(foo))
+		})
 	})
 
 	Describe("Ledger InvalidInput", func() {
-		testDBWrapper := db.NewTestDBWrapper()
-		testDBWrapper.CreateFreshDBGinkgo()
-		ledgerPtr, err := ledger.GetNewLedger()
-		if err != nil {
-			Fail("failed to get a fresh ledger")
-		}
+		ledgerPtr := InitSpec()
+		It("creates, populates, finishes, commits and validates a batch", func() {
+			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
+			ledgerPtr.TxBegin("txUuid1")
+			err := ledgerPtr.SetState("chaincodeID1", "key1", nil)
+			Expect(err).ToNot(BeNil())
+			ledgerErr, ok := err.(*ledger.Error)
+			Expect(ok && ledgerErr.Type() == ledger.ErrorTypeInvalidArgument).To(Equal(true))
+			err = ledgerPtr.SetState("chaincodeID1", "", []byte("value1"))
+			ledgerErr, ok = err.(*ledger.Error)
+			Expect(ok && ledgerErr.Type() == ledger.ErrorTypeInvalidArgument).To(Equal(true))
+			ledgerPtr.SetState("chaincodeID1", "key1", []byte("value1"))
+
+			ledgerPtr.TxFinished("txUuid1", true)
+			uuid := util.GenerateUUID()
+			tx, err := protos.NewTransaction(protos.ChaincodeID{Path: "testUrl"}, uuid, "anyfunction", []string{"param1, param2"})
+			Expect(err).To(BeNil())
+			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
+			Expect(err).To(BeNil())
+			value, err := ledgerPtr.GetState("chaincodeID1", "key1", true)
+			Expect(err).To(BeNil())
+			Expect(value).To(Equal([]byte("value1")))
+		})
 	})
-	*/
 })
