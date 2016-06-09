@@ -1,40 +1,34 @@
-Hyperledger Client SDK for Node.js
-=========
+#Hyperledger Client SDK for Node.js
 
-The Hyperledger Client (HLC) provides a powerful and easy to use API to interact with a Hyperledger blockchain.
+The Hyperledger Client SDK (HLC) provides a powerful and easy to use API to interact with a Hyperledger blockchain.
 
 The sections in this document are as follows:
 
-* The [Getting Started](#Getting Started) section is intended to help you quickly get a feel for HLC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
+* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HLC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
 
-* The [Getting Setup](#Getting Setup) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
+* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
 
-* The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).
+* The [Going Deeper](#going-deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the reference documentation. The top-level class is `Chain`.
 
-   WARNING: To view the reference documentation correctly, you may need to open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
+   WARNING: To view the reference documentation correctly, you first need to [build the SDK](#building-the-client-sdk) and then open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
 
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
 
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html`
 
-* The [Looking Ahead](#Looking Ahead) section describes some future work to be done.
+* The [Future Work](#future-work) section describes some upcoming work to be done.
 
-<a name="Getting Started">
 ## Getting Started
-</a>
-
-This purpose of this section is to help you quickly get a feel for HLC and how you may use it.  It is not intended to demonstrate all of it's power, but to demonstrate a common use case by example.
+This purpose of this section is to help you quickly get a feel for HLC and how you may use it.  It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
 
 ### Some basic terminology
-
 First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
 
-Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a user name (also called an *enrollment ID*).  This can be done programatically with the **Member.register** method, or by adding the enrollment ID to the member services configuration file in `fabric/membersrvc/membersrvc.yaml`.
+Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a new user name (also called an *enrollment ID*) to the membership service configuration.  This can be done programatically with the `Member.register` method, or by adding the enrollment ID directly to the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file.
 
-Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the **Member.enroll** method.
+Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the `Member.enroll` method.
 
 ### Learn by example
-
 The best way to quickly learn HLC is by example.
 
 The following example demonstrates a typical web app.  The web app authenticates a user and then transacts on a blockchain on behalf of that user.
@@ -136,78 +130,112 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
      });
    });
 }
-
 ```
 
-<a name="Getting Set Up">
 ## Getting Set Up
-</a>
 
 ### Building the client SDK
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
-If you set the **FABRIC** environment variable to point to your `hyperledger/fabric` directory, you can build the client SDK as follows:
+    vagrant ssh
+
+Then build the client SDK as follows:
 
 ```
-cd $FABRIC && make node-sdk
+cd $GOPATH/src/github.com/hyperledger/fabric
+make node-sdk
 ```
 
-The node package is then located in the `$FABRIC/sdk/node` directory.
-
+The node package is then located in the `$GOPATH/src/github.com/hyperledger/fabric/sdk/node` directory.
 
 ### Running the unit tests
+HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape).
 
-HLC includes unit tests implemented with the [tape framework](https://github.com/substack/tape).
+#### Setting up the testing environment
+First, build and run the Membership Service (Certificate Authority) as described [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional).
 
+Specifically, from your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
-#### Setting up the environment
+    vagrant ssh
 
-We assume the sandbox setting is used as described here: [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
+Build and run the <b>Certificate Authority (CA)</b> server with the commands below:
 
-Build and run the Membership Service (Certificate Authority) as described [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional).
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    make membersrvc
+    (cd membersrvc; ./membersrvc)
+
+Second, enable the security and privacy settings on the peer by setting `security.enabled` and `security.privacy` settings to `true` inside the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). Then build and run the peer with the following steps.
+
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+
+    vagrant ssh
+
+Build and run the peer process with the commands below.
+
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    make peer
+    cd ./peer
+    ./peer node start
+
+Alternatively, enable security and privacy on the peer with environment variables:
+
+    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer node start
 
 We also assume that the peer is running at security level 256, which is the default value.
 
-Don't forget to enable security and privacy as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
-
-
 #### registrar
-
 This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.
 
 Run the test as follows assuming membership services is running on the default ports:
 
-
 ```
-cd $FABRIC/sdk/node
+cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
 node test/unit/registrar.js
 ```
 
 #### chain-tests
-
 This test case exercises chaincode *chaincode_example02* as described in in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
 
-In particular, you must first start the chaincode as follows:
-
+To have the chaincode deployment succeed, you must properly set up the chaincode project outside of your Hypefledger Fabric source tree. The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the `build-chaincode` project may be placed inside `$GOPATH/src/` as shown below.
 
 ```
-cd $FABRIC/examples/chaincode/go/chaincode_example02
-go build
-CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+$GOPATH/src/github.com/<username>/build-chaincode/
+```  
+
+The chaincode project directory must contain project related code and also a `vendor` folder which contains the Hypefledger Fabric source tree. Currently, this is still a dependency to have the chaincode project deploy successfully. However, the entire fabric directory is not packaged into the deploy transaction when the payload is generated. The deployment process selects a specific set of files that it needs to package into the transaction payload. Proper directory structure is shown below.
+
+```
+ls -la $GOPATH/src/github.com/<username>/build-chaincode/
+.
+..
+chaincode_example02.go
+vendor
+
+ls -la $GOPATH/src/github.com/<username>/build-chaincode/vendor/github.com/hyperledger/
+.
+..
+fabric
 ```
 
-And run chain-tests as follows:
+Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH` together with the `vendor` directory containing the hyperledger Fabric, you need to update the [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) unit test file to point to the appropriate chaincode project path at the top of the file. An example is shown below.
 
+```
+// Path to the local directory containing the chaincode project under $GOPATH
+var testChaincodePath = "github.com/angrbrd/build-chaincode";
+```
+
+Then run the chain-tests as follows:
 
 ```
 cd $FABRIC/sdk/node
-node test/unit/chain-tests.js
+node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 ```
 
 To activate TLS connection with the member services the following actions are needed:
 
 - Modify *$FABRIC/membersrvc/membersrvc.yaml* as follows:
 
-``` 
+```
 server:
      tls:
         certfile: "/var/hyperledger/production/.membersrvc/tlsca.cert"
@@ -217,7 +245,7 @@ This is needed to instruct the member services on which tls cert and key to use.
 
 - Modify *$FABRIC/peer/core.yaml* as follows:
 
-``` 
+```
 peer:
     pki:
         tls:
@@ -225,6 +253,7 @@ peer:
             rootcert:
                 file: "/var/hyperledger/production/.membersrvc/tlsca.cert"
 ```
+
 This is needed to allow the peer to connect to the member services using TLS, otherwise the connection will fail.
 
 - Bootstrap your member services and the peer. This is needed in order to have the file *tlsca.cert* generated by the member services
@@ -235,44 +264,20 @@ At this point *chain-tests.js* will load automatically the *tlsca.cert* file and
 
 N.B. If you cleanup the folder */var/hyperledger/production* then don't forget to copy again the *tlsca.cert* file as described above.
 
-
 #### asset-mgmt
+This test case exercises the *asset_management* chaincode.
 
-This test case exercises chaincode *asset_management*. When running the chaincode as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode), name it *assetmgmt* as this is the name used in unit tests.
+Follow the instruction in the [chain-tests](#chain-tests) section in order to properly set up your chaincode project outside of your Hypefledger Fabric source tree.
 
-In particular, you must first start the chaincode as follows:
-
-
-```
-cd $FABRIC/examples/chaincode/go/asset_management
-go build
-CORE_CHAINCODE_ID_NAME=assetmgmt CORE_PEER_ADDRESS=0.0.0.0:30303 ./asset_management
-```
-
-
-And run the asset management tests as follows:
+Then run the asset management tests as follows:
 
 ```
 cd $FABRIC/sdk/node
-node test/unit/asset-mgmt.js
+node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 ```
 
-
 #### Troublingshooting
-
-1. If the tests fail and you see errors regarding port forwarding, similar to the one below, that implies that you do not have correct port forwarding enabled in Vagrant.
-
-    ```
-    tcp_client_posix.c:173] failed to connect to 'ipv6:[::1]:50051': socket error: connection refused
-    ```
-
-   To address this, make sure your Vagrant setup has port forwarding enabled for port 50051 as the tests connect to the membership services on that port. Check your [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile) to confirm that the following line is present. If not, modify your Vagrantfile to include it, then issue the command `vagrant reload`.
-
-    ```
-    config.vm.network :forwarded_port, guest: 50051, host: 50051 # Membership service
-    ```
-
-1. If you see errors stating that the client has already been registered/enrolled, keep in mind that you can perform the enrollment process only once, as the enrollmentSecret is a one-time-use password. You will see these errors if you have performed a user registration/enrollment and subsequently deleted the crypto tokens stored on the client side. The next time you try to enroll, errors similar to the ones below will be seen.
+If you see errors stating that the client has already been registered/enrolled, keep in mind that you can perform the enrollment process only once, as the enrollmentSecret is a one-time-use password. You will see these errors if you have performed a user registration/enrollment and subsequently deleted the crypto tokens stored on the client side. The next time you try to enroll, errors similar to the ones below will be seen.
 
    ```
    Error: identity or token do not match
@@ -281,14 +286,11 @@ node test/unit/asset-mgmt.js
    Error: user is already registered
    ```
 
-   To address this, remove any stored crypto material from the CA server by following the instructions [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#removing-temporary-files-when-security-is-enabled). You will also need to remove any of the crypto tokens stored on the client side by deleting the KeyValStore directory. That directory is configurable and is set to `/tmp/keyValStore` within the unit tests.
+To address this, remove any stored crypto material from the CA server by following the instructions [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#removing-temporary-files-when-security-is-enabled). You will also need to remove any of the crypto tokens stored on the client side by deleting the KeyValStore directory. That directory is configurable and is set to `/tmp/keyValStore` within the unit tests.
 
-<a name="Going Deeper">
 ## Going Deeper
-</a>
 
 #### Pluggability
-
 HLC was designed to support two pluggable components:
 
 1. Pluggable key value store which is used to retrieve and store keys associated with a member.  The key value store is used to store sensitive private keys, so care must be taken to properly protect access.
@@ -296,10 +298,9 @@ HLC was designed to support two pluggable components:
 2. Pluggable member service which is used to register and enroll members.  Member services enables hyperledger to be a permissioned blockchain, providing security services such as anonymity, unlinkability of transactions, and confidentiality
 
 #### HLC objects and reference documentation
-
 HLC is written primarily in typescript and is object-oriented.  The source can be found in the `fabric/sdk/node/src` directory.
 
-To go deeper, you can view the reference documentation in your browser by opening the [reference documentation](doc/modules/_hlc_.html) and clicking on **"hlc"** on the right-hand side under **"Globals"**.
+To go deeper, you can view the reference documentation in your browser by opening the [reference documentation](doc/modules/_hlc_.html) and clicking on **"hlc"** on the right-hand side under **"Globals"**. This will work after you have built the SDK per the instruction [here](#building-the-client-sdk).
 
 The following is a high-level description of the HLC objects (classes and interfaces) to help guide you through the object hierarchy.
 
@@ -313,16 +314,11 @@ The following is a high-level description of the HLC objects (classes and interf
 
 * The [TransactionContext](doc/classes/_hlc_.transactioncontext.html) class implements the bulk of the deploy, invoke, and query logic.  It interacts with MemberServices to get a TCert to perform these operations.  Note that there is a one-to-one relationship between TCert and TransactionContext; in other words, a single TransactionContext will always use the same TCert.  If you want to issue multiple transactions with the same TCert, then you can get a [TransactionContext](doc/classes/_hlc_.transactioncontext.html) object from a [Member](doc/classes/_hlc_.member.html) object directly and issue multiple deploy, invoke, or query operations on it.  Note however that if you do this, these transactions are linkable, which means someone could tell that they came from the same user, though not know which user.  For this reason, you will typically just call deploy, invoke, and query on the User or Member object.
 
-<a name="Looking Ahead">
-## Looking Ahead
-</a>
-
+## Future Work
 The following is a list of known remaining work to be done.
 
-1. Publish **hlc** to the npm registry or publish a link into the hyperledger github.  Until then, you may use the following in your node program: `var hlc = require("YOUR-FABRIC-DIRECTORY/sdk/node");`
+* Publish **hlc** to the npm registry or publish a link into the hyperledger github.  Until then, you may use the following in your node program: `var hlc = require("YOUR-FABRIC-DIRECTORY/sdk/node");`
 
-1. Complete **TransactionContext.deploy** to work in network mode.  As you can see from the unit tests, it currently requires running in dev mode.
+* Implement events appropriately, both custom and non-custom.  The 'complete' event for `deploy` and `invoke` is currently implemented by simply waiting 5 seconds.  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller.
 
-1. Implement events appropriately, both custom and non-custom.  The 'complete' event for `deploy` and `invoke` is currently implemented by simply waiting 5 seconds.  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller.
-
-1. Support SHA2.  HLC currently supports SHA3.
+* Support SHA2.  HLC currently supports SHA3.
