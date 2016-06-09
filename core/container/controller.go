@@ -31,8 +31,9 @@ import (
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
 	Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error
+	Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, dontkill bool, dontremove bool) error
+	Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, noprune bool) error
 	GetVMName(ccID ccintf.CCID) (string, error)
 }
 
@@ -162,6 +163,7 @@ func (bp CreateImageReq) getCCID() ccintf.CCID {
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
 	ccintf.CCID
+	Reader       io.Reader
 	Args         []string
 	Env          []string
 	AttachStdin  bool
@@ -171,7 +173,7 @@ type StartImageReq struct {
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
 
-	if err := v.Start(ctxt, si.CCID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
+	if err := v.Start(ctxt, si.CCID, si.Args, si.Env, si.AttachStdin, si.AttachStdout, si.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -210,6 +212,30 @@ func (si StopImageReq) getCCID() ccintf.CCID {
 	return si.CCID
 }
 
+//DestroyImageReq - properties for stopping a container.
+type DestroyImageReq struct {
+	ccintf.CCID
+	Timeout uint
+	Force   bool
+	NoPrune bool
+}
+
+func (di DestroyImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
+
+	if err := v.Destroy(ctxt, di.CCID, di.Force, di.NoPrune); err != nil {
+		resp = VMCResp{Err: err}
+	} else {
+		resp = VMCResp{}
+	}
+
+	return resp
+}
+
+func (di DestroyImageReq) getCCID() ccintf.CCID {
+	return di.CCID
+}
+
 //VMCProcess should be used as follows
 //   . construct a context
 //   . construct req of the right type (e.g., CreateImageReq)
@@ -230,7 +256,7 @@ func VMCProcess(ctxt context.Context, vmtype string, req VMCReqIntf) (interface{
 	go func() {
 		defer close(c)
 
-		id,err := v.GetVMName(req.getCCID())
+		id, err := v.GetVMName(req.getCCID())
 		if err != nil {
 			resp = VMCResp{Err: err}
 			return

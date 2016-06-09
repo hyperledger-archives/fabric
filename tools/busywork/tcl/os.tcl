@@ -17,34 +17,50 @@
 package require Tclx
 
 ############################################################################
-# waitPIDs pids
+# waitPIDs pids {digest {}}
 
 # Wait for a list of PIDs to finish. Return 0 if all subprocesses exit
-# normally, -1 otherwise.
+# normally, -1 otherwise. The caller may also provide an optional 'digest'
+# array. This array variable will be populated with key/values
 
-proc waitPIDs {pids} {
+#     digest($pid.why) <- EXIT, SIG, STOP, other
+#     digest($pid.rc)  <- Process return code
+#     digest($pid.ok)  <- why == EXIT && rc == 0
+
+proc waitPIDs {pids {digest {}}} {
+
+    if {![null digest]} {
+        upvar $digest _digest
+    } else {
+        array unset _digest
+    }
 
     set rv 0
     foreach pid $pids {
 
         foreach {pid why rc} [wait $pid] break
+
+        set _digest($pid.why) $why
+        set _digest($pid.rc) $rc
+        set _digest($pid.ok) [expr {($why eq "EXIT") && ($rc == 0)}]
+        
         switch $why {
             EXIT {
                 if {$rc != 0} {
-                    err err "Process $pid exited with rc = $rc : Failure"
+                    err {} "Process $pid exited with rc = $rc : Failure"
                     set rv -1
                 }
             }
             SIG {
-                err err "Process $pid caught signal $rc : Failure"
+                err {} "Process $pid caught signal $rc : Failure"
                 set rv -1
             }
             STOP {
-                err err "Process $pid is stopped(???) : Failure"
+                err {} "Process $pid is stopped(???) : Failure"
                 set rv -1
             }
             default {
-                err err "Unexpected return from wait : $pid $why $rc : Failure"
+                err {} "Unexpected return from wait : $pid $why $rc : Failure"
                 set rv -1
             }
         }

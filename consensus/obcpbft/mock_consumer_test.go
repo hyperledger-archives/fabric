@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -40,7 +41,7 @@ func (ce *consumerEndpoint) stop() {
 func (ce *consumerEndpoint) isBusy() bool {
 	pbft := ce.consumer.getPBFTCore()
 	if pbft.timerActive || pbft.skipInProgress || pbft.currentExec != nil {
-		ce.net.debugMsg("Reporting busy because of timer or skipInProgress or currentExec\n")
+		ce.net.debugMsg("Reporting busy because of timer (%v) or skipInProgress (%v) or currentExec (%v)\n", pbft.timerActive, pbft.skipInProgress, pbft.currentExec)
 		return true
 	}
 
@@ -52,7 +53,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case <-ce.consumer.getPBFTCore().idleChan:
+	case ce.consumer.getManager().Queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
@@ -75,6 +76,9 @@ type completeStack struct {
 }
 
 const MaxStateTransferTime int = 200
+
+func (cs *completeStack) ValidateState()   {}
+func (cs *completeStack) InvalidateState() {}
 
 func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	select {
@@ -99,6 +103,7 @@ type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
+	getManager() events.Manager // TODO, remove, this is a temporary measure
 	Close()
 	idleChannel() <-chan struct{}
 }

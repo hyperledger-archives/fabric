@@ -26,7 +26,7 @@ import (
 )
 
 func (op *obcClassic) getPBFTCore() *pbftCore {
-	return op.pbft
+	return op.legacyGenericShim.pbft.pbftCore
 }
 
 func obcClassicHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {

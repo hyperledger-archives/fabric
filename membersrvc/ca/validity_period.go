@@ -119,7 +119,7 @@ func invokeChaincode(chaincodeInvSpec *obc.ChaincodeInvocationSpec) error {
 		return err
 	}
 
-	Info.Println("Successfully invoked validity period update: %s(%s)", chaincodeInvSpec, string(resp.Msg))
+	Info.Println(fmt.Sprintf("Successfully invoked validity period update: %v(%s)", chaincodeInvSpec, string(resp.Msg)))
 
 	return nil
 }
@@ -145,6 +145,6 @@ func validityPeriodUpdateEnabled() bool {
 		return viper.GetBool("pki.validity-period.update")
 	}
 
-	// Validity period update is enabled by default if no configuration was specified.
+	// Validity period update is disabled by default if no configuration was specified.
 	return true
 }

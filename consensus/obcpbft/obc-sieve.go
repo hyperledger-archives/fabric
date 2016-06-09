@@ -31,7 +31,7 @@ import (
 )
 
 type obcSieve struct {
-	obcGeneric
+	legacyGenericShim
 
 	id             uint64
 	epoch          uint64
@@ -74,15 +74,17 @@ type msgWithSender struct {
 
 func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSieve {
 	op := &obcSieve{
-		obcGeneric: obcGeneric{stack: stack},
-		id:         id,
+		legacyGenericShim: legacyGenericShim{
+			obcGeneric: &obcGeneric{stack: stack},
+		},
+		id: id,
 	}
 	op.queuedExec = make(map[uint64]*Execute)
 	op.persistForward.persistor = stack
 
 	op.restoreBlockNumber()
 
-	op.pbft = newPbftCore(id, config, op)
+	op.legacyGenericShim.init(id, config, op)
 	op.complainer = newComplainer(op, op.pbft.requestTimeout, op.pbft.requestTimeout)
 	op.deduplicator = newDeduplicator()
 
@@ -206,7 +208,7 @@ func (op *obcSieve) RecvMsg(ocMsg *pb.Message, senderHandle *pb.PeerID) error {
 // Close tells us to release resources we are holding
 func (op *obcSieve) Close() {
 	op.complainer.Stop()
-	op.pbft.close()
+	op.legacyGenericShim.Close()
 }
 
 // called by pbft-core to multicast a message to all replicas
@@ -349,7 +351,7 @@ func (op *obcSieve) processRequest() {
 
 func (op *obcSieve) recvExecute(exec *Execute) {
 	if !(exec.View >= op.epoch && exec.BlockNumber > op.blockNumber && op.pbft.primary(exec.View) == exec.ReplicaId) {
-		logger.Debug("Invalid execute from %d", exec.ReplicaId)
+		logger.Debug("Replica %d got invalid execute from %d for view %d and block %d", op.pbft.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 		return
 	}
 
@@ -648,11 +650,13 @@ func (op *obcSieve) main() {
 // called by pbft-core to execute an opaque request,
 // which is a totally-ordered `Decision`
 func (op *obcSieve) execute(seqNo uint64, raw []byte) {
-	op.executeChan <- &pbftExecute{
-		seqNo: seqNo,
-		txRaw: raw,
-	}
-	logger.Debug("Seive replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	go func() {
+		op.executeChan <- &pbftExecute{
+			seqNo: seqNo,
+			txRaw: raw,
+		}
+		logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+	}()
 }
 
 func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
@@ -788,12 +792,10 @@ func (op *obcSieve) executeFlush(flush *Flush) {
 		op.rollback()
 	}
 
-	reqs := op.complainer.Restart()
-	if op.pbft.primary(op.pbft.view) == op.id {
-		for hash, req := range reqs {
-			logger.Info("Replica %d queueing request under custody: %s", op.id, hash)
-			op.queuedTx = append(op.queuedTx, req)
-		}
+	op.complainer.Restart()
+	for _, pair := range op.complainer.CustodyElements() {
+		logger.Info("Replica %d resubmitting request under custody: %s", op.id, pair.Hash)
+		op.submitToLeader(pair.Request)
 	}
 }
 
@@ -821,6 +823,7 @@ func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
 	if op.currentReq != "" {
 		op.rollback()
 	}
+	op.stack.InvalidateState()
 	op.obcGeneric.skipTo(seqNo, id, peers)
 }
 

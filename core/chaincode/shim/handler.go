@@ -45,6 +45,8 @@ func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
 // Handler handler implementation for shim side of chaincode.
 type Handler struct {
 	sync.RWMutex
+	//shim to peer grpc serializer. User only in serialSend
+	serialLock sync.Mutex
 	To         string
 	ChatStream PeerChaincodeStream
 	FSM        *fsm.FSM
@@ -65,8 +67,8 @@ func shortuuid(uuid string) string {
 }
 
 func (handler *Handler) serialSend(msg *pb.ChaincodeMessage) error {
-	handler.Lock()
-	defer handler.Unlock()
+	handler.serialLock.Lock()
+	defer handler.serialLock.Unlock()
 	if err := handler.ChatStream.Send(msg); err != nil {
 		chaincodeLogger.Error(fmt.Sprintf("[%s]Error sending %s: %s", shortuuid(msg.Uuid), msg.Type.String(), err))
 		return fmt.Errorf("Error sending %s: %s", msg.Type.String(), err)
@@ -230,12 +232,12 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 		chaincodeLogger.Debug("[%s]Init succeeded. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
 	}()
 }
@@ -297,13 +299,13 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Error(fmt.Sprintf("[%s]Transaction execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR))
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
 		chaincodeLogger.Debug("[%s]Transaction completed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 	}()
 }
 
@@ -877,7 +879,7 @@ func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
 	return filterError(err)
 }
 
-// filterError filters the errors to allow NoTransitionError and CanceledError to not propogate for cases where embedded Err == nil.
+// filterError filters the errors to allow NoTransitionError and CanceledError to not propagate for cases where embedded Err == nil.
 func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {

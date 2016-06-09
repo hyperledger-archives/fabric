@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/hyperledger/fabric/core" // Logging format init
+
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
@@ -123,7 +125,9 @@ type StateTransferState struct {
 	StateDeltaRequestTimeout    time.Duration // How long to wait for a peer to respond to a state delta request
 	StateSnapshotRequestTimeout time.Duration // How long to wait for a peer to respond to a state snapshot request
 
-	MaxStateDeltas int // The maximum number of state deltas to attempt to retrieve before giving up and performing a full state snapshot retrieval, only public for testing
+	maxStateDeltas     int    // The maximum number of state deltas to attempt to retrieve before giving up and performing a full state snapshot retrieval
+	maxBlockRange      uint64 // The maximum number blocks to attempt to retrieve at once, to prevent from overflowing the peer's buffer
+	maxStateDeltaRange uint64 // The maximum number of state deltas to attempt to retrieve at once, to prevent from overflowing the peer's buffer
 
 	stateTransferListeners     []Listener  // A list of listeners to call when state transfer is initiated/errored/completed
 	stateTransferListenersLock *sync.Mutex // Used to lock the above list when adding a listener
@@ -269,7 +273,7 @@ func (sts *StateTransferState) CompletionChannel() chan struct{} {
 	return complete
 }
 
-// InProgress returns whether state transfer is currently occuring.  Note, this is not a thread safe call, it is expected
+// InProgress returns whether state transfer is currently occurring.  Note, this is not a thread safe call, it is expected
 // that the caller synchronizes around state transfer if it is to be accessed in a non-serial fashion
 func (sts *StateTransferState) InProgress() bool {
 	return sts.asynchronousTransferInProgress
@@ -350,10 +354,22 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 		panic(fmt.Errorf("Cannot parse statetransfer.timeout.fullstate timeout: %s", err))
 	}
 
-	sts.MaxStateDeltas = viper.GetInt("statetransfer.maxdeltas")
-	if sts.MaxStateDeltas <= 0 {
+	sts.maxStateDeltas = viper.GetInt("statetransfer.maxdeltas")
+	if sts.maxStateDeltas <= 0 {
 		panic(fmt.Errorf("sts.maxdeltas must be greater than 0"))
 	}
+
+	tmp := viper.GetInt("peer.sync.blocks.channelSize")
+	if tmp <= 0 {
+		panic(fmt.Errorf("peer.sync.blocks.channelSize must be greater than 0"))
+	}
+	sts.maxBlockRange = uint64(tmp)
+
+	tmp = viper.GetInt("peer.sync.state.deltas.channelSize")
+	if tmp <= 0 {
+		panic(fmt.Errorf("peer.sync.state.deltas.channelSize must be greater than 0"))
+	}
+	sts.maxStateDeltaRange = uint64(tmp)
 
 	return sts
 }
@@ -484,78 +500,105 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
+	var goodRange *blockRange
 
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
-		blockChan, err := sts.GetRemoteBlocks(peerID, blockCursor, lowBlock)
-		if nil != err {
-			logger.Warning("%v failed to get blocks from %d to %d from %v: %s",
-				sts.id, blockCursor, lowBlock, peerID, err)
-			return err
-		}
 		for {
-			select {
-			case syncBlockMessage, ok := <-blockChan:
+			intermediateBlock := blockCursor + 1
+			var blockChan <-chan *protos.SyncBlocks
+			var err error
+			for {
 
-				if !ok {
-					return fmt.Errorf("Channel closed before we could finish reading")
+				if intermediateBlock == blockCursor+1 {
+					if sts.maxBlockRange > blockCursor {
+						// Don't underflow
+						intermediateBlock = 0
+					} else {
+						intermediateBlock = blockCursor - sts.maxBlockRange
+					}
+					if intermediateBlock < lowBlock {
+						intermediateBlock = lowBlock
+					}
+					logger.Debug("%v requesting block range from %d to %d", sts.id, blockCursor, intermediateBlock)
+					blockChan, err = sts.GetRemoteBlocks(peerID, blockCursor, intermediateBlock)
 				}
 
-				if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
-					// If the message is not replying with blocks backwards, we did not ask for it
-					return fmt.Errorf("%v received a block with wrong (increasing) order from %v, aborting", sts.id, peerID)
+				if nil != err {
+					logger.Warning("%v failed to get blocks from %d to %d from %v: %s",
+						sts.id, blockCursor, lowBlock, peerID, err)
+					return err
 				}
 
-				var i int
-				for i, block = range syncBlockMessage.Blocks {
-					// It no longer correct to get duplication or out of range blocks, so we treat this as an error
-					if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
-						return fmt.Errorf("%v received a block out of order, indicating a buffer overflow or other corruption: start=%d, end=%d, wanted %d", sts.id, syncBlockMessage.Range.Start, syncBlockMessage.Range.End, blockCursor)
+				select {
+				case syncBlockMessage, ok := <-blockChan:
+
+					if !ok {
+						return fmt.Errorf("Channel closed before we could finish reading")
 					}
 
-					testHash, err := sts.stack.HashBlock(block)
-					if nil != err {
-						return fmt.Errorf("%v got a block %d which could not hash from %v: %s",
-							sts.id, blockCursor, peerID, err)
+					if syncBlockMessage.Range.Start < syncBlockMessage.Range.End {
+						// If the message is not replying with blocks backwards, we did not ask for it
+						return fmt.Errorf("%v received a block with wrong (increasing) order from %v, aborting", sts.id, peerID)
 					}
 
-					if !bytes.Equal(testHash, validBlockHash) {
-						return fmt.Errorf("%v got block %d from %v with hash %x, was expecting hash %x",
-							sts.id, blockCursor, peerID, testHash, validBlockHash)
-					}
+					var i int
+					for i, block = range syncBlockMessage.Blocks {
+						// It no longer correct to get duplication or out of range blocks, so we treat this as an error
+						if syncBlockMessage.Range.Start-uint64(i) != blockCursor {
+							return fmt.Errorf("%v received a block out of order, indicating a buffer overflow or other corruption: start=%d, end=%d, wanted %d", sts.id, syncBlockMessage.Range.Start, syncBlockMessage.Range.End, blockCursor)
+						}
 
-					logger.Debug("%v putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
-					if !sts.RecoverDamage {
+						testHash, err := sts.stack.HashBlock(block)
+						if nil != err {
+							return fmt.Errorf("%v got a block %d which could not hash from %v: %s",
+								sts.id, blockCursor, peerID, err)
+						}
 
-						// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
-						if oldBlock, err := sts.stack.GetBlockByNumber(blockCursor); err == nil && oldBlock != nil {
-							oldBlockHash, err := sts.stack.HashBlock(oldBlock)
-							if nil == err {
-								if !bytes.Equal(oldBlockHash, validBlockHash) {
+						if !bytes.Equal(testHash, validBlockHash) {
+							return fmt.Errorf("%v got block %d from %v with hash %x, was expecting hash %x",
+								sts.id, blockCursor, peerID, testHash, validBlockHash)
+						}
+
+						logger.Debug("%v putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+						if !sts.RecoverDamage {
+
+							// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
+							if oldBlock, err := sts.stack.GetBlockByNumber(blockCursor); err == nil && oldBlock != nil {
+								oldBlockHash, err := sts.stack.HashBlock(oldBlock)
+								if nil == err {
+									if !bytes.Equal(oldBlockHash, validBlockHash) {
+										panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
+									}
+								} else {
+									logger.Error("%v could not compute the hash of block %d", sts.id, blockCursor)
 									panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
 								}
+								logger.Debug("%v not actually putting block %d to with PreviousBlockHash %x and StateHash %x, as it already exists", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 							} else {
-								logger.Error("%v could not compute the hash of block %d", sts.id, blockCursor)
-								panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
+								sts.stack.PutBlock(blockCursor, block)
 							}
-							logger.Debug("%v not actually putting block %d to with PreviousBlockHash %x and StateHash %x, as it already exists", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 						} else {
 							sts.stack.PutBlock(blockCursor, block)
 						}
-					} else {
-						sts.stack.PutBlock(blockCursor, block)
+
+						goodRange = &blockRange{
+							highBlock:   highBlock,
+							lowBlock:    blockCursor,
+							lowNextHash: block.PreviousBlockHash,
+						}
+
+						validBlockHash = block.PreviousBlockHash
+
+						if blockCursor == lowBlock {
+							logger.Debug("%v successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
+							return nil
+						}
+						blockCursor--
+
 					}
-
-					validBlockHash = block.PreviousBlockHash
-
-					if blockCursor == lowBlock {
-						logger.Debug("%v successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
-						return nil
-					}
-					blockCursor--
-
+				case <-time.After(sts.BlockRequestTimeout):
+					return fmt.Errorf("%v had block sync request to %v time out", sts.id, peerID)
 				}
-			case <-time.After(sts.BlockRequestTimeout):
-				return fmt.Errorf("%v had block sync request to %v time out", sts.id, peerID)
 			}
 		}
 	})
@@ -564,6 +607,11 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 		logger.Debug("%v returned from sync with block %d and state hash %x", sts.id, blockCursor, block.StateHash)
 	} else {
 		logger.Debug("%v returned from sync with no new blocks", sts.id)
+	}
+
+	if goodRange != nil {
+		goodRange.lowNextHash = block.PreviousBlockHash
+		sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
 	}
 
 	return blockCursor, block, err
@@ -585,21 +633,11 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 		}
 	} else {
 
-		blockNumber, block, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.peerIDs)
-
-		goodRange := &blockRange{
-			highBlock: blockSyncReq.blockNumber,
-		}
+		_, _, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.peerIDs)
 
 		if nil != blockSyncReq.replyChan {
 			logger.Debug("%v replying to blockSyncReq on reply channel with : %s", sts.id, err)
 			blockSyncReq.replyChan <- err
-			goodRange.lowBlock = blockNumber
-		}
-
-		if nil == err {
-			goodRange.lowNextHash = block.PreviousBlockHash
-			sts.validBlockRanges = append(sts.validBlockRanges, goodRange)
 		}
 	}
 }
@@ -705,23 +743,10 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 		return false
 	}
 
-	blockNumber, block, err := sts.syncBlocks(badBlockNumber-1, targetBlock, lowNextHash, nil)
+	_, _, err = sts.syncBlocks(badBlockNumber-1, targetBlock, lowNextHash, nil)
 
-	if blockNumber == badBlockNumber-1 || nil == block {
-		logger.Warning("%v unable to recover any blocks : %s", sts.id, err)
-		return false
-	}
+	// valid block range accounting now in syncBlocks
 
-	sts.validBlockRanges[0].lowNextHash = block.PreviousBlockHash
-
-	if nil == err {
-		sts.validBlockRanges[0].lowBlock = blockNumber
-	} else {
-		sts.validBlockRanges[0].lowBlock = blockNumber + 1
-		logger.Warning("%v unable to recover block %d : %s", sts.id, blockNumber, err)
-	}
-
-	logger.Debug("%v recovered to block %d", sts.id, sts.validBlockRanges[0].lowBlock)
 	return false
 }
 
@@ -842,7 +867,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		logger.Debug("%v state transfer thread continuing", sts.id)
 
 		if err != nil {
-			return fmt.Errorf("%v could not retrieve blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
+			return fmt.Errorf("%v could not retrieve all blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
 		}
 
 		*blocksValid = true
@@ -850,9 +875,9 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		logger.Debug("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
 	}
 
-	if *currentStateBlockNumber+uint64(sts.MaxStateDeltas) < (*blockHReply).blockNumber {
+	if *currentStateBlockNumber+uint64(sts.maxStateDeltas) < (*blockHReply).blockNumber {
 		return fmt.Errorf("%v has a state for block %d which is too far out of date to play forward to block %d, max deltas are %d, invalidating",
-			sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.MaxStateDeltas)
+			sts.id, *currentStateBlockNumber, (*blockHReply).blockNumber, sts.maxStateDeltas)
 	}
 
 	stateHash, err := sts.stack.GetCurrentStateHash()
@@ -994,12 +1019,24 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 
-		deltaMessages, err := sts.GetRemoteStateDeltas(peerID, currentBlock, toBlockNumber)
-		if err != nil {
-			return fmt.Errorf("%v received an error while trying to get the state deltas for blocks %d through %d from %d", sts.id, fromBlockNumber, toBlockNumber, peerID)
-		}
-
+		intermediateBlock := currentBlock - 1 // Underflow is okay here, as we immediately overflow, and assign
+		var deltaMessages <-chan *protos.SyncStateDeltas
 		for {
+
+			if intermediateBlock+1 == currentBlock {
+				intermediateBlock = currentBlock + sts.maxStateDeltaRange
+				if intermediateBlock > toBlockNumber {
+					intermediateBlock = toBlockNumber
+				}
+				logger.Debug("%v requesting state delta range from %d to %d", sts.id, currentBlock, intermediateBlock)
+				var err error
+				deltaMessages, err = sts.GetRemoteStateDeltas(peerID, currentBlock, intermediateBlock)
+
+				if err != nil {
+					return fmt.Errorf("%v received an error while trying to get the state deltas for blocks %d through %d from %v", sts.id, currentBlock, intermediateBlock, peerID)
+				}
+			}
+
 			select {
 			case deltaMessage, ok := <-deltaMessages:
 				if !ok {

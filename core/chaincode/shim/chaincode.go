@@ -28,19 +28,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
+
+	gp "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/comm"
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/grpclog"
-	gp "google/protobuf"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 // Logger for the shim package.
@@ -70,6 +69,7 @@ type Chaincode interface {
 type ChaincodeStub struct {
 	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
+	chaincodeEvent  *pb.ChaincodeEvent
 }
 
 // Peer address derived from command line or env var
@@ -148,40 +148,18 @@ func getPeerAddress() string {
 	}
 
 	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
-		// Assume docker container, return well known docker host address
-		peerAddress = "172.17.42.1:30303"
+		chaincodeLogger.Fatalf("peer.address not configured, can't connect to peer")
 	}
 
 	return peerAddress
 }
 
 func newPeerClientConnection() (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	if viper.GetBool("peer.tls.enabled") {
-		var sn string
-		if viper.GetString("peer.tls.serverhostoverride") != "" {
-			sn = viper.GetString("peer.tls.serverhostoverride")
-		}
-		var creds credentials.TransportAuthenticator
-		if viper.GetString("peer.tls.cert.file") != "" {
-			var err error
-			creds, err = credentials.NewClientTLSFromFile(viper.GetString("peer.tls.cert.file"), sn)
-			if err != nil {
-				grpclog.Fatalf("Failed to create TLS credentials %v", err)
-			}
-		} else {
-			creds = credentials.NewClientTLSFromCert(nil, sn)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
+	var peerAddress = getPeerAddress()
+	if comm.TLSEnabled() {
+		return comm.NewClientConnectionWithAddress(peerAddress, true, true, comm.InitTLSForPeer())
 	}
-	opts = append(opts, grpc.WithTimeout(1*time.Second))
-	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(getPeerAddress(), opts...)
-	if err != nil {
-		return nil, err
-	}
-	return conn, err
+	return comm.NewClientConnectionWithAddress(peerAddress, true, false, nil)
 }
 
 func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode) error {
@@ -327,13 +305,13 @@ func (stub *ChaincodeStub) parseHeader(header string) (map[string]int, error) {
 // CertAttributes returns all the attributes stored in the transaction tCert.
 func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
+	tcert, err := primitives.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
 
 	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if headerRaw, err = primitives.GetCriticalExtension(tcert, primitives.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -357,13 +335,13 @@ func (stub *ChaincodeStub) CertAttributes() ([]string, error) {
 // ReadCertAttribute returns the value specified by `attributeName` from the transaction tCert.
 func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, error) {
 	tcertder := stub.securityContext.CallerCert
-	tcert, err := utils.DERToX509Certificate(tcertder)
+	tcert, err := primitives.DERToX509Certificate(tcertder)
 	if err != nil {
 		return nil, err
 	}
 
 	var headerRaw []byte
-	if headerRaw, err = utils.GetCriticalExtension(tcert, utils.TCertAttributesHeaders); err != nil {
+	if headerRaw, err = primitives.GetCriticalExtension(tcert, primitives.TCertAttributesHeaders); err != nil {
 		return nil, err
 	}
 
@@ -384,7 +362,7 @@ func (stub *ChaincodeStub) ReadCertAttribute(attributeName string) ([]byte, erro
 	oid := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 9 + position}
 
 	var value []byte
-	if value, err = utils.GetCriticalExtension(tcert, oid); err != nil {
+	if value, err = primitives.GetCriticalExtension(tcert, oid); err != nil {
 		return nil, err
 	}
 	return value, nil
@@ -907,6 +885,13 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 	}
 
 	return true, nil
+}
+
+// ------------- ChaincodeEvent API ----------------------
+// SetEvent saves the event to be sent when a transaction is made part of a block 
+func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
+	stub.chaincodeEvent = &pb.ChaincodeEvent{ EventName: name, Payload: payload }
+	return nil
 }
 
 // ------------- Logging Control and Chaincode Loggers ---------------

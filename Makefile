@@ -25,11 +25,13 @@
 #   - unit-test - runs the go-test based unit tests
 #   - behave - runs the behave test
 #   - behave-deps - ensures pre-requisites are availble for running behave manually
+#   - gotools - installs go tools like golint
 #   - linter - runs all code checks
 #   - images - ensures all docker images are available
 #   - peer-image - ensures the peer-image is available (for behave, etc)
 #   - ca-image - ensures the ca-image is available (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
+#   - node-sdk - builds the node.js client-sdk
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
@@ -37,9 +39,21 @@
 PKGNAME = github.com/hyperledger/fabric
 CGO_LDFLAGS = -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy
 
-EXECUTABLES = go docker
+EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
+
+# Make our baseimage depend on any changes to images/base or scripts/provision
+BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
+BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
+
+GOTOOLS = golint govendor goimports protoc-gen-go
+GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
+
+# go tool->path mapping
+go.fqp.govendor  := github.com/kardianos/govendor
+go.fqp.golint    := github.com/golang/lint/golint
+go.fqp.goimports := golang.org/x/tools/cmd/goimports
 
 all: peer membersrvc checks
 
@@ -53,11 +67,8 @@ peer: base-image
 membersrvc:
 	cd membersrvc; CGO_CFLAGS=" " CGO_LDFLAGS="$(CGO_LDFLAGS)" go build
 
-unit-test: peer-image
-	@echo "Running unit-tests"
-	$(eval CID := $(shell docker run -dit -p 30303:30303 hyperledger-peer peer node start))
-	@go test -timeout=20m $(shell go list $(PKGNAME)/... | grep -v /vendor/ | grep -v /examples/)
-	@docker kill $(CID)
+unit-test: peer-image gotools
+	@./scripts/goUnitTests.sh
 	@touch .peerimage-dummy
 	@touch .caimage-dummy
 
@@ -73,7 +84,9 @@ behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
 
-linter:
+gotools: $(GOTOOLS_BIN)
+
+linter: gotools
 	@echo "LINT: Running code checks.."
 	@echo "LINT: No errors found"
 
@@ -85,20 +98,49 @@ linter:
 	go test $(PKGNAME)/core/container -run=BuildImage_Obcca
 	@touch $@
 
-.baseimage-dummy:
+.baseimage-dummy: $(BASEIMAGE_DEPS)
 	@echo "Building docker base-image"
-	@./scripts/provision/docker.sh 0.0.9
+	@./scripts/provision/docker.sh $(BASEIMAGE_RELEASE)
 	@touch $@
+
+# Special override for protoc-gen-go since we want to use the version vendored with the project
+gotool.protoc-gen-go:
+	mkdir -p $(GOPATH)/src/github.com/golang/protobuf/
+	cp -r $(GOPATH)/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $(GOPATH)/src/github.com/golang/
+	go install github.com/golang/protobuf/protoc-gen-go
+	rm -rf $(GOPATH)/src/github.com/golang/protobuf
+
+# Default rule for gotools uses the name->path map for a generic 'go get' style build
+gotool.%:
+	$(eval TOOL = ${subst gotool.,,${@}})
+	go get ${go.fqp.${TOOL}}
+
+$(GOPATH)/bin/%:
+	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
+	$(MAKE) gotool.$(TOOL)
+
+build/bin:
+	mkdir -p $@
 
 .PHONY: protos
 protos:
 	./devenv/compile_protos.sh
 
+.PHONY: node-sdk
+node-sdk:
+	cp ./protos/*.proto ./sdk/node/lib/protos
+	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
+	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && tsc
+	cd ./sdk/node && ./makedoc.sh
+
 .PHONY: clean
 clean:
-	-@rm .*image-dummy ||:
+	-@rm -rf build ||:
+	-@rm -f .*image-dummy ||:
 	-@rm -f ./peer/peer ||:
 	-@rm -f ./membersrvc/membersrvc ||:
+	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
 dist-clean: clean

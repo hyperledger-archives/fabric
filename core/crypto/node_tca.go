@@ -20,9 +20,9 @@ import (
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
@@ -36,7 +36,7 @@ func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
 	node.debug("TCA certificate [% x]", tcaCertRaw)
 
 	// TODO: Test TCA cert againt root CA
-	_, err = utils.DERToX509Certificate(tcaCertRaw)
+	_, err = primitives.DERToX509Certificate(tcaCertRaw)
 	if err != nil {
 		node.error("Failed parsing TCA certificate [%s].", err.Error())
 

@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // P256Sign returns the number of signs per second
@@ -87,6 +89,8 @@ var shaBuf = make([]byte, 8192)
 
 var sha256Object = sha256.New()
 var sha512Object = sha512.New()
+var sha3_256Object = sha3.New256()
+var sha3_512Object = sha3.New512()
 
 func sha256Bench(size int, n int) int {
 	sum := make([]byte, sha256Object.Size())
@@ -144,4 +148,62 @@ func SHA512x1K(n int) (int, string) {
 // SHA512x8K benchmarks SHA512 on 8192-byte buffers
 func SHA512x8K(n int) (int, string) {
 	return sha512Bench(8192, n), "bytes"
+}
+
+func sha3_256Bench(size int, n int) int {
+	sum := make([]byte, sha3_256Object.Size())
+
+	start := time.Now()
+
+	for i := 0; i < n; i++ {
+		sha3_256Object.Reset()
+		sha3_256Object.Write(shaBuf[:size])
+		sha3_256Object.Sum(sum[:0])
+	}
+
+	return int(float64(size*n) / time.Since(start).Seconds())
+}
+
+// SHA3_256x8 benchmarks SHA3_256 on 8-byte buffers
+func SHA3_256x8(n int) (int, string) {
+	return sha3_256Bench(8, n), "bytes"
+}
+
+// SHA3_256x1K benchmarks SHA3_256 on 1024-byte buffers
+func SHA3_256x1K(n int) (int, string) {
+	return sha3_256Bench(1024, n), "bytes"
+}
+
+// SHA3_256x8K benchmarks SHA3_256 on 8192-byte buffers
+func SHA3_256x8K(n int) (int, string) {
+	return sha3_256Bench(8192, n), "bytes"
+}
+
+func sha3_512Bench(size int, n int) int {
+	sum := make([]byte, sha3_512Object.Size())
+
+	start := time.Now()
+
+	for i := 0; i < n; i++ {
+		sha3_512Object.Reset()
+		sha3_512Object.Write(shaBuf[:size])
+		sha3_512Object.Sum(sum[:0])
+	}
+
+	return int(float64(size*n) / time.Since(start).Seconds())
+}
+
+// SHA3_512x8 benchmarks SHA3_512 on 8-byte buffers
+func SHA3_512x8(n int) (int, string) {
+	return sha3_512Bench(8, n), "bytes"
+}
+
+// SHA3_512x1K benchmarks SHA3_512 on 1024-byte buffers
+func SHA3_512x1K(n int) (int, string) {
+	return sha3_512Bench(1024, n), "bytes"
+}
+
+// SHA3_512x8K benchmarks SHA3_512 on 8192-byte buffers
+func SHA3_512x8K(n int) (int, string) {
+	return sha3_512Bench(8192, n), "bytes"
 }

@@ -18,161 +18,293 @@ package ecies
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"fmt"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"os"
 	"reflect"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
-func TestMain(m *testing.M) {
-	primitives.InitSecurityLevel("SHA3", 256)
+type TestParameters struct {
+	hashFamily    string
+	securityLevel int
 }
 
-func TestSPI(t *testing.T) {
+func (t *TestParameters) String() string {
+	return t.hashFamily + "-" + string(t.securityLevel)
+}
 
+var testParametersSet = []*TestParameters{
+	&TestParameters{"SHA3", 256},
+	&TestParameters{"SHA3", 384},
+	&TestParameters{"SHA2", 256},
+	&TestParameters{"SHA2", 384}}
+
+func TestMain(m *testing.M) {
+	for _, params := range testParametersSet {
+		err := primitives.SetSecurityLevel(params.hashFamily, params.securityLevel)
+		if err == nil {
+			m.Run()
+		} else {
+			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
+		}
+	}
+	os.Exit(0)
+}
+
+func TestSPINewDefaultPrivateKey(t *testing.T) {
+	spi := NewSPI()
+
+	if _, err := spi.NewDefaultPrivateKey(rand.Reader); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	if _, err := spi.NewDefaultPrivateKey(nil); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+}
+
+func TestSPINewPrivateKeyFromCurve(t *testing.T) {
+	spi := NewSPI()
+
+	if _, err := spi.NewPrivateKey(rand.Reader, primitives.GetDefaultCurve()); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	if _, err := spi.NewPrivateKey(nil, primitives.GetDefaultCurve()); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	if _, err := spi.NewPrivateKey(nil, nil); err == nil {
+		t.Fatalf("Generating key should file with nil params.")
+	}
+}
+
+func TestSPINewPrivateKeyFromECDSAKey(t *testing.T) {
 	spi := NewSPI()
 
 	ecdsaKey, err := ecdsa.GenerateKey(primitives.GetDefaultCurve(), rand.Reader)
-
-	var a interface{}
-	a = ecdsaKey
-
-	switch t := a.(type) {
-	case *ecdsa.PrivateKey:
-		fmt.Printf("a2 [%s]\n", t)
-		break
-	case elliptic.Curve:
-		fmt.Printf("a1 [%s]\n", t)
-		break
-	default:
-		fmt.Printf("a3 [%s]\n", t)
-
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	fmt.Printf("[%s]\n", ecdsaKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = x509.MarshalECPrivateKey(ecdsaKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("[%s]\n", ecdsaKey)
-
-	privateKey, err := spi.NewPrivateKey(nil, ecdsaKey)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := spi.NewPrivateKey(rand.Reader, ecdsaKey); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
 	}
 
-	fmt.Printf("[%s]\n", privateKey.(*secretKeyImpl).priv)
-	_, err = x509.MarshalECPrivateKey(privateKey.(*secretKeyImpl).priv)
+	if _, err := spi.NewPrivateKey(nil, ecdsaKey); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+}
+
+func TestSPINewPublicKeyFromECDSAKey(t *testing.T) {
+	spi := NewSPI()
+
+	ecdsaKey, err := ecdsa.GenerateKey(primitives.GetDefaultCurve(), rand.Reader)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	rawKey, err := spi.SerializePrivateKey(privateKey)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := spi.NewPublicKey(rand.Reader, &ecdsaKey.PublicKey); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
 	}
 
-	privateKey, err = spi.DeserializePrivateKey(rawKey)
+	if _, err := spi.NewPublicKey(nil, &ecdsaKey.PublicKey); err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	if _, err := spi.NewPublicKey(nil, nil); err == nil {
+		t.Fatalf("Generating key should file with nil params.")
+	}
+}
+
+func TestSPINewAsymmetricCipherFrom(t *testing.T) {
+	spi := NewSPI()
+
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	if _, err := spi.NewAsymmetricCipherFromPrivateKey(key); err != nil {
+		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
+	}
+
+	if _, err := spi.NewAsymmetricCipherFromPrivateKey(nil); err == nil {
+		t.Fatalf("Creating AsymCipher from private key shoud fail with nil key")
+	}
+
+	if _, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey()); err != nil {
+		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
+	}
+
+	if _, err := spi.NewAsymmetricCipherFromPublicKey(nil); err == nil {
+		t.Fatalf("Creating AsymCipher from public key shoud fail with nil key")
+	}
+}
+
+func TestSPIEncryption(t *testing.T) {
+	spi := NewSPI()
+
+	key, err := spi.NewDefaultPrivateKey(nil)
+	if err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
 	}
 
 	// Encrypt
-	cipher, err := spi.NewAsymmetricCipherFromPublicKey(privateKey.GetPublicKey())
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
-
-	msg := []byte("Hello World!!!")
-	ct, err := cipher.Process(msg)
+	msg := []byte("Hello World")
+	ct, err := aCipher.Process(msg)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed encrypting [%s]", err)
 	}
 
 	// Decrypt
-	cipher, err = spi.NewAsymmetricCipherFromPrivateKey(privateKey)
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(key)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}
-
-	plain, err := cipher.Process(ct)
+	recoveredMsg, err := aCipher.Process(ct)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed decrypting [%s]", err)
 	}
-
-	if !reflect.DeepEqual(msg, plain) {
-		t.Fatal("Decrypted different message")
-	}
-
-}
-
-func TestKG(t *testing.T) {
-	kg, err := newKeyGenerator()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kgparams, err := newKeyGeneratorParameter(rand.Reader, primitives.GetDefaultCurve())
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = kg.Init(kgparams)
-	if err != nil {
-		t.Fatal(err)
-	}
-	privKey, err := kg.GenerateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if privKey == nil {
-		t.Fatal("Private Key is nil")
+	if !reflect.DeepEqual(msg, recoveredMsg) {
+		t.Fatalf("Failed decrypting. Output is different [%x][%x]", msg, recoveredMsg)
 	}
 }
 
-func TestES(t *testing.T) {
-	cipher, err := newAsymmetricCipher()
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestSPIStressEncryption(t *testing.T) {
+	spi := NewSPI()
 
-	privKey := generateKey()
+	key, err := spi.NewDefaultPrivateKey(nil)
+	if err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
 
 	// Encrypt
-	plaintext := []byte("Hello World!!!")
-	err = cipher.Init(privKey.GetPublicKey())
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
-	ciphertext, err := cipher.Process(plaintext)
+	_, err = aCipher.Process(nil)
+	if err == nil {
+		t.Fatalf("Encrypting nil should fail")
+	}
+
+}
+
+func TestSPIStressDecryption(t *testing.T) {
+	spi := NewSPI()
+
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed generating key [%s]", err)
 	}
 
 	// Decrypt
-	err = cipher.Init(privKey)
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}
-	plaintext2, err := cipher.Process(ciphertext)
-	if err != nil {
-		t.Fatal(err)
+	_, err = aCipher.Process(nil)
+	if err == nil {
+		t.Fatalf("Decrypting nil should fail")
 	}
 
-	if !reflect.DeepEqual(plaintext, plaintext2) {
-		t.Fatalf("Decryption failed [%s]!=[%s]", string(plaintext), string(plaintext2))
+	_, err = aCipher.Process([]byte{0, 1, 2, 3})
+	if err == nil {
+		t.Fatalf("Decrypting invalid ciphertxt should fail")
+	}
+
+}
+
+func TestPrivateKeySerialization(t *testing.T) {
+	spi := NewSPI()
+
+	aKey, err := spi.NewDefaultPrivateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	bytes, err := spi.SerializePrivateKey(aKey)
+	if err != nil {
+		t.Fatalf("Failed serializing private key [%s]", err)
+	}
+
+	recoveredKey, err := spi.DeserializePrivateKey(bytes)
+	if err != nil {
+		t.Fatalf("Failed serializing private key [%s]", err)
+	}
+
+	// Encrypt
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(aKey.GetPublicKey())
+	if err != nil {
+		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
+	}
+	msg := []byte("Hello World")
+	ct, err := aCipher.Process(msg)
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+
+	// Decrypt
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(recoveredKey)
+	if err != nil {
+		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
+	}
+	recoveredMsg, err := aCipher.Process(ct)
+	if err != nil {
+		t.Fatalf("Failed decrypting [%s]", err)
+	}
+	if !reflect.DeepEqual(msg, recoveredMsg) {
+		t.Fatalf("Failed decrypting. Output is different [%x][%x]", msg, recoveredMsg)
 	}
 }
 
-func generateKey() primitives.PrivateKey {
-	kg, _ := newKeyGenerator()
-	kgparams, _ := newKeyGeneratorParameter(rand.Reader, primitives.GetDefaultCurve())
-	kg.Init(kgparams)
-	privKey, _ := kg.GenerateKey()
-	return privKey
+func TestPublicKeySerialization(t *testing.T) {
+	spi := NewSPI()
+
+	aKey, err := spi.NewDefaultPrivateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating key [%s]", err)
+	}
+
+	bytes, err := spi.SerializePublicKey(aKey.GetPublicKey())
+	if err != nil {
+		t.Fatalf("Failed serializing private key [%s]", err)
+	}
+
+	pk, err := spi.DeserializePublicKey(bytes)
+	if err != nil {
+		t.Fatalf("Failed serializing private key [%s]", err)
+	}
+
+	// Encrypt
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(pk)
+	if err != nil {
+		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
+	}
+	msg := []byte("Hello World")
+	ct, err := aCipher.Process(msg)
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+
+	// Decrypt
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(aKey)
+	if err != nil {
+		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
+	}
+	recoveredMsg, err := aCipher.Process(ct)
+	if err != nil {
+		t.Fatalf("Failed decrypting [%s]", err)
+	}
+	if !reflect.DeepEqual(msg, recoveredMsg) {
+		t.Fatalf("Failed decrypting. Output is different [%x][%x]", msg, recoveredMsg)
+	}
 }

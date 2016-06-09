@@ -78,7 +78,7 @@ func (instance *pbftCore) persistRequest(digest string) {
 }
 
 func (instance *pbftCore) persistDelRequest(digest string) {
-	instance.consumer.DelState(digest)
+	instance.consumer.DelState("req." + digest)
 }
 
 func (instance *pbftCore) persistDelAllRequests() {

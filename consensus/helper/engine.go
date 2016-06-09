@@ -32,6 +32,7 @@ import (
 // EngineImpl implements a struct to hold consensus.Consenter, PeerEndpoint and MessageFan
 type EngineImpl struct {
 	consenter    consensus.Consenter
+	helper       *Helper
 	peerEndpoint *pb.PeerEndpoint
 	consensusFan *util.MessageFan
 }
@@ -45,10 +46,18 @@ func (eng *EngineImpl) GetHandlerFactory() peer.HandlerFactory {
 func (eng *EngineImpl) ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response) {
 	//TODO: Do we always verify security, or can we supply a flag on the invoke ot this functions so to bypass check for locally generated transactions?
 	if tx.Type == pb.Transaction_CHAINCODE_QUERY {
+		if !engine.helper.valid {
+			logger.Warning("Rejecting query because state is currently not valid")
+			return &pb.Response{Status: pb.Response_FAILURE,
+				Msg: []byte("Error: state may be inconsistent, cannot query")}
+		}
+
 		// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 		// cxt := context.WithValue(context.Background(), "security", secHelper)
 		cxt := context.Background()
-		result, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
+		//query will ignore events as these are not stored on ledger (and query can report
+		//"event" data synchronously anyway)
+		result, _, err := chaincode.Execute(cxt, chaincode.GetChain(chaincode.DefaultChain), tx)
 		if err != nil {
 			response = &pb.Response{Status: pb.Response_FAILURE,
 				Msg: []byte(fmt.Sprintf("Error:%s", err))}
@@ -103,9 +112,9 @@ func GetEngine(coord peer.MessageHandlerCoordinator) (peer.Engine, error) {
 	var err error
 	engineOnce.Do(func() {
 		engine = new(EngineImpl)
-		helper := NewHelper(coord)
-		engine.consenter = controller.NewConsenter(helper)
-		helper.setConsenter(engine.consenter)
+		engine.helper = NewHelper(coord)
+		engine.consenter = controller.NewConsenter(engine.helper)
+		engine.helper.setConsenter(engine.consenter)
 		engine.peerEndpoint, err = coord.GetPeerEndpoint()
 		engine.consensusFan = util.NewMessageFan()
 

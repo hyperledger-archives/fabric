@@ -16,6 +16,7 @@ limitations under the License.
 syntax = "proto3";
 package protos;
 import "chaincode.proto";
+import "chaincodeevent.proto";
 import "google/protobuf/timestamp.proto";
 
 
@@ -64,11 +65,13 @@ message TransactionBlock {
 // result - The return value of the transaction.
 // errorCode - An error code. 5xx will be logged as a failure in the dashboard.
 // error - An error string for logging an issue.
+// chaincodeEvent - any event emitted by a transaction
 message TransactionResult {
   string uuid = 1;
   bytes result = 2;
   uint32 errorCode = 3;
   string error = 4;
+  ChaincodeEvent chaincodeEvent = 5;
 }
 
 // Block carries The data that describes a block in the blockchain.

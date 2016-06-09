@@ -20,7 +20,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 )
+
+// viewChangeQuorumEvent is returned to the event loop when the number of view change matches is exactly the required quorum size
+type viewChangeQuorumEvent struct{}
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
@@ -117,7 +122,7 @@ func (instance *pbftCore) calcQSet() map[qidx]*ViewChange_PQ {
 	return qset
 }
 
-func (instance *pbftCore) sendViewChange() error {
+func (instance *pbftCore) sendViewChange() events.Event {
 	instance.stopTimer()
 
 	delete(instance.newViewStore, instance.view)
@@ -165,11 +170,12 @@ func (instance *pbftCore) sendViewChange() error {
 	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	instance.recvViewChange(vc)
-	return instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
+	instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
+
+	return instance.recvViewChange(vc)
 }
 
-func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
+func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
@@ -212,6 +218,8 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 			minView = idx.v
 		}
 	}
+
+	// We only enter this if there are enough view change messages _greater_ than our current view
 	if len(replicas) >= instance.f+1 {
 		logger.Info("Replica %d received f+1 view-change messages, triggering view-change to view %d",
 			instance.id, minView)
@@ -232,22 +240,19 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) error {
 		if quorum == instance.allCorrectReplicasQuorum() {
 			instance.startTimer(instance.lastNewViewTimeout, "new view change")
 			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
+			return viewChangeQuorumEvent{}
 		}
 
-		if instance.primary(instance.view) == instance.id {
-			return instance.sendNewView()
-		}
 	}
 
-	return instance.processNewView()
-
+	return nil
 }
 
-func (instance *pbftCore) sendNewView() (err error) {
+func (instance *pbftCore) sendNewView() events.Event {
 
 	if _, ok := instance.newViewStore[instance.view]; ok {
 		logger.Debug("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
-		return
+		return nil
 	}
 
 	vset := instance.getViewChanges()
@@ -255,13 +260,13 @@ func (instance *pbftCore) sendNewView() (err error) {
 	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
 		logger.Info("Replica %d could not find consistent checkpoint: %+v", instance.id, instance.viewChangeStore)
-		return
+		return nil
 	}
 
 	msgList := instance.assignSequenceNumbers(vset, cp.SequenceNumber)
 	if msgList == nil {
 		logger.Info("Replica %d could not assign sequence numbers for new view", instance.id)
-		return
+		return nil
 	}
 
 	nv := &NewView{
@@ -274,15 +279,12 @@ func (instance *pbftCore) sendNewView() (err error) {
 	logger.Info("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	err = instance.innerBroadcast(&Message{&Message_NewView{nv}})
-	if err != nil {
-		return err
-	}
+	instance.innerBroadcast(&Message{&Message_NewView{nv}})
 	instance.newViewStore[instance.view] = nv
 	return instance.processNewView()
 }
 
-func (instance *pbftCore) recvNewView(nv *NewView) error {
+func (instance *pbftCore) recvNewView(nv *NewView) events.Event {
 	logger.Info("Replica %d received new-view %d",
 		instance.id, nv.View)
 
@@ -303,7 +305,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) error {
 	return instance.processNewView()
 }
 
-func (instance *pbftCore) processNewView() error {
+func (instance *pbftCore) processNewView() events.Event {
 	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
@@ -388,13 +390,16 @@ func (instance *pbftCore) processNewView() error {
 	return nil
 }
 
-func (instance *pbftCore) processNewView2(nv *NewView) error {
+func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.stopTimer()
+	instance.nullRequestTimer.Stop()
+
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
+	instance.seqNo = 0
 	for n, d := range nv.Xset {
 		preprep := &PrePrepare{
 			View:           instance.view,
@@ -410,6 +415,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 		}
 		instance.persistQSet()
 	}
+
+	instance.updateViewChangeSeqNo()
 
 	if instance.primary(instance.view) != instance.id {
 		for n, d := range nv.Xset {
@@ -433,9 +440,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) error {
 
 	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
-	instance.consumer.viewChange(instance.view)
-
-	return nil
+	return viewChangedEvent{}
 }
 
 func (instance *pbftCore) getViewChanges() (vset []*ViewChange) {

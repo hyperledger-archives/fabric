@@ -258,11 +258,11 @@ func (mock *MockLedger) GetRemoteBlocks(peerID *protos.PeerID, start, finish uin
 						Start: current,
 						End:   current,
 					},
-					Blocks: []*protos.Block{&protos.Block{
+					Blocks: []*protos.Block{{
 						PreviousBlockHash: []byte("GARBAGE_BLOCK_HASH"),
 						StateHash:         []byte("GARBAGE_STATE_HASH"),
 						Transactions: []*protos.Transaction{
-							&protos.Transaction{
+							{
 								Payload: []byte("GARBAGE_PAYLOAD"),
 							},
 						},
@@ -659,7 +659,7 @@ func SimpleGetStateHash(blockNumber uint64) []byte {
 }
 
 func SimpleGetTransactions(blockNumber uint64) []*protos.Transaction {
-	return []*protos.Transaction{&protos.Transaction{
+	return []*protos.Transaction{{
 		Payload: SimpleGetStateDelta(blockNumber),
 	}}
 }

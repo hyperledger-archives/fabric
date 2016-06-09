@@ -61,7 +61,7 @@ func (client *clientImpl) createDeployTx(chaincodeDeploymentSpec *obc.ChaincodeD
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
@@ -103,7 +103,7 @@ func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvo
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
@@ -145,7 +145,7 @@ func (client *clientImpl) createQueryTx(chaincodeInvocation *obc.ChaincodeInvoca
 		tx.ConfidentialityLevel = obc.ConfidentialityLevel_CONFIDENTIAL
 
 		// 2. set confidentiality protocol version
-		tx.ConfidentialityProtocolVersion = "1.2"
+		tx.ConfidentialityProtocolVersion = client.conf.GetConfidentialityProtocolVersion()
 
 		// 3. encrypt tx
 		err = client.encryptTx(tx)
@@ -396,7 +396,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
 			client.error("Failed unmarshalling cert [%s].", err.Error())
 			return err

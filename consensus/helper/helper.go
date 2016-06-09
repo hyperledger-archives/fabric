@@ -38,6 +38,7 @@ type Helper struct {
 	consenter    consensus.Consenter
 	coordinator  peer.MessageHandlerCoordinator
 	secOn        bool
+	valid        bool // Whether we believe the state is up to date
 	secHelper    crypto.Peer
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
@@ -52,6 +53,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		coordinator: mhc,
 		secOn:       viper.GetBool("security.enabled"),
 		secHelper:   mhc.GetSecHelper(),
+		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
 	}
 	h.sts = statetransfer.NewStateTransferState(mhc)
 	h.sts.RegisterListener(h)
@@ -177,7 +179,7 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
 
-	res, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
 
 	//copy errs to results
@@ -187,9 +189,9 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	for i, e := range txerrs {
 		//NOTE- it'll be nice if we can have error values. For now success == 0, error == 1
 		if txerrs[i] != nil {
-			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, Error: e.Error(), ErrorCode: 1}
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, Error: e.Error(), ErrorCode: 1, ChaincodeEvent: ccevents[i]}
 		} else {
-			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid}
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, ChaincodeEvent: ccevents[i]}
 		}
 	}
 	h.curBatchErrs = append(h.curBatchErrs, txresults...) // TODO, remove after issue 579
@@ -304,9 +306,24 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 
 // SkipTo is invoked to tell state transfer of a possible sync target, if state transfer is not already executing, it is initiated
 func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+	if h.valid {
+		logger.Warning("State transfer is being called for, but the state has not been invalidated")
+	}
 	info := &pb.BlockchainInfo{}
 	proto.Unmarshal(id, info)
 	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
+}
+
+// InvalidateState is invoked to tell us that consensus realizes the ledger is out of sync
+func (h *Helper) InvalidateState() {
+	logger.Debug("Invalidating the current state")
+	h.valid = false
+}
+
+// ValidateState is invoked to tell us that consensus has the ledger back in sync
+func (h *Helper) ValidateState() {
+	logger.Debug("Validating the current state")
+	h.valid = true
 }
 
 // Initiated is called when state transfer is kicked off, this occurs if SkipTo is invoked while statetransfer is not currently running

@@ -227,7 +227,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 	//chaincode.NewChaincodeSupport(chaincode.DefaultChain, peer.GetPeerEndpoint, false, 120000)
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	//ctx = context.WithValue(ctx, "security", secCxt)
-	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	result, _, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return transaction, result, err
 }
 

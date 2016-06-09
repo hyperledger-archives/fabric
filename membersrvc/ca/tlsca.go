@@ -21,6 +21,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"math/big"
+	"database/sql"
+
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -48,10 +50,14 @@ type TLSCAA struct {
 	tlsca *TLSCA
 }
 
+func initializeTLSCATables(db *sql.DB) error { 
+	return initializeCommonTables(db)
+}
+
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca"), eca}
+	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca}
 
 	return tlsca
 }
@@ -116,7 +122,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 		return nil, err
 	}
 
-	return &pb.TLSCertCreateResp{&pb.Cert{raw}, &pb.Cert{tlscap.tlsca.raw}}, nil
+	return &pb.TLSCertCreateResp{Cert: &pb.Cert{Cert: raw}, RootCert: &pb.Cert{Cert: tlscap.tlsca.raw}}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the TLSCA.
