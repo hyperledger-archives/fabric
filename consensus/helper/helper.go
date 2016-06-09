@@ -215,13 +215,17 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 	}
 
 	size := ledger.GetBlockchainSize()
-	h.curBatch = nil     // TODO, remove after issue 579
-	h.curBatchErrs = nil // TODO, remove after issue 579
+	defer func() {
+		h.curBatch = nil     // TODO, remove after issue 579
+		h.curBatchErrs = nil // TODO, remove after issue 579
+	}()
 
 	block, err := ledger.GetBlockByNumber(size - 1)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the block at the head of the chain: %v", err)
 	}
+
+	logger.Debug("Committed block with %d transactions, intended to include %d", len(block.Transactions), len(h.curBatch))
 
 	return block, nil
 }
