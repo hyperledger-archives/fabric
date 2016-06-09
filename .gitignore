@@ -2,7 +2,7 @@
 peer/peer
 node-cli/node-cli
 *.pyc
-/build/_workspace
+/build/*
 /bin
 .idea
 *.iml
@@ -21,3 +21,5 @@ membersrvc/membersrvc
 .*-dummy
 # go-carpet output files
 go-carpet-coverage*
+# make node-sdk copied files
+sdk/node/lib/protos/*
