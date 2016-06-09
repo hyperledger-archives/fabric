@@ -66,7 +66,7 @@ var (
 
 	ksPwd = []byte("This is a very very very long pw")
 
-	attrs          = map[string]string{"company": "ACompany", "position": "Software Engineer"}
+	attrs          = []string{"company", "position"}
 	attributeNames = []string{"company", "position"}
 )
 
