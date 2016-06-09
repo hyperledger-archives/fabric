@@ -232,12 +232,12 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Debug("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 		chaincodeLogger.Debug("[%s]Init succeeded. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
 	}()
 }
@@ -299,13 +299,13 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
 			chaincodeLogger.Error(fmt.Sprintf("[%s]Transaction execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR))
-			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
 
 		// Send COMPLETED message to chaincode support and change state
 		chaincodeLogger.Debug("[%s]Transaction completed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_COMPLETED)
-		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid}
+		nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_COMPLETED, Payload: res, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 	}()
 }
 
