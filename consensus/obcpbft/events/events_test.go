@@ -21,7 +21,6 @@ import (
 	"time"
 )
 
-// mockEventID is equivalent to MIN_INT to prevent collisions
 type mockEvent struct {
 	info string
 }

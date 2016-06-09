@@ -254,12 +254,12 @@ func (et *timerImpl) loop() {
 			eventDestChan = nil
 		case <-et.stopChan:
 			if et.timerChan == nil && eventDestChan == nil {
-				logger.Warning("Attempting to stop an unfired idle timer")
+				logger.Debug("Attempting to stop an unfired idle timer")
 			}
 			et.timerChan = nil
-			logger.Debug("Stopping timer for")
+			logger.Debug("Stopping timer")
 			if eventDestChan != nil {
-				logger.Debug("Timer for cleared pending event")
+				logger.Debug("Timer cleared pending event")
 			}
 			eventDestChan = nil
 			event = nil
