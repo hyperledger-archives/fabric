@@ -342,10 +342,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 
 	var attrs = []*pb.ACAAttribute{}
 	if in.Attributes != nil && viper.GetBool("aca.enabled") {
-		Info.Printf("First attribute %v \n", in.Attributes[0].AttributeName)
 		attrs, err = tcap.requestAttributes(id, raw, in.Attributes)
-		Info.Printf("First ACA attribute name => %v value => %v \n", attrs[0].AttributeName, attrs[0].AttributeValue)
-
 		if err != nil {
 			return nil, err
 		}
