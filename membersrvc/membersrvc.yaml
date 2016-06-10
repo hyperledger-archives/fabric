@@ -68,7 +68,7 @@ eca:
                 # (See the 'fabric/membersrvc/protos/ca.proto' file for the definition of ECAA.RegisterUser.)
                 # Note that this also controls who can register users via the client SDK.
                 #
-                # Only users with a 'registrar' section may be a registrar to register other users.  In particular, 
+                # Only users with a 'registrar' section may be a registrar to register other users.  In particular,
                 # 1) the "roles" field specifies which member roles may be registered by this user, and
                 # 2) the "delegateRoles" field specifies which member roles may become the "roles" field of registered users.
                 # The valid role names are "client", "peer", "validator", and "auditor".
@@ -123,10 +123,9 @@ eca:
                 test_nvp9: 2 VlEsBsiyXSjw institution_a 00015
 
 tca:
-          # Enabling/disabling attributes encryption, if is enabled attributes within the certificate will be encrypted using a specific key for each attribute,
-          # in otherwise cleartext attribute value will be added into the certificate.
+          # Enabling/disabling attributes encryption, currently false is unique possible value due attributes encryption is not yet implemented.
           attribute-encryption:
-                 enabled: true
+                 enabled: false
 aca:
           # Attributes is a list of the valid attributes to each user, attribute certificate authority is emulated temporarily using this file entries.
           # In the future an external attribute certificate authority will be invoked. The format to each entry is:
@@ -144,7 +143,7 @@ aca:
               attribute-entry-6: binhn;institution_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;
           address: localhost:50051
           server-name: acap
-          # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be corroborated against ACA.
+          # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be added into the TCert.
           enabled: false
 pki:
           validity-period:

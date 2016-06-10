@@ -27,13 +27,13 @@ func (client *clientImpl) initKeyStore() error {
 
 	// create tables
 	client.debug("Create Table if not exists [TCert] at [%s].", client.conf.getKeyStorePath())
-	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, attrhash VARCHAR, cert BLOB, prkz BLOB, PRIMARY KEY (id))"); err != nil {
 		client.debug("Failed creating table [%s].", err)
 		return err
 	}
 
 	client.debug("Create Table if not exists [UsedTCert] at [%s].", client.conf.getKeyStorePath())
-	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, cert BLOB, PRIMARY KEY (id))"); err != nil {
+	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, attrhash VARCHAR, cert BLOB, prkz BLOB, PRIMARY KEY (id))"); err != nil {
 		client.debug("Failed creating table [%s].", err)
 		return err
 	}
@@ -41,7 +41,7 @@ func (client *clientImpl) initKeyStore() error {
 	return nil
 }
 
-func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
+func (ks *keyStore) storeUsedTCert(tCertBlck *TCertBlock) (err error) {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -56,7 +56,7 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	}
 
 	// Insert into UsedTCert
-	if _, err = tx.Exec("INSERT INTO UsedTCert (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
+	if _, err = tx.Exec("INSERT INTO UsedTCert (attrhash, cert, prkz) VALUES (?, ?, ?)", tCertBlck.attributesHash, tCertBlck.tCert.GetCertificate().Raw, tCertBlck.tCert.GetPreK0()); err != nil {
 		ks.node.error("Failed inserting TCert to UsedTCert: [%s].", err)
 
 		tx.Rollback()
@@ -90,10 +90,10 @@ func (ks *keyStore) storeUsedTCert(tCert tCert) (err error) {
 	return
 }
 
-func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
+func (ks *keyStore) storeUnusedTCerts(tCertBlocks []*TCertBlock) (err error) {
 	ks.node.debug("Storing unused TCerts...")
 
-	if len(tCerts) == 0 {
+	if len(tCertBlocks) == 0 {
 		ks.node.debug("Empty list of unused TCerts.")
 		return
 	}
@@ -105,10 +105,11 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 
 		return
 	}
+	
 
-	for _, tCert := range tCerts {
+	for _, tCertBlck := range tCertBlocks {
 		// Insert into UsedTCert
-		if _, err = tx.Exec("INSERT INTO TCerts (cert) VALUES (?)", tCert.GetCertificate().Raw); err != nil {
+		if _, err = tx.Exec("INSERT INTO TCerts (attrhash, cert, prkz) VALUES (?, ?, ?)", tCertBlck.attributesHash, tCertBlck.tCert.GetCertificate().Raw, tCertBlck.tCert.GetPreK0()); err != nil {
 			ks.node.error("Failed inserting unused TCert to TCerts: [%s].", err)
 
 			tx.Rollback()
@@ -131,6 +132,7 @@ func (ks *keyStore) storeUnusedTCerts(tCerts []tCert) (err error) {
 	return
 }
 
+//Used by the MT pool
 func (ks *keyStore) loadUnusedTCert() ([]byte, error) {
 	// Get the first row available
 	var id int
@@ -156,9 +158,9 @@ func (ks *keyStore) loadUnusedTCert() ([]byte, error) {
 	return cert, nil
 }
 
-func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
+func (ks *keyStore) loadUnusedTCerts() ([]*TCertDBBlock, error) {
 	// Get unused TCerts
-	rows, err := ks.sqlDB.Query("SELECT cert FROM TCerts")
+	rows, err := ks.sqlDB.Query("SELECT attrhash, cert, prkz FROM TCerts")
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -167,16 +169,26 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 		return nil, err
 	}
 
-	tCertDERs := [][]byte{}
+	tCertDBBlocks := []*TCertDBBlock{}
+	
+
 	for {
 		if rows.Next() {
 			var tCertDER []byte
-			if err := rows.Scan(&tCertDER); err != nil {
+			var attributeHash string
+			var prek0 [] byte
+			if err := rows.Scan(&attributeHash, &tCertDER, &prek0); err != nil {
 				ks.node.error("Error during scan [%s].", err)
 
 				continue
 			}
-			tCertDERs = append(tCertDERs, tCertDER)
+			
+			var tCertBlk = new(TCertDBBlock)
+			tCertBlk.attributesHash = attributeHash
+			tCertBlk.preK0 = prek0
+			tCertBlk.tCertDER = tCertDER
+		
+			tCertDBBlocks = append(tCertDBBlocks, tCertBlk)
 		} else {
 			break
 		}
@@ -189,5 +201,5 @@ func (ks *keyStore) loadUnusedTCerts() ([][]byte, error) {
 		return nil, err
 	}
 
-	return tCertDERs, nil
+	return tCertDBBlocks, nil
 }

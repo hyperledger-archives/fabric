@@ -117,7 +117,7 @@ func (t *ChaincodeExample) CheckBalance(stub *shim.ChaincodeStub, param *example
 
 func main() {
 	self := &ChaincodeExample{}
-	interfaces := ccs.Interfaces {
+	interfaces := ccs.Interfaces{
 		"org.hyperledger.chaincode.example02": self,
 		"appinit": self,
 	}

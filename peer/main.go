@@ -172,14 +172,15 @@ var (
 
 // Chaincode-related variables.
 var (
-	chaincodeLang     string
-	chaincodeCtorJSON string
-	chaincodePath     string
-	chaincodeName     string
-	chaincodeDevMode  bool
-	chaincodeUsr      string
-	chaincodeQueryRaw bool
-	chaincodeQueryHex bool
+	chaincodeLang           string
+	chaincodeCtorJSON       string
+	chaincodePath           string
+	chaincodeName           string
+	chaincodeDevMode        bool
+	chaincodeUsr            string
+	chaincodeQueryRaw       bool
+	chaincodeQueryHex       bool
+	chaincodeAttributesJSON string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -289,6 +290,7 @@ func main() {
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeAttributesJSON, "attributes", "a", "[]", fmt.Sprintf("User attributes for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
@@ -764,6 +766,15 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		return
 	}
 
+	if chaincodeAttributesJSON != "[]" {
+		var f interface{}
+		err = json.Unmarshal([]byte(chaincodeAttributesJSON), &f)
+		if err != nil {
+			err = fmt.Errorf("Chaincode argument error: %s", err)
+			return
+		}
+	}
+
 	return
 }
 
@@ -794,9 +805,16 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {
@@ -892,9 +910,16 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {

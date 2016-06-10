@@ -18,6 +18,7 @@ package crypto
 
 import (
 	"crypto/ecdsa"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
