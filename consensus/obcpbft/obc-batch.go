@@ -34,7 +34,8 @@ import (
 type obcBatch struct {
 	obcGeneric
 	externalEventReceiver
-	pbft *pbftCore
+	pbft        *pbftCore
+	broadcaster *broadcaster
 
 	batchSize        int
 	batchStore       []*Request
@@ -87,6 +88,7 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.pbft = newPbftCore(id, config, op, etf)
 	op.manager.Start()
 	op.externalEventReceiver.manager = op.manager
+	op.broadcaster = newBroadcaster(id, op.pbft.N, op.pbft.f, stack)
 
 	op.batchSize = config.GetInt("general.batchsize")
 	op.batchStore = nil
@@ -138,7 +140,7 @@ func (op *obcBatch) broadcastMsg(msg *BatchMessage) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
+	op.broadcaster.Broadcast(ocMsg)
 }
 
 // send a message to a specific replica
@@ -148,12 +150,7 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-
-	}
-	op.stack.Unicast(ocMsg, receiverHandle)
+	op.broadcaster.Unicast(ocMsg, receiverID)
 }
 
 // =============================================================================
@@ -162,16 +159,12 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 
 // multicast a message to all replicas
 func (op *obcBatch) broadcast(msgPayload []byte) {
-	op.stack.Broadcast(op.wrapMessage(msgPayload), pb.PeerEndpoint_UNDEFINED)
+	op.broadcaster.Broadcast(op.wrapMessage(msgPayload))
 }
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
-	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
+	return op.broadcaster.Unicast(op.wrapMessage(msgPayload), receiverID)
 }
 
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
