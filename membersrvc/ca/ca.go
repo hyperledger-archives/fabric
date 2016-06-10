@@ -409,7 +409,7 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
+func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte, error) {
 	Trace.Println("Reading certificate for " + id + ".")
 
 	var raw []byte
@@ -418,7 +418,7 @@ func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) readCertificate1(id string, ts int64) ([]byte, error) {
+func (ca *CA) readCertificateByTimestamp(id string, ts int64) ([]byte, error) {
 	Trace.Println("Reading certificate for " + id + ".")
 
 	var raw []byte
