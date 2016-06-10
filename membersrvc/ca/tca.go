@@ -77,6 +77,14 @@ type TCAA struct {
 	tca *TCA
 }
 
+// TCertSet contains relevant information of a set of tcerts
+type TCertSet struct {
+	Ts           int64
+	EnrollmentID string
+	Nonce        []byte
+	Key          []byte
+}
+
 func initializeTCATables(db *sql.DB) error {
 	var err error
 
@@ -85,7 +93,7 @@ func initializeTCATables(db *sql.DB) error {
 		return err
 	}
 
-	if _, err = db.Exec("CREATE TABLE IF NOT EXISTS TCertificateSets (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, nonce BLOB, kdfkey BLOB)"); err != nil {
+	if _, err = db.Exec("CREATE TABLE IF NOT EXISTS TCertificateSets (row INTEGER PRIMARY KEY, enrollmentID VARCHAR(64), timestamp INTEGER, nonce BLOB, kdfkey BLOB)"); err != nil {
 		return err
 	}
 
@@ -454,13 +462,46 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 	return &pb.TCertCreateSetResp{Certs: &pb.CertSet{Ts: in.Ts, Id: in.Id, Key: kdfKey, Certs: set}}, nil
 }
 
-func (ca *CA) persistCertificateSet(id string, timestamp int64, nonce []byte, kdfKey []byte) error {
+func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
+	var sets = []*TCertSet{}
 	var err error
 
-	if _, err = ca.db.Exec("INSERT INTO TCertificateSets (id, timestamp, nonce, kdfkey) VALUES (?, ?, ?, ?)", id, timestamp, nonce, kdfKey); err != nil {
+	var rows *sql.Rows
+	rows, err = tca.retrieveCertificateSets(enrollmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var enrollID string
+	var timestamp int64
+	var nonce []byte
+	var kdfKey []byte
+
+	for rows.Next() {
+		if err = rows.Scan(&enrollID, &timestamp, &nonce, &kdfKey); err != nil {
+			return nil, err
+		}
+		sets = append(sets, &TCertSet{Ts: timestamp, EnrollmentID: enrollID, Key: kdfKey})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return sets, nil
+}
+
+func (tca *TCA) persistCertificateSet(enrollmentID string, timestamp int64, nonce []byte, kdfKey []byte) error {
+	var err error
+
+	if _, err = tca.db.Exec("INSERT INTO TCertificateSets (enrollmentID, timestamp, nonce, kdfkey) VALUES (?, ?, ?, ?)", enrollmentID, timestamp, nonce, kdfKey); err != nil {
 		Error.Println(err)
 	}
 	return err
+}
+
+func (tca *TCA) retrieveCertificateSets(enrollmentID string) (*sql.Rows, error) {
+	return tca.db.Query("SELECT enrollmentID, timestamp, nonce, kdfkey FROM TCertificateSets WHERE enrollmentID=?", enrollmentID)
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).

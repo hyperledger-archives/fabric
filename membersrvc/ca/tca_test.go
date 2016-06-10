@@ -75,10 +75,28 @@ func TestCreateCertificateSet(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		var certSets []*TCertSet
+		certSets, err = tca.getCertificateSets(enrollmentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		certSetsCountBefore := len(certSets)
+
 		tcap := &TCAP{tca}
 		response, err := tcap.createCertificateSet(context.Background(), ecertRaw, certificateSetRequest)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		certSets, err = tca.getCertificateSets(enrollmentID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		certSetsCountAfter := len(certSets)
+
+		if certSetsCountBefore != certSetsCountAfter-1 {
+			t.Fatal("TCertSets count should be increased by 1 after requesting a new set of TCerts")
 		}
 
 		tcerts := response.GetCerts()
