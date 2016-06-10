@@ -603,6 +603,21 @@ func (op *omniProto) Execute(tag interface{}, txs []*pb.Transaction) {
 	panic("unimplemented")
 }
 
+func (op *omniProto) Rollback(tag interface{}) {
+	if nil != op.RollbackImpl {
+		op.RollbackImpl(tag)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Execute(tag interface{}, txs []*pb.Transaction) {
+	if nil != op.ExecuteImpl {
+		op.ExecuteImpl(tag, txs)
+		return
+	}
+	panic("unimplemented")
+}
+
 // These methods are a temporary hack until the consensus API can be cleaned a little
 func (op *omniProto) Start() {}
 func (op *omniProto) Halt()  {}

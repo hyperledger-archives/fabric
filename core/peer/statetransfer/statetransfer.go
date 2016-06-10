@@ -104,7 +104,11 @@ type coordinatorImpl struct {
 // If the peerIDs are nil, then all peers are assumed to have the given block.
 // If the call returns an error, a boolean is included which indicates if the error may be transient and the caller should retry
 func (sts *coordinatorImpl) SyncToTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) (error, bool) {
+<<<<<<< adbc696452f7567e55859cf6cc47ddd273bbbb46
 	logger.Debugf("%v attempting to sync to target %x for block number %d with peers %v", sts.id, blockHash, blockNumber, peerIDs)
+=======
+	logger.Debug("%v attempting to sync to target %x for block number %d with peers %v", sts.id, blockHash, blockNumber, peerIDs)
+>>>>>>> Add initial executor implementation
 	bhr := &blockHashReply{
 		syncMark: syncMark{
 			blockNumber: blockNumber,
@@ -127,6 +131,14 @@ func (sts *coordinatorImpl) SyncToTarget(blockNumber uint64, blockHash []byte, p
 	return err, recoverable
 }
 
+<<<<<<< adbc696452f7567e55859cf6cc47ddd273bbbb46
+=======
+// Start starts the block thread go routine
+func (sts *coordinatorImpl) Start() {
+	go sts.blockThread()
+}
+
+>>>>>>> Add initial executor implementation
 // Stop stops the blockthread go routine
 func (sts *coordinatorImpl) Stop() {
 	select {
@@ -311,7 +323,11 @@ func (sts *coordinatorImpl) tryOverPeers(passedPeerIDs []*protos.PeerID, do func
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *coordinatorImpl) syncBlocks(highBlock, lowBlock uint64, highHash []byte, peerIDs []*protos.PeerID) (uint64, *protos.Block, error) {
+<<<<<<< adbc696452f7567e55859cf6cc47ddd273bbbb46
 	logger.Debugf("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
+=======
+	logger.Debug("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
+>>>>>>> Add initial executor implementation
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
@@ -697,8 +713,13 @@ func (sts *coordinatorImpl) attemptStateTransfer(mark *blockHashReply) (error, b
 }
 
 // blockUntilIdle makes a best effort to block until the state transfer is idle
+<<<<<<< adbc696452f7567e55859cf6cc47ddd273bbbb46
 func (sts *StateTransferState) blockUntilIdle() {
 	logger.Debugf("%v caller requesting to block until idle", sts.id)
+=======
+func (sts *coordinatorImpl) blockUntilIdle() {
+	logger.Debug("%v caller requesting to block until idle", sts.id)
+>>>>>>> Add initial executor implementation
 	select {
 	case <-sts.blockThreadIdleChan:
 	case <-sts.threadExit: // In case the block thread is gone
@@ -706,7 +727,11 @@ func (sts *StateTransferState) blockUntilIdle() {
 }
 
 func (sts *coordinatorImpl) playStateUpToBlockNumber(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
+<<<<<<< adbc696452f7567e55859cf6cc47ddd273bbbb46
 	logger.Debugf("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
+=======
+	logger.Debug("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
+>>>>>>> Add initial executor implementation
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 

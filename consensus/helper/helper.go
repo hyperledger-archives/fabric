@@ -45,7 +45,7 @@ type Helper struct {
 	persist.Helper
 	stateTransfering bool // Whether state transfer is active
 
-	executor consensus.Executor
+	executor executor.Coordinator
 }
 
 // NewHelper constructs the consensus helper object
@@ -56,6 +56,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secHelper:   mhc.GetSecHelper(),
 		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
 	}
+
 	h.executor = executor.NewImpl(h, h, mhc)
 	h.executor.Start()
 	return h

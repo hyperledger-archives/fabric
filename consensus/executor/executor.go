@@ -144,7 +144,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 			et.peers = nil // Broaden the peers included in recover to all connected
 		}
 	default:
-		logger.Error(fmt.Sprintf("Unknown event type %s", et))
+		logger.Errorf("Unknown event type %s", et)
 	}
 
 	return nil
