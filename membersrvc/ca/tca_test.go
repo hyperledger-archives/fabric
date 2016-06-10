@@ -69,10 +69,7 @@ func TestCreateCertificateSet(t *testing.T) {
 	}
 
 	ncerts := 1
-	for nattributes := -1; nattributes < 2; nattributes++ {
-		if nattributes > 0 {
-			continue
-		}
+	for nattributes := -1; nattributes < 1; nattributes++ {
 		certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, ncerts, nattributes)
 		if err != nil {
 			t.Fatal(err)
@@ -97,19 +94,6 @@ func TestCreateCertificateSet(t *testing.T) {
 			t.Fatal("tca.selectValidAttributes() returned nil")
 		}
 	}
-
-	/*
-		if false {
-			var attrs = []*protos.TCertAttribute{}
-			attributes, err := tcap.requestAttributes(enrollmentID, ecertRaw, attrs)
-			if nil != err {
-				t.Fatal(err)
-			}
-			if nil == attributes {
-				t.Fatal("tca.requestAttributes() returned nil")
-			}
-		}
-	*/
 }
 
 func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) ([]byte, *ecdsa.PrivateKey, error) {
@@ -203,8 +187,6 @@ func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.Privat
 }
 
 func TestReadCACertificate(t *testing.T) {
-	//	t.Skip()
-
 	tca, err := initTCA()
 	if nil != err {
 		t.Fatal(err)
