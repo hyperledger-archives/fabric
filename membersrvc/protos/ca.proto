@@ -141,11 +141,19 @@ enum Role {
 	ALL = 0xFFFF;
 }
 
+message Registrar {
+    Identity id = 1;                     // The identity of the registrar
+    repeated string roles = 2;           // Roles that the registrar can register
+    repeated string delegateRoles = 3;   // Roles that the registrar can give to another to register
+}
+
 message RegisterUserReq {
-	Identity id = 1;
-	Role role = 2;
-	string account = 3;
-	string affiliation = 4;
+    Identity id = 1;
+    Role role = 2;
+    string account = 3;
+    string affiliation = 4;
+    Registrar registrar = 5;
+    Signature sig = 6;
 }
 
 message ReadUserSetReq {

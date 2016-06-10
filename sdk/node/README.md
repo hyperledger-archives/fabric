@@ -12,9 +12,9 @@ The sections in this document are as follows:
 * The [Going Deeper](#Going Deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the [reference documentation](doc/modules/_hlc_.html).  The top-level class is [Chain](doc/classes/_hlc_.chain.html).
 
    WARNING: To view the reference documentation correctly, you may need to open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
-   
+
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
-   
+
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html`
 
 * The [Looking Ahead](#Looking Ahead) section describes some future work to be done.
@@ -29,7 +29,7 @@ This purpose of this section is to help you quickly get a feel for HLC and how y
 
 First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
 
-Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a user name (also called an *enrollment ID*).  This can be done programatically with the **Member.register** method, or by adding the enrollment ID to the member services configuration file in `fabric/membersrvc/membersrvc.yaml`. 
+Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a user name (also called an *enrollment ID*).  This can be done programatically with the **Member.register** method, or by adding the enrollment ID to the member services configuration file in `fabric/membersrvc/membersrvc.yaml`.
 
 Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the **Member.enroll** method.
 
@@ -48,7 +48,7 @@ The following example demonstrates a typical web app.  The web app authenticates
  *    a) register and enroll an identity for the user;
  *    b) use this identity to deploy, query, and invoke a chaincode.
  */
- 
+
 // To include the package from your hyperledger fabric directory:
 //    var hlc = require("myFabricDir/sdk/node");
 // To include the package from npm:
@@ -72,10 +72,16 @@ chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
 
 // Enroll "WebAppAdmin" which is already registered because it is
-// listed in fabric/membersrvc/membersrvc.yaml.
-enrollRegistrar("WebAppAdmin", "DJY27pEnl16d", function(err) {
+// listed in fabric/membersrvc/membersrvc.yaml with it's one time password.
+// If "WebAppAdmin" has already been registered, this will still succeed
+// because it stores the state in the KeyValStore
+// (i.e. in '/tmp/keyValStore' in this sample).
+chain.enroll("WebAppAdmin", "DJY27pEnl16d", function(err, webAppAdmin) {
    if (err) return console.log("ERROR: failed to register %s: %s",err);
-   // Successfully enrolled WebAppAdmin during initialization
+   // Successfully enrolled WebAppAdmin during initialization.
+   // Set this user as the chain's registrar which is authorized to register other users.
+   chain.setRegistrar(webAppAdmin);
+   // Now begin listening for web app requests
    listenForUserRequests();
 });
 
@@ -93,9 +99,19 @@ function listenForUserRequests() {
 
 // Handle a user request
 function handleUserRequest(userName, chaincodeID, fcn, args) {
-   getUserForChain(userName, function(err,user) {
+   // Register and enroll this user.
+   // If this user has already been registered and/or enrolled, this will
+   // still succeed because the state is kept in the KeyValStore
+   // (i.e. in '/tmp/keyValStore' in this sample).
+   var registrationRequest = {
+        enrollmentID: userName,
+        // Customize account & affiliation
+        account: "bank_a",
+        affiliation: "00001"
+   };
+   chain.registerAndEnroll( registrationRequest, function(err, user) {
       if (err) return console.log("ERROR: %s",err);
-      // This is an invoke request
+      // Issue an invoke request
       var invokeRequest = {
         // Name (hash) required for invoke
         chaincodeID: chaincodeID,
@@ -112,54 +128,14 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
      });
      // Listen for the 'complete' event.
      tx.on('complete', function(results) {
-        console.log("completed invoke: %j",results; 
-     }); 
+        console.log("completed invoke: %j",results;
+     });
      // Listen for the 'error' event.
      tx.on('error', function(err) {
         console.log("error on invoke: %j",err);
      });
    });
 }
-
-// Enroll the web app and set it as the registrar to register and enroll
-// web app users.
-function enrollRegistrar(userName,password,cb) {
-   // Get the "WebAppAdmin" user, which is already registered because
-   // it is listed in fabric/membersrvc/membersrvc.yaml.
-   chain.getUser(userName, function (err, user) {
-      if (err) return cb(err);
-      // Enroll with the one-time password listed in membersrvc.yaml.
-      // If the user has already been registered, user.enroll recognizes
-      // and handles it appropriately.
-      user.enroll(pw,function(err) {
-         if (err) return cb(err);
-         // Successfully enrolled the user, so set it as the
-         // registrar to register & enroll other users.
-         chain.setRegistrar(user);
-         return cb();
-      });
-   }
-}
-
-// Get a user object to transact with on the chain
-function getUserForChain(userName, cb) {
-   chain.getUser(userName, function(err,user) {
-      if (err) return cb(err);
-      if (user.isEnrolled()) return cb(null,user);
-      // The user has not yet been registered & enrolled.
-      // You must provide an account and affiliation.
-      var registrationRequest = {
-            enrollmentID: userName,
-            // Customize account & affiliation
-            account: "bank_a",
-            affiliation: "00001"
-      };
-      user.registerAndEnroll( registrationRequest, function(err) {
-         if (err) return cb(err);
-         return cb(null, user);
-      });
-   }); 
-});
 
 ```
 
@@ -193,6 +169,18 @@ We also assume that the peer is running at security level 256, which is the defa
 
 Don't forget to enable security and privacy as described in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
 
+
+#### registrar
+
+This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.
+
+Run the test as follows assuming membership services is running on the default ports:
+
+
+```
+cd $FABRIC/sdk/node
+node test/unit/registrar.js
+```
 
 #### chain-tests
 
@@ -288,7 +276,7 @@ node test/unit/asset-mgmt.js
 
    ```
    Error: identity or token do not match
-   ``` 
+   ```
    ```
    Error: user is already registered
    ```

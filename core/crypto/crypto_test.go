@@ -397,21 +397,58 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+func TestClientGetNextTCerts(t *testing.T) {
+
+	// Some positive flow tests here
+	var nCerts int = 1
+	for i := 1; i < 3; i++ {
+		nCerts *= 10
+		fmt.Println(fmt.Sprintf("Calling GetNextTCerts(%d)", nCerts))
+		rvCerts, err := deployer.GetNextTCerts(nCerts)
+		if err != nil {
+			t.Fatalf("Could not receive %d TCerts", nCerts)
+		}
+		if len(rvCerts) != nCerts {
+			t.Fatalf("Expected exactly '%d' TCerts as a return from GetNextTCert(%d)", nCerts, nCerts)
+		}
+
+		for nPos, cert := range rvCerts {
+			if cert == nil {
+				t.Fatalf("Returned TCert (at position %d) cannot be nil", nPos)
+			}
+		}
+	}
+
+	// Some negative flow tests here
+	_, err := deployer.GetNextTCerts(0)
+	if err == nil {
+		t.Fatalf("Requesting 0 TCerts: expected an error when calling GetNextTCerts(0)")
+	}
+
+	_, err = deployer.GetNextTCerts(-1)
+	if err == nil {
+		t.Fatalf("Requesting -1 TCerts: expected an error when calling GetNextTCerts(-1)")
+	}
+
+}
+
 //TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACompany".
 func TestClientGetAttributesFromTCert(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	tcert, err := deployer.GetNextTCert(attrs)
-
+	tCerts, err := deployer.GetNextTCerts(1, attrs...)
 	if err != nil {
-		t.Fatalf("Failed getting tcert: [%s]", err)
+		t.Fatalf("Failed getting TCert by calling GetNextTCerts(1): [%s]", err)
 	}
-	if tcert == nil {
+	if tCerts == nil {
 		t.Fatalf("TCert should be different from nil")
 	}
+	if len(tCerts) != 1 {
+		t.Fatalf("Expected one TCert returned from GetNextTCerts(1)")
+	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tCerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")
@@ -420,7 +457,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 
-	attributeBytes, err := attributes.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
+	attributeBytes, err := attributes.GetValueForAttribute("company", tCerts[0].GetPreK0(), tCerts[0].GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -436,21 +473,24 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	_, _ = deployer.GetNextTCert(attrs)
+	_, _ = deployer.GetNextTCerts(1, attrs...)
 
 	after()  //Tear down the server.
 	before() //Start up again to use unsed TCerts
 
-	tcert, err := deployer.GetNextTCert(attrs)
+	tcerts, err := deployer.GetNextTCerts(1, attrs...)
 
 	if err != nil {
 		t.Fatalf("Failed getting tcert: [%s]", err)
 	}
-	if tcert == nil {
-		t.Fatalf("TCert should be different from nil")
+	if tcerts == nil {
+		t.Fatalf("Returned TCerts slice should be different from nil")
+	}
+	if tcerts[0] == nil {
+		t.Fatalf("Returned TCerts slice's first entry should be different from nil")
 	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tcerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")
@@ -459,7 +499,7 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 
-	attributeBytes, err := attributes.GetValueForAttribute("company", tcert.GetPreK0(), tcert.GetCertificate())
+	attributeBytes, err := attributes.GetValueForAttribute("company", tcerts[0].GetPreK0(), tcerts[0].GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -475,7 +515,7 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	handler, err := deployer.GetTCertificateHandlerNext(attrs)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -498,7 +538,7 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	handler, err := deployer.GetTCertificateHandlerNext(attrs)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -527,7 +567,7 @@ func TestClientTCertHandlerSign(t *testing.T) {
 	initNodes()
 	defer closeNodes()
 
-	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attrs)
+	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -1329,12 +1369,12 @@ func BenchmarkTransactionCreation(b *testing.B) {
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
-	invoker.GetTCertificateHandlerNext(attrs)
+	invoker.GetTCertificateHandlerNext(attrs...)
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
 		b.StartTimer()
-		invoker.NewChaincodeExecute(cis, attrs, uuid)
+		invoker.NewChaincodeExecute(cis, uuid, attrs...)
 		b.StopTimer()
 	}
 }
@@ -1662,7 +1702,7 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, attrs, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1684,7 +1724,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetTCertificateHandlerNext(attrs)
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1692,7 +1732,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
 	binding, err := txHandler.GetBinding()
@@ -1738,7 +1778,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext(attrs)
+	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1746,7 +1786,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1783,7 +1823,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext(attrs)
+	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1791,7 +1831,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1838,7 +1878,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1883,7 +1923,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1928,7 +1968,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -2007,7 +2047,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, attrs, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
 	return otx, tx, err
 }
 

@@ -293,7 +293,19 @@ func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntry(attributes []string) 
 }
 
 //GetNextTCert returns a TCert from the pool valid to the passed attributes. If no TCert is available TCA is invoked to generate it.
-func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCert(attributes ...string) (tCertBlock *TCertBlock, err error) {
+func (tCertPool *tCertPoolMultithreadingImpl) GetNextTCerts(nCerts int, attributes ...string) ([]*TCertBlock, error) {
+	blocks := make([]*TCertBlock, nCerts)
+	for i := 0; i < nCerts; i++ {
+		block, err := tCertPool.getNextTCert(attributes...)
+		if err != nil {
+			return nil, err
+		}
+		blocks[i] = block
+	}
+	return blocks, nil
+}
+
+func (tCertPool *tCertPoolMultithreadingImpl) getNextTCert(attributes ...string) (tCertBlock *TCertBlock, err error) {
 	poolEntry, err := tCertPool.getPoolEntry(attributes)
 	if err != nil {
 		return nil, err

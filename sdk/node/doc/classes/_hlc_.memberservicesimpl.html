@@ -1,0 +1,653 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>MemberServicesImpl | Hyperledger OpenBlockChain</title>
+	<meta name="description" content="">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="../assets/css/main.css">
+	<script src="../assets/js/modernizr.js"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="../assets/js/search.js" data-base="..">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="../index.html" class="title">Hyperledger OpenBlockChain</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-externals" checked />
+							<label class="tsd-widget" for="tsd-filter-externals">Externals</label>
+							<input type="checkbox" id="tsd-filter-only-exported" />
+							<label class="tsd-widget" for="tsd-filter-only-exported">Only exported</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<ul class="tsd-breadcrumb">
+				<li>
+					<a href="../globals.html">Globals</a>
+				</li>
+				<li>
+					<a href="../modules/_hlc_.html">&quot;hlc&quot;</a>
+				</li>
+				<li>
+					<a href="_hlc_.memberservicesimpl.html">MemberServicesImpl</a>
+				</li>
+			</ul>
+			<h1>Class MemberServicesImpl</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<section class="tsd-panel tsd-comment">
+				<div class="tsd-comment tsd-typography">
+					<div class="lead">
+						<p>MemberServicesImpl is the default implementation of a member services client.</p>
+					</div>
+				</div>
+			</section>
+			<section class="tsd-panel tsd-hierarchy">
+				<h3>Hierarchy</h3>
+				<ul class="tsd-hierarchy">
+					<li>
+						<span class="target">MemberServicesImpl</span>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel">
+				<h3>Implements</h3>
+				<ul class="tsd-hierarchy">
+					<li><a href="../interfaces/_hlc_.memberservices.html" class="tsd-signature-type">MemberServices</a></li>
+				</ul>
+			</section>
+			<section class="tsd-panel-group tsd-index-group">
+				<h2>Index</h2>
+				<section class="tsd-panel tsd-index-panel">
+					<div class="tsd-index-content">
+						<section class="tsd-index-section tsd-is-not-exported">
+							<h3>Constructors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#constructor" class="tsd-kind-icon">constructor</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section tsd-is-private tsd-is-private-protected tsd-is-not-exported">
+							<h3>Properties</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#cryptoprimitives" class="tsd-kind-icon">crypto<wbr>Primitives</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#ecaaclient" class="tsd-kind-icon">ecaa<wbr>Client</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#ecapclient" class="tsd-kind-icon">ecap<wbr>Client</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#tcapclient" class="tsd-kind-icon">tcap<wbr>Client</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#tlscapclient" class="tsd-kind-icon">tlscap<wbr>Client</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section tsd-is-not-exported">
+							<h3>Methods</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#enroll" class="tsd-kind-icon">enroll</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#getcrypto" class="tsd-kind-icon">get<wbr>Crypto</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#gethashalgorithm" class="tsd-kind-icon">get<wbr>Hash<wbr>Algorithm</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#getsecuritylevel" class="tsd-kind-icon">get<wbr>Security<wbr>Level</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#gettcertbatch" class="tsd-kind-icon">getTCert<wbr>Batch</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#processtcertbatch" class="tsd-kind-icon">processTCert<wbr>Batch</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#register" class="tsd-kind-icon">register</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#sethashalgorithm" class="tsd-kind-icon">set<wbr>Hash<wbr>Algorithm</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-not-exported"><a href="_hlc_.memberservicesimpl.html#setsecuritylevel" class="tsd-kind-icon">set<wbr>Security<wbr>Level</a></li>
+							</ul>
+						</section>
+					</div>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group tsd-is-not-exported">
+				<h2>Constructors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-constructor tsd-parent-kind-class tsd-is-not-exported">
+					<a name="constructor" class="tsd-anchor"></a>
+					<h3>constructor</h3>
+					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Member<wbr>Services<wbr>Impl<span class="tsd-signature-symbol">(</span>url<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, pem<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.memberservicesimpl.html" class="tsd-signature-type">MemberServicesImpl</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1667">hlc.ts:1667</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>MemberServicesImpl constructor</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>url: <span class="tsd-signature-type">string</span></h5>
+								</li>
+								<li>
+									<h5>pem: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="_hlc_.memberservicesimpl.html" class="tsd-signature-type">MemberServicesImpl</a></h4>
+							<p>A MemberServices object.</p>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group tsd-is-private tsd-is-private-protected tsd-is-not-exported">
+				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="cryptoprimitives" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> crypto<wbr>Primitives</h3>
+					<div class="tsd-signature tsd-kind-icon">crypto<wbr>Primitives<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">crypto.Crypto</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1667">hlc.ts:1667</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="ecaaclient" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> ecaa<wbr>Client</h3>
+					<div class="tsd-signature tsd-kind-icon">ecaa<wbr>Client<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1663">hlc.ts:1663</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="ecapclient" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> ecap<wbr>Client</h3>
+					<div class="tsd-signature tsd-kind-icon">ecap<wbr>Client<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1664">hlc.ts:1664</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="tcapclient" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> tcap<wbr>Client</h3>
+					<div class="tsd-signature tsd-kind-icon">tcap<wbr>Client<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1665">hlc.ts:1665</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="tlscapclient" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> tlscap<wbr>Client</h3>
+					<div class="tsd-signature tsd-kind-icon">tlscap<wbr>Client<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1666">hlc.ts:1666</a></li>
+						</ul>
+					</aside>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group tsd-is-not-exported">
+				<h2>Methods</h2>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="enroll" class="tsd-anchor"></a>
+					<h3>enroll</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">enroll<span class="tsd-signature-symbol">(</span>req<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.enrollmentrequest.html" class="tsd-signature-type">EnrollmentRequest</a>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.enrollcallback.html" class="tsd-signature-type">EnrollCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#enroll">enroll</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1774">hlc.ts:1774</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Enroll the member and return an opaque member object</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>req: <a href="../interfaces/_hlc_.enrollmentrequest.html" class="tsd-signature-type">EnrollmentRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Enrollment request with the following fields: name, enrollmentSecret</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.enrollcallback.html" class="tsd-signature-type">EnrollCallback</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Callback of the form: {function(err,{key,cert,chainKey})}</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="getcrypto" class="tsd-anchor"></a>
+					<h3>get<wbr>Crypto</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Crypto<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">crypto.Crypto</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1719">hlc.ts:1719</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">crypto.Crypto</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="gethashalgorithm" class="tsd-anchor"></a>
+					<h3>get<wbr>Hash<wbr>Algorithm</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Hash<wbr>Algorithm<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#gethashalgorithm">getHashAlgorithm</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1707">hlc.ts:1707</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Get the hash algorithm</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+							<p>The hash algorithm</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="getsecuritylevel" class="tsd-anchor"></a>
+					<h3>get<wbr>Security<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Security<wbr>Level<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#getsecuritylevel">getSecurityLevel</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1691">hlc.ts:1691</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Get the security level</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+							<p>The security level</p>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="gettcertbatch" class="tsd-anchor"></a>
+					<h3>getTCert<wbr>Batch</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">getTCert<wbr>Batch<span class="tsd-signature-symbol">(</span>req<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.gettcertbatchrequest.html" class="tsd-signature-type">GetTCertBatchRequest</a>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.gettcertbatchcallback.html" class="tsd-signature-type">GetTCertBatchCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1875">hlc.ts:1875</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Get an array of transaction certificates (tcerts).</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>req: <a href="../interfaces/_hlc_.gettcertbatchrequest.html" class="tsd-signature-type">GetTCertBatchRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Request of the form: {name,enrollment,num} where
+											&#39;name&#39; is the member name,
+											&#39;enrollment&#39; is what was returned by enroll, and
+										&#39;num&#39; is the number of transaction contexts to obtain.</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.gettcertbatchcallback.html" class="tsd-signature-type">GetTCertBatchCallback</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+					<a name="processtcertbatch" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> processTCert<wbr>Batch</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">processTCert<wbr>Batch<span class="tsd-signature-symbol">(</span>req<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.gettcertbatchrequest.html" class="tsd-signature-type">GetTCertBatchRequest</a>, resp<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.tcert.html" class="tsd-signature-type">TCert</a><span class="tsd-signature-symbol">[]</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1913">hlc.ts:1913</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Process a batch of tcerts after having retrieved them from the TCA.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>req: <a href="../interfaces/_hlc_.gettcertbatchrequest.html" class="tsd-signature-type">GetTCertBatchRequest</a></h5>
+								</li>
+								<li>
+									<h5>resp: <span class="tsd-signature-type">any</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="_hlc_.tcert.html" class="tsd-signature-type">TCert</a><span class="tsd-signature-symbol">[]</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="register" class="tsd-anchor"></a>
+					<h3>register</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">register<span class="tsd-signature-symbol">(</span>req<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a>, registrar<span class="tsd-signature-symbol">: </span><a href="_hlc_.member.html" class="tsd-signature-type">Member</a>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.registercallback.html" class="tsd-signature-type">RegisterCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#register">register</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1729">hlc.ts:1729</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Register the member and return an enrollment secret.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>req: <a href="../interfaces/_hlc_.registrationrequest.html" class="tsd-signature-type">RegistrationRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Registration request with the following fields: name, role</p>
+									</div>
+								</li>
+								<li>
+									<h5>registrar: <a href="_hlc_.member.html" class="tsd-signature-type">Member</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The identity of the registrar (i.e. who is performing the registration)</p>
+									</div>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.registercallback.html" class="tsd-signature-type">RegisterCallback</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>Callback of the form: {function(err,enrollmentSecret)}</p>
+									</div>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="sethashalgorithm" class="tsd-anchor"></a>
+					<h3>set<wbr>Hash<wbr>Algorithm</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">set<wbr>Hash<wbr>Algorithm<span class="tsd-signature-symbol">(</span>hashAlgorithm<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#sethashalgorithm">setHashAlgorithm</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1715">hlc.ts:1715</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Set the hash algorithm</p>
+								</div>
+								<dl class="tsd-comment-tags">
+									<dt>params</dt>
+									<dd><p>hashAlgorithm The hash algorithm (&#39;SHA2&#39; or &#39;SHA3&#39;)</p>
+									</dd>
+								</dl>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>hashAlgorithm: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+					<a name="setsecuritylevel" class="tsd-anchor"></a>
+					<h3>set<wbr>Security<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+						<li class="tsd-signature tsd-kind-icon">set<wbr>Security<wbr>Level<span class="tsd-signature-symbol">(</span>securityLevel<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Implementation of <a href="../interfaces/_hlc_.memberservices.html">MemberServices</a>.<a href="../interfaces/_hlc_.memberservices.html#setsecuritylevel">setSecurityLevel</a></p>
+								<ul>
+									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1699">hlc.ts:1699</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Set the security level</p>
+								</div>
+								<dl class="tsd-comment-tags">
+									<dt>params</dt>
+									<dd><p>securityLevel The security level</p>
+									</dd>
+								</dl>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>securityLevel: <span class="tsd-signature-type">number</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class="globals  ">
+						<a href="../globals.html"><em>Globals</em></a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="../modules/_crypto_.html">"crypto"</a>
+					</li>
+					<li class="current tsd-kind-external-module">
+						<a href="../modules/_hlc_.html">"hlc"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="../modules/_stats_.html">"stats"</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-class tsd-parent-kind-external-module tsd-is-not-exported">
+						<a href="_hlc_.memberservicesimpl.html" class="tsd-kind-icon">Member<wbr>Services<wbr>Impl</a>
+						<ul>
+							<li class=" tsd-kind-constructor tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#cryptoprimitives" class="tsd-kind-icon">crypto<wbr>Primitives</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#ecaaclient" class="tsd-kind-icon">ecaa<wbr>Client</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#ecapclient" class="tsd-kind-icon">ecap<wbr>Client</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#tcapclient" class="tsd-kind-icon">tcap<wbr>Client</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#tlscapclient" class="tsd-kind-icon">tlscap<wbr>Client</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#enroll" class="tsd-kind-icon">enroll</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#getcrypto" class="tsd-kind-icon">get<wbr>Crypto</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#gethashalgorithm" class="tsd-kind-icon">get<wbr>Hash<wbr>Algorithm</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#getsecuritylevel" class="tsd-kind-icon">get<wbr>Security<wbr>Level</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#gettcertbatch" class="tsd-kind-icon">getTCert<wbr>Batch</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#processtcertbatch" class="tsd-kind-icon">processTCert<wbr>Batch</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#register" class="tsd-kind-icon">register</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#sethashalgorithm" class="tsd-kind-icon">set<wbr>Hash<wbr>Algorithm</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-not-exported">
+								<a href="_hlc_.memberservicesimpl.html#setsecuritylevel" class="tsd-kind-icon">set<wbr>Security<wbr>Level</a>
+							</li>
+						</ul>
+					</li>
+				</ul>
+				<ul class="after-current">
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-module"><span class="tsd-kind-icon">Module</span></li>
+				<li class="tsd-kind-object-literal"><span class="tsd-kind-icon">Object literal</span></li>
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-function tsd-has-type-parameter"><span class="tsd-kind-icon">Function with type parameter</span></li>
+				<li class="tsd-kind-index-signature"><span class="tsd-kind-icon">Index signature</span></li>
+				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+				<li class="tsd-kind-enum-member"><span class="tsd-kind-icon">Enumeration member</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-enum"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-enum"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-interface"><span class="tsd-kind-icon">Interface</span></li>
+				<li class="tsd-kind-interface tsd-has-type-parameter"><span class="tsd-kind-icon">Interface with type parameter</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-interface"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-interface"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-interface"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-index-signature tsd-parent-kind-interface"><span class="tsd-kind-icon">Index signature</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
+				<li class="tsd-kind-class tsd-has-type-parameter"><span class="tsd-kind-icon">Class with type parameter</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class"><span class="tsd-kind-icon">Accessor</span></li>
+				<li class="tsd-kind-index-signature tsd-parent-kind-class"><span class="tsd-kind-icon">Index signature</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static property</span></li>
+				<li class="tsd-kind-call-signature tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static method</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="http://typedoc.io" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="../assets/js/main.js"></script>
+<script>if (location.protocol == 'file:') document.write('<script src="../assets/js/search.js"><' + '/script>');</script>
+</body>
+</html>
