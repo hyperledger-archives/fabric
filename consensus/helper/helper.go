@@ -45,7 +45,7 @@ type Helper struct {
 	persist.Helper
 	stateTransfering bool // Whether state transfer is active
 
-	executor executor.Coordinator
+	executor consensus.Executor
 }
 
 // NewHelper constructs the consensus helper object
