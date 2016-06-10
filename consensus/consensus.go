@@ -68,7 +68,7 @@ type ReadOnlyLedger interface {
 	GetBlockHeadMetadata() ([]byte, error)
 }
 
-// Executor is used to invoke transactions, potentially modifying the backing ledger
+// LegacyExecutor is used to invoke transactions, potentially modifying the backing ledger
 type LegacyExecutor interface {
 	BeginTxBatch(id interface{}) error
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
@@ -77,7 +77,7 @@ type LegacyExecutor interface {
 	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
 }
 
-// NewExecutor is intended to eventually supplant the old Executor interface
+// Executor is intended to eventually supplant the old Executor interface
 // The problem with invoking the calls directly above, is that they must be coordinated
 // with state transfer, to eliminate possible races and ledger corruption
 type Executor interface {
@@ -89,8 +89,8 @@ type Executor interface {
 
 // LedgerManager is used to manipulate the state of the ledger
 type LedgerManager interface {
-	InvalidateState()                                 // Invalidate informs the ledger that it is out of date and should reject queries
-	ValidateState()                                   // Validate informs the ledger that it is back up to date and should resume replying to queries
+	InvalidateState() // Invalidate informs the ledger that it is out of date and should reject queries
+	ValidateState()   // Validate informs the ledger that it is back up to date and should resume replying to queries
 }
 
 // StatePersistor is used to store consensus state which should survive a process crash

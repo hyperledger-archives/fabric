@@ -375,48 +375,48 @@ func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{},
 	}
 }
 
-// Executes a set of transactions, this may be called in succession
+// Execute will execute a set of transactions, this may be called in succession
 func (h *Helper) Execute(tag interface{}, txs []*pb.Transaction) {
 	h.executor.Execute(tag, txs)
 }
 
-// Commits whatever transactions have been executed
+// Commit will commit whatever transactions have been executed
 func (h *Helper) Commit(tag interface{}, metadata []byte) {
 	h.executor.Commit(tag, metadata)
 }
 
-// Rolls back whatever transactions have been executed
+// Rollback will roll back whatever transactions have been executed
 func (h *Helper) Rollback(tag interface{}) {
 	h.executor.Rollback(tag)
 }
 
-// Attempts to synchronize state to a particular target, implicitly calls rollback if needed
+// UpdateState attempts to synchronize state to a particular target, implicitly calls rollback if needed
 func (h *Helper) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
 	h.executor.UpdateState(tag, target, peers)
 }
 
-// Called whenever Execute completes
+// Executed is called whenever Execute completes
 func (h *Helper) Executed(tag interface{}) {
 	if h.c != nil {
 		h.c.Executed(tag)
 	}
 }
 
-// Called whenever Commit completes
+// Committed is called whenever Commit completes
 func (h *Helper) Committed(tag interface{}, target *pb.BlockchainInfo) {
 	if h.c != nil {
 		h.c.Committed(tag, target)
 	}
 }
 
-// Called whenever a Rollback completes
+// RolledBack is called whenever a Rollback completes
 func (h *Helper) RolledBack(tag interface{}) {
 	if h.c != nil {
 		h.c.RolledBack(tag)
 	}
 }
 
-// Called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
+// StateUpdated is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
 func (h *Helper) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
 	if h.c != nil {
 		h.c.StateUpdated(tag, target)
