@@ -34,7 +34,6 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	_ "github.com/mattn/go-sqlite3" // TODO: justify this blank import or remove
 )
 
 // CA is the base certificate authority.
@@ -336,10 +335,10 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
 	spec := NewDefaultCertificateSpec(id, pub, usage, opt...)
-	return ca.createCertificateFromSpec(spec, timestamp, kdfKey)
+	return ca.createCertificateFromSpec(spec, timestamp, kdfKey, true)
 }
 
-func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
+func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte, persist bool) ([]byte, error) {
 	Trace.Println("Creating certificate for " + spec.GetID() + ".")
 
 	raw, err := ca.newCertificateFromSpec(spec)
@@ -348,7 +347,9 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 		return nil, err
 	}
 
-	err = ca.persistCertificate(spec.GetID(), timestamp, spec.GetUsage(), raw, kdfKey)
+	if persist {
+		err = ca.persistCertificate(spec.GetID(), timestamp, spec.GetUsage(), raw, kdfKey)
+	}
 
 	return raw, err
 }

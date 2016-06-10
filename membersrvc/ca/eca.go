@@ -358,14 +358,14 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		ts := time.Now().Add(-1 * time.Minute).UnixNano()
 
 		spec := NewDefaultCertificateSpecWithCommonName(id, enrollID, skey.(*ecdsa.PublicKey), x509.KeyUsageDigitalSignature, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
-		sraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
+		sraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil, true)
 		if err != nil {
 			Error.Println(err)
 			return nil, err
 		}
 
 		spec = NewDefaultCertificateSpecWithCommonName(id, enrollID, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
-		eraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil)
+		eraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil, true)
 		if err != nil {
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
 			Error.Println(err)

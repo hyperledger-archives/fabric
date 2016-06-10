@@ -80,7 +80,18 @@ type TCAA struct {
 }
 
 func initializeTCATables(db *sql.DB) error {
-	return initializeCommonTables(db)
+	var err error
+
+	err = initializeCommonTables(db)
+	if err != nil {
+		return err
+	}
+
+	if _, err = db.Exec("CREATE TABLE IF NOT EXISTS TCertificateSets (row INTEGER PRIMARY KEY, id VARCHAR(64), timestamp INTEGER, nonce BLOB, kdfkey BLOB)"); err != nil {
+		return err
+	}
+
+	return err
 }
 
 // NewTCA sets up a new TCA.
@@ -346,7 +357,8 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
 	var attrs = []*pb.TCertAttribute{}
 	var err error
-	id := in.Id.Id
+	var id = in.Id.Id
+	var timestamp = in.Ts.Seconds
 
 	if in.Attributes != nil && viper.GetBool("aca.enabled") {
 		attrs, err = tcap.requestAttributes(id, raw, in.Attributes)
@@ -432,7 +444,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 		}
 
 		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub, x509.KeyUsageDigitalSignature, extensions...)
-		if raw, err = tcap.tca.createCertificateFromSpec(spec, in.Ts.Seconds, kdfKey); err != nil {
+		if raw, err = tcap.tca.createCertificateFromSpec(spec, timestamp, kdfKey, false); err != nil {
 			Error.Println(err)
 			return nil, err
 		}
@@ -440,7 +452,18 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 		set = append(set, &pb.TCert{raw, preK0})
 	}
 
+	tcap.tca.persistCertificateSet(id, timestamp, nonce, kdfKey)
+
 	return &pb.TCertCreateSetResp{Certs: &pb.CertSet{Ts: in.Ts, Id: in.Id, Key: kdfKey, Certs: set}}, nil
+}
+
+func (ca *CA) persistCertificateSet(id string, timestamp int64, nonce []byte, kdfKey []byte) error {
+	var err error
+
+	if _, err = ca.db.Exec("INSERT INTO TCertificateSets (id, timestamp, nonce, kdfkey) VALUES (?, ?, ?, ?)", id, timestamp, nonce, kdfKey); err != nil {
+		Error.Println(err)
+	}
+	return err
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
