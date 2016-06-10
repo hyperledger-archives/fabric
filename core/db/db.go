@@ -157,12 +157,23 @@ func (openchainDB *OpenchainDB) Open() {
 	defer openchainDB.mux.Unlock()
 
 	dbPath := getDBPath()
-	mkDirIfNotExist(dbPath)
+	missing, err := dirMissingOrEmpty(dbPath)
+	if err != nil {
+		panic(fmt.Sprintf("Error while trying to open DB: %s", err))
+	}
+	dbLogger.Debugf("Is db path [%s] empty [%t]", dbPath, missing)
+
+	if missing {
+		err = os.MkdirAll(path.Dir(dbPath), 0755)
+		if err != nil {
+			panic(fmt.Sprintf("Error making directory path [%s]: %s", dbPath, err))
+		}
+	}
 
 	opts := gorocksdb.NewDefaultOptions()
 	defer opts.Destroy()
 
-	opts.SetCreateIfMissing(true)
+	opts.SetCreateIfMissing(missing)
 	opts.SetCreateIfMissingColumnFamilies(true)
 
 	cfNames := []string{"default"}
@@ -353,19 +364,4 @@ func makeCopy(src []byte) []byte {
 	dest := make([]byte, len(src))
 	copy(dest, src)
 	return dest
-}
-
-func mkDirIfNotExist(dbPath string) {
-	missing, err := dirMissingOrEmpty(dbPath)
-	if err != nil {
-		panic(fmt.Sprintf("Error while trying to open DB: %s", err))
-	}
-	dbLogger.Debugf("Is db path [%s] empty [%t]", dbPath, missing)
-
-	if missing {
-		err = os.MkdirAll(path.Dir(dbPath), 0755)
-		if err != nil {
-			panic(fmt.Sprintf("Error making directory path [%s]: %s", dbPath, err))
-		}
-	}
 }
