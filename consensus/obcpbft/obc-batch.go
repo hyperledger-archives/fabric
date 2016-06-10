@@ -313,9 +313,11 @@ func (op *obcBatch) txToReq(tx []byte) *Request {
 func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) events.Event {
 	if ocMsg.Type == pb.Message_CHAIN_TRANSACTION {
 		req := op.txToReq(ocMsg.Payload)
-		hash := op.complainer.Custody(req)
-
-		logger.Infof("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
+		if !op.pbft.skipInProgress {
+			// If we are not participating in network ordering, we will not be able to detect this transaction being executed
+			hash := op.complainer.Custody(req)
+			logger.Infof("Batch replica %d received new consensus request: %s", op.pbft.id, hash)
+		}
 
 		return op.submitToLeader(req)
 	}
@@ -356,15 +358,19 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 			return op.leaderProcReq(complaint)
 		}
 
-		// XXX check req sig
-		if !op.deduplicator.IsNew(complaint) {
-			logger.Debugf("Batch replica %d received stale complaint from %d",
-				op.pbft.id, complaint.ReplicaId)
-			return nil
-		}
+		// If we are not participating in ordering, do not take a complaint into custody, as we will not see it execute
+		if !op.pbft.skipInProgress {
+			// XXX check req sig
+			if !op.deduplicator.IsNew(complaint) {
+				logger.Debugf("Batch replica %d received stale complaint from %d",
+					op.pbft.id, complaint.ReplicaId)
+				return nil
+			}
 
-		hash := op.complainer.Complaint(complaint)
-		logger.Debugf("Batch replica %d received complaint %s", op.pbft.id, hash)
+			hash := op.complainer.Complaint(complaint)
+
+			logger.Debugf("Batch replica %d received complaint %s", op.pbft.id, hash)
+		}
 
 		return op.submitToLeader(complaint)
 	}
@@ -490,4 +496,10 @@ func (op *obcBatch) idleChannel() <-chan struct{} {
 // TODO, temporary
 func (op *obcBatch) getManager() events.Manager {
 	return op.manager
+}
+
+// skipTo needs to flush our custody, since we lost sync with the network, all bets are off
+func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64) {
+	op.complainer.Clear()
+	op.obcGeneric.skipTo(seqNo, id, replicas)
 }

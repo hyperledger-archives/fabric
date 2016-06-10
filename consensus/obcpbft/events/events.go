@@ -210,7 +210,7 @@ func (et *timerImpl) SoftReset(timeout time.Duration, event Event) {
 	et.startChan <- &timerStart{
 		duration: timeout,
 		event:    event,
-		hard:     false,
+		hard:     true,
 	}
 }
 
@@ -219,7 +219,7 @@ func (et *timerImpl) Reset(timeout time.Duration, event Event) {
 	et.startChan <- &timerStart{
 		duration: timeout,
 		event:    event,
-		hard:     true,
+		hard:     false,
 	}
 }
 
