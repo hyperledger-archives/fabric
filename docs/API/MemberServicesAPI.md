@@ -40,13 +40,10 @@ The `ReadCertificatePairByHash` function allows any user of the blockchain to re
 The administrator interface of the TCA provides the following functions:
 
 	service TCAA { // admin
-	    rpc ReadCertificateSets(TCertReadSetsReq) returns (CertSets);
 	    rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // not yet implemented
 	    rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // not yet implemented
 	    rpc PublishCRL(TCertCRLReq) returns (CAStatus); // not yet implemented
 	}
-
-The `ReadCertificateSets` function allows auditors only to read transaction certificate sets for some or all users of the blockchain.
 
 The public interface of the TCA provides the following functions:
 
@@ -54,8 +51,6 @@ The public interface of the TCA provides the following functions:
 	    rpc ReadCACertificate(Empty) returns (Cert);
 	    rpc CreateCertificate(TCertCreateReq) returns (TCertCreateResp);
 	    rpc CreateCertificateSet(TCertCreateSetReq) returns (TCertCreateSetResp);
-	    rpc ReadCertificate(TCertReadReq) returns (Cert);
-	    rpc ReadCertificateSet(TCertReadSetReq) returns (CertSet);
 	    rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // not yet implemented
 	    rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // not yet implemented
 	}
@@ -65,10 +60,6 @@ The `ReadCACertificate` function returns the certificate of the TCA itself.
 The `CreateCertificate` function allows a user to create and retrieve a new transaction certificate.
 
 The `CreateCertificateSet` function allows a user to create and retrieve a set of transaction certificates in a single call.
-
-The `ReadCertificate` allows a user to retrieve a previously created transaction certificate.  This function can also be called by validators and auditors for any user of the blockchain.
-
-The `ReadCertificateSet` allows a user to retrieve a previously created transaction certificate set.  This function can also be called by auditors for any user of the blockchain.
 
 ## TLS Certificate Authority
 
