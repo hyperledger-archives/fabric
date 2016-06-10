@@ -78,6 +78,8 @@ const MaxStateTransferTime int = 200
 
 func (cs *completeStack) ValidateState()   {}
 func (cs *completeStack) InvalidateState() {}
+func (cs *completeStack) Start()           {}
+func (cs *completeStack) Halt()            {}
 
 func (cs *completeStack) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
 	select {

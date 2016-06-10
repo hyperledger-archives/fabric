@@ -603,33 +603,6 @@ func (op *omniProto) Execute(tag interface{}, txs []*pb.Transaction) {
 	panic("unimplemented")
 }
 
-/*
-
-	op := &omniProto{
-		GetNetworkInfoImpl:         net.GetNetworkInfo,
-		GetNetworkHandlesImpl:      net.GetNetworkHandles,
-		BroadcastImpl:              net.Broadcast,
-		UnicastImpl:                net.Unicast,
-		SignImpl:                   security.Sign,
-		VerifyImpl:                 security.Verify,
-		GetBlockImpl:               ml.GetBlock,
-		GetCurrentStateHashImpl:    ml.GetCurrentStateHash,
-		GetBlockchainSizeImpl:      ml.GetBlockchainSize,
-		HashBlockImpl:              ml.HashBlock,
-		VerifyBlockchainImpl:       ml.VerifyBlockchain,
-		PutBlockImpl:               ml.PutBlock,
-		ApplyStateDeltaImpl:        ml.ApplyStateDelta,
-		CommitStateDeltaImpl:       ml.CommitStateDelta,
-		RollbackStateDeltaImpl:     ml.RollbackStateDelta,
-		EmptyStateImpl:             ml.EmptyState,
-		BeginTxBatchImpl:           ml.BeginTxBatch,
-		ExecTxsImpl:                ml.ExecTxs,
-		CommitTxBatchImpl:          ml.CommitTxBatch,
-		RollbackTxBatchImpl:        ml.RollbackTxBatch,
-		PreviewCommitTxBatchImpl:   ml.PreviewCommitTxBatch,
-		GetRemoteBlocksImpl:        ml.GetRemoteBlocks,
-		GetRemoteStateSnapshotImpl: ml.GetRemoteStateSnapshot,
-		GetRemoteStateDeltasImpl:   ml.GetRemoteStateDeltas,
-	}
-
-*/
+// These methods are a temporary hack until the consensus API can be cleaned a little
+func (op *omniProto) Start() {}
+func (op *omniProto) Halt()  {}

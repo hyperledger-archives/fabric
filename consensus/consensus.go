@@ -81,6 +81,8 @@ type LegacyExecutor interface {
 // The problem with invoking the calls directly above, is that they must be coordinated
 // with state transfer, to eliminate possible races and ledger corruption
 type Executor interface {
+	Start()                                                                     // Bring up the resources needed to use this interface
+	Halt()                                                                      // Tear down the resources needed to use this interface
 	Execute(tag interface{}, txs []*pb.Transaction)                             // Executes a set of transactions, this may be called in succession
 	Commit(tag interface{}, metadata []byte)                                    // Commits whatever transactions have been executed
 	Rollback(tag interface{})                                                   // Rolls back whatever transactions have been executed
