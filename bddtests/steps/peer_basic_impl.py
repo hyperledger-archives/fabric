@@ -533,30 +533,32 @@ def step_impl(context):
 
 @given(u'I stop peers')
 def step_impl(context):
-    assert 'table' in context, "table (of peers) not found in context"
-    assert 'compose_yaml' in context, "compose_yaml not found in context"
-    assert 'compose_containers' in context, "compose_containers not found in context"
-
-    services =  context.table.headings
-    # Loop through services and stop them, and remove from the container data list if stopped successfully.
-    for service in services:
-       context.compose_output, context.compose_error, context.compose_returncode = \
-           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "stop", service], expect_success=True)
-       assert context.compose_returncode == 0, "docker-compose failed to stop {0}".format(service)
-       #remove from the containerDataList
-       context.compose_containers = [containerData for  containerData in context.compose_containers if containerData.composeService != service]
-    print("After stopping, the container service list is = {0}".format([containerData.composeService for  containerData in context.compose_containers]))
+    compose_op(context, "stop")
 
 @given(u'I start peers')
 def step_impl(context):
+    compose_op(context, "start")
+
+@given(u'I pause peers')
+def step_impl(context):
+    compose_op(context, "pause")
+
+@given(u'I unpause peers')
+def step_impl(context):
+    compose_op(context, "unpause")
+
+def compose_op(context, op):
     assert 'table' in context, "table (of peers) not found in context"
     assert 'compose_yaml' in context, "compose_yaml not found in context"
 
     services =  context.table.headings
-    # Loop through services and start them
+    # Loop through services and start/stop them, and modify the container data list if successful.
     for service in services:
        context.compose_output, context.compose_error, context.compose_returncode = \
-           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, "start", service], expect_success=True)
-       assert context.compose_returncode == 0, "docker-compose failed to start {0}".format(service)
-       parseComposeOutput(context)
-    print("After starting peers, the container service list is = {0}".format([containerData.composeService + ":" + containerData.ipAddress for  containerData in context.compose_containers]))
+           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, op, service], expect_success=True)
+       assert context.compose_returncode == 0, "docker-compose failed to {0} {0}".format(op, service)
+       if op == "stop" or op == "pause":
+           context.compose_containers = [containerData for containerData in context.compose_containers if containerData.composeService != service]
+       else:
+           parseComposeOutput(context)
+       print("After {0}ing, the container service list is = {1}".format(op, [containerData.composeService for  containerData in context.compose_containers]))
