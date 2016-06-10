@@ -155,7 +155,7 @@ build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
 	@echo "Building docker src-image"
 	@mkdir -p $(@D)
 	@cat images/src/Dockerfile.in > $(@D)/Dockerfile
-	@git ls-files | tar -zcT - > $(@D)/gopath.tar.bz2
+	@git ls-files | tar -jcT - > $(@D)/gopath.tar.bz2
 	docker build -t $(PROJECT_NAME)-src:latest $(@D)
 	@touch $@
 
