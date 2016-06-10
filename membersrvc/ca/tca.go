@@ -26,13 +26,11 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"strconv"
 	"time"
-
-	protobuf "google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/attributes"
@@ -322,12 +320,11 @@ func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAt
 		return nil, err
 	}
 
-	if resp.Status == pb.ACAAttrResp_FAILURE {
-		return nil, errors.New("Error fetching attributes.")
+	if resp.Status >= pb.ACAAttrResp_FAILURE_MINVAL && resp.Status <= pb.ACAAttrResp_FAILURE_MAXVAL {
+		return nil, errors.New(fmt.Sprint("Error fetching attributes = ", resp.Status))
 	}
 
 	return tcap.selectValidAttributes(resp.Cert.Cert)
-
 }
 
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
@@ -340,7 +337,14 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 		return nil, err
 	}
 
+	return tcap.createCertificateSet(ctx, raw, in)
+}
+
+func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
 	var attrs = []*pb.TCertAttribute{}
+	var err error
+	id := in.Id.Id
+
 	if in.Attributes != nil && viper.GetBool("aca.enabled") {
 		attrs, err = tcap.requestAttributes(id, raw, in.Attributes)
 		if err != nil {
@@ -516,110 +520,6 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	return extensions, preK0, nil
 }
 
-// ReadCertificate reads a transaction certificate from the TCA.
-func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb.Cert, error) {
-	Trace.Println("gRPC TCAP:ReadCertificate")
-
-	req := in.Req.Id
-	id := in.Id.Id
-
-	if req != id && tcap.tca.eca.readRole(req)&(int(pb.Role_VALIDATOR)|int(pb.Role_AUDITOR)) == 0 {
-		return nil, errors.New("Access denied")
-	}
-
-	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := x509.ParseCertificate(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	sig := in.Sig
-	in.Sig = nil
-
-	r, s := big.NewInt(0), big.NewInt(0)
-	r.UnmarshalText(sig.R)
-	s.UnmarshalText(sig.S)
-
-	hash := primitives.NewHash()
-	raw, _ = proto.Marshal(in)
-	hash.Write(raw)
-	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		return nil, errors.New("Signature verification failed")
-	}
-
-	if in.Ts.Seconds != 0 {
-		raw, err = tcap.tca.readCertificate1(id, in.Ts.Seconds)
-	} else {
-		raw, err = tcap.tca.readCertificateByHash(in.Hash.Hash)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.Cert{raw}, nil
-}
-
-// ReadCertificateSet reads a transaction certificate set from the TCA.  Not yet implemented.
-func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq) (*pb.CertSet, error) {
-	Trace.Println("gRPC TCAP:ReadCertificateSet")
-
-	req := in.Req.Id
-	id := in.Id.Id
-
-	if req != id && tcap.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
-		return nil, errors.New("Access denied")
-	}
-
-	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := x509.ParseCertificate(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	sig := in.Sig
-	in.Sig = nil
-
-	r, s := big.NewInt(0), big.NewInt(0)
-	r.UnmarshalText(sig.R)
-	s.UnmarshalText(sig.S)
-
-	hash := primitives.NewHash()
-	raw, _ = proto.Marshal(in)
-	hash.Write(raw)
-	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		return nil, errors.New("Signature verification failed")
-	}
-
-	rows, err := tcap.tca.readCertificates(id, in.Ts.Seconds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var certs []*pb.TCert
-	var kdfKey []byte
-	for rows.Next() {
-		var raw []byte
-		if err = rows.Scan(&raw, &kdfKey); err != nil {
-			return nil, err
-		}
-
-		// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-		certs = append(certs, &pb.TCert{raw, make([]byte, 48)})
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return &pb.CertSet{in.Ts, in.Id, kdfKey, certs}, nil
-}
-
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
 func (tcap *TCAP) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
 	Trace.Println("gRPC TCAP:RevokeCertificate")
@@ -632,104 +532,6 @@ func (tcap *TCAP) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (
 	Trace.Println("gRPC TCAP:RevokeCertificateSet")
 
 	return nil, errors.New("TCAP:RevokeCertificateSet method not (yet) implemented")
-}
-
-//ReadCertificateSets returns all certificates matching the filter criteria of the request.
-func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsReq) (*pb.CertSets, error) {
-	Trace.Println("gRPC TCAA:ReadCertificateSets")
-
-	req := in.Req.Id
-	if tcaa.tca.eca.readRole(req)&int(pb.Role_AUDITOR) == 0 {
-		return nil, errors.New("Access denied")
-	}
-
-	raw, err := tcaa.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := x509.ParseCertificate(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	sig := in.Sig
-	in.Sig = nil
-
-	r, s := big.NewInt(0), big.NewInt(0)
-	r.UnmarshalText(sig.R)
-	s.UnmarshalText(sig.S)
-
-	hash := primitives.NewHash()
-	raw, _ = proto.Marshal(in)
-	hash.Write(raw)
-	if ecdsa.Verify(cert.PublicKey.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
-		return nil, errors.New("Signature verification failed")
-	}
-
-	users, err := tcaa.tca.eca.readUsers(int(in.Role))
-	if err != nil {
-		return nil, err
-	}
-	defer users.Close()
-
-	begin := int64(0)
-	end := int64(math.MaxInt64)
-	if in.Begin != nil {
-		begin = in.Begin.Seconds
-	}
-	if in.End != nil {
-		end = in.End.Seconds
-	}
-
-	var sets []*pb.CertSet
-	for users.Next() {
-		var id string
-		var role int
-		if err = users.Scan(&id, &role); err != nil {
-			return nil, err
-		}
-
-		var rows *sql.Rows
-		rows, err = tcaa.tca.eca.readCertificateSets(id, begin, end)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		var certs []*pb.TCert
-		var kdfKey []byte
-		var timestamp int64
-		timestamp = 0
-
-		for rows.Next() {
-			var cert []byte
-			var ts int64
-
-			if err = rows.Scan(&cert, &kdfKey, &ts); err != nil {
-				return nil, err
-			}
-
-			if ts != timestamp {
-				sets = append(sets, &pb.CertSet{Ts: &protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, Id: &pb.Identity{Id: id}, Key: kdfKey, Certs: certs})
-
-				timestamp = ts
-				certs = nil
-			}
-
-			// TODO: TCert must include attribute keys, we need to save them in the db when generating the batch of TCerts
-			certs = append(certs, &pb.TCert{cert, make([]byte, 48)})
-		}
-		if err = rows.Err(); err != nil {
-			return nil, err
-		}
-
-		sets = append(sets, &pb.CertSet{Ts: &protobuf.Timestamp{Seconds: timestamp, Nanos: 0}, Id: &pb.Identity{Id: id}, Key: kdfKey, Certs: certs})
-	}
-	if err = users.Err(); err != nil {
-		return nil, err
-	}
-
-	return &pb.CertSets{sets}, nil
 }
 
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.

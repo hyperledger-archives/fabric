@@ -33,10 +33,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-var identity string = "diego"
+var identity string = "test_user0"
 
 func loadECert(identityId string) (*x509.Certificate, error) {
-	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert.dump")
+	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert_" + identityId + ".dump")
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +317,7 @@ func TestRequestAttributes_MissingSignature(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes without a signature should fail")
 	}
 }
@@ -377,7 +377,7 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes with multiple values should fail")
 	}
 }

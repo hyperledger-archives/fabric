@@ -348,13 +348,20 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 		return nil, err
 	}
 
-	hash := primitives.NewHash()
-	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", spec.GetID(), timestamp, spec.GetUsage(), raw, hash.Sum(nil), kdfKey); err != nil {
-		Error.Println(err)
-	}
+	err = ca.persistCertificate(spec.GetID(), timestamp, spec.GetUsage(), raw, kdfKey)
 
 	return raw, err
+}
+
+func (ca *CA) persistCertificate(id string, timestamp int64, usage x509.KeyUsage, certRaw []byte, kdfKey []byte) error {
+	hash := primitives.NewHash()
+	hash.Write(certRaw)
+	var err error
+
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, certRaw, hash.Sum(nil), kdfKey); err != nil {
+		Error.Println(err)
+	}
+	return err
 }
 
 func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
@@ -410,10 +417,12 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 }
 
 func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
-	Trace.Println("Reading certificate for " + id + ".")
+	Trace.Printf("Reading certificate for %s and usage %v", id, usage)
 
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
+
+	Trace.Printf("err %v", err)
 
 	return raw, err
 }
