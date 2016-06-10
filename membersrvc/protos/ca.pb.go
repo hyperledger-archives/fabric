@@ -45,7 +45,6 @@ It has these top-level messages:
 	CertSet
 	CertSets
 	CertPair
-	TCertAttributeHash
 	ACAAttrReq
 	ACAAttrResp
 	ACAFetchAttrReq
@@ -686,8 +685,7 @@ func (m *TCertCreateSetReq) GetSig() *Signature {
 }
 
 type TCertAttribute struct {
-	AttributeName  string `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
-	AttributeValue string `protobuf:"bytes,2,opt,name=attributeValue" json:"attributeValue,omitempty"`
+	AttributeName string `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
 }
 
 func (m *TCertAttribute) Reset()         { *m = TCertAttribute{} }
@@ -1019,17 +1017,6 @@ func (m *CertPair) Reset()         { *m = CertPair{} }
 func (m *CertPair) String() string { return proto.CompactTextString(m) }
 func (*CertPair) ProtoMessage()    {}
 
-// TCertAttributeHash this entity includes attributeName and the hash of the attribute value. Is used within the attribute certificate authority request ACAAttrReq, ACA uses
-// this entity to check if the value sent by the client is the same or not that the attribute stored in the authority. Hash value is sent to avoid send the attribute value.
-type TCertAttributeHash struct {
-	AttributeName      string `protobuf:"bytes,1,opt,name=attributeName" json:"attributeName,omitempty"`
-	AttributeValueHash []byte `protobuf:"bytes,2,opt,name=attributeValueHash,proto3" json:"attributeValueHash,omitempty"`
-}
-
-func (m *TCertAttributeHash) Reset()         { *m = TCertAttributeHash{} }
-func (m *TCertAttributeHash) String() string { return proto.CompactTextString(m) }
-func (*TCertAttributeHash) ProtoMessage()    {}
-
 // ACAAttrReq is sent to request an ACert (attributes certificate) to the Attribute Certificate Authority (ACA).
 type ACAAttrReq struct {
 	// Request time
@@ -1039,7 +1026,7 @@ type ACAAttrReq struct {
 	// Enrollment certificate
 	ECert *Cert `protobuf:"bytes,3,opt,name=eCert" json:"eCert,omitempty"`
 	// Collection of requested attributes including the attribute name and its respective value hash.
-	Attributes []*TCertAttributeHash `protobuf:"bytes,4,rep,name=attributes" json:"attributes,omitempty"`
+	Attributes []*TCertAttribute `protobuf:"bytes,4,rep,name=attributes" json:"attributes,omitempty"`
 	// The request is signed by the TCA.
 	Signature *Signature `protobuf:"bytes,5,opt,name=signature" json:"signature,omitempty"`
 }
@@ -1069,7 +1056,7 @@ func (m *ACAAttrReq) GetECert() *Cert {
 	return nil
 }
 
-func (m *ACAAttrReq) GetAttributes() []*TCertAttributeHash {
+func (m *ACAAttrReq) GetAttributes() []*TCertAttribute {
 	if m != nil {
 		return m.Attributes
 	}

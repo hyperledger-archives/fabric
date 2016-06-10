@@ -103,14 +103,6 @@ func TestCreateCertificateSet(t *testing.T) {
 		if len(tcerts.Certs) != ncerts {
 			t.Fatal(fmt.Errorf("Invalid tcert size. Expected: %v, Actual: %v", ncerts, len(tcerts.Certs)))
 		}
-
-		attributes, err := tcap.selectValidAttributes(tcerts.Certs[0].Cert)
-		if nil != err {
-			t.Fatal(err)
-		}
-		if nil == attributes {
-			t.Fatal("tca.selectValidAttributes() returned nil")
-		}
 	}
 }
 

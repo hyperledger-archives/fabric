@@ -56,6 +56,9 @@ var (
 
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+
+	// RootPreKeySize for attribute encryption keys derivation
+	RootPreKeySize = 48
 )
 
 // TCA is the transaction certificate authority.
@@ -147,7 +150,7 @@ func (tca *TCA) readRootPreKey() error {
 	var cooked string
 	raw, err := ioutil.ReadFile(tca.path + "/root_pk.hmac")
 	if err != nil {
-		key := make([]byte, 49)
+		key := make([]byte, RootPreKeySize)
 		rand.Reader.Read(key)
 		cooked = base64.StdEncoding.EncodeToString(key)
 
@@ -184,7 +187,7 @@ func (tca *TCA) initializePreKeyNonRootGroup(group *AffiliationGroup) error {
 
 func (tca *TCA) initializePreKeyGroup(group *AffiliationGroup) error {
 	if group.parentID == 0 {
-		// This group is root ("top level")
+		//This group is root
 		group.preKey = tca.rootPreKey
 		return nil
 	}
@@ -192,7 +195,7 @@ func (tca *TCA) initializePreKeyGroup(group *AffiliationGroup) error {
 }
 
 func (tca *TCA) initializePreKeyTree() error {
-	Trace.Println("Initializing Pre-Keys")
+	Trace.Println("Initializing PreKeys.")
 	groups, err := tca.eca.readAffiliationGroups()
 	if err != nil {
 		return err
@@ -205,7 +208,7 @@ func (tca *TCA) initializePreKeyTree() error {
 				return err
 			}
 		}
-		Trace.Println("Initializing Pre-Key for group '", group.name, "'")
+		Trace.Println("Initializing PK group ", group.name)
 		tca.preKeys[group.name] = group.preKey
 	}
 
@@ -219,7 +222,7 @@ func (tca *TCA) getPreKFrom(enrollmentCertificate *x509.Certificate) ([]byte, er
 	}
 	preK := tca.preKeys[affiliation]
 	if preK == nil {
-		return nil, errors.New("Could not find a Pre-Key corresponding to affiliation group '" + affiliation + "'")
+		return nil, errors.New("Could not be found a pre-k to the affiliation group " + affiliation + ".")
 	}
 	return preK, nil
 }
@@ -249,25 +252,25 @@ func (tca *TCA) startTCAA(srv *grpc.Server) {
 
 // ReadCACertificate reads the certificate of the TCA.
 func (tcap *TCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
-	Trace.Println("gRPC TCAP:ReadCACertificate")
+	Trace.Println("grpc TCAP:ReadCACertificate")
 
-	return &pb.Cert{tcap.tca.raw}, nil
+	return &pb.Cert{Cert: tcap.tca.raw}, nil
 }
 
-func (tcap *TCAP) selectValidAttributes(certRaw []byte) ([]*pb.TCertAttribute, error) {
+func (tcap *TCAP) selectValidAttributes(certRaw []byte) ([]*pb.ACAAttribute, error) {
 	cert, err := x509.ParseCertificate(certRaw)
 	if err != nil {
 		return nil, err
 	}
 
-	ans := make([]*pb.TCertAttribute, 0)
+	var ans []*pb.ACAAttribute
 
 	if cert.Extensions == nil {
 		return ans, nil
 	}
 	currentTime := time.Now()
 	for _, extension := range cert.Extensions {
-		acaAtt := &pb.ACAAttribute{"", nil, &google_protobuf.Timestamp{0, 0}, &google_protobuf.Timestamp{0, 0}}
+		acaAtt := &pb.ACAAttribute{AttributeName: "", AttributeValue: nil, ValidFrom: &google_protobuf.Timestamp{0, 0}, ValidTo: &google_protobuf.Timestamp{0, 0}}
 
 		if IsAttributeOID(extension.Id) {
 			if err := proto.Unmarshal(extension.Value, acaAtt); err != nil {
@@ -287,32 +290,32 @@ func (tcap *TCAP) selectValidAttributes(certRaw []byte) ([]*pb.TCertAttribute, e
 
 			//Check if the attribute still being valid.
 			if (from.Before(currentTime) || from.Equal(currentTime)) && (to.IsZero() || to.After(currentTime)) {
-				ans = append(ans, &pb.TCertAttribute{acaAtt.AttributeName, string(acaAtt.AttributeValue)})
+				ans = append(ans, acaAtt)
 			}
 		}
 	}
 	return ans, nil
 }
 
-func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAttribute) ([]*pb.TCertAttribute, error) {
+func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAttribute) ([]*pb.ACAAttribute, error) {
 	//TODO we are creation a new client connection per each ecer request. We should be implement a connections pool.
 	sock, acaP, err := GetACAClient()
 	if err != nil {
 		return nil, err
 	}
 	defer sock.Close()
-	attrsHash := make([]*pb.TCertAttributeHash, 0)
+	var attrNames []*pb.TCertAttribute
 
 	for _, att := range attrs {
-		attrHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attrsHash = append(attrsHash, &attrHash)
+		attrName := pb.TCertAttribute{AttributeName: att.AttributeName}
+		attrNames = append(attrNames, &attrName)
 	}
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{id},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attrsHash,
+		Id:         &pb.Identity{Id: id},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attrNames,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -348,7 +351,7 @@ func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAt
 
 // CreateCertificateSet requests the creation of a new transaction certificate set by the TCA.
 func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
-	Trace.Println("gRPC TCAP:CreateCertificateSet")
+	Trace.Println("grpc TCAP:CreateCertificateSet")
 
 	id := in.Id.Id
 	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
@@ -360,7 +363,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 }
 
 func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.TCertCreateSetReq) (*pb.TCertCreateSetResp, error) {
-	var attrs = []*pb.TCertAttribute{}
+	var attrs = []*pb.ACAAttribute{}
 	var err error
 	var id = in.Id.Id
 	var timestamp = in.Ts.Seconds
@@ -390,7 +393,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub, hash.Sum(nil), r, s) == false {
-		return nil, errors.New("Signature verification failed")
+		return nil, errors.New("signature does not verify")
 	}
 
 	// Generate nonce for TCertIndex
@@ -454,7 +457,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 			return nil, err
 		}
 
-		set = append(set, &pb.TCert{raw, preK0})
+		set = append(set, &pb.TCert{Cert: raw, Prek0: preK0})
 	}
 
 	tcap.tca.persistCertificateSet(id, timestamp, nonce, kdfKey)
@@ -505,7 +508,7 @@ func (tca *TCA) retrieveCertificateSets(enrollmentID string) (*sql.Rows, error) 
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attrs []*pb.TCertAttribute) ([]pkix.Extension, []byte, error) {
+func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attrs []*pb.ACAAttribute) ([]pkix.Extension, []byte, error) {
 	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
 	extensions := make([]pkix.Extension, len(attrs))
 
@@ -541,12 +544,13 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	// Encrypt and append attrs to the extensions slice
 	for _, a := range attrs {
 		count++
+
 		value := []byte(a.AttributeValue)
 
 		//Save the position of the attribute extension on the header.
 		attrsHeader[a.AttributeName] = count
 
-		if viper.GetBool("tca.attribute-encryption.enabled") {
+		if isEnabledAttributesEncryption() {
 			value, err = attributes.EncryptAttributeValuePK0(preK0, a.AttributeName, value)
 			if err != nil {
 				return nil, nil, err
@@ -572,7 +576,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		if err != nil {
 			return nil, nil, err
 		}
-		if viper.GetBool("tca.attribute-encryption.enabled") {
+		if isEnabledAttributesEncryption() {
 			headerValue, err = attributes.EncryptAttributeValuePK0(preK0, attributes.HeaderAttributeName, headerValue)
 			if err != nil {
 				return nil, nil, err
@@ -586,35 +590,41 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
 func (tcap *TCAP) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("gRPC TCAP:RevokeCertificate")
+	Trace.Println("grpc TCAP:RevokeCertificate")
 
-	return nil, errors.New("TCAP:RevokeCertificate method not (yet) implemented")
+	return nil, errors.New("not yet implemented")
 }
 
 // RevokeCertificateSet revokes a certificate set from the TCA.  Not yet implemented.
 func (tcap *TCAP) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (*pb.CAStatus, error) {
-	Trace.Println("gRPC TCAP:RevokeCertificateSet")
+	Trace.Println("grpc TCAP:RevokeCertificateSet")
 
-	return nil, errors.New("TCAP:RevokeCertificateSet method not (yet) implemented")
+	return nil, errors.New("not yet implemented")
 }
 
 // RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
 func (tcaa *TCAA) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("gRPC TCAA:RevokeCertificate")
+	Trace.Println("grpc TCAA:RevokeCertificate")
 
-	return nil, errors.New("TCAA:RevokeCertificate method not (yet) implemented")
+	return nil, errors.New("not yet implemented")
 }
 
 // RevokeCertificateSet revokes a certificate set from the TCA.  Not yet implemented.
 func (tcaa *TCAA) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (*pb.CAStatus, error) {
-	Trace.Println("gRPC TCAA:RevokeCertificateSet")
+	Trace.Println("grpc TCAA:RevokeCertificateSet")
 
-	return nil, errors.New("TCAA:RevokeCertificateSet method not (yet) implemented")
+	return nil, errors.New("not yet implemented")
 }
 
 // PublishCRL requests the creation of a certificate revocation list from the TCA.  Not yet implemented.
 func (tcaa *TCAA) PublishCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, error) {
-	Trace.Println("gRPC TCAA:CreateCRL")
+	Trace.Println("grpc TCAA:CreateCRL")
 
-	return nil, errors.New("TCAA:PublichCRL method not (yet) implemented")
+	return nil, errors.New("not yet implemented")
+}
+
+func isEnabledAttributesEncryption() bool {
+	//TODO this code is commented because attributes encryption is not yet implemented.
+	//return viper.GetBool("tca.attribute-encryption.enabled")
+	return false
 }

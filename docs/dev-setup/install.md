@@ -168,6 +168,19 @@ cd $GOPATH/src/github.com/hyperledger/fabric
 make peer unit-test behave
 ```
 
+
+### Building on OSX
+First, install Docker, as described [here](https://docs.docker.com/engine/installation/mac/).
+The databse by default writes to /var/hyperledger. You can override this in the `core.yaml` configuration file, under `peer.fileSystemPath`.
+
+```
+eval $(docker-machine env)             # You will need this for every shell you want to use
+brew install go rocksdb snappy         # For RocksDB version 4.1, you can compile your own, as described earlier
+cd $GOPATH/src/github.com/hyperledger/fabric
+make peer
+```
+
+
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.
 
