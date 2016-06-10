@@ -8,3 +8,4 @@ tags=~@issue_724
 			~@issue_1565
 			~@issue_RBAC_TCERT_With_Attributes
 			~@sdk
+			~@issue_1967
