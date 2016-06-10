@@ -288,6 +288,9 @@ func (aca *ACA) fetchAttributes(id, affiliation string) ([]*AttributePair, error
 }
 
 func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	tx, dberr := aca.db.Begin()
 	if dberr != nil {
 		return dberr

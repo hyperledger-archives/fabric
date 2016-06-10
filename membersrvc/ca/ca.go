@@ -30,6 +30,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -67,6 +68,10 @@ type AffiliationGroup struct {
 	parent   *AffiliationGroup
 	preKey   []byte
 }
+
+var (
+	mutex = &sync.Mutex{}
+)
 
 // NewCertificateSpec creates a new certificate spec
 func NewCertificateSpec(id string, commonName string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time, opt ...pkix.Extension) *CertificateSpec {
@@ -340,6 +345,9 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 }
 
 func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	Trace.Println("Creating certificate for " + spec.GetID() + ".")
 
 	raw, err := ca.newCertificateFromSpec(spec)
@@ -550,20 +558,23 @@ func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role
 // registerUserWithEnrollID registers a new user and its enrollmentID, role and state
 //
 func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role, memberMetadata string, opt ...string) (string, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	roleStr, _ := MemberRoleToString(role)
 	Trace.Printf("Registering user %s as %s with memberMetadata %s\n", id, roleStr, memberMetadata)
-
-	var row int
-	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
-	if err == nil {
-		return "", errors.New("user is already registered")
-	}
 
 	var tok string
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		tok = opt[0]
 	} else {
 		tok = randomString(12)
+	}
+
+	var row int
+	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
+	if err == nil {
+		return "", errors.New("user is already registered")
 	}
 
 	_, err = ca.db.Exec("INSERT INTO Users (id, enrollmentId, token, role, metadata, state) VALUES (?, ?, ?, ?, ?, ?)", id, enrollID, tok, role, memberMetadata, 0)
@@ -573,12 +584,14 @@ func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role,
 	}
 
 	return tok, err
-
 }
 
 // registerAffiliationGroup registers a new affiliation group
 //
 func (ca *CA) registerAffiliationGroup(name string, parentName string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	Trace.Println("Registering affiliation group " + name + " parent " + parentName + ".")
 
 	var parentID int
