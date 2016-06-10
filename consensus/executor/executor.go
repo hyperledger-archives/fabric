@@ -64,20 +64,14 @@ func NewImpl(consumer consensus.ExecutionConsumer, rawExecutor PartialStack, stp
 func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 	switch et := event.(type) {
 	case executeEvent:
-		if logger.IsEnabledFor(logging.DEBUG) {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Executor is processing an executeEvent")
-			}
-		}
+		logger.Debug("Executor is processing an executeEvent")
 		if co.skipInProgress {
 			logger.Error("FATAL programming error, attempted to execute a transaction during state transfer")
 			return nil
 		}
 
 		if !co.batchInProgress {
-			if logger.IsEnabledFor(logging.DEBUG) {
-				logger.Debug("Starting new transaction batch")
-			}
+			logger.Debug("Starting new transaction batch")
 			co.batchInProgress = true
 			err := co.rawExecutor.BeginTxBatch(co)
 			_ = err // TODO This should probably panic, see issue 752
@@ -87,9 +81,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.Executed(et.tag)
 	case commitEvent:
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Executor is processing an commitEvent")
-		}
+		logger.Debug("Executor is processing an commitEvent")
 		if co.skipInProgress {
 			logger.Error("Likely FATAL programming error, attempted to commit a transaction batch during state transfer")
 			return nil
@@ -109,9 +101,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.Committed(et.tag, info)
 	case rollbackEvent:
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Executor is processing an rollbackEvent")
-		}
+		logger.Debug("Executor is processing an rollbackEvent")
 		if co.skipInProgress {
 			logger.Error("Programming error, attempted to rollback a transaction batch during state transfer")
 			return nil
@@ -129,9 +119,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.RolledBack(et.tag)
 	case stateUpdateEvent:
-		if logger.IsEnabledFor(logging.DEBUG) {
-			logger.Debug("Executor is processing an stateUpdateEvent")
-		}
+		logger.Debug("Executor is processing an stateUpdateEvent")
 		if co.batchInProgress {
 			err := co.rawExecutor.RollbackTxBatch(co)
 			_ = err // TODO This should probably panic, see issue 752
@@ -148,9 +136,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 				return nil
 			}
 			if !recoverable {
-				if logger.IsEnabledFor(logging.DEBUG) {
-					logger.Debug("State transfer failed irrecoverably, calling back to consumer: %s", err)
-				}
+				logger.Warning("State transfer failed irrecoverably, calling back to consumer: %s", err)
 				co.consumer.StateUpdated(et.tag, nil)
 				return nil
 			}
