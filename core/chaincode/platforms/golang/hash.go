@@ -68,8 +68,11 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 		}
 
 		newSlice := make([]byte, len(hash)+len(buf))
+		//copy the file contents
+		copy(newSlice[0:len(buf)], buf[:])
+		//add the previous hash
 		copy(newSlice[len(buf):], hash[:])
-		//hash = md5.Sum(newSlice)
+		//compute new hash
 		hash = util.ComputeCryptoHash(newSlice)
 
 		if tw != nil {
