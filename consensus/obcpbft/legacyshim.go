@@ -29,6 +29,8 @@ import (
 
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 
+	pb "github.com/hyperledger/fabric/protos"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
@@ -45,12 +47,14 @@ type legacyGenericShim struct {
 
 type legacyPbftShim struct {
 	*pbftCore
+	closed   chan struct{}
 	consumer legacyInnerStack
 	manager  events.Manager // Used to give the pbft core work
 }
 
 func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer legacyInnerStack) {
 	shim.pbft = &legacyPbftShim{
+		closed:   make(chan struct{}),
 		manager:  events.NewManagerImpl(),
 		consumer: consumer,
 	}
@@ -61,8 +65,36 @@ func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer leg
 	logger.Debug("Replica %d legacyGenericShim now initialized: %v", id, shim)
 }
 
+// Executed is called whenever Execute completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) Executed(tag interface{}) {
+	// Never called
+}
+
+// Committed is called whenever Commit completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) Committed(tag interface{}, target *pb.BlockchainInfo) {
+	// Never called
+}
+
+// RolledBack is called whenever a Rollback completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) RolledBack(tag interface{}) {
+	// Never called
+}
+
+// StatedUpdates is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	id, _ := proto.Marshal(target)
+	chkpt := tag.(*checkpointMessage)
+
+	shim.pbft.stateUpdated(chkpt.seqNo, id)
+}
+
 // Close releases the resources created by newLegacyGenericShim
 func (shim *legacyGenericShim) Close() {
+	select {
+	case <-shim.pbft.closed:
+	default:
+		close(shim.pbft.closed)
+	}
 	shim.pbft.manager.Halt()
 	shim.pbft.pbftCore.close()
 }
@@ -91,18 +123,18 @@ func (instance *legacyPbftShim) execDone() {
 // stateUpdated is an event telling us that the application fast-forwarded its state
 func (instance *legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
 	logger.Debugf("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.manager.Queue() <- stateUpdatedEvent{
-		seqNo: seqNo,
-		id:    id,
+	info := &pb.BlockchainInfo{}
+	err := proto.Unmarshal(id, info)
+	if err != nil {
+		logger.Errorf("Error unmarshaling: %s", err)
+		return
 	}
-}
-
-// stateUpdating is an event telling us that the application is fast-forwarding its state
-func (instance *legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
-	logger.Debugf("Replica %d queueing message that state transfer has been initiated", instance.id)
-	instance.manager.Queue() <- stateUpdatingEvent{
-		seqNo: seqNo,
-		id:    id,
+	instance.manager.Queue() <- stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: seqNo,
+			id:    id,
+		},
+		target: info,
 	}
 }
 

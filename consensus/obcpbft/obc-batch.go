@@ -233,18 +233,7 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
 
-	go op.executeImpl(txs, meta)
-}
-
-func (op *obcBatch) executeImpl(txs []*pb.Transaction, meta []byte) {
-	id := txs
-	op.stack.BeginTxBatch(id)
-	result, err := op.stack.ExecTxs(id, txs)
-	_ = err    // XXX what to do on error?
-	_ = result // XXX what to do with the result?
-	_, err = op.stack.CommitTxBatch(id, meta)
-
-	op.manager.Queue() <- execDoneEvent{}
+	op.stack.Execute(meta, txs) // This executes in the background, we will receive an executedEvent once it completes
 }
 
 // =============================================================================
@@ -415,6 +404,10 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	case batchMessageEvent:
 		ocMsg := et
 		return op.processMessage(ocMsg.msg, ocMsg.sender)
+	case executedEvent:
+		op.stack.Commit(nil, et.tag.([]byte))
+	case committedEvent:
+		return execDoneEvent{}
 	case batchTimerEvent:
 		logger.Infof("Replica %d batch timer expired", op.pbft.id)
 		if op.pbft.activeView && (len(op.batchStore) > 0) {

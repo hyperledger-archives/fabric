@@ -168,13 +168,3 @@ func (op *obcClassic) main() {
 func (op *obcClassic) idleChannel() <-chan struct{} {
 	return op.idleChan
 }
-
-// StateUpdated is a signal from the stack that it has fast-forwarded its state
-func (op *obcClassic) StateUpdated(seqNo uint64, id []byte) {
-	op.pbft.stateUpdated(seqNo, id)
-}
-
-// StateUpdating is a signal from the stack that state transfer has started
-func (op *obcClassic) StateUpdating(seqNo uint64, id []byte) {
-	op.pbft.stateUpdating(seqNo, id)
-}

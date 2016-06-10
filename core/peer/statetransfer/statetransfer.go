@@ -56,8 +56,17 @@ type PartialStack interface {
 	GetRemoteLedger(receiver *protos.PeerID) (peer.RemoteLedger, error)
 }
 
-// StateTransferState is the structure used to manage the state of state transfer
-type StateTransferState struct {
+// Coordinator is used to initiate state transfer.  Start must be called before use, and Stop should be called to free allocated resources
+type Coordinator interface {
+	Start() // Start the block transfer go routine
+	Stop()  // Stop up the block transfer go routine
+
+	// SyncToTarget attempts to move the state to the given target, returning an error, and whether this target might succeed if attempted at a later time
+	SyncToTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) (error, bool)
+}
+
+// coordinatorImpl is the structure used to manage the state of state transfer
+type coordinatorImpl struct {
 	stack PartialStack
 
 	DiscoveryThrottleTime time.Duration // The amount of time to wait after discovering there are no connected peers
@@ -94,7 +103,7 @@ type StateTransferState struct {
 // SyncToTarget consumes the calling thread and attempts to perform state transfer until success or an error occurs
 // If the peerIDs are nil, then all peers are assumed to have the given block.
 // If the call returns an error, a boolean is included which indicates if the error may be transient and the caller should retry
-func (sts *StateTransferState) SyncToTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) (error, bool) {
+func (sts *coordinatorImpl) SyncToTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID) (error, bool) {
 	logger.Debugf("%v attempting to sync to target %x for block number %d with peers %v", sts.id, blockHash, blockNumber, peerIDs)
 	bhr := &blockHashReply{
 		syncMark: syncMark{
@@ -118,15 +127,13 @@ func (sts *StateTransferState) SyncToTarget(blockNumber uint64, blockHash []byte
 	return err, recoverable
 }
 
-// InvalidateState informs state transfer that the current state is invalid.  This will trigger an immediate full state snapshot sync
-// when state transfer is initiated
-func (sts *StateTransferState) InvalidateState() {
-	sts.stateValid = false
+// Start starts the block thread go routine
+func (sts *coordinatorImpl) Start() {
+	go sts.blockThread()
 }
 
-// Stop sends a signal to any running threads to stop, regardless of whether they are stopped
-// It will never block, and if called before threads start, they will exit at startup
-func (sts *StateTransferState) Stop() {
+// Stop stops the blockthread go routine
+func (sts *coordinatorImpl) Stop() {
 	select {
 	case <-sts.threadExit:
 	default:
@@ -138,11 +145,10 @@ func (sts *StateTransferState) Stop() {
 // constructors
 // =============================================================================
 
-// threadlessNewStateTransferState constructs StateTransferState, but does not start any of its threads
-// this is useful primarily for testing
-func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
+// NewCoordinatorImpl constructs a coordinatorImpl
+func NewCoordinatorImpl(stack PartialStack) Coordinator {
 	var err error
-	sts := &StateTransferState{}
+	sts := &coordinatorImpl{}
 
 	sts.stack = stack
 	ep, err := stack.GetPeerEndpoint()
@@ -207,15 +213,6 @@ func threadlessNewStateTransferState(stack PartialStack) *StateTransferState {
 	return sts
 }
 
-// NewStateTransferState constructs a new state transfer state, including its maintenance threads
-func NewStateTransferState(stack PartialStack) *StateTransferState {
-	sts := threadlessNewStateTransferState(stack)
-
-	go sts.blockThread()
-
-	return sts
-}
-
 // =============================================================================
 // custom interfaces and structure definitions
 // =============================================================================
@@ -265,7 +262,7 @@ func (a blockRangeSlice) Less(i, j int) bool {
 
 // Executes a func trying each peer included in peerIDs until successful
 // Attempts to execute over all peers if peerIDs is nil
-func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do func(peerID *protos.PeerID) error) (err error) {
+func (sts *coordinatorImpl) tryOverPeers(passedPeerIDs []*protos.PeerID, do func(peerID *protos.PeerID) error) (err error) {
 
 	peerIDs := passedPeerIDs
 
@@ -318,7 +315,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 // Attempts to complete a blockSyncReq using the supplied peers
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
-func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, peerIDs []*protos.PeerID) (uint64, *protos.Block, error) {
+func (sts *coordinatorImpl) syncBlocks(highBlock, lowBlock uint64, highHash []byte, peerIDs []*protos.PeerID) (uint64, *protos.Block, error) {
 	logger.Debugf("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
 	validBlockHash := highHash
 	blockCursor := highBlock
@@ -441,7 +438,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 }
 
-func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyncReq) {
+func (sts *coordinatorImpl) syncBlockchainToCheckpoint(blockSyncReq *blockSyncReq) {
 
 	logger.Debugf("%v is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
 
@@ -465,7 +462,7 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 	}
 }
 
-func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
+func (sts *coordinatorImpl) verifyAndRecoverBlockchain() bool {
 
 	if 0 == len(sts.validBlockRanges) {
 		size := sts.stack.GetBlockchainSize()
@@ -573,7 +570,7 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 	return false
 }
 
-func (sts *StateTransferState) blockThread() {
+func (sts *coordinatorImpl) blockThread() {
 
 	sts.blockThreadIdle = false
 	for {
@@ -617,11 +614,11 @@ func (sts *StateTransferState) blockThread() {
 	}
 }
 
-func (sts *StateTransferState) attemptStateTransfer(mark *blockHashReply) (error, bool) {
+func (sts *coordinatorImpl) attemptStateTransfer(mark *blockHashReply) (error, bool) {
 	var err error
 
 	if sts.currentStateBlockNumber+uint64(sts.maxStateDeltas) < mark.blockNumber {
-		sts.InvalidateState()
+		sts.stateValid = false
 	}
 
 	if !sts.stateValid {
@@ -705,7 +702,7 @@ func (sts *StateTransferState) attemptStateTransfer(mark *blockHashReply) (error
 }
 
 // blockUntilIdle makes a best effort to block until the state transfer is idle
-func (sts *StateTransferState) blockUntilIdle() {
+func (sts *coordinatorImpl) blockUntilIdle() {
 	logger.Debugf("%v caller requesting to block until idle", sts.id)
 	select {
 	case <-sts.blockThreadIdleChan:
@@ -713,7 +710,7 @@ func (sts *StateTransferState) blockUntilIdle() {
 	}
 }
 
-func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
+func (sts *coordinatorImpl) playStateUpToBlockNumber(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
 	logger.Debugf("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
@@ -776,7 +773,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 
 				if !success {
 					if nil != sts.stack.RollbackStateDelta(deltaMessage) {
-						sts.InvalidateState()
+						sts.stateValid = false
 						return fmt.Errorf("%v played state forward according to %v, but the state hash did not match, failed to roll back, invalidated state", sts.id, peerID)
 					}
 					return fmt.Errorf("%v played state forward according to %v, but the state hash did not match, rolled back", sts.id, peerID)
@@ -784,7 +781,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 				}
 
 				if nil != sts.stack.CommitStateDelta(deltaMessage) {
-					sts.InvalidateState()
+					sts.stateValid = false
 					return fmt.Errorf("%v played state forward according to %v, hashes matched, but failed to commit, invalidated state", sts.id, peerID)
 				}
 
@@ -806,7 +803,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 // This function will retrieve the current state from a peer.
 // Note that no state verification can occur yet, we must wait for the next checkpoint, so it is important
 // not to consider this state as valid
-func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
+func (sts *coordinatorImpl) syncStateSnapshot(minBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
 
 	logger.Debugf("%v attempting to retrieve state snapshot from recovery from %v", sts.id, peerIDs)
 
@@ -868,7 +865,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 // The below were stolen from helper.go, they should eventually be removed there, and probably made private here
 
 // GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
-func (sts *StateTransferState) GetRemoteBlocks(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
+func (sts *coordinatorImpl) GetRemoteBlocks(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncBlocks, error) {
 	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -880,7 +877,7 @@ func (sts *StateTransferState) GetRemoteBlocks(replicaID *protos.PeerID, start, 
 }
 
 // GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
-func (sts *StateTransferState) GetRemoteStateSnapshot(replicaID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
+func (sts *coordinatorImpl) GetRemoteStateSnapshot(replicaID *protos.PeerID) (<-chan *protos.SyncStateSnapshot, error) {
 	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err
@@ -889,7 +886,7 @@ func (sts *StateTransferState) GetRemoteStateSnapshot(replicaID *protos.PeerID) 
 }
 
 // GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
-func (sts *StateTransferState) GetRemoteStateDeltas(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
+func (sts *coordinatorImpl) GetRemoteStateDeltas(replicaID *protos.PeerID, start, finish uint64) (<-chan *protos.SyncStateDeltas, error) {
 	remoteLedger, err := sts.stack.GetRemoteLedger(replicaID)
 	if nil != err {
 		return nil, err

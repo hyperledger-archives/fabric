@@ -154,6 +154,7 @@ type omniProto struct {
 	GetCurrentStateHashImpl    func() (stateHash []byte, err error)
 	GetBlockchainSizeImpl      func() uint64
 	GetBlockHeadMetadataImpl   func() ([]byte, error)
+	GetBlockchainInfoImpl      func() *pb.BlockchainInfo
 	GetBlockchainInfoBlobImpl  func() []byte
 	HashBlockImpl              func(block *pb.Block) ([]byte, error)
 	VerifyBlockchainImpl       func(start, finish uint64) (uint64, error)
@@ -162,6 +163,10 @@ type omniProto struct {
 	CommitStateDeltaImpl       func(id interface{}) error
 	RollbackStateDeltaImpl     func(id interface{}) error
 	EmptyStateImpl             func() error
+	ExecuteImpl                func(id interface{}, txs []*pb.Transaction)
+	CommitImpl                 func(id interface{}, meta []byte)
+	RollbackImpl               func(id interface{})
+	UpdateStateImpl            func(id interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID)
 	BeginTxBatchImpl           func(id interface{}) error
 	ExecTxsImpl                func(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatchImpl          func(id interface{}, metadata []byte) (*pb.Block, error)
@@ -274,6 +279,13 @@ func (op *omniProto) GetBlockHeadMetadata() ([]byte, error) {
 func (op *omniProto) GetBlockchainInfoBlob() []byte {
 	if nil != op.GetBlockchainInfoBlobImpl {
 		return op.GetBlockchainInfoBlobImpl()
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetBlockchainInfo() *pb.BlockchainInfo {
+	if nil != op.GetBlockchainInfoImpl {
+		return op.GetBlockchainInfoImpl()
 	}
 
 	panic("Unimplemented")
@@ -558,6 +570,34 @@ func (op *omniProto) validateState() {
 func (op *omniProto) invalidateState() {
 	if nil != op.invalidateStateImpl {
 		op.invalidateStateImpl()
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Commit(tag interface{}, meta []byte) {
+	if nil != op.CommitImpl {
+		op.CommitImpl(tag, meta)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
+	if nil != op.UpdateStateImpl {
+		op.UpdateStateImpl(tag, target, peers)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Rollback(tag interface{}) {
+	if nil != op.RollbackImpl {
+		op.RollbackImpl(tag)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Execute(tag interface{}, txs []*pb.Transaction) {
+	if nil != op.ExecuteImpl {
+		op.ExecuteImpl(tag, txs)
 		return
 	}
 	panic("unimplemented")

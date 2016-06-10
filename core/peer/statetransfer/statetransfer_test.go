@@ -55,12 +55,14 @@ func newPartialStack(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) Partial
 	}
 }
 
-func newTestStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
-	return NewStateTransferState(newPartialStack(ml, rld))
+func newTestStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *coordinatorImpl {
+	ci := NewCoordinatorImpl(newPartialStack(ml, rld)).(*coordinatorImpl)
+	ci.Start()
+	return ci
 }
 
-func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *StateTransferState {
-	return threadlessNewStateTransferState(newPartialStack(ml, rld))
+func newTestThreadlessStateTransfer(ml *MockLedger, rld *MockRemoteHashLedgerDirectory) *coordinatorImpl {
+	return NewCoordinatorImpl(newPartialStack(ml, rld)).(*coordinatorImpl)
 }
 
 type MockRemoteHashLedgerDirectory struct {
@@ -85,7 +87,7 @@ func createRemoteLedgers(low, high uint64) *MockRemoteHashLedgerDirectory {
 	return &MockRemoteHashLedgerDirectory{&HashLedgerDirectory{rols}}
 }
 
-func executeStateTransfer(sts *StateTransferState, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *MockRemoteHashLedgerDirectory) error {
+func executeStateTransfer(sts *coordinatorImpl, ml *MockLedger, blockNumber, sequenceNumber uint64, mrls *MockRemoteHashLedgerDirectory) error {
 
 	for peerID := range mrls.remoteLedgers {
 		mrls.GetMockRemoteLedgerByPeerID(&peerID).blockHeight = blockNumber + 1

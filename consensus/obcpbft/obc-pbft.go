@@ -131,7 +131,13 @@ type obcGeneric struct {
 }
 
 func (op *obcGeneric) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.stack.SkipTo(seqNo, id, getValidatorHandles(replicas))
+	info := &pb.BlockchainInfo{}
+	err := proto.Unmarshal(id, info)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error unmarshaling: %s", err))
+		return
+	}
+	op.stack.UpdateState(&checkpointMessage{seqNo, id}, info, getValidatorHandles(replicas))
 }
 
 func (op *obcGeneric) invalidateState() {
