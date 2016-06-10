@@ -68,7 +68,7 @@ eca:
                 # (See the 'fabric/membersrvc/protos/ca.proto' file for the definition of ECAA.RegisterUser.)
                 # Note that this also controls who can register users via the client SDK.
                 #
-                # Only users with a 'registrar' section may be a registrar to register other users.  In particular, 
+                # Only users with a 'registrar' section may be a registrar to register other users.  In particular,
                 # 1) the "roles" field specifies which member roles may be registered by this user, and
                 # 2) the "delegateRoles" field specifies which member roles may become the "roles" field of registered users.
                 # The valid role names are "client", "peer", "validator", and "auditor".
@@ -123,8 +123,7 @@ eca:
                 test_nvp9: 2 VlEsBsiyXSjw institution_a 00015
 
 tca:
-          # Enabling/disabling attributes encryption, if is enabled attributes within the certificate will be encrypted using a specific key for each attribute,
-          # in otherwise cleartext attribute value will be added into the certificate.
+          # Enabling/disabling attributes encryption, currently false is unique possible value due attributes encryption is not yet implemented.
           attribute-encryption:
                  enabled: false
 aca:

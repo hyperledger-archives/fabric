@@ -482,7 +482,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		//Save the position of the attribute extension on the header.
 		attrsHeader[a.AttributeName] = count
 
-		if viper.GetBool("tca.attribute-encryption.enabled") {
+		if isEnabledAttributesEncryption() {
 			value, err = attributes.EncryptAttributeValuePK0(preK0, a.AttributeName, value)
 			if err != nil {
 				return nil, nil, err
@@ -508,7 +508,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		if err != nil {
 			return nil, nil, err
 		}
-		if viper.GetBool("tca.attribute-encryption.enabled") {
+		if isEnabledAttributesEncryption() {
 			headerValue, err = attributes.EncryptAttributeValuePK0(preK0, attributes.HeaderAttributeName, headerValue)
 			if err != nil {
 				return nil, nil, err
@@ -753,4 +753,10 @@ func (tcaa *TCAA) PublishCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, er
 	Trace.Println("grpc TCAA:CreateCRL")
 
 	return nil, errors.New("not yet implemented")
+}
+
+func isEnabledAttributesEncryption() bool {
+	//TODO this code is commented because attributes encryption is not yet implemented.
+	//return viper.GetBool("tca.attribute-encryption.enabled")
+	return false
 }
