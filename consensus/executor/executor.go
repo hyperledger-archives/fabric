@@ -136,7 +136,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 				return nil
 			}
 			if !recoverable {
-				logger.Warning("State transfer failed irrecoverably, calling back to consumer: %s", err)
+				logger.Warningf("State transfer failed irrecoverably, calling back to consumer: %s", err)
 				co.consumer.StateUpdated(et.tag, nil)
 				return nil
 			}
