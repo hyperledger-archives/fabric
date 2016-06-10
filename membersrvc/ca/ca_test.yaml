@@ -119,8 +119,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        validity-period:
-            verification: false
+
 
     # TLS Settings for p2p communications
     tls:
@@ -359,18 +358,6 @@ aca:
     enabled: true
 
 pki:
-        validity-period:
-            update: false
-            chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
-            tls:
-                    enabled: false
-                    cert:
-                            file: testdata/server1.pem
-                    key:
-                            file: testdata/server1.key
-
-            devops-address: 0.0.0.0:30303
-
         ca:
             subject:
                 organization: Hyperledger

@@ -1436,8 +1436,6 @@ func setup() {
 	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "obc-crypto-tests", "peers"))
 	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca"))
 	viper.Set("peer.pki.tls.rootcert.file", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca", "tlsca.cert"))
-	viper.Set("pki.validity-period.update", "false")
-	viper.Set("validator.validity-period.verification", "false")
 
 	// Logging
 	var formatter = logging.MustStringFormatter(

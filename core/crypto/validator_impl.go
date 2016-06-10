@@ -20,6 +20,7 @@ import (
 	"crypto/ecdsa"
 
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -58,14 +59,6 @@ func (validator *validatorImpl) TransactionPreExecution(tx *obc.Transaction) (*o
 
 	//	validator.debug("Pre executing [%s].", tx.String())
 	validator.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
-
-	if validityPeriodVerificationEnabled() {
-		tx, err := validator.verifyValidityPeriod(tx)
-		if err != nil {
-			validator.error("TransactionPreExecution: error verifying certificate validity period %s:", err)
-			return tx, err
-		}
-	}
 
 	switch tx.ConfidentialityLevel {
 	case obc.ConfidentialityLevel_PUBLIC:

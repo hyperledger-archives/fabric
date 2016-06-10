@@ -60,21 +60,6 @@ func MakeGenesis() error {
 			}
 		}()
 
-		//We are disabling the validity period deployment for now, we shouldn't even allow it if it's enabled in the configuration
-		allowDeployValidityPeriod := false
-
-		if isDeploySystemChaincodeEnabled() && allowDeployValidityPeriod {
-			vpTransaction, deployErr := deployUpdateValidityPeriodChaincode(genesisBlockExists)
-
-			if deployErr != nil {
-				genesisLogger.Error("Error deploying validity period system chaincode for genesis block.", deployErr)
-				makeGenesisError = deployErr
-				return
-			}
-
-			genesisTransactions = append(genesisTransactions, vpTransaction)
-		}
-
 		if getGenesis() == nil {
 			genesisLogger.Info("No genesis block chaincodes defined.")
 		} else {
@@ -229,37 +214,4 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 	//ctx = context.WithValue(ctx, "security", secCxt)
 	result, _, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return transaction, result, err
-}
-
-func deployUpdateValidityPeriodChaincode(gbexists bool) (*protos.Transaction, error) {
-	//TODO It should be configurable, not hardcoded
-	vpChaincodePath := "github.com/hyperledger/fabric/core/system_chaincode/validity_period_update"
-	vpFunction := "init"
-
-	//TODO: this should be the login token for the component in charge of the validity period update.
-	//This component needs to be registered in the system to be able to invoke the update validity period system chaincode.
-	vpToken := "system_chaincode_invoker"
-
-	var vpCtorArgsStringArray []string
-
-	validityPeriodSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
-		ChaincodeID: &protos.ChaincodeID{Path: vpChaincodePath,
-			Name: "",
-		},
-		CtorMsg: &protos.ChaincodeInput{Function: vpFunction,
-			Args: vpCtorArgsStringArray,
-		},
-	}
-
-	validityPeriodSpec.SecureContext = string(vpToken)
-
-	vpTransaction, _, deployErr := DeployLocal(context.Background(), validityPeriodSpec, gbexists)
-
-	if deployErr != nil {
-		genesisLogger.Error("Error deploying validity period chaincode for genesis block.", deployErr)
-		makeGenesisError = deployErr
-		return nil, deployErr
-	}
-
-	return vpTransaction, nil
 }

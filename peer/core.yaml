@@ -151,11 +151,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification
-        # of the validity period in the validator
-        validity-period:
-            verification: false
-
+        
     # TLS Settings for p2p communications
     tls:
         enabled:  false
