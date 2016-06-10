@@ -72,8 +72,8 @@ type Client interface {
 	// ReadAttribute reads the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
 	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
 
-	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert() (tCert, error)
+	// GetNextTCert returns a slice of a requested number of (not yet used) transaction certificates
+	GetNextTCerts(int) ([]tCert, error)
 }
 
 // Peer is an entity able to verify transactions

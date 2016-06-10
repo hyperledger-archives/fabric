@@ -3038,8 +3038,7 @@ The CLI includes a subset of the available APIs to enable developers to quickly 
 
 To see what CLI commands are currently available in the implementation, execute the following:
 
-    cd $GOPATH/src/github.com/hyperledger/fabic/peer
-    ./peer
+    $ peer
 
 You will receive a response similar to below:
 
@@ -3084,13 +3083,13 @@ Note, that any configuration settings for the peer node listed in the `core.yaml
 The CLI `peer` command will execute the peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete network. An example for starting the peer in development mode follows:
 
 ```
-./peer peer --peer-chaincodedev
+peer peer --peer-chaincodedev
 ```
 
 To start the peer process in production mode, modify the above command as follows:
 
 ```
-./peer peer
+peer peer
 ```
 
 #### 6.3.1.2 login
@@ -3098,13 +3097,13 @@ To start the peer process in production mode, modify the above command as follow
 The CLI `login` command will login a user, that is already registered with the CA, through the CLI. To login through the CLI, issue the following command, where `username` is the enrollment ID of a registered user.
 
 ```
-./peer login <username>
+peer login <username>
 ```
 
 The example below demonstrates the login process for user `jim`.
 
 ```
-./peer login jim
+peer login jim
 ```
 
 The command will prompt for a password, which must match the enrollment password for this user registered with the certificate authority. If the password entered does not match the registered password, an error will result.
@@ -3121,7 +3120,7 @@ Enter password for user 'jim': ************
 You can also pass a password for the user with `-p` parameter. An example is below.
 
 ```
-./peer login jim -p 123456
+peer login jim -p 123456
 ```
 
 #### 6.3.1.3 chaincode deploy
@@ -3129,13 +3128,13 @@ You can also pass a password for the user with `-p` parameter. An example is bel
 The CLI `deploy` command creates the docker image for the chaincode and subsequently deploys the package to the validating peer. An example is below.
 
 ```
-./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+peer chaincode deploy -u jim -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 **Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
@@ -3145,13 +3144,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `invoke` command executes a specified function within the target chaincode. An example is below.
 
 ```
-./peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+peer chaincode invoke -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+peer chaincode invoke -u jim -n <name_value_returned_from_deploy_command> -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 ```
 
 #### 6.3.1.5 chaincode query
@@ -3159,13 +3158,13 @@ With security enabled, the command must be modified to pass an enrollment id of 
 The CLI `query` command triggers a specified query method within the target chaincode. The response that is returned depends on the chaincode implementation. An example is below.
 
 ```
-./peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+peer chaincode query -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 With security enabled, the command must be modified to pass an enrollment id of a logged in user with the `-u` parameter. An example is below.
 
 ```
-./peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
+peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
 
 

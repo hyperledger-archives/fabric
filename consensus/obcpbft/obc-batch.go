@@ -237,7 +237,7 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 }
 
 func (op *obcBatch) executeImpl(txs []*pb.Transaction, meta []byte) {
-	id := []byte("foo")
+	id := txs
 	op.stack.BeginTxBatch(id)
 	result, err := op.stack.ExecTxs(id, txs)
 	_ = err    // XXX what to do on error?
@@ -279,6 +279,13 @@ func (op *obcBatch) leaderProcReq(req *Request) events.Event {
 func (op *obcBatch) sendBatch() events.Event {
 	op.stopBatchTimer()
 
+	if len(op.batchStore) == 0 {
+		logger.Error("Told to send an empty batch store for ordering, ignoring")
+		return nil
+	}
+
+	earliestRequest := op.batchStore[0]
+
 	reqBlock := &RequestBlock{op.batchStore}
 	op.batchStore = nil
 
@@ -291,7 +298,11 @@ func (op *obcBatch) sendBatch() events.Event {
 	// process internally
 	logger.Info("Creating batch with %d requests", len(reqBlock.Requests))
 	return pbftMessageEvent{
-		msg:    &Message{&Message_Request{&Request{Payload: reqsPacked, ReplicaId: op.pbft.id}}},
+		msg: &Message{&Message_Request{&Request{
+			Payload:   reqsPacked,
+			Timestamp: earliestRequest.Timestamp,
+			ReplicaId: op.pbft.id},
+		}},
 		sender: op.pbft.id,
 	}
 }

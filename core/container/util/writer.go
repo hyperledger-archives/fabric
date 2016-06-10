@@ -31,6 +31,14 @@ import (
 
 var vmLogger = logging.MustGetLogger("container")
 
+var fileTypes = map[string]bool{
+	".c":    true,
+	".h":    true,
+	".go":   true,
+	".yaml": true,
+	".json": true,
+}
+
 //WriteGopathSrc tars up files under gopath src
 func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 	gopath := os.Getenv("GOPATH")
@@ -64,6 +72,12 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		}
 		// Because of scoping we can reference the external rootDirectory variable
 		if len(path[rootDirLen:]) == 0 {
+			return nil
+		}
+
+		// we only want 'fileTypes' source files at this point
+		ext := filepath.Ext(path)
+		if _, ok := fileTypes[ext]; ok != true {
 			return nil
 		}
 
