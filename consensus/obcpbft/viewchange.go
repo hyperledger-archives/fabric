@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 )
 
-// viewChangeQuorumEvent is returned to the event loop when the number of view change matches is exactly the required quorum size
+// viewChangeQuorumEvent is returned to the event loop when a new ViewChange message is received which is part of a quorum cert
 type viewChangeQuorumEvent struct{}
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
@@ -237,7 +237,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 	logger.Debugf("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
 	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
-		if quorum == instance.allCorrectReplicasQuorum() {
+		if quorum >= instance.allCorrectReplicasQuorum() {
 			instance.startTimer(instance.lastNewViewTimeout, "new view change")
 			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 			return viewChangeQuorumEvent{}
@@ -354,8 +354,23 @@ func (instance *pbftCore) processNewView() events.Event {
 		}
 
 		instance.skipInProgress = true
-		instance.stateTransferring = true
-		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
+
+		if instance.highStateTarget == nil || instance.highStateTarget.seqNo < cp.SequenceNumber {
+			instance.highStateTarget = &stateUpdateTarget{
+				checkpointMessage: checkpointMessage{
+					seqNo: cp.SequenceNumber,
+					id:    snapshotID,
+				},
+				replicas: replicas,
+			}
+		}
+
+		if instance.currentExec == nil {
+			// Make sure we are not currently executing, it's not safe to state transfer if we are
+			instance.stateTransferring = true
+			instance.consumer.invalidateState()
+			instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
+		}
 	}
 
 	for n, d := range nv.Xset {

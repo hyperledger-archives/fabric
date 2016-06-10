@@ -374,6 +374,11 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 		instance.executeOutstanding()
 	case execDoneEvent:
 		instance.execDoneSync()
+		if instance.skipInProgress {
+			logger.Debug("Replica %d had state transfer needed during an execution, now transfering to seqNo %d", instance.id, instance.highStateTarget.seqNo)
+			instance.stateTransferring = true
+			instance.consumer.skipTo(instance.highStateTarget.seqNo, instance.highStateTarget.id, instance.highStateTarget.replicas)
+		}
 	case nullRequestEvent:
 		instance.nullRequestHandler()
 	case workEvent:
