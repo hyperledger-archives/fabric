@@ -64,8 +64,7 @@ type OpenchainDB struct {
 	mux          sync.Mutex
 }
 
-var openchainDB *OpenchainDB
-var once sync.Once
+var openchainDB = Create()
 
 // Create create an openchainDB instance
 func Create() *OpenchainDB {
@@ -74,11 +73,7 @@ func Create() *OpenchainDB {
 
 // GetDBHandle get an opened openchainDB singleton
 func GetDBHandle() *OpenchainDB {
-	once.Do(func() {
-		openchainDB = Create()
-	})
 	openchainDB.Open()
-
 	return openchainDB
 }
 
