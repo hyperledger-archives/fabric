@@ -1396,7 +1396,7 @@ export class TransactionContext extends events.EventEmitter {
         let self = this;
 
         // Determine the user's $GOPATH
-        let goPath =  process.env.GOPATH;
+        let goPath =  process.env['GOPATH'];
         debug("$GOPATH: " + goPath);
 
         // Compose the path to the chaincode project directory

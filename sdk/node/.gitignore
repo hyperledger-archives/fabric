@@ -12,3 +12,4 @@ node_modules/*
 /lib/sdk_util.js
 /lib/sdk_util.js.map
 /typings/
+doc
