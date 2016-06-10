@@ -317,7 +317,7 @@ func TestRequestAttributes_MissingSignature(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes without a signature should fail")
 	}
 }
@@ -377,7 +377,7 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes with multiple values should fail")
 	}
 }

@@ -68,22 +68,48 @@ func TestCreateCertificateSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, 1)
-	if err != nil {
-		t.Fatal(err)
+	ncerts := 1
+	for nattributes := -1; nattributes < 2; nattributes++ {
+		if nattributes > 0 {
+			continue
+		}
+		certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, ncerts, nattributes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tcap := &TCAP{tca}
+		response, err := tcap.createCertificateSet(context.Background(), ecertRaw, certificateSetRequest)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tcerts := response.GetCerts()
+		if len(tcerts.Certs) != ncerts {
+			t.Fatal(fmt.Errorf("Invalid tcert size. Expected: %v, Actual: %v", ncerts, len(tcerts.Certs)))
+		}
+
+		attributes, err := tcap.selectValidAttributes(tcerts.Certs[0].Cert)
+		if nil != err {
+			t.Fatal(err)
+		}
+		if nil == attributes {
+			t.Fatal("tca.selectValidAttributes() returned nil")
+		}
 	}
 
-	tcap := &TCAP{tca}
-	response, err := tcap.createCertificateSet(context.Background(), ecertRaw, certificateSetRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tcerts := response.GetCerts()
-
-	if len(tcerts.Certs) != 1 {
-		t.Fatal(fmt.Errorf("Invalid tcert size. Expected: %v, Actual: %v", 1, len(tcerts.Certs)))
-	}
+	/*
+		if false {
+			var attrs = []*protos.TCertAttribute{}
+			attributes, err := tcap.requestAttributes(enrollmentID, ecertRaw, attrs)
+			if nil != err {
+				t.Fatal(err)
+			}
+			if nil == attributes {
+				t.Fatal("tca.requestAttributes() returned nil")
+			}
+		}
+	*/
 }
 
 func loadECertAndEnrollmentPrivateKey(enrollmentID string, password string) ([]byte, *ecdsa.PrivateKey, error) {
@@ -129,6 +155,11 @@ func initTCA() (*TCA, error) {
 		return nil, fmt.Errorf("Could not create a new ECA")
 	}
 
+	aca := NewACA()
+	if aca == nil {
+		return nil, fmt.Errorf("Could not create a new ACA")
+	}
+
 	tca := NewTCA(eca)
 	if tca == nil {
 		return nil, fmt.Errorf("Could not create a new TCA")
@@ -137,11 +168,14 @@ func initTCA() (*TCA, error) {
 	return tca, nil
 }
 
-func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.PrivateKey, num int) (*protos.TCertCreateSetReq, error) {
+func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.PrivateKey, num, numattrs int) (*protos.TCertCreateSetReq, error) {
 	now := time.Now()
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
 	var attributes []*protos.TCertAttribute
+	if numattrs >= 0 { // else negative means use nil from above
+		attributes = make([]*protos.TCertAttribute, numattrs)
+	}
 
 	req := &protos.TCertCreateSetReq{
 		Ts:         &timestamp,
@@ -166,4 +200,23 @@ func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.Privat
 
 	req.Sig = &protos.Signature{Type: protos.CryptoType_ECDSA, R: R, S: S}
 	return req, nil
+}
+
+func TestReadCACertificate(t *testing.T) {
+	//	t.Skip()
+
+	tca, err := initTCA()
+	if nil != err {
+		t.Fatal(err)
+	}
+
+	pbempty := &protos.Empty{}
+	tcap := &TCAP{tca}
+	response, err := tcap.ReadCACertificate(context.Background(), pbempty)
+	if nil != err {
+		t.Fatal(err)
+	}
+	if nil == response {
+		t.Fatal("tca.ReadCACertificate() returned nil")
+	}
 }
