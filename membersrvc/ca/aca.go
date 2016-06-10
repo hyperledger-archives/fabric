@@ -455,8 +455,6 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 		fail = pb.ACAAttrResp_FAIL_NIL_ECERT
 	} else if nil == in.Signature {
 		fail = pb.ACAAttrResp_FAIL_NIL_SIGNATURE
-		//	} else if nil == in.Attributes {
-		//		fail = pb.ACAAttrResp_FAIL_NIL_ATTRIBUTES
 	}
 	if pb.ACAAttrResp_FULL_SUCCESSFUL != fail {
 		return acap.createRequestAttributeResponse(fail, nil), nil

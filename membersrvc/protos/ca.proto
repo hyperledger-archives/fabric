@@ -340,8 +340,8 @@ message ACAAttrResp {
 	// Processed with errors.
 	option allow_alias = true;
 	FAILURE_MINVAL = 100;
-	FAILURE				= 100;
-	BAD_REQUEST				= 200;
+	FAILURE = 100;
+	BAD_REQUEST = 200;
 	// Missing parameters
 	FAIL_NIL_TS = 201;
 	FAIL_NIL_ID = 202;
@@ -372,10 +372,10 @@ message ACAFetchAttrReq {
 //ACAFetchAttrReq is the answer of the Attribute Certificate Authority (ACA) to the refresh request.
 message ACAFetchAttrResp {
 	enum StatusCode {
-	// Processed OK
-	SUCCESS = 000;
-	// Processed with errors.
-	FAILURE = 100;
+	   // Processed OK
+       SUCCESS = 000;
+       // Processed with errors.
+       FAILURE = 100;
 	}
 	// Status of the fetch process.
 	StatusCode status = 1;

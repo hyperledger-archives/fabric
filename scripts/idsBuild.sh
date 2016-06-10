@@ -92,7 +92,7 @@ PrepareDocker() {
 #
 BuildDockerImage() {
 	echo "--> Building Docker Image - HOST=$DOCKER_HOST"
-	./docker -H $DOCKER_HOST build -t hyperledger-peer .
+	./docker -H $DOCKER_HOST build -t hyperledger/fabric-peer .
 }
 
 # Params - Docker host, PeerID, Host, Port

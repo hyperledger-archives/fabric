@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -31,23 +30,6 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
 )
-
-// Find the instance of "name" installed on the host's $PATH and inject it into the package
-// This is a bit naive in that it assumes that the file returned from "which" is all that is
-// required to run the binary in a different environment.  If the binary happened to have
-// dependencies (such as to .so libraries or /etc/ files, etc) this probably wouldn't work
-// as expected.  However, our intended use cases involves binaries generated in golang and
-// clojure, both of which have a tendency to create stand-alone binaries.  Therefore, this
-// is still helpful despite being a bit dumb.
-func writeExecutableToPackage(name string, tw *tar.Writer) error {
-	cmd := exec.Command("which", name)
-	path, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("Error determining %s path dynamically", name)
-	}
-
-	return cutil.WriteFileToPackage(strings.Trim(string(path), "\n"), "bin/"+name, tw)
-}
 
 func download(path string) (string, error) {
 	if strings.HasPrefix(path, "http://") {
@@ -97,7 +79,6 @@ func (carPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer
 
 	//let the executable's name be chaincode ID's name
 	buf = append(buf, viper.GetString("chaincode.car.Dockerfile"))
-	buf = append(buf, "COPY bin/* /usr/local/bin/")
 	buf = append(buf, "COPY package.car /tmp/package.car")
 	buf = append(buf, fmt.Sprintf("RUN chaintool buildcar /tmp/package.car -o $GOPATH/bin/%s && rm /tmp/package.car", spec.ChaincodeID.Name))
 
@@ -112,20 +93,6 @@ func (carPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer
 	err = cutil.WriteFileToPackage(path, "package.car", tw)
 	if err != nil {
 		return err
-	}
-
-	err = writeExecutableToPackage("protoc-gen-go", tw)
-	if err != nil {
-		return err
-	}
-	err = writeExecutableToPackage("chaintool", tw)
-	if err != nil {
-		return err
-	}
-
-	err = cutil.WriteGopathSrc(tw, "")
-	if err != nil {
-		return fmt.Errorf("Error writing Chaincode package contents: %s", err)
 	}
 
 	return nil
