@@ -1,16 +1,10 @@
 #!/bin/bash
 
-if [ "$1" = "false" ]; then
-
-	echo " Pull Request number is $1 "
-	echo " User Name is $2 "
-	echo " Repository Name is $3 "
-
-rm -rf $HOME/gopath/src/github.com/hyperledger/
-
-fi
-
 if [ "$2" != "hyperledger" ]; then
+
+        echo " Pull Request number is $1 "
+        echo " User Name is $2 "
+	echo " Repository Name is $3 "
 
 mkdir -p $HOME/gopath/src/github.com/hyperledger
 
