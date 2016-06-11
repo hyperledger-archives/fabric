@@ -130,17 +130,14 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 		return nil, err
 	}
 
-	if rawMetadata == nil {
-		return nil, errors.New("The rawMetadata can't be nil.")
-	}
-
-	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
-
 	keys := make(map[string][]byte)
 
-	if err == nil {
-		for _, entry := range attrsMetadata.Entries {
-			keys[entry.AttributeName] = entry.AttributeKey
+	if rawMetadata != nil {
+		attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
+		if err == nil {
+			for _, entry := range attrsMetadata.Entries {
+				keys[entry.AttributeName] = entry.AttributeKey
+			}
 		}
 	}
 
@@ -176,10 +173,11 @@ func (attributesHandler *AttributesHandlerImpl) GetValue(attributeName string) (
 	if err != nil {
 		return nil, errors.New("Error reading attribute value '" + err.Error() + "'")
 	}
-	if attributesHandler.keys[attributeName] == nil {
-		return nil, errors.New("Cannot find decryption key for attribute")
-	}
+
 	if encrypted {
+		if attributesHandler.keys[attributeName] == nil {
+			return nil, errors.New("Cannot find decryption key for attribute")
+		}
 		value, err = attributes.DecryptAttributeValue(attributesHandler.keys[attributeName], value)
 		if err != nil {
 			return nil, errors.New("Error decrypting value '" + err.Error() + "'")
