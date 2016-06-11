@@ -481,6 +481,34 @@ func TestGetValue_InvalidAttribute(t *testing.T) {
 	if err == nil {
 		t.Error(err)
 	}
+
+	//Force invalid key
+	handler.keys["position"] = nil
+	_, err = handler.GetValue("position")
+	if err == nil {
+		t.Error(err)
+	}
+}
+
+func TestGetValue_Clear_InvalidAttribute(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertClear()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: metadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err := handler.GetValue("age")
+	if value != nil || err == nil {
+		t.Fatalf("Test should fail [%v] \n", string(value))
+	}
 }
 
 func TestGetValue_InvalidAttribute_ValidAttribute(t *testing.T) {
