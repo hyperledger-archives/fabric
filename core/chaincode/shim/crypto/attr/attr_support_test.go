@@ -415,16 +415,8 @@ func TestGetValue_Clear(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata := metadata
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
-	handler, err := NewAttributesHandlerImpl(stub)
-	if err != nil {
-		t.Error(err)
-	}
-
-	value, err := handler.GetValue("position")
+	value, err := GetValueFrom("position", tcertder, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -434,13 +426,35 @@ func TestGetValue_Clear(t *testing.T) {
 	}
 
 	//Second time read from cache.
-	value, err = handler.GetValue("position")
+	value, err = GetValueFrom("position", tcertder, nil)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
 		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
+	}
+}
+
+func TestGetValue_BadHeaderTCert(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertFromFile("./test_resources/tcert_bad.dump")
+	if err != nil {
+		t.Error(err)
+	}
+	tcertder := tcert.Raw
+	_, err = GetValueFrom("position", tcertder, nil)
+	if err == nil {
+		t.Fatal("Test should be fail due TCert has an invalid header.")
+	}
+}
+
+func TestGetValue_Clear_NullTCert(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+	_, err := GetValueFrom("position", nil, nil)
+	if err == nil {
+		t.Error(err)
 	}
 }
 
@@ -466,6 +480,34 @@ func TestGetValue_InvalidAttribute(t *testing.T) {
 	_, err = handler.GetValue("age")
 	if err == nil {
 		t.Error(err)
+	}
+
+	//Force invalid key
+	handler.keys["position"] = nil
+	_, err = handler.GetValue("position")
+	if err == nil {
+		t.Error(err)
+	}
+}
+
+func TestGetValue_Clear_InvalidAttribute(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertClear()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: metadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err := handler.GetValue("age")
+	if value != nil || err == nil {
+		t.Fatalf("Test should fail [%v] \n", string(value))
 	}
 }
 
