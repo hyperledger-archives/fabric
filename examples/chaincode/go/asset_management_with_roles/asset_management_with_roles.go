@@ -17,10 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/op/go-logging"
 )
 
@@ -43,19 +45,23 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 
 	// Create ownership table
 	err := stub.CreateTable("AssetsOwnership", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{"Asset", shim.ColumnDefinition_STRING, true},
-		&shim.ColumnDefinition{"Owner", shim.ColumnDefinition_BYTES, false},
+		&shim.ColumnDefinition{Name: "Asset", Type: shim.ColumnDefinition_STRING, Key: true},
+		&shim.ColumnDefinition{Name: "Owner", Type: shim.ColumnDefinition_BYTES, Key: false},
 	})
 	if err != nil {
-		return nil, errors.New("Failed creating AssetsOnwership table.")
+		return nil, fmt.Errorf("Failed creating AssetsOnwership table, [%v]", err)
 	}
+
+	// Set the role of the users that are allowed to assign assets
+	// The metadata will contain the role of the users that are allowed to assign assets
 
 	// Set the role of the users that are allowed to assign assets
 	// The metadata will contain the role of the users that are allowed to assign assets
 	assignerRole, err := stub.GetCallerMetadata()
 	if err != nil {
-		return nil, errors.New("Failed getting metadata.")
+		return nil, fmt.Errorf("Failed getting metadata, [%v]", err)
 	}
+
 	if len(assignerRole) == 0 {
 		return nil, errors.New("Invalid assigner role. Empty.")
 	}
@@ -79,24 +85,36 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 		return nil, errors.New("Failed fetching assigner role")
 	}
 
-	// Verify the role of the caller
-	// Only users with this role can invoker assign
 	callerRole, err := stub.ReadCertAttribute("role")
 	if err != nil {
-		return nil, errors.New("Failed fetching caller role")
+		return nil, fmt.Errorf("Failed fetching caller role. Error was [%v]", err)
 	}
 
-	if string(callerRole[:]) != string(assignerRole[:]) {
-		return nil, errors.New("The caller does not have the rights to invoke assign")
+	caller := string(callerRole[:])
+	assigner := string(assignerRole[:])
+
+	if caller != assigner {
+		return nil, fmt.Errorf("The caller does not have the rights to invoke assign. Expected role [%v], caller role [%v]", assigner, caller)
+	}
+
+	tcert, err := stub.GetCallerCertificate()
+
+	if err != nil {
+		return nil, fmt.Errorf("Failed fetching caller tcert. Error was [%v]", err)
+	}
+
+	account, err := attr.GetValueFrom("account", tcert, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed fetching recipient account. Error was [%v]", err)
 	}
 
 	// Register assignment
-	myLogger.Debug("New owner of [%s] is [% x]", asset, owner)
+	myLogger.Debug("New owner of [%s] is [%x]", asset, owner)
 
 	ok, err := stub.InsertRow("AssetsOwnership", shim.Row{
 		Columns: []*shim.Column{
 			&shim.Column{Value: &shim.Column_String_{String_: asset}},
-			&shim.Column{Value: &shim.Column_Bytes{Bytes: owner}}},
+			&shim.Column{Value: &shim.Column_Bytes{Bytes: account}}},
 	})
 
 	if !ok && err == nil {
@@ -132,14 +150,29 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	// Verify ownership
-	ok, err := t.isCaller(stub, prvOwner)
+	callerAccount, err := stub.ReadCertAttribute("account")
 	if err != nil {
-		return nil, errors.New("Failed checking asset owner identity")
-	}
-	if !ok {
-		return nil, errors.New("The caller is not the owner of the asset")
+		return nil, fmt.Errorf("Failed fetching caller account. Error was [%v]", err)
 	}
 
+	if bytes.Compare(prvOwner, callerAccount) != 0 {
+		return nil, fmt.Errorf("Failed verifying caller ownership.")
+	}
+
+	newOwnerAccount, err := attr.GetValueFrom("account", newOwner, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed fetching new owner account. Error was [%v]", err)
+	}
+
+	/*
+		ok, err := t.isCaller(stub, prvOwner)
+		if err != nil {
+			return nil, errors.New("Failed checking asset owner identity")
+		}
+		if !ok {
+			return nil, errors.New("The caller is not the owner of the asset")
+		}
+	*/
 	// At this point, the proof of ownership is valid, then register transfer
 	err = stub.DeleteRow(
 		"AssetsOwnership",
@@ -154,7 +187,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 		shim.Row{
 			Columns: []*shim.Column{
 				&shim.Column{Value: &shim.Column_String_{String_: asset}},
-				&shim.Column{Value: &shim.Column_Bytes{Bytes: newOwner}},
+				&shim.Column{Value: &shim.Column_Bytes{Bytes: newOwnerAccount}},
 			},
 		})
 	if err != nil {
@@ -164,6 +197,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	return nil, nil
 }
 
+/*
 func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificate []byte) (bool, error) {
 	// In order to enforce access control, we require that the
 	// metadata contains the signature under the signing key corresponding
@@ -174,7 +208,18 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 	// Verify \sigma=Sign(certificate.sk, tx.Payload||tx.Binding) against certificate.vk
 	// \sigma is in the metadata
 
-	sigma, err := stub.GetCallerMetadata()
+	metadata, err := stub.GetCallerMetadata()
+	if err != nil {
+		return false, fmt.Errorf("Failed getting metadata, [%v]", err)
+	}
+
+	attributesMetadata, err := attributes.GetAttributesMetadata(metadata)
+	if err != nil {
+		return false, fmt.Errorf("Failed getting attributes metadata, [%v]", err)
+	}
+
+	sigma := attributesMetadata.Metadata
+
 	if err != nil {
 		return false, errors.New("Failed getting metadata")
 	}
@@ -198,6 +243,7 @@ func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificat
 		append(payload, binding...),
 	)
 }
+*/
 
 // Invoke runs callback representing the invocation of a chaincode
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
