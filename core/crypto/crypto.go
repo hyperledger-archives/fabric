@@ -69,8 +69,8 @@ type Client interface {
 	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 	GetTCertificateHandlerFromDER(tCertDER []byte) (CertificateHandler, error)
 
-	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert(attributes ...string) (tCert, error)
+	// GetNextTCert returns a slice of a requested number of (not yet used) transaction certificates
+	GetNextTCerts(nCerts int, attributes ...string) ([]tCert, error)
 }
 
 // Peer is an entity able to verify transactions

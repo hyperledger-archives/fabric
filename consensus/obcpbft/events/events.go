@@ -105,7 +105,7 @@ func (em *managerImpl) Queue() chan<- Event {
 	return em.events
 }
 
-// sendEvent performs the event loop on a receiver to completion
+// SendEvent performs the event loop on a receiver to completion
 func SendEvent(receiver Receiver, event Event) {
 	next := event
 	for {

@@ -123,7 +123,19 @@ func calculateAttributesHash(attributes []string) (attrHash string) {
 }
 
 //GetNextTCert returns a TCert from the pool valid to the passed attributes. If no TCert is available TCA is invoked to generate it.
-func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes ...string) (tCert *TCertBlock, err error) {
+func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCerts(nCerts int, attributes ...string) ([]*TCertBlock, error) {
+	blocks := make([]*TCertBlock, nCerts)
+	for i := 0; i < nCerts; i++ {
+		block, err := tCertPool.getNextTCert(attributes...)
+		if err != nil {
+			return nil, err
+		}
+		blocks[i] = block
+	}
+	return blocks, nil
+}
+
+func (tCertPool *tCertPoolSingleThreadImpl) getNextTCert(attributes ...string) (tCert *TCertBlock, err error) {
 
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
@@ -135,7 +147,6 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes ...string) (
 	if poolLen <= 0 {
 		// Reload
 		if err := tCertPool.client.getTCertsFromTCA(attributesHash, attributes, tCertPool.client.conf.getTCertBatchSize()); err != nil {
-
 			return nil, fmt.Errorf("Failed loading TCerts from TCA")
 		}
 	}
@@ -144,7 +155,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) GetNextTCert(attributes ...string) (
 
 	tCertPool.length[attributesHash] = tCertPool.length[attributesHash] - 1
 
-	return
+	return tCert, nil
 }
 
 //AddTCert adds a TCert into the pool is invoked by the client after TCA is called.
@@ -170,9 +181,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCertBlock *TCertBlock) (er
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
-
 	tCertPool.client = client
-
 	tCertPool.client.debug("Init TCert Pool...")
 
 	tCertPool.tCerts = make(map[string][]*TCertBlock)

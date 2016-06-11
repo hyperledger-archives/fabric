@@ -57,8 +57,7 @@ function getUser(name, cb) {
         var registrationRequest = {
             enrollmentID: name,
             account: "bank_a",
-            affiliation: "00001",
-            registrar: registrar.user,
+            affiliation: "00001"
         };
         user.registerAndEnroll(registrationRequest, function (err) {
             if (err) cb(err, null)
@@ -85,7 +84,7 @@ test('Enroll the registrar', function (t) {
         // the one time password hard coded inside the membersrvc.yaml.
         user.enroll(registrar.secret, function (err) {
             if (err) return fail(t, "enroll registrar", err);
-            registrar.user = user;
+            chain.setRegistrar(user);
             pass(t, "enrolled " + registrar.name);
         });
     });

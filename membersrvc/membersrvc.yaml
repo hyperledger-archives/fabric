@@ -58,14 +58,35 @@ eca:
               institutions:
                   - institution_a
         users:
-                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                lukas: 1 NPKYL39uKbkj bank_a    00001
+                #
+                # The fields of each user are as follows:
+                #    <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role> <JSON_Metadata>
+                #
+                # The optional JSON_Metadata field is of the following format:
+                #   { "registrar": { "roles": <array-of-role-names>, "delegateRoles": <array-of-role-names> } }
+                # The 'registrar' section is used to control access to registration of new users directly via the ECAA.RegisterUser GRPC call.
+                # (See the 'fabric/membersrvc/protos/ca.proto' file for the definition of ECAA.RegisterUser.)
+                # Note that this also controls who can register users via the client SDK.
+                #
+                # Only users with a 'registrar' section may be a registrar to register other users.  In particular,
+                # 1) the "roles" field specifies which member roles may be registered by this user, and
+                # 2) the "delegateRoles" field specifies which member roles may become the "roles" field of registered users.
+                # The valid role names are "client", "peer", "validator", and "auditor".
+                #
+                # Example1:
+                #    The 'admin' user below can register clients, peers, validators, or auditors; furthermore, the 'admin' user can register other
+                #    users who can then register clients only.
+                #
+                # Example2:
+                #    The 'WebAppAdmin' user below can register clients only, but none of the users registered by this user can register other users.
+                #
+                admin: 1 Xurw3yU9zI0l institution_a 00001 '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
+                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 '{"registrar":{"roles":["client"]}}'
+                lukas: 1 NPKYL39uKbkj bank_a 00001
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
-                diego: 1 DRJ23pEQl16a institution_a     00003
-                jim: 1 6avZQLwcUe9b bank_a      00004
-                binhn: 1 7avZQLwcUe9q institution_a     00005
-                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 # Node.js UT user. Do not modify.
-
+                diego: 1 DRJ23pEQl16a institution_a 00003
+                jim: 1 6avZQLwcUe9b bank_a 00004
+                binhn: 1 7avZQLwcUe9q institution_a 00005
                 vp: 4 f3489fy98ghf
 
                 test_vp0: 4 MwYpmSRjupbT
@@ -102,8 +123,7 @@ eca:
                 test_nvp9: 2 VlEsBsiyXSjw institution_a 00015
 
 tca:
-          # Enabling/disabling attributes encryption, if is enabled attributes within the certificate will be encrypted using a specific key for each attribute,
-          # in otherwise cleartext attribute value will be added into the certificate.
+          # Enabling/disabling attributes encryption, currently false is unique possible value due attributes encryption is not yet implemented.
           attribute-encryption:
                  enabled: false
 aca:
