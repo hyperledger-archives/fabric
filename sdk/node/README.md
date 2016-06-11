@@ -134,6 +134,35 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
 
 ## Getting Set Up
 
+#### Setting up the testing environment
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+
+    vagrant ssh
+
+Build the <b>Certificate Authority (CA)</b> server with the commands below:
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
+    go build
+
+Before running the <b>Certificate Authority (CA)</b> server, clear our any old crypto material out of the `/var/hyperledger/production` directory.
+
+    rm -rf /var/hyperledger/production
+    ./membersrvc
+
+Next, enable the security and privacy settings on the peer by setting `security.enabled` and `security.privacy` settings to `true` inside the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). Then build and run the peer with the following steps.
+
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+
+    vagrant ssh
+
+Build and run the peer process with the commands below.
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    go build
+    ./peer node start
+
+We also assume that the peer is running at security level 256, which is the default value.
+
 ### Building the client SDK
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
@@ -149,85 +178,62 @@ make node-sdk
 The node package is then located in the `$GOPATH/src/github.com/hyperledger/fabric/sdk/node` directory.
 
 ### Running the unit tests
-HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape).
+HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). These tests are to be run outside of the Vagrant environment to simulate the actual usage of the client SDK, which will be from outside Vagrant. Before running the test, verify that there is nothing stored in your local `/tmp/keyValueStore` directory.
 
-#### Setting up the testing environment
-First, build and run the Membership Service (Certificate Authority) as described [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional).
-
-Specifically, from your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
-
-    vagrant ssh
-
-Build and run the <b>Certificate Authority (CA)</b> server with the commands below:
-
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make membersrvc
-    (cd membersrvc; ./membersrvc)
-
-Second, enable the security and privacy settings on the peer by setting `security.enabled` and `security.privacy` settings to `true` inside the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). Then build and run the peer with the following steps.
-
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
-
-    vagrant ssh
-
-Build and run the peer process with the commands below.
-
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make peer
-    cd ./peer
-    ./peer node start
-
-Alternatively, enable security and privacy on the peer with environment variables:
-
-    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer node start
-
-We also assume that the peer is running at security level 256, which is the default value.
+    rm -rf /tmp/keyValStore/
 
 #### registrar
 This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.
 
-Run the test as follows assuming membership services is running on the default ports:
+Run the test on your local machine outside of Vagrant as follows, assuming membership services is running on the default ports:
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
-node test/unit/registrar.js
+node test/unit/registrar.js | node_modules/.bin/tap-spec
 ```
 
 #### chain-tests
 This test case exercises chaincode *chaincode_example02* as described in in [SanboxSetup.md](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#vagrant-terminal-2-chaincode).
 
-To have the chaincode deployment succeed, you must properly set up the chaincode project outside of your Hypefledger Fabric source tree. The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the `build-chaincode` project may be placed inside `$GOPATH/src/` as shown below.
+To have the chaincode deployment succeed, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the `chaincode_example02` project may be placed inside `$GOPATH/src/` as shown below.
 
 ```
-$GOPATH/src/github.com/<username>/build-chaincode/
-```  
+$GOPATH/src/github.com/chaincode_example02/
+```
 
-The chaincode project directory must contain project related code and also a `vendor` folder which contains the Hypefledger Fabric source tree. Currently, this is still a dependency to have the chaincode project deploy successfully. However, the entire fabric directory is not packaged into the deploy transaction when the payload is generated. The deployment process selects a specific set of files that it needs to package into the transaction payload. Proper directory structure is shown below.
+The chaincode project directory must contain project related code and also a `vendor` folder which contains the entire Hypefledger Fabric source tree. Currently, this is still a dependency to have the chaincode project deploy successfully. However, the entire fabric directory is not packaged into the deploy transaction when the payload is generated. The deployment process selects a specific set of files when creating the transaction payload. Proper directory structure is shown below.
 
 ```
-ls -la $GOPATH/src/github.com/<username>/build-chaincode/
+ls -la $GOPATH/src/github.com/chaincode_example02/
 .
 ..
 chaincode_example02.go
 vendor
 
-ls -la $GOPATH/src/github.com/<username>/build-chaincode/vendor/github.com/hyperledger/
+ls -la $GOPATH/src/github.com/chaincode_example02/vendor/github.com/hyperledger/
 .
 ..
 fabric
 ```
 
-Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH` together with the `vendor` directory containing the hyperledger Fabric, you need to update the [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) unit test file to point to the appropriate chaincode project path at the top of the file. An example is shown below.
+Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH` together with the `vendor` directory containing the hyperledger Fabric, you need to verify that the chaincode builds in this directory. To do so execute the `go build`. This step verifies that all of the chaincode dependencies are present.
+
+```
+cd $GOPATH/src/github.com/chaincode_example02/
+go build
+```
+
+Once the chaincode is built, you need to verify that [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) unit test file points to the appropriate chaincode project path. The default directory is set to `github.com/chaincode_example02/` as shown below.
 
 ```
 // Path to the local directory containing the chaincode project under $GOPATH
-var testChaincodePath = "github.com/angrbrd/build-chaincode";
+var testChaincodePath = "github.com/chaincode_example02/";
 ```
 
 Then run the chain-tests as follows:
 
 ```
-cd $FABRIC/sdk/node
+cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
 node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 ```
 
@@ -267,13 +273,28 @@ N.B. If you cleanup the folder */var/hyperledger/production* then don't forget t
 #### asset-mgmt
 This test case exercises the *asset_management* chaincode.
 
-Follow the instruction in the [chain-tests](#chain-tests) section in order to properly set up your chaincode project outside of your Hypefledger Fabric source tree.
+Follow the instruction in the [chain-tests](#chain-tests) section in order to properly set up your chaincode project outside of your Hypefledger Fabric source tree. A properly structured chaincode project is shown below.
+
+```
+ls -la $GOPATH/src/github.com/asset_management/
+.
+..
+README.md
+app
+asset_management.go
+vendor
+
+ls -la $GOPATH/src/github.com/asset_management/vendor/github.com/hyperledger/
+.
+..
+fabric
+```
 
 Then run the asset management tests as follows:
 
 ```
-cd $FABRIC/sdk/node
-node test/unit/chain-tests.js | node_modules/.bin/tap-spec
+cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
+node test/unit/asset-mgmt.js | node_modules/.bin/tap-spec
 ```
 
 #### Troublingshooting
