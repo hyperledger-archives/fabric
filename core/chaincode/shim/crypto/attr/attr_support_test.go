@@ -116,9 +116,13 @@ func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
 	attributeMetadata := []byte{123, 22, 34, 56, 78, 44}
 
 	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
-	_, err = NewAttributesHandlerImpl(stub)
-	if err == nil {
-		t.Error("Test should have failed, metadata is invalid.")
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+	keySize := len(handler.keys)
+	if keySize != 0 {
+		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
 }
 
@@ -399,6 +403,42 @@ func TestGetValue(t *testing.T) {
 		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
 	}
 }
+
+/*func TestGetValue_Clear(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, prek0, err := loadTCertAndPreK0()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	attributeMetadata := metadata
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err := handler.GetValue("position")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
+		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
+	}
+
+	//Second time read from cache.
+	value, err = handler.GetValue("position")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
+		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
+	}
+}*/
 
 func TestGetValue_InvalidAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
