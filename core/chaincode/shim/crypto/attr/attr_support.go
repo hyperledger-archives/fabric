@@ -130,17 +130,14 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 		return nil, err
 	}
 
-	if rawMetadata == nil {
-		return nil, errors.New("The rawMetadata can't be nil.")
-	}
-
-	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
-
 	keys := make(map[string][]byte)
 
-	if err == nil {
-		for _, entry := range attrsMetadata.Entries {
-			keys[entry.AttributeName] = entry.AttributeKey
+	if rawMetadata != nil {
+		attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
+		if err == nil {
+			for _, entry := range attrsMetadata.Entries {
+				keys[entry.AttributeName] = entry.AttributeKey
+			}
 		}
 	}
 

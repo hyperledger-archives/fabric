@@ -214,9 +214,13 @@ func TestNewAttributesHandlerImpl_NullMetadata(t *testing.T) {
 		t.Error(err)
 	}
 	stub := &chaincodeStubMock{callerCert: tcertder, metadata: nil}
-	_, err = NewAttributesHandlerImpl(stub)
-	if err == nil {
-		t.Fatal("Error can't be nil.")
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+	keySize := len(handler.keys)
+	if keySize != 0 {
+		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
 }
 
@@ -404,10 +408,10 @@ func TestGetValue(t *testing.T) {
 	}
 }
 
-/*func TestGetValue_Clear(t *testing.T) {
+func TestGetValue_Clear(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
@@ -438,7 +442,7 @@ func TestGetValue(t *testing.T) {
 	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
 		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
 	}
-}*/
+}
 
 func TestGetValue_InvalidAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
@@ -500,6 +504,22 @@ func TestGetValue_InvalidAttribute_ValidAttribute(t *testing.T) {
 	}
 }
 
+func loadTCertFromFile(filepath string) (*x509.Certificate, error) {
+	tcertRaw, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	tcertDecoded, _ := pem.Decode(tcertRaw)
+
+	tcert, err := x509.ParseCertificate(tcertDecoded.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return tcert, nil
+}
+
 func loadTCertAndPreK0() (*x509.Certificate, []byte, error) {
 	preKey0, err := ioutil.ReadFile("./test_resources/prek0.dump")
 	if err != nil {
@@ -510,17 +530,14 @@ func loadTCertAndPreK0() (*x509.Certificate, []byte, error) {
 		return nil, nil, err
 	}
 
-	tcertRaw, err := ioutil.ReadFile("./test_resources/tcert.dump")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	tcertDecoded, _ := pem.Decode(tcertRaw)
-
-	tcert, err := x509.ParseCertificate(tcertDecoded.Bytes)
+	tcert, err := loadTCertFromFile("./test_resources/tcert.dump")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return tcert, preKey0, nil
+}
+
+func loadTCertClear() (*x509.Certificate, error) {
+	return loadTCertFromFile("./test_resources/tcert_clear.dump")
 }
