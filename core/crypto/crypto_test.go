@@ -459,7 +459,6 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	}
 
 	attributeBytes, err := attributes.GetValueForAttribute("company", tCerts[0].GetPreK0(), tCerts[0].GetCertificate())
-
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -502,7 +501,6 @@ func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
 	}
 
 	attributeBytes, err := attributes.GetValueForAttribute("company", tcerts[0].GetPreK0(), tcerts[0].GetCertificate())
-
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
@@ -542,7 +540,6 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 	defer closeNodes()
 
 	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
-
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -572,7 +569,6 @@ func TestClientTCertHandlerSign(t *testing.T) {
 	defer closeNodes()
 
 	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attrs...)
-
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -1374,13 +1370,11 @@ func BenchmarkTransactionCreation(b *testing.B) {
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
-
 	invoker.GetTCertificateHandlerNext(attrs...)
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
 		b.StartTimer()
-
 		invoker.NewChaincodeExecute(cis, uuid, attrs...)
 		b.StopTimer()
 	}
@@ -1709,7 +1703,6 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
 	return otx, tx, err
 }
@@ -1733,7 +1726,6 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 		return nil, nil, err
 	}
 	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1741,7 +1733,6 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
@@ -1788,7 +1779,6 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-
 	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
 
 	if err != nil {
@@ -1798,7 +1788,6 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 
 	// Check binding consistency
@@ -1836,9 +1825,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-
 	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1846,7 +1833,6 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 
 	// Check binding consistency
@@ -1894,7 +1880,6 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
@@ -1940,7 +1925,6 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1985,7 +1969,6 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -2064,9 +2047,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-
 	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
-
 	return otx, tx, err
 }
 

@@ -78,7 +78,6 @@ func (client *clientImpl) GetNextTCerts(nCerts int, attributes ...string) (tCert
 		client.error("Failed getting [%d] (not yet used) Transaction Certificates (TCerts) [%s].", nCerts, err.Error())
 		return nil, err
 	}
-
 	tCerts = make([]tCert, len(tBlocks))
 	for i, eachBlock := range tBlocks {
 		tCerts[i] = eachBlock.tCert
@@ -172,7 +171,6 @@ func (client *clientImpl) GetTCertificateHandlerNext(attributes ...string) (Cert
 	// Return the handler
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tBlocks[0].tCert)
-
 	if err != nil {
 		client.error("Failed getting handler [%s].", err.Error())
 		return nil, err
