@@ -28,6 +28,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/container"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
@@ -131,7 +132,10 @@ func TestAssetManagement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(theOnwerIs, aliceCert.GetCertificate()) {
+
+	aliceAccount, err := attr.GetValueFrom("account", aliceCert.GetCertificate(), nil)
+	if !reflect.DeepEqual(theOnwerIs, aliceAccount) {
+		fmt.Printf("%v --- %v", string(theOnwerIs), string(aliceAccount))
 		t.Fatal("Alice is not the owner of Picasso")
 	}
 
@@ -156,7 +160,12 @@ func TestAssetManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(theOnwerIs, bobCert.GetCertificate()) {
+	bobAccount, err := attr.GetValueFrom("account", bobCert.GetCertificate(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(theOnwerIs, bobAccount) {
 		t.Fatal("Bob is not the owner of Picasso")
 	}
 }
@@ -208,32 +217,14 @@ func assignOwnership(assigner crypto.Client, asset string, newOwnerCert crypto.C
 	if err != nil {
 		return err
 	}
-	/*
-		binding, err := txHandler.GetBinding()
-		if err != nil {
-			return err
-		}
-	*/
+
 	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
-	/*
-		    chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
-			if err != nil {
-				return err
-			}
-	*/
-	// Access control. Administrator signs chaincodeInputRaw || binding to confirm his identity
-	/*
-		sigma, err := submittingCertHandler.Sign(append(chaincodeInputRaw, binding...))
-		if err != nil {
-			return err
-		}
-	*/
+
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
-		Type:        1,
-		ChaincodeID: &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:     chaincodeInput,
-		//Metadata:             sigma, // Proof of identity
+		Type:                 1,
+		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
+		CtorMsg:              chaincodeInput,
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
 
@@ -271,31 +262,14 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 	if err != nil {
 		return err
 	}
-	/*
-		binding, err := txHandler.GetBinding()
-		if err != nil {
-			return err
-		}
-	*/
-	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
-	/*
-		    chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
-			if err != nil {
-				return err
-			}
 
-			// Access control. Owner signs chaincodeInputRaw || binding to confirm his identity
-			sigma, err := ownerCert.Sign(append(chaincodeInputRaw, binding...))
-			if err != nil {
-				return err
-			}
-	*/
+	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
+
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
-		Type:        1,
-		ChaincodeID: &pb.ChaincodeID{Name: "mycc"},
-		CtorMsg:     chaincodeInput,
-		//Metadata:             sigma, // Proof of identity
+		Type:                 1,
+		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
+		CtorMsg:              chaincodeInput,
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
 
@@ -379,10 +353,6 @@ func setup() {
 		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
 
-	/*
-		viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "hyperledger", "production"))
-		viper.Set("server.rootpath", filepath.Join(os.TempDir(), "ca"))
-	*/
 	removeFolders()
 }
 

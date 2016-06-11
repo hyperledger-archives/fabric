@@ -97,19 +97,13 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 		return nil, fmt.Errorf("The caller does not have the rights to invoke assign. Expected role [%v], caller role [%v]", assigner, caller)
 	}
 
-	tcert, err := stub.GetCallerCertificate()
-
-	if err != nil {
-		return nil, fmt.Errorf("Failed fetching caller tcert. Error was [%v]", err)
-	}
-
-	account, err := attr.GetValueFrom("account", tcert, nil)
+	account, err := attr.GetValueFrom("account", owner, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed fetching recipient account. Error was [%v]", err)
 	}
 
 	// Register assignment
-	myLogger.Debug("New owner of [%s] is [%x]", asset, owner)
+	myLogger.Debug("New owner of [%s] is [%s]", asset, account)
 
 	ok, err := stub.InsertRow("AssetsOwnership", shim.Row{
 		Columns: []*shim.Column{
@@ -164,15 +158,6 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 		return nil, fmt.Errorf("Failed fetching new owner account. Error was [%v]", err)
 	}
 
-	/*
-		ok, err := t.isCaller(stub, prvOwner)
-		if err != nil {
-			return nil, errors.New("Failed checking asset owner identity")
-		}
-		if !ok {
-			return nil, errors.New("The caller is not the owner of the asset")
-		}
-	*/
 	// At this point, the proof of ownership is valid, then register transfer
 	err = stub.DeleteRow(
 		"AssetsOwnership",
@@ -196,54 +181,6 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 
 	return nil, nil
 }
-
-/*
-func (t *AssetManagementChaincode) isCaller(stub *shim.ChaincodeStub, certificate []byte) (bool, error) {
-	// In order to enforce access control, we require that the
-	// metadata contains the signature under the signing key corresponding
-	// to the verification key inside certificate of
-	// the payload of the transaction (namely, function name and args) and
-	// the transaction binding (to avoid copying attacks)
-
-	// Verify \sigma=Sign(certificate.sk, tx.Payload||tx.Binding) against certificate.vk
-	// \sigma is in the metadata
-
-	metadata, err := stub.GetCallerMetadata()
-	if err != nil {
-		return false, fmt.Errorf("Failed getting metadata, [%v]", err)
-	}
-
-	attributesMetadata, err := attributes.GetAttributesMetadata(metadata)
-	if err != nil {
-		return false, fmt.Errorf("Failed getting attributes metadata, [%v]", err)
-	}
-
-	sigma := attributesMetadata.Metadata
-
-	if err != nil {
-		return false, errors.New("Failed getting metadata")
-	}
-	payload, err := stub.GetPayload()
-	if err != nil {
-		return false, errors.New("Failed getting payload")
-	}
-	binding, err := stub.GetBinding()
-	if err != nil {
-		return false, errors.New("Failed getting binding")
-	}
-
-	myLogger.Debug("passed certificate [% x]", certificate)
-	myLogger.Debug("passed sigma [% x]", sigma)
-	myLogger.Debug("passed payload [% x]", payload)
-	myLogger.Debug("passed binding [% x]", binding)
-
-	return stub.VerifySignature(
-		certificate,
-		sigma,
-		append(payload, binding...),
-	)
-}
-*/
 
 // Invoke runs callback representing the invocation of a chaincode
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
