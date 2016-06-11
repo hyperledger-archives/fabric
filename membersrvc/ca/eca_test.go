@@ -20,6 +20,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -43,9 +44,15 @@ type User struct {
 }
 
 var (
-	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
-	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	testAuditor = User{enrollID: "testAuditor", enrollPwd: []byte("NPKYL39uKbkj")}
+	ecaFiles  = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
+	testAdmin = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
+	testUser  = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	testUser2 = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	//testPeer        = User{enrollID: "testPeer", role: 2}
+	//testPeer2       = User{enrollID: "testPeer", role: 2}
+	//testValidator   = User{enrollID: "testValidator", role: 4}
+	//testValidator2  = User{enrollID: "testValidator", role: 4}
+	testAuditor = User{enrollID: "testAuditor", role: 8}
 )
 
 //helper function for multiple tests
@@ -148,6 +155,49 @@ func enrollUser(user *User) error {
 	return nil
 }
 
+func registerUser(registrar User, user *User) error {
+
+	ecaa := &ECAA{eca}
+
+	//create req
+	req := &pb.RegisterUserReq{
+		Id:          &pb.Identity{Id: user.enrollID},
+		Role:        pb.Role(user.role),
+		Account:     user.affiliation,
+		Affiliation: user.affiliationRole,
+		Registrar:   &pb.Registrar{Id: &pb.Identity{Id: registrar.enrollID}},
+		Sig:         nil}
+
+	//sign the req
+	hash := primitives.NewHash()
+	raw, _ := proto.Marshal(req)
+	hash.Write(raw)
+
+	r, s, err := ecdsa.Sign(rand.Reader, registrar.enrollPrivKey, hash.Sum(nil))
+	if err != nil {
+		msg := "Failed to register user.  Error signing request: " + err.Error()
+		return errors.New(msg)
+	}
+	R, _ := r.MarshalText()
+	S, _ := s.MarshalText()
+	req.Sig = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
+
+	token, err := ecaa.RegisterUser(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	if token != nil {
+		//need the token for later tests
+		user.enrollPwd = token.Tok
+	} else {
+		return errors.New("Failed to obtain token")
+	}
+
+	return nil
+
+}
+
 //check that the ECA was created / initialized
 func TestNewECA(t *testing.T) {
 
@@ -173,46 +223,73 @@ func TestNewECA(t *testing.T) {
 	}
 }
 
-//register testUser
+/**
+* Test the CreateCertificatePair function by enolling a preloaded admin
+* we can use to register additional users in later tests
+ */
+func TestCreateCertificatePairAdmin(t *testing.T) {
+	//enroll testAdmin
+	err := enrollUser(&testAdmin)
+
+	if err != nil {
+		t.Errorf("Failed to enroll testAdmin: [%s]", err.Error())
+	}
+}
+
+//register testUser using testAdmin as the registrar
 func TestRegisterUser(t *testing.T) {
 
-	ecaa := &ECAA{eca}
+	err := registerUser(testAdmin, &testUser)
 
-	//create req
-	req := &pb.RegisterUserReq{
-		Id:          &pb.Identity{Id: testUser.enrollID},
-		Role:        pb.Role(testUser.role),
-		Account:     testUser.affiliation,
-		Affiliation: testUser.affiliationRole}
-
-	token, err := ecaa.RegisterUser(context.Background(), req)
 	if err != nil {
-		t.Errorf("Failed to register user: [%s]", err.Error())
+		t.Error(err.Error())
 	}
 
-	if token != nil {
-		testUser.enrollPwd = token.Tok
-	} else {
-		t.Error("Failed to obtain token")
-	}
+}
 
+//now see if we can enroll testUser
+func TestCreateCertificatePairTestUser(t *testing.T) {
+
+	err := enrollUser(&testUser)
+
+	if err != nil {
+		t.Errorf("Failed to enroll testUser: [%s]", err.Error())
+	}
 }
 
 //register testUser again - should get error
 func TestRegisterDuplicateUser(t *testing.T) {
 
-	ecaa := &ECAA{eca}
+	err := registerUser(testAdmin, &testUser)
 
-	//create req
-	req := &pb.RegisterUserReq{
-		Id:          &pb.Identity{Id: testUser.enrollID},
-		Role:        pb.Role(testUser.role),
-		Account:     testUser.affiliation,
-		Affiliation: testUser.affiliationRole}
-
-	_, err := ecaa.RegisterUser(context.Background(), req)
 	if err.Error() != "user is already registered" {
 		t.Errorf("Expected error was not returned when registering user twice: [%s]", err.Error())
+	}
+}
+
+//register testAuditor with testAdmin as registrar
+//register testUser again - should get error
+func TestRegisterAuditor(t *testing.T) {
+
+	err := registerUser(testAdmin, &testAuditor)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+/**
+* A user with no registrar metadata should not be able to register a new user
+ */
+func TestRegisterUserNonRegistrar(t *testing.T) {
+
+	//testUser has no registrar metadata
+	err := registerUser(testUser, &testUser2)
+
+	if err == nil {
+		t.Error("User without registrar metadata should not be able to register a new user")
+	} else {
+		t.Log(err.Error())
 	}
 }
 
@@ -223,104 +300,6 @@ func TestReadCACertificate(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Failed to read ECA CA certificate: [%s]", err.Error())
-	}
-
-}
-
-func TestCreateCertificatePair(t *testing.T) {
-
-	ecap := &ECAP{eca}
-
-	//Phase 1 of the protocol
-	//generate crypto material
-	signPriv, err := primitives.NewECDSAKey()
-	testUser.enrollPrivKey = signPriv
-	if err != nil {
-		t.Errorf("Failed generating ECDSA key [%s].", err.Error())
-	}
-	signPub, err := x509.MarshalPKIXPublicKey(&signPriv.PublicKey)
-	if err != nil {
-		t.Errorf("Failed mashalling ECDSA key [%s].", err.Error())
-	}
-
-	encPriv, err := primitives.NewECDSAKey()
-	if err != nil {
-		t.Errorf("Failed generating Encryption key [%s].", err.Error())
-	}
-	encPub, err := x509.MarshalPKIXPublicKey(&encPriv.PublicKey)
-	if err != nil {
-		t.Errorf("Failed marshalling Encryption key [%s].", err.Error())
-	}
-
-	req := &pb.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:   &pb.Identity{Id: testUser.enrollID},
-		Tok:  &pb.Token{Tok: testUser.enrollPwd},
-		Sign: &pb.PublicKey{Type: pb.CryptoType_ECDSA, Key: signPub},
-		Enc:  &pb.PublicKey{Type: pb.CryptoType_ECDSA, Key: encPub},
-		Sig:  nil}
-
-	resp, err := ecap.CreateCertificatePair(context.Background(), req)
-	if err != nil {
-		t.Errorf("Failed to enroll user: [%s]", err.Error())
-	}
-
-	//Phase 2 of the protocol
-	spi := ecies.NewSPI()
-	eciesKey, err := spi.NewPrivateKey(nil, encPriv)
-	if err != nil {
-		t.Errorf("Failed parsing decrypting key [%s].", err.Error())
-	}
-
-	ecies, err := spi.NewAsymmetricCipherFromPublicKey(eciesKey)
-	if err != nil {
-		t.Errorf("Failed creating asymmetrinc cipher [%s].", err.Error())
-	}
-
-	out, err := ecies.Process(resp.Tok.Tok)
-	if err != nil {
-		t.Errorf("Failed decrypting toke [%s].", err.Error())
-	}
-
-	req.Tok.Tok = out
-	req.Sig = nil
-
-	hash := primitives.NewHash()
-	raw, _ := proto.Marshal(req)
-	hash.Write(raw)
-
-	r, s, err := ecdsa.Sign(rand.Reader, signPriv, hash.Sum(nil))
-	if err != nil {
-		t.Errorf("Failed signing [%s].", err.Error())
-	}
-	R, _ := r.MarshalText()
-	S, _ := s.MarshalText()
-	req.Sig = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
-
-	resp, err = ecap.CreateCertificatePair(context.Background(), req)
-	if err != nil {
-		t.Errorf("Failed to enroll user: [%s]", err.Error())
-	}
-
-	//verify we got vaild crypto material back
-	x509SignCert, err := primitives.DERToX509Certificate(resp.Certs.Sign)
-	if err != nil {
-		t.Errorf("Failed parsing signing enrollment certificate for signing: [%s]", err.Error())
-	}
-
-	_, err = primitives.GetCriticalExtension(x509SignCert, ECertSubjectRole)
-	if err != nil {
-		t.Errorf("Failed parsing ECertSubjectRole in enrollment certificate for signing: [%s]", err.Error())
-	}
-
-	x509EncCert, err := primitives.DERToX509Certificate(resp.Certs.Enc)
-	if err != nil {
-		t.Errorf("Failed parsing signing enrollment certificate for encrypting: [%s]", err.Error())
-	}
-
-	_, err = primitives.GetCriticalExtension(x509EncCert, ECertSubjectRole)
-	if err != nil {
-		t.Errorf("Failed parsing ECertSubjectRole in enrollment certificate for encrypting: [%s]", err.Error())
 	}
 
 }
@@ -435,7 +414,8 @@ func TestCreateCertificatePairBadIdentity(t *testing.T) {
 		Sig:  nil}
 
 	_, err := ecap.CreateCertificatePair(context.Background(), req)
-	if err.Error() != "Identity or token does not match." {
+	if err.Error() != "Identity lookup error: sql: no rows in result set" {
+		t.Log(err.Error())
 		t.Error("Expected error was not returned for bad identity")
 	}
 }
