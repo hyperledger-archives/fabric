@@ -20,7 +20,6 @@ import (
 	"errors"
 	"path/filepath"
 
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
 )
 
@@ -62,9 +61,8 @@ type configuration struct {
 
 	tlsServerName string
 
-	multiThreading  bool
-	tCertBatchSize  int
-	tCertAttributes []*membersrvc.TCertAttribute
+	multiThreading bool
+	tCertBatchSize int
 }
 
 func (conf *configuration) init() error {
@@ -152,15 +150,6 @@ func (conf *configuration) init() error {
 	conf.multiThreading = false
 	if viper.IsSet("security.multithreading.enabled") {
 		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
-	}
-
-	// Set attributes
-	conf.tCertAttributes = []*membersrvc.TCertAttribute{}
-	if viper.IsSet("security.tcert.attributes") {
-		attributes := viper.GetStringMapString("security.tcert.attributes")
-		for key, value := range attributes {
-			conf.tCertAttributes = append(conf.tCertAttributes, &membersrvc.TCertAttribute{key, value})
-		}
 	}
 
 	return nil
@@ -300,10 +289,6 @@ func (conf *configuration) getTCertOwnerKDFKeyFilename() string {
 
 func (conf *configuration) getTCertBatchSize() int {
 	return conf.tCertBatchSize
-}
-
-func (conf *configuration) getTCertAttributes() []*membersrvc.TCertAttribute {
-	return conf.tCertAttributes
 }
 
 func (conf *configuration) GetConfidentialityProtocolVersion() string {

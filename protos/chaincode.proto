@@ -71,6 +71,7 @@ message ChaincodeSpec {
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
     bytes metadata = 7;
+    repeated string attributes = 8;
 }
 
 // Specify the deployment of a chaincode.

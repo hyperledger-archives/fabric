@@ -375,7 +375,10 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 
 		return nil, nil, nil, err
 	}
-
+	
+	if resp.FetchResult != nil && resp.FetchResult.Status != membersrvc.FetchAttrsResult_SUCCESS { 
+		node.warning(resp.FetchResult.Msg)
+	} 
 	//out, err := rsa.DecryptPKCS1v15(rand.Reader, encPriv, resp.Tok.Tok)
 	spi := ecies.NewSPI()
 	eciesKey, err := spi.NewPrivateKey(nil, encPriv)
