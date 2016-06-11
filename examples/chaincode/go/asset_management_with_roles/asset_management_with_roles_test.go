@@ -115,19 +115,16 @@ func TestAssetManagement(t *testing.T) {
 	}
 
 	// This must fail
-	fmt.Println("Alice assigns an asset to herself.")
 	if err := assignOwnership(alice, "Picasso", aliceCert); err == nil {
 		t.Fatal("Alice doesn't have the assigner role. Assignment should fail.")
 	}
-	fmt.Println("Alice failed to assign the asset, she doesn't have the assigner role.")
 
 	// This must succeed
-	fmt.Println("Admin assigns an asset to Alice.")
 	if err := assignOwnership(administrator, "Picasso", aliceCert); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("Alice owns the asset.")
 
+	// Check who is the owner of the Picasso
 	theOnwerIs, err := whoIsTheOwner("Picasso")
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +152,7 @@ func TestAssetManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Check who is the owner of the Picasso
 	theOnwerIs, err = whoIsTheOwner("Picasso")
 	if err != nil {
 		t.Fatal(err)
