@@ -17,14 +17,10 @@ limitations under the License.
 package obcpbft
 
 import (
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/hyperledger/fabric/consensus"
-	pb "github.com/hyperledger/fabric/protos"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
