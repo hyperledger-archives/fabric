@@ -83,7 +83,7 @@ var test_user_Member1;
 //
 
 // Path to the local directory containing the chaincode project under $GOPATH
-var testChaincodePath = "github.com/angrbrd/build-chaincode";
+var testChaincodePath = "github.com/chaincode_example02/";
 
 // Chaincode name/hash that will be filled in by the deployment operation
 var testChaincodeName = "";

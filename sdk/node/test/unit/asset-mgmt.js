@@ -34,8 +34,17 @@ var registrar = {
     secret: 'DJY27pEnl16d'
 };
 
-var alice, bob, charlie, chaincodeID;
+var alice, bob, charlie;
 var alicesCert, bobAppCert, charlieAppCert;
+
+// Path to the local directory containing the chaincode project under $GOPATH
+var testChaincodePath = "github.com/asset_management/";
+
+// Chaincode name/hash that will be filled in by the deployment operation
+var testChaincodeName = "";
+
+// A number of seconds to sleep after a chaincode deploy operation
+var sleepSec = 20;
 
 //
 //  Create and configure a test chain
@@ -44,7 +53,7 @@ var chain = hlc.newChain("testChain");
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
-chain.setDevMode(true);
+chain.setDevMode(false);
 
 /**
  * Get the user and if not enrolled, register and enroll the user.
@@ -127,33 +136,55 @@ test('Enroll Charlie', function (t) {
 });
 
 test("Alice deploys chaincode", function (t) {
+    t.plan(1);
+
     console.log('Deploy and assigning administrative rights to Alice [%s]', alicesCert.encode().toString('hex'));
+
+    // Construct the deploy request
     var deployRequest = {
-        chaincodeID: "assetmgmt",
-        fcn: 'init',
-        args: [],
-        confidential: true,
-        metadata: alicesCert.encode()
+      // Path (under $GOPATH) required for deploy
+      chaincodePath: testChaincodePath,
+      // Function to trigger
+      fcn: "init",
+      // Arguments to the initializing function
+      args: [],
+      // Mark chaincode as confidential
+      confidential: true,
+      // Assign Alice's cert
+      metadata: alicesCert.encode()
     };
-    var tx = alice.deploy(deployRequest);
-    tx.on('submitted', function (results) {
-        console.log("Chaincode ID: %s", results);
-        chaincodeID = results.toString();
+
+    // Trigger the deploy transaction
+    var deployTx = alice.deploy(deployRequest);
+
+    // Print the deploy results
+    deployTx.on('complete', function(results, chaincodeHash) {
+      // Deploy request completed successfully
+
+      // Sleep for sleepSec to allow the chaincode Docker container to come up
+      console.log(util.format("Sleeping for [%s] seconds...", sleepSec));
+      sleep.sleep(sleepSec);
+
+      // Set the chaincode name (hash returned) for subsequent tests
+      testChaincodeName = chaincodeHash;
+      console.log("testChaincodeName:" + chaincodeHash);
+      t.pass("Successfully deployed chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> txUUID : " + results);
     });
-    tx.on('complete', function (results) {
-        console.log("deploy complete: %j", results);
-        pass(t, "Alice deploy chaincode. ID: " + chaincodeID);
-    });
-    tx.on('error', function (err) {
-        fail(t, "Alice depoy chaincode", err);
+    deployTx.on('error', function(results) {
+      // Deploy request failed
+      t.fail("Failed to deploy chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> " + results);
     });
 });
 
+
 test("Alice assign ownership", function (t) {
-    console.log("Chaincode ID: %s", chaincodeID);
+    t.plan(1);
+
+    console.log("Chaincode ID: %s", testChaincodeName);
+
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: chaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "assign",
         // Parameters for the invoke function
@@ -176,9 +207,11 @@ test("Alice assign ownership", function (t) {
 });
 
 test("Bob transfers ownership to Charlie", function (t) {
+    t.plan(1);
+
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: chaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "transfer",
         // Parameters for the invoke function
@@ -201,15 +234,20 @@ test("Bob transfers ownership to Charlie", function (t) {
 });
 
 test("Alice queries chaincode", function (t) {
+    t.plan(1);
+
+    console.log("Alice queries chaincode: " + testChaincodeName);
+
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: chaincodeID,
+        chaincodeID: testChaincodeName,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
         args: ["Ferrari"],
         confidential: true
     };
+
     var tx = alice.query(queryRequest);
     tx.on('complete', function (results) {
         console.log('Results          [%j]', results);
