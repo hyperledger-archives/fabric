@@ -25,12 +25,13 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"strings"
+
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"strings"
 )
 
 const envPrefix = "MEMBERSRVC_CA"
@@ -89,9 +90,9 @@ func main() {
 	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
 	ca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
-	aca := ca.NewACA() 
+	aca := ca.NewACA()
 	defer aca.Close()
-	
+
 	eca := ca.NewECA()
 	defer eca.Close()
 
