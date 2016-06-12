@@ -83,13 +83,6 @@ func TestMain(m *testing.M) {
 		os.Exit(ret)
 	}
 
-	////Second scenario with multithread
-	properties["security.multithreading.enabled"] = "true"
-	ret = runTestsOnScenario(m, properties, "Using multithread enabled")
-	if ret != 0 {
-		os.Exit(ret)
-	}
-
 	//properties["security.multithreading.enabled"] = "false"
 	//Third scenario using confidentialityProtocolVersion = 1.1
 	/*
@@ -166,7 +159,6 @@ func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenari
 }
 
 func TestParallelInitClose(t *testing.T) {
-	t.Skip()
 	clientConf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
 	peerConf := utils.NodeConfiguration{Type: "peer", Name: "peerthread"}
 	validatorConf := utils.NodeConfiguration{Type: "validator", Name: "validatorthread"}
