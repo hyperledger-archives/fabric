@@ -25,13 +25,9 @@ import (
 	"io"
 	"log"
 	mrand "math/rand"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/spf13/viper"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -82,41 +78,6 @@ func randomString(n int) string {
 	}
 
 	return string(b)
-}
-
-// GetConfigString returns a configuration string value for a given identifier.
-// Environment variables have preference over entries in the yaml file, whereby 'name' is
-// converted to
-//
-//     "OBCCA_" + strings.Replace(strings.ToUpper('name'), ".", "_")
-//
-// for environment variables.
-//
-func GetConfigString(name string) string {
-	val := os.Getenv("OBCCA_" + strings.Replace(strings.ToUpper(name), ".", "_", -1))
-	if val == "" {
-		return viper.GetString(name)
-	}
-
-	return val
-}
-
-// GetConfigInt returns a configuration integer value for a given identifier.
-// Environment variables have preference over entries in the yaml file, whereby 'name' is
-// converted to
-//
-//     "OBCCA_" + strings.Replace(strings.ToUpper('name'), ".", "_")
-//
-// for environment variables.
-//
-func GetConfigInt(name string) int {
-	val := os.Getenv("OBCCA_" + strings.Replace(strings.ToUpper(name), ".", "_", -1))
-	if val == "" {
-		return viper.GetInt(name)
-	}
-
-	ival, _ := strconv.Atoi(val)
-	return ival
 }
 
 //

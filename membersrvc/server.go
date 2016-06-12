@@ -30,10 +30,16 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"strings"
 )
 
+const envPrefix = "MEMBERSRVC_CA"
+
 func main() {
+	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
+	replacer := strings.NewReplacer(".", "_")
+	viper.SetEnvKeyReplacer(replacer)
 	viper.SetConfigName("membersrvc")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./")
@@ -49,27 +55,27 @@ func main() {
 	}
 
 	var iotrace, ioinfo, iowarning, ioerror, iopanic io.Writer
-	if ca.GetConfigInt("logging.trace") == 1 {
+	if viper.GetInt("logging.trace") == 1 {
 		iotrace = os.Stdout
 	} else {
 		iotrace = ioutil.Discard
 	}
-	if ca.GetConfigInt("logging.info") == 1 {
+	if viper.GetInt("logging.info") == 1 {
 		ioinfo = os.Stdout
 	} else {
 		ioinfo = ioutil.Discard
 	}
-	if ca.GetConfigInt("logging.warning") == 1 {
+	if viper.GetInt("logging.warning") == 1 {
 		iowarning = os.Stdout
 	} else {
 		iowarning = ioutil.Discard
 	}
-	if ca.GetConfigInt("logging.error") == 1 {
+	if viper.GetInt("logging.error") == 1 {
 		ioerror = os.Stderr
 	} else {
 		ioerror = ioutil.Discard
 	}
-	if ca.GetConfigInt("logging.panic") == 1 {
+	if viper.GetInt("logging.panic") == 1 {
 		iopanic = os.Stdout
 	} else {
 		iopanic = ioutil.Discard
@@ -95,7 +101,7 @@ func main() {
 	tlsca := ca.NewTLSCA(eca)
 	defer tlsca.Close()
 
-	runtime.GOMAXPROCS(ca.GetConfigInt("server.gomaxprocs"))
+	runtime.GOMAXPROCS(viper.GetInt("server.gomaxprocs"))
 
 	var opts []grpc.ServerOption
 	if viper.GetString("server.tls.certfile") != "" {
@@ -112,7 +118,7 @@ func main() {
 	tca.Start(srv)
 	tlsca.Start(srv)
 
-	if sock, err := net.Listen("tcp", ca.GetConfigString("server.port")); err != nil {
+	if sock, err := net.Listen("tcp", viper.GetString("server.port")); err != nil {
 		ca.Error.Println("Fail to start CA Server: ", err)
 		os.Exit(1)
 	} else {
