@@ -38,10 +38,19 @@ func TestHashContentChange(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randIndex := (int(r.Uint32())) % len(b2)
 
-	randChar := (int(r.Uint32())) % 128
+	randByte := byte((int(r.Uint32())) % 128)
 
-	//change a random byte with a random char
-	b2[randIndex] = byte(randChar)
+	//make sure the two bytes are different
+	for {
+		if randByte != b2[randIndex] {
+			break
+		}
+
+		randByte = byte((int(r.Uint32())) % 128)
+	}
+
+	//change a random byte
+	b2[randIndex] = randByte
 
 	//this is the core hash func under test
 	h2 := computeHash(b2, hash)
@@ -100,6 +109,15 @@ func TestHashOrderChange(t *testing.T) {
 	randIndex1 := (int(r.Uint32())) % len(b2)
 	randIndex2 := (int(r.Uint32())) % len(b2)
 
+	//make sure the two indeces are different
+	for {
+		if randIndex2 != randIndex1 {
+			break
+		}
+
+		randIndex2 = (int(r.Uint32())) % len(b2)
+	}
+
 	//switch two arbitrary lines
 	tmp := b2[randIndex2]
 	b2[randIndex2] = b2[randIndex1]
@@ -136,6 +154,6 @@ func TestHashOverFiles(t *testing.T) {
 
 	if expectedHash != computedHash {
 		t.Fail()
-		t.Logf("Hash expected to be different but is same")
+		t.Logf("Hash expected to be unchanged")
 	}
 }
