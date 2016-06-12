@@ -166,6 +166,7 @@ func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenari
 }
 
 func TestParallelInitClose(t *testing.T) {
+	t.Skip()
 	clientConf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
 	peerConf := utils.NodeConfiguration{Type: "peer", Name: "peerthread"}
 	validatorConf := utils.NodeConfiguration{Type: "validator", Name: "validatorthread"}
