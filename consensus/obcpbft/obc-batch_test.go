@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric/consensus"
+	pb "github.com/hyperledger/fabric/protos"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -74,5 +76,102 @@ func TestNetworkBatch(t *testing.T) {
 		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 /*numTrans*/ {
 			t.Fatalf("Replica %d has %d txResults, expected %d", ce.id, numTxResults, numTrans)
 		}
+	}
+}
+
+func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
+	b := newObcBatch(0, loadConfig(), &omniProto{})
+	defer b.Close()
+
+	b.outstandingReqs[&Request{}] = struct{}{}
+
+	b.manager.Queue() <- stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: 10,
+		},
+	}
+
+	b.manager.Queue() <- nil
+
+	if len(b.outstandingReqs) != 0 {
+		t.Fatalf("Should not have any requests outstanding after completing state transfer")
+	}
+}
+
+func TestOutstandingReqsIngestion(t *testing.T) {
+	batchSize := 2
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, obcBatchHelper, func(ce *consumerEndpoint) {
+		ce.consumer.(*obcBatch).batchSize = batchSize
+	})
+	defer net.stop()
+
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	if err != nil {
+		t.Fatalf("External request was not processed by backup: %v", err)
+	}
+
+	net.process()
+
+	for i, ep := range net.endpoints {
+		count := len(ep.(*consumerEndpoint).consumer.(*obcBatch).outstandingReqs)
+		if i == 0 {
+			if count != 0 {
+				t.Errorf("Batch primary should not have the request in its store")
+			}
+		} else {
+			if count != 1 {
+				t.Errorf("Batch backup %d should have the request in its store", i)
+			}
+		}
+	}
+}
+
+func TestOutstandingReqsResubmission(t *testing.T) {
+	omni := &omniProto{
+		ExecuteImpl: func(tag interface{}, txs []*pb.Transaction) {},
+	}
+	b := newObcBatch(0, loadConfig(), omni)
+	defer b.Close()
+
+	omni.BroadcastImpl = func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+		batchMsg := &BatchMessage{}
+		err := proto.Unmarshal(ocMsg.Payload, batchMsg)
+
+		msgRaw := batchMsg.GetPbftMessage()
+		if msgRaw == nil {
+			t.Fatalf("Expected PBFT message only")
+		}
+
+		msg := &Message{}
+		err = proto.Unmarshal(msgRaw, msg)
+		if err != nil {
+			t.Fatalf("Error unpacking payload from message: %s", err)
+		}
+
+		prePrepare := msg.GetPrePrepare()
+
+		if err != nil {
+			t.Fatalf("Expected only a prePrepare")
+		}
+
+		// Shortcuts the whole 3 phase protocol, and executes whatever is in the prePrepare
+		b.execute(prePrepare.SequenceNumber, prePrepare.Request.Payload)
+
+		return nil
+	}
+
+	// Add two requests
+	b.outstandingReqs[createPbftRequestWithChainTx(1, 0)] = struct{}{}
+
+	seqNo := uint64(1)
+	b.pbft.currentExec = &seqNo
+
+	b.manager.Queue() <- committedEvent{}
+	b.manager.Queue() <- nil
+
+	if len(b.outstandingReqs) != 0 {
+		t.Fatalf("All requests should have been resubmitted")
 	}
 }

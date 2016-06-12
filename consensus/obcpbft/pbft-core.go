@@ -356,7 +356,9 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 			} else {
 				logger.Warningf("Replica %d recovered to seqNo %d but our low watermark has moved to %d", instance.id, update.seqNo, instance.h)
 			}
-			if instance.highStateTarget != nil && update.seqNo < instance.highStateTarget.seqNo {
+			if instance.highStateTarget == nil {
+				logger.Debugf("Replica %d has no state targets, cannot resume state transfer yet", instance.id)
+			} else if update.seqNo < instance.highStateTarget.seqNo {
 				logger.Debugf("Replica %d has state target for %d, transferring", instance.id, instance.highStateTarget.seqNo)
 				instance.retryStateTransfer(nil)
 			} else {

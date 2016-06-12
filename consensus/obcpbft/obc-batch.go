@@ -18,6 +18,7 @@ package obcpbft
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
@@ -120,6 +121,7 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
 	} else {
+		logger.Debug("Replica %d add request %v to its oustanding store", op.pbft.id, req)
 		op.outstandingReqs[req] = struct{}{}
 	}
 
@@ -206,7 +208,13 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			logger.Warningf("Batch replica %d could not unmarshal transaction: %s", op.pbft.id, err)
 			continue
 		}
-		delete(op.outstandingReqs, req)
+		// TODO, this is a really and inefficient way to do this, but because reqs aren't comparable, they cannot be retrieved from the map directly
+		for oreq := range op.outstandingReqs {
+			if reflect.DeepEqual(oreq, req) {
+				delete(op.outstandingReqs, oreq)
+				break
+			}
+		}
 		txs = append(txs, tx)
 	}
 
@@ -305,6 +313,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
 			return op.leaderProcReq(req)
 		}
+		op.outstandingReqs[req] = struct{}{}
 		return nil
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
 		senderID, err := getValidatorID(senderHandle) // who sent this?
@@ -363,6 +372,11 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		if op.batchTimerActive {
 			op.stopBatchTimer()
 		}
+
+	case stateUpdatedEvent:
+		// When the state is updated, clear any outstanding requests, they may have been processed while we were gone
+		op.outstandingReqs = make(map[*Request]struct{})
+		return op.pbft.ProcessEvent(event)
 	default:
 		return op.pbft.ProcessEvent(event)
 	}
@@ -402,10 +416,4 @@ func (op *obcBatch) idleChannel() <-chan struct{} {
 // TODO, temporary
 func (op *obcBatch) getManager() events.Manager {
 	return op.manager
-}
-
-// skipTo needs to flush our outstanding reqs, since we lost sync with the network, all bets are off
-func (op *obcBatch) skipTo(seqNo uint64, id []byte, replicas []uint64) {
-	op.outstandingReqs = make(map[*Request]struct{})
-	op.obcGeneric.skipTo(seqNo, id, replicas)
 }
