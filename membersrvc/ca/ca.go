@@ -188,6 +188,7 @@ func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
 
+// TableInitializer is a function type for table initialization
 type TableInitializer func(*sql.DB) error
 
 func initializeCommonTables(db *sql.DB) error {
