@@ -17,6 +17,7 @@ limitations under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
 	gp "google/protobuf"
 	"os"
@@ -1444,5 +1445,127 @@ func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
 		if pep.pbft.view != 1 {
 			t.Errorf("Instance %d: expected view=1", pep.id)
 		}
+	}
+}
+
+func TestViewChangeDuringExecution(t *testing.T) {
+	skipped := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		viewChangeImpl: func(v uint64) {},
+		skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+			skipped = true
+		},
+		invalidateStateImpl: func() {},
+		broadcastImpl:       func(b []byte) {},
+		signImpl:            func(b []byte) ([]byte, error) { return b, nil },
+		verifyImpl:          func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.activeView = false
+	instance.view = 1
+	instance.lastExec = 1
+	nextExec := uint64(2)
+	instance.currentExec = &nextExec
+
+	vset := make([]*ViewChange, 3)
+
+	cset := []*ViewChange_C{
+		{
+			SequenceNumber: 100,
+			Id:             base64.StdEncoding.EncodeToString([]byte("onehundred")),
+		},
+	}
+
+	// Replica 0 sent checkpoints for 100
+	vset[0] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	// Replica 1 sent checkpoints for 10
+	vset[1] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	// Replica 2 sent checkpoints for 10
+	vset[2] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	xset := make(map[uint64]string)
+	xset[101] = ""
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      xset,
+		ReplicaId: 1,
+	}
+
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	if skipped {
+		t.Fatalf("Expected state transfer not to be kicked off until execution completes")
+	}
+
+	events.SendEvent(instance, execDoneEvent{})
+
+	if !skipped {
+		t.Fatalf("Expected state transfer to be kicked off once execution completed")
+	}
+}
+
+func TestStateTransferredToOldPoint(t *testing.T) {
+	skipped := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+			skipped = true
+		},
+		invalidateStateImpl: func() {},
+	}, &inertTimerFactory{})
+	instance.moveWatermarks(90)
+	instance.updateHighStateTarget(&stateUpdateTarget{
+		checkpointMessage: checkpointMessage{
+			seqNo: 100,
+			id:    []byte("onehundred"),
+		},
+	})
+
+	events.SendEvent(instance, stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: 10,
+		},
+	})
+
+	if !skipped {
+		t.Fatalf("Expected state transfer to be kicked off once execution completed")
+	}
+}
+
+func TestStateNetworkMovesOnDuringSlowStateTransfer(t *testing.T) {
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		skipToImpl:          func(s uint64, id []byte, replicas []uint64) {},
+		invalidateStateImpl: func() {},
+		//broadcastImpl:       func(b []byte) {},
+		//signImpl:            func(b []byte) ([]byte, error) { return b, nil },
+		//verifyImpl:          func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.skipInProgress = true
+
+	seqNo := uint64(20)
+
+	for i := uint64(0); i < 3; i++ {
+		events.SendEvent(instance, &Checkpoint{
+			SequenceNumber: seqNo,
+			ReplicaId:      i,
+			Id:             base64.StdEncoding.EncodeToString([]byte("twenty")),
+		})
+	}
+
+	if instance.h != seqNo {
+		t.Fatalf("Expected watermark movement to %d because of state transfer, but low watermark is %d", seqNo, instance.h)
 	}
 }

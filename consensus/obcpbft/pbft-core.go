@@ -358,8 +358,7 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 			}
 			if instance.highStateTarget != nil && update.seqNo < instance.highStateTarget.seqNo {
 				logger.Debugf("Replica %d has state target for %d, transferring", instance.id, instance.highStateTarget.seqNo)
-				instance.stateTransferring = true
-				instance.consumer.skipTo(instance.highStateTarget.seqNo, instance.highStateTarget.id, instance.highStateTarget.replicas)
+				instance.retryStateTransfer(nil)
 			} else {
 				logger.Debugf("Replica %d has no state target above %d, highest is %d", instance.id, update.seqNo, instance.highStateTarget.seqNo)
 			}
@@ -375,9 +374,7 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 	case execDoneEvent:
 		instance.execDoneSync()
 		if instance.skipInProgress {
-			logger.Debug("Replica %d had state transfer needed during an execution, now transfering to seqNo %d", instance.id, instance.highStateTarget.seqNo)
-			instance.stateTransferring = true
-			instance.consumer.skipTo(instance.highStateTarget.seqNo, instance.highStateTarget.id, instance.highStateTarget.replicas)
+			instance.retryStateTransfer(nil)
 		}
 	case nullRequestEvent:
 		instance.nullRequestHandler()
@@ -877,6 +874,52 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	return nil
 }
 
+func (instance *pbftCore) updateHighStateTarget(target *stateUpdateTarget) {
+	if instance.highStateTarget != nil && instance.highStateTarget.seqNo >= target.seqNo {
+		logger.Debug("Replica %d not update state target to seqNo %d, has target for seqNo %d", instance.id, target.seqNo, instance.highStateTarget.seqNo)
+		return
+	}
+
+	instance.highStateTarget = target
+}
+
+func (instance *pbftCore) stateTransfer(optional *stateUpdateTarget) {
+	if !instance.skipInProgress {
+		logger.Debug("Replica %d is out of sync, pending state transfer", instance.id)
+		instance.skipInProgress = true
+		instance.consumer.invalidateState()
+	}
+
+	instance.retryStateTransfer(optional)
+}
+
+func (instance *pbftCore) retryStateTransfer(optional *stateUpdateTarget) {
+	if instance.currentExec != nil {
+		logger.Debug("Replica %d is currently mid-execution, it must wait for the execution to complete before performing state transfer", instance.id)
+		return
+	}
+
+	if instance.stateTransferring {
+		logger.Debug("Replica %d is currently mid state transfer, it must wait for this state transfer to complete before initiating a new one", instance.id)
+		return
+	}
+
+	target := optional
+	if target == nil {
+		if instance.highStateTarget == nil {
+			logger.Debug("Replica %d has no targets to attempt state transfer to, delaying", instance.id)
+			return
+		}
+		target = instance.highStateTarget
+	}
+
+	instance.stateTransferring = true
+
+	logger.Debug("Replica %d is initiating state transfer to seqNo %d", instance.id, target.seqNo)
+	instance.consumer.skipTo(target.seqNo, target.id, target.replicas)
+
+}
+
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
 		logger.Debugf("Replica %d not attempting to executeOutstanding because it is currently executing %d", instance.id, *instance.currentExec)
@@ -1093,22 +1136,20 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 
-	if instance.highStateTarget == nil || instance.highStateTarget.seqNo < chkpt.SequenceNumber {
-		instance.highStateTarget = &stateUpdateTarget{
-			checkpointMessage: checkpointMessage{
-				seqNo: chkpt.SequenceNumber,
-				id:    snapshotID,
-			},
-			replicas: checkpointMembers,
-		}
+	target := &stateUpdateTarget{
+		checkpointMessage: checkpointMessage{
+			seqNo: chkpt.SequenceNumber,
+			id:    snapshotID,
+		},
+		replicas: checkpointMembers,
 	}
+	instance.updateHighStateTarget(target)
 
-	if instance.skipInProgress && !instance.stateTransferring {
+	if instance.skipInProgress {
 		logger.Debugf("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
 		// The view should not be set to active, this should be handled by the yet unimplemented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
-		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
-		instance.stateTransferring = true
+		instance.retryStateTransfer(target)
 	}
 }
 
@@ -1162,6 +1203,15 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
 		logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
 			instance.id, chkpt.SequenceNumber, chkpt.Id)
+		if instance.skipInProgress {
+			logSafetyBound := instance.h + instance.L/2
+			// As an optimization, if we are more than half way out of our log and in state transfer, move our watermarks so we don't lose track of the network
+			// if needed, state transfer will restart on completion to a more recent point in time
+			if chkpt.SequenceNumber >= logSafetyBound {
+				logger.Debug("Replica %d is in state transfer, but, the network seems to be moving on past %d, moving our watermarks to stay with it", instance.id, logSafetyBound)
+				instance.moveWatermarks(chkpt.SequenceNumber)
+			}
+		}
 		return nil
 	}
 

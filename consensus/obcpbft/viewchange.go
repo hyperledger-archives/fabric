@@ -353,24 +353,16 @@ func (instance *pbftCore) processNewView() events.Event {
 			return nil
 		}
 
-		instance.skipInProgress = true
-
-		if instance.highStateTarget == nil || instance.highStateTarget.seqNo < cp.SequenceNumber {
-			instance.highStateTarget = &stateUpdateTarget{
-				checkpointMessage: checkpointMessage{
-					seqNo: cp.SequenceNumber,
-					id:    snapshotID,
-				},
-				replicas: replicas,
-			}
+		target := &stateUpdateTarget{
+			checkpointMessage: checkpointMessage{
+				seqNo: cp.SequenceNumber,
+				id:    snapshotID,
+			},
+			replicas: replicas,
 		}
 
-		if instance.currentExec == nil {
-			// Make sure we are not currently executing, it's not safe to state transfer if we are
-			instance.stateTransferring = true
-			instance.consumer.invalidateState()
-			instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
-		}
+		instance.updateHighStateTarget(target)
+		instance.stateTransfer(target)
 	}
 
 	for n, d := range nv.Xset {
