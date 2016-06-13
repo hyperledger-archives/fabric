@@ -47,7 +47,7 @@ func TestNetworkBatch(t *testing.T) {
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
 	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
-		t.Fatalf("External request was not processed by backup: %v", err)
+		t.Errorf("External request was not processed by backup: %v", err)
 	}
 	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	if err != nil {
@@ -55,9 +55,11 @@ func TestNetworkBatch(t *testing.T) {
 	}
 
 	net.process()
+	net.process()
 
 	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 0 {
-		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, l)
+		t.Errorf("%d messages expected in primary's batchStore, found %v", 0,
+			net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore)
 	}
 
 	for _, ep := range net.endpoints {
