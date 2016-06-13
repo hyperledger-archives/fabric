@@ -21,8 +21,9 @@ import (
 	"time"
 )
 
-// mockEventID is equivalent to MIN_INT to prevent collisions
-type mockEvent struct{}
+type mockEvent struct {
+	info string
+}
 
 type mockReceiver struct {
 	processEventImpl func(event Event) Event
@@ -76,8 +77,8 @@ func TestEventTimerHardReset(t *testing.T) {
 	})
 	timer := newTimerImpl(mr)
 	defer timer.Halt()
-	me1 := &mockEvent{}
-	me2 := &mockEvent{}
+	me1 := &mockEvent{"one"}
+	me2 := &mockEvent{"two"}
 	timer.Reset(time.Millisecond, me1)
 	timer.Reset(time.Millisecond, me2)
 
@@ -87,7 +88,7 @@ func TestEventTimerHardReset(t *testing.T) {
 	select {
 	case e := <-events:
 		if e != me2 {
-			t.Fatalf("Received wrong output from event timer")
+			t.Fatalf("Received wrong output (%v) from event timer", e)
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("Timed out waiting for event to fire")
@@ -103,8 +104,8 @@ func TestEventTimerSoftReset(t *testing.T) {
 	})
 	timer := newTimerImpl(mr)
 	defer timer.Halt()
-	me1 := &mockEvent{}
-	me2 := &mockEvent{}
+	me1 := &mockEvent{"one"}
+	me2 := &mockEvent{"two"}
 	timer.SoftReset(time.Millisecond, me1)
 	timer.SoftReset(time.Millisecond, me2)
 
@@ -114,7 +115,7 @@ func TestEventTimerSoftReset(t *testing.T) {
 	select {
 	case e := <-events:
 		if e != me1 {
-			t.Fatalf("Received wrong output from event timer")
+			t.Fatalf("Received wrong output (%v) from event timer", e)
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("Timed out waiting for event to fire")
