@@ -169,6 +169,21 @@ cd $GOPATH/src/github.com/hyperledger/fabric
 make peer unit-test behave
 ```
 
+### Building on Ubuntu
+To make building on Ubuntu easier and faster too, [this script](https://github.com/MizukiSonoko/fabric/blob/setup_ubuntu_sh/devenv/setupUbuntu.sh) is provided (which is similar to the [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh) provided for vagrant). This script has been tested only on Ubuntu Server 14.04 and has some assumptions one might want to re-visit (firewall settings, development as root user, etc.). It is however sufficient for development in a personally-assigned VM instance.
+```
+wget https://raw.githubusercontent.com/MizukiSonoko/fabric/setup_ubuntu_sh/devenv/setupUbuntu.sh
+chmod +x setupUbuntu.sh
+./setupUbuntu.sh
+exit
+```
+and login in again
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/build/bin/
+./peer
+```
+
+
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.
 
