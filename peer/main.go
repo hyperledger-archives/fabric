@@ -717,7 +717,7 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 
 	ccSrv := chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper)
 
-	//Now that chaincode is initialized, register all system chaincodes. 
+	//Now that chaincode is initialized, register all system chaincodes.
 	system_chaincode.RegisterSysCCs()
 
 	pb.RegisterChaincodeSupportServer(grpcServer, ccSrv)
