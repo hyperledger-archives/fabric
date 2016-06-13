@@ -864,13 +864,13 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 		instance.stopTimer()
 		instance.lastNewViewTimeout = instance.newViewTimeout
 		delete(instance.outstandingReqs, commit.RequestDigest)
-		instance.startTimerIfOutstandingRequests()
+
+		instance.executeOutstanding()
+
 		if commit.SequenceNumber == instance.viewChangeSeqNo {
 			logger.Info("Replica %d cycling view", instance.id)
 			instance.sendViewChange()
 		}
-
-		instance.executeOutstanding()
 	}
 
 	return nil
@@ -937,7 +937,7 @@ func (instance *pbftCore) executeOutstanding() {
 
 	logger.Debugf("Replica %d certstore %+v", instance.id, instance.certStore)
 
-	return
+	instance.startTimerIfOutstandingRequests()
 }
 
 func (instance *pbftCore) executeOne(idx msgID) bool {
@@ -1317,6 +1317,11 @@ func (instance *pbftCore) updateViewChangeSeqNo() {
 }
 
 func (instance *pbftCore) startTimerIfOutstandingRequests() {
+	if instance.skipInProgress || instance.currentExec != nil {
+		// Do not start the view change timer if we are executing or state transferring, these take arbitrarilly long amounts of time
+		return
+	}
+
 	if len(instance.outstandingReqs) > 0 {
 		reqs := func() []string {
 			var r []string
