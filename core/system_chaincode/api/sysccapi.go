@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/container/inproccontroller"
+	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
 )
@@ -49,10 +50,15 @@ type SystemChaincode struct {
 
 	// Chaincode is the actual chaincode object
 	Chaincode shim.Chaincode
+
 }
 
 // RegisterSysCC registers the given system chaincode with the peer
 func RegisterSysCC(syscc *SystemChaincode) error {
+	if peer.SecurityEnabled() {
+		sysccLogger.Warning(fmt.Sprintf("system chaincode not supported for security/privacy(%s,%s)", syscc.Name, syscc.Path))
+		return nil
+	}
 	if !syscc.Enabled {
 		sysccLogger.Info(fmt.Sprintf("system chaincode (%s,%s) disabled", syscc.Name, syscc.Path))
 		return nil
