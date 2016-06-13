@@ -56,7 +56,7 @@ type SystemChaincode struct {
 // RegisterSysCC registers the given system chaincode with the peer
 func RegisterSysCC(syscc *SystemChaincode) error {
 	if peer.SecurityEnabled() {
-		sysccLogger.Warning(fmt.Sprintf("system chaincode not supported for security/privacy(%s,%s)", syscc.Name, syscc.Path))
+		sysccLogger.Warning(fmt.Sprintf("Currently system chaincode does support security(%s,%s)", syscc.Name, syscc.Path))
 		return nil
 	}
 	if !syscc.Enabled {
