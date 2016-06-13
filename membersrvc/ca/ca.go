@@ -828,6 +828,8 @@ func role2String(role int) string {
 		return "peer"
 	} else if role == int(pb.Role_VALIDATOR) {
 		return "validator"
+	} else if role == int(pb.Role_AUDITOR) {
+		return "auditor"
 	}
 	return ""
 }

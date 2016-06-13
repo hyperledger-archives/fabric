@@ -17,13 +17,15 @@ limitations under the License.
 package ca
 
 import (
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"net"
 	"os"
 	"testing"
 
+	"github.com/spf13/viper"
+
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"google.golang.org/grpc"
 
@@ -49,6 +51,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("Running tests....")
 	ret := m.Run()
 	fmt.Println("End running tests....")
+	cleanupFiles()
 	os.Exit(ret)
 
 }
@@ -93,6 +96,15 @@ func cleanup() {
 	fmt.Println("Cleanup...")
 	stopPKI()
 	fmt.Println("Cleanup...done!")
+}
+
+func cleanupFiles() {
+	//cleanup files
+	path := viper.GetString("server.cadir")
+	err := os.RemoveAll("./" + path)
+	if err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", path, err)
+	}
 }
 
 func stopPKI() {
