@@ -26,11 +26,10 @@ import (
 )
 
 //----Event Types -----
-const (
+/*const (
 	RegisterType = "register"
 	BlockType    = "block"
-	GenericType  = "generic"
-)
+) */
 
 func getMessageType(e *pb.Event) pb.EventType {
 	switch e.Event.(type) {
@@ -38,8 +37,6 @@ func getMessageType(e *pb.Event) pb.EventType {
 		return pb.EventType_REGISTER
 	case *pb.Event_Block:
 		return pb.EventType_BLOCK
-	case *pb.Event_Generic:
-		return pb.EventType_GENERIC
 	case *pb.Event_ChaincodeEvent:
 		return pb.EventType_CHAINCODE
 	default:
