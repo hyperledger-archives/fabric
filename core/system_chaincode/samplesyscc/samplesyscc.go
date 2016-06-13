@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sample_syscc
+package samplesyscc
 
 import (
 	"errors"
@@ -29,20 +29,8 @@ type SampleSysCC struct {
 // Init initializes the sample system chaincode by storing the key and value
 // arguments passed in as parameters
 func (t *SampleSysCC) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var key, val string // Entities
-
-	if len(args) != 2 {
-		return nil, errors.New("need 2 args (key and a value)")
-	}
-
-	// Initialize the chaincode
-	key = args[0]
-	val = args[1]
-	// Write the state to the ledger
-	err := stub.PutState(key, []byte(val))
-	if err != nil {
-		return nil, err
-	}
+	//as system chaincodes do not take part in consensus and are part of the system,
+	//best practice to do nothing (or very little) in Init.
 
 	return nil, nil
 }
