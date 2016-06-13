@@ -30,9 +30,28 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 
 // AssetManagementChaincode example simple Asset Management Chaincode implementation
 // with access control enforcement at chaincode level.
-// Look here for more information on how to implement access control at chaincode level:
-// https://github.com/hyperledger/fabric/blob/master/docs/tech/application-ACL.md
-// An asset is represented by a string
+//
+// This example implements asset transfer using attributes support and specifically Attribute Based Access Control (ABAC).
+// There are three users in this example:
+// - alice
+// - bob
+// - admin
+//
+// This users are defined in the section "eca" of asset.yaml file.
+// In the section "aca" of asset.yaml file two attributes are defined to this users:
+// The first attribute is called 'role' with this values:
+// - alice has role = client
+// - bob has role = client
+// - admin has role = assigner
+//
+// The second attribute is called 'account' with this values:
+// - alice has account = 12345-56789
+// - bob has account = 23456-67890
+//
+// In the present example only users with role 'assigner' can associate an 'asset' as is implemented in function 'assign' and
+// user with role 'client' can transfers theirs assets to other clients as is implemented in function 'transfer'.
+// Asset ownership is stored in the ledger state and is linked to the client account.
+// Attribute 'account' is used to associate transaction certificates with account owner.
 type AssetManagementChaincode struct {
 }
 
@@ -51,9 +70,6 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 	if err != nil {
 		return nil, fmt.Errorf("Failed creating AssetsOnwership table, [%v]", err)
 	}
-
-	// Set the role of the users that are allowed to assign assets
-	// The metadata will contain the role of the users that are allowed to assign assets
 
 	// Set the role of the users that are allowed to assign assets
 	// The metadata will contain the role of the users that are allowed to assign assets
