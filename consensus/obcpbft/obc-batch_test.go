@@ -18,6 +18,7 @@ package obcpbft
 
 import (
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
@@ -164,6 +165,7 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 
 	// Add two requests
 	b.outstandingReqs[createPbftRequestWithChainTx(1, 0)] = struct{}{}
+	b.outstandingReqs[createPbftRequestWithChainTx(2, 0)] = struct{}{}
 
 	seqNo := uint64(1)
 	b.pbft.currentExec = &seqNo
@@ -173,5 +175,24 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 
 	if len(b.outstandingReqs) != 0 {
 		t.Fatalf("All requests should have been resubmitted")
+	}
+}
+
+func TestViewChangeOnPrimarySilence(t *testing.T) {
+	b := newObcBatch(1, loadConfig(), &omniProto{
+		BroadcastImpl: func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error { return nil },
+		SignImpl:      func(msg []byte) ([]byte, error) { return msg, nil },
+		VerifyImpl:    func(peerID *pb.PeerID, signature []byte, message []byte) error { return nil },
+	})
+	b.pbft.requestTimeout = 50 * time.Millisecond
+	defer b.Close()
+
+	// Send a request, which will be ignored, triggering view change
+	b.manager.Queue() <- batchMessageEvent{createOcMsgWithChainTx(1), &pb.PeerID{"vp0"}}
+	time.Sleep(time.Second)
+	b.manager.Queue() <- nil
+
+	if b.pbft.activeView {
+		t.Fatalf("Should have caused a view change")
 	}
 }

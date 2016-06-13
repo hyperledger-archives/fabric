@@ -123,6 +123,7 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	} else {
 		logger.Debug("Replica %d add request %v to its oustanding store", op.pbft.id, req)
 		op.outstandingReqs[req] = struct{}{}
+		op.startTimerIfOutstandingRequests()
 	}
 
 	return nil
@@ -348,6 +349,7 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		op.stack.Commit(nil, et.tag.([]byte))
 	case committedEvent:
 		op.pbft.ProcessEvent(execDoneEvent{})
+		op.startTimerIfOutstandingRequests()
 		// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
 		// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
 		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
@@ -416,4 +418,17 @@ func (op *obcBatch) idleChannel() <-chan struct{} {
 // TODO, temporary
 func (op *obcBatch) getManager() events.Manager {
 	return op.manager
+}
+
+func (op *obcBatch) startTimerIfOutstandingRequests() {
+	if op.pbft.skipInProgress || op.pbft.currentExec != nil {
+		// Do not start view change timer if some background event is in progress
+		return
+	}
+
+	if len(op.outstandingReqs) == 0 {
+		// Only start a timer if we are aware of outstanding requests
+		return
+	}
+	op.pbft.softStartTimer(op.pbft.requestTimeout, "Batch outstanding requests")
 }
