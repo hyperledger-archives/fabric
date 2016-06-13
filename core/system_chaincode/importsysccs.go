@@ -17,8 +17,9 @@ limitations under the License.
 package system_chaincode
 
 import (
-	//import system chain codes here
 	"github.com/hyperledger/fabric/core/system_chaincode/api"
+
+	//import system chain codes here
 	"github.com/hyperledger/fabric/core/system_chaincode/samplesyscc"
 )
 
