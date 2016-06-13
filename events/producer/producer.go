@@ -67,7 +67,7 @@ func (p *EventsServer) Chat(stream pb.Events_ChatServer) error {
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
-			producerLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+			producerLogger.Errorf("Error handling message: %s", err)
 			//return err
 		}
 

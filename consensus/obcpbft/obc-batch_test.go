@@ -98,7 +98,7 @@ func TestBatchCustody(t *testing.T) {
 	})
 	defer net.stop()
 	net.filterFn = func(src int, dst int, payload []byte) []byte {
-		logger.Info("msg from %d to %d", src, dst)
+		logger.Infof("msg from %d to %d", src, dst)
 		if src == 0 {
 			return nil
 		}

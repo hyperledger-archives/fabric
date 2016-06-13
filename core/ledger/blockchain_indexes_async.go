@@ -56,14 +56,14 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 		return err
 	}
 	indexer.indexerState = indexerState
-	indexLogger.Debug("staring indexer, lastIndexedBlockNum = [%d]",
+	indexLogger.Debugf("staring indexer, lastIndexedBlockNum = [%d]",
 		indexer.indexerState.getLastIndexedBlockNumber())
 
 	err = indexer.indexPendingBlocks()
 	if err != nil {
 		return err
 	}
-	indexLogger.Debug("staring indexer, lastIndexedBlockNum = [%d] after processing pending blocks",
+	indexLogger.Debugf("staring indexer, lastIndexedBlockNum = [%d] after processing pending blocks",
 		indexer.indexerState.getLastIndexedBlockNumber())
 	indexer.blockChan = make(chan blockWrapper)
 	go func() {
@@ -71,7 +71,7 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 			indexLogger.Debug("Going to wait on channel for next block to index")
 			blockWrapper := <-indexer.blockChan
 
-			indexLogger.Debug("Blockwrapper received on channel: block number = [%d]", blockWrapper.blockNumber)
+			indexLogger.Debugf("Blockwrapper received on channel: block number = [%d]", blockWrapper.blockNumber)
 
 			if blockWrapper.stopNow {
 				indexLogger.Debug("stop command received on channel. Closing channel")
@@ -79,7 +79,7 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 				return
 			}
 			if indexer.indexerState.hasError() {
-				indexLogger.Debug("Not indexing block number [%d]. Because of previous error: %s.",
+				indexLogger.Debugf("Not indexing block number [%d]. Because of previous error: %s.",
 					blockWrapper.blockNumber, indexer.indexerState.getError())
 				continue
 			}
@@ -87,12 +87,12 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 			err := indexer.createIndexesInternal(blockWrapper.block, blockWrapper.blockNumber, blockWrapper.blockHash)
 			if err != nil {
 				indexer.indexerState.setError(err)
-				indexLogger.Debug(
+				indexLogger.Debugf(
 					"Error occured while indexing block number [%d]. Error: %s. Further blocks will not be indexed",
 					blockWrapper.blockNumber, err)
 
 			} else {
-				indexLogger.Debug("Finished indexing block number [%d]", blockWrapper.blockNumber)
+				indexLogger.Debugf("Finished indexing block number [%d]", blockWrapper.blockNumber)
 			}
 		}
 	}()
@@ -233,14 +233,14 @@ func (indexerState *blockchainIndexerState) waitForLastCommittedBlock() (err err
 	defer indexerState.newBlockIndexed.L.Unlock()
 
 	if !indexerState.zerothBlockIndexed {
-		indexLogger.Debug(
+		indexLogger.Debugf(
 			"Waiting for zeroth block to be indexed. lastBlockCommitted=[%d] and lastBlockIndexed=[%d]",
 			lastBlockCommitted, indexerState.lastBlockIndexed)
 		indexerState.newBlockIndexed.Wait()
 	}
 
 	for indexerState.lastBlockIndexed < lastBlockCommitted {
-		indexLogger.Debug(
+		indexLogger.Debugf(
 			"Waiting for index to catch up with block chain. lastBlockCommitted=[%d] and lastBlockIndexed=[%d]",
 			lastBlockCommitted, indexerState.lastBlockIndexed)
 		indexerState.newBlockIndexed.Wait()

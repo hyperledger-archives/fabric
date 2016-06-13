@@ -84,7 +84,7 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 	cf := openchainDB.IndexesCF
 
 	// add blockhash -> blockNumber
-	indexLogger.Debug("Indexing block number [%d] by hash = [%x]", blockNumber, blockHash)
+	indexLogger.Debugf("Indexing block number [%d] by hash = [%x]", blockNumber, blockHash)
 	writeBatch.PutCF(cf, encodeBlockHashKey(blockHash), encodeBlockNumber(blockNumber))
 
 	addressToTxIndexesMap := make(map[string][]uint64)

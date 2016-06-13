@@ -181,8 +181,8 @@
 		},
 		{
 			"path": "github.com/op/go-logging",
-			"revision": "e8d5414f0947014548c2334044a0fac13187dfee",
-			"revisionTime": "2015-05-25T13:26:48+02:00"
+			"revision": "970db520ece77730c7e4724c61121037378659d9",
+			"revisionTime": "2016-03-15T21:05:05+01:00"
 		},
 		{
 			"path": "github.com/russross/blackfriday",

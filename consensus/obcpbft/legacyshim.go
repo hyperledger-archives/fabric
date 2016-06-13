@@ -90,7 +90,7 @@ func (instance *legacyPbftShim) execDone() {
 
 // stateUpdated is an event telling us that the application fast-forwarded its state
 func (instance *legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
+	logger.Debugf("Replica %d queueing message that it has caught up via state transfer", instance.id)
 	instance.manager.Queue() <- stateUpdatedEvent{
 		seqNo: seqNo,
 		id:    id,
@@ -99,7 +99,7 @@ func (instance *legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
 
 // stateUpdating is an event telling us that the application is fast-forwarding its state
 func (instance *legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
+	logger.Debugf("Replica %d queueing message that state transfer has been initiated", instance.id)
 	instance.manager.Queue() <- stateUpdatingEvent{
 		seqNo: seqNo,
 		id:    id,

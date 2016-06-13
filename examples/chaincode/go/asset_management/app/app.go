@@ -60,7 +60,7 @@ func deploy() (err error) {
 
 	bobCert, err = bob.GetTCertificateHandlerNext()
 	if err != nil {
-		appLogger.Error("Failed getting Bob TCert [%s]", err)
+		appLogger.Errorf("Failed getting Bob TCert [%s]", err)
 		return
 	}
 
@@ -69,11 +69,11 @@ func deploy() (err error) {
 	// 5. Alice submits th	e transaction to the fabric network.
 	resp, err := deployInternal(alice, bobCert)
 	if err != nil {
-		appLogger.Error("Failed deploying [%s]", err)
+		appLogger.Errorf("Failed deploying [%s]", err)
 		return
 	}
-	appLogger.Debug("Resp [%s]", resp.String())
-	appLogger.Debug("Chaincode NAME: [%s]-[%s]", chaincodeName, string(resp.Msg))
+	appLogger.Debugf("Resp [%s]", resp.String())
+	appLogger.Debugf("Chaincode NAME: [%s]-[%s]", chaincodeName, string(resp.Msg))
 
 	appLogger.Debug("Wait 30 seconds")
 	time.Sleep(30 * time.Second)
@@ -92,7 +92,7 @@ func assignOwnership() (err error) {
 	// Administrator assigns ownership of Picasso to Alice
 	charlieCert, err = charlie.GetTCertificateHandlerNext()
 	if err != nil {
-		appLogger.Error("Failed getting Charlie TCert [%s]", err)
+		appLogger.Errorf("Failed getting Charlie TCert [%s]", err)
 		return
 	}
 
@@ -102,10 +102,10 @@ func assignOwnership() (err error) {
 
 	resp, err := assignOwnershipInternal(bob, bobCert, "Picasso", charlieCert)
 	if err != nil {
-		appLogger.Error("Failed assigning ownership [%s]", err)
+		appLogger.Errorf("Failed assigning ownership [%s]", err)
 		return
 	}
-	appLogger.Debug("Resp [%s]", resp.String())
+	appLogger.Debugf("Resp [%s]", resp.String())
 
 	appLogger.Debug("Wait 30 seconds")
 	time.Sleep(30 * time.Second)
@@ -116,7 +116,7 @@ func assignOwnership() (err error) {
 	if err != nil {
 		return
 	}
-	appLogger.Debug("Resp [%s]", theOwnerIs.String())
+	appLogger.Debugf("Resp [%s]", theOwnerIs.String())
 	appLogger.Debug("Query....done")
 
 	var res []byte
@@ -124,7 +124,7 @@ func assignOwnership() (err error) {
 		// Decrypt result
 		res, err = bob.DecryptQueryResult(queryTx, theOwnerIs.Msg)
 		if err != nil {
-			appLogger.Error("Failed decrypting result [%s]", err)
+			appLogger.Errorf("Failed decrypting result [%s]", err)
 			return
 		}
 	} else {
@@ -134,8 +134,8 @@ func assignOwnership() (err error) {
 	if !reflect.DeepEqual(res, charlieCert.GetCertificate()) {
 		appLogger.Error("Charlie is not the owner.")
 
-		appLogger.Debug("Query result  : [% x]", res)
-		appLogger.Debug("Charlie's cert: [% x]", charlieCert.GetCertificate())
+		appLogger.Debugf("Query result  : [% x]", res)
+		appLogger.Debugf("Charlie's cert: [% x]", charlieCert.GetCertificate())
 
 		return fmt.Errorf("Charlie is not the owner.")
 	}
@@ -156,7 +156,7 @@ func transferOwnership() (err error) {
 	// 3. Charlie obtains, via an out-of-band channel, a TCert of Dave, let us call this certificate *DaveCert*;
 	daveCert, err = dave.GetTCertificateHandlerNext()
 	if err != nil {
-		appLogger.Error("Failed getting Dave TCert [%s]", err)
+		appLogger.Errorf("Failed getting Dave TCert [%s]", err)
 		return
 	}
 
@@ -168,7 +168,7 @@ func transferOwnership() (err error) {
 	if err != nil {
 		return
 	}
-	appLogger.Debug("Resp [%s]", resp.String())
+	appLogger.Debugf("Resp [%s]", resp.String())
 
 	appLogger.Debug("Wait 30 seconds")
 	time.Sleep(30 * time.Second)
@@ -178,7 +178,7 @@ func transferOwnership() (err error) {
 	if err != nil {
 		return
 	}
-	appLogger.Debug("Resp [%s]", theOwnerIs.String())
+	appLogger.Debugf("Resp [%s]", theOwnerIs.String())
 	appLogger.Debug("Query....done")
 
 	var res []byte
@@ -186,7 +186,7 @@ func transferOwnership() (err error) {
 		// Decrypt result
 		res, err = charlie.DecryptQueryResult(queryTx, theOwnerIs.Msg)
 		if err != nil {
-			appLogger.Error("Failed decrypting result [%s]", err)
+			appLogger.Errorf("Failed decrypting result [%s]", err)
 			return
 		}
 	} else {
@@ -196,8 +196,8 @@ func transferOwnership() (err error) {
 	if !reflect.DeepEqual(res, daveCert.GetCertificate()) {
 		appLogger.Error("Dave is not the owner.")
 
-		appLogger.Debug("Query result  : [% x]", res)
-		appLogger.Debug("Dave's cert: [% x]", daveCert.GetCertificate())
+		appLogger.Debugf("Query result  : [% x]", res)
+		appLogger.Debugf("Dave's cert: [% x]", daveCert.GetCertificate())
 
 		return fmt.Errorf("Dave is not the owner.")
 	}
@@ -210,21 +210,21 @@ func testAssetManagementChaincode() (err error) {
 	// Deploy
 	err = deploy()
 	if err != nil {
-		appLogger.Error("Failed deploying [%s]", err)
+		appLogger.Errorf("Failed deploying [%s]", err)
 		return
 	}
 
 	// Assign
 	err = assignOwnership()
 	if err != nil {
-		appLogger.Error("Failed assigning ownership [%s]", err)
+		appLogger.Errorf("Failed assigning ownership [%s]", err)
 		return
 	}
 
 	// Transfer
 	err = transferOwnership()
 	if err != nil {
-		appLogger.Error("Failed transfering ownership [%s]", err)
+		appLogger.Errorf("Failed transfering ownership [%s]", err)
 		return
 	}
 
@@ -238,7 +238,7 @@ func main() {
 	// transactions to the fabric network.
 	// A 'core.yaml' file is assumed to be available in the working directory.
 	if err := initNVP(); err != nil {
-		appLogger.Debug("Failed initiliazing NVP [%s]", err)
+		appLogger.Debugf("Failed initiliazing NVP [%s]", err)
 		os.Exit(-1)
 	}
 
@@ -247,7 +247,7 @@ func main() {
 
 	// Exercise the 'asset_management' chaincode
 	if err := testAssetManagementChaincode(); err != nil {
-		appLogger.Debug("Failed testing asset management chaincode [%s]", err)
+		appLogger.Debugf("Failed testing asset management chaincode [%s]", err)
 		os.Exit(-2)
 	}
 }

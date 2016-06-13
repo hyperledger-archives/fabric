@@ -136,7 +136,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 		return nil
 	}
 
-	logger.Debug("Verify message from: %v", replicaID.Name)
+	logger.Debugf("Verify message from: %v", replicaID.Name)
 	_, network, err := h.GetNetworkInfo()
 	if err != nil {
 		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
@@ -145,7 +145,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 	// check that the sender is a valid replica
 	// if so, call crypto verify() with that endpoint's pkiID
 	for _, endpoint := range network {
-		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
+		logger.Debugf("Endpoint name: %v", endpoint.ID.Name)
 		if *replicaID == *endpoint.ID {
 			cryptoID := endpoint.PkiID
 			return h.secHelper.Verify(cryptoID, signature, message)
@@ -343,8 +343,8 @@ func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{
 // Errored is called when state transfer encounters an error, this is not necessarily fatal
 func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
 	if seqNo, ok := m.(uint64); !ok {
-		logger.Warning("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
+		logger.Warningf("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
 	} else {
-		logger.Warning("state transfer reported error for block %d, %s", bn, e)
+		logger.Warningf("state transfer reported error for block %d, %s", bn, e)
 	}
 }

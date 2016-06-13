@@ -40,7 +40,7 @@ func CacheConfiguration() (err error) {
 // cacheConfiguration logs an error if error checks have failed.
 func cacheConfiguration() {
 	if err := CacheConfiguration(); err != nil {
-		commLogger.Error("Execution continues after CacheConfiguration() failure : $s", err)
+		commLogger.Errorf("Execution continues after CacheConfiguration() failure : %s", err)
 	}
 }
 

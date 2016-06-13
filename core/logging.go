@@ -56,30 +56,30 @@ func LoggingInit(command string) {
 				// Default level
 				defaultLevel, err = logging.LogLevel(field)
 				if err != nil {
-					loggingLogger.Warning("Logging level '%s' not recognized, defaulting to %s : %s", field, loggingDefaultLevel, err)
+					loggingLogger.Warningf("Logging level '%s' not recognized, defaulting to %s : %s", field, loggingDefaultLevel, err)
 					defaultLevel = loggingDefaultLevel // NB - 'defaultLevel' was overwritten
 				}
 			case 2:
 				// <module>[,<module>...]=<level>
 				if level, err := logging.LogLevel(split[1]); err != nil {
-					loggingLogger.Warning("Invalid logging level in '%s' ignored", field)
+					loggingLogger.Warningf("Invalid logging level in '%s' ignored", field)
 				} else if split[0] == "" {
-					loggingLogger.Warning("Invalid logging override specification '%s' ignored - no module specified", field)
+					loggingLogger.Warningf("Invalid logging override specification '%s' ignored - no module specified", field)
 				} else {
 					modules := strings.Split(split[0], ",")
 					for _, module := range modules {
 						logging.SetLevel(level, module)
-						loggingLogger.Debug("Setting logging level for module '%s' to %s", module, level)
+						loggingLogger.Debugf("Setting logging level for module '%s' to %s", module, level)
 					}
 				}
 			default:
-				loggingLogger.Warning("Invalid logging override '%s' ignored; Missing ':' ?", field)
+				loggingLogger.Warningf("Invalid logging override '%s' ignored; Missing ':' ?", field)
 			}
 		}
 	}
 	// Set the default logging level for all modules
 	logging.SetLevel(defaultLevel, "")
-	loggingLogger.Debug("Setting default logging level to %s for command '%s'", defaultLevel, command)
+	loggingLogger.Debugf("Setting default logging level to %s for command '%s'", defaultLevel, command)
 }
 
 // Initiate 'leveled' logging to stderr.

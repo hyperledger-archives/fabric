@@ -43,7 +43,7 @@ func SetupTestLogging() {
 		logging.SetLevel(level, "server")
 		logging.SetLevel(level, "peer")
 	} else {
-		vmLogger.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
+		vmLogger.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
 		logging.SetLevel(logging.ERROR, "main")
 		logging.SetLevel(logging.ERROR, "server")
 		logging.SetLevel(logging.ERROR, "peer")
@@ -71,6 +71,6 @@ func SetupTestConfig() {
 
 	// Set the number of maxprocs
 	var numProcsDesired = viper.GetInt("peer.gomaxprocs")
-	vmLogger.Debug("setting Number of procs to %d, was %d\n", numProcsDesired, runtime.GOMAXPROCS(2))
+	vmLogger.Debugf("setting Number of procs to %d, was %d\n", numProcsDesired, runtime.GOMAXPROCS(2))
 
 }

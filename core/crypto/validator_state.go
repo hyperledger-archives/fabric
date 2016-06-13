@@ -250,7 +250,7 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	binary.BigEndian.PutUint64(b, se.counter)
 
 	se.node.debug("Encrypting with counter [% x].", b)
-	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
+	//	se.log.Infof("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := primitives.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
 
@@ -276,14 +276,14 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:primitives.NonceSize]
-	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
+	//	se.log.Infof("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
-	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
+	//	se.log.Infof("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ func (se *queryStateEncryptor) init(node *nodeImpl, queryKey, deployTxKey []byte
 	se.node = node
 	se.deployTxKey = deployTxKey
 
-	//	se.log.Info("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
+	//	se.log.Infof("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
 
 	// Init aes
 	c, err := aes.NewCipher(queryKey)
@@ -363,14 +363,14 @@ func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:primitives.NonceSize]
-	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
+	//	se.log.Infof("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
-	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
+	//	se.log.Infof("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

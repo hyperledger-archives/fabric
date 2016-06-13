@@ -64,7 +64,7 @@ func (d *handler) register(iMsg []*pb.Interest) error {
 	//if successfully done, continue....
 	for _, v := range iMsg {
 		if err := registerHandler(v, d); err != nil {
-			producerLogger.Error(fmt.Sprintf("could not register %s", v))
+			producerLogger.Errorf("could not register %s", v)
 			continue
 		}
 		d.addInterest(v)
@@ -76,7 +76,7 @@ func (d *handler) register(iMsg []*pb.Interest) error {
 func (d *handler) deregister() {
 	for _, v := range d.interestedEvents {
 		if err := deRegisterHandler(v, d); err != nil {
-			producerLogger.Error(fmt.Sprintf("could not deregister %s", v))
+			producerLogger.Errorf("could not deregister %s", v)
 			continue
 		}
 		v = nil
