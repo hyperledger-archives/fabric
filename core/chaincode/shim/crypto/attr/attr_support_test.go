@@ -116,9 +116,13 @@ func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
 	attributeMetadata := []byte{123, 22, 34, 56, 78, 44}
 
 	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
-	_, err = NewAttributesHandlerImpl(stub)
-	if err == nil {
-		t.Error("Test should have failed, metadata is invalid.")
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+	keySize := len(handler.keys)
+	if keySize != 0 {
+		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
 }
 
@@ -210,9 +214,13 @@ func TestNewAttributesHandlerImpl_NullMetadata(t *testing.T) {
 		t.Error(err)
 	}
 	stub := &chaincodeStubMock{callerCert: tcertder, metadata: nil}
-	_, err = NewAttributesHandlerImpl(stub)
-	if err == nil {
-		t.Fatal("Error can't be nil.")
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+	keySize := len(handler.keys)
+	if keySize != 0 {
+		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
 }
 
@@ -400,6 +408,56 @@ func TestGetValue(t *testing.T) {
 	}
 }
 
+func TestGetValue_Clear(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertClear()
+	if err != nil {
+		t.Error(err)
+	}
+	tcertder := tcert.Raw
+	value, err := GetValueFrom("position", tcertder, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
+		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
+	}
+
+	//Second time read from cache.
+	value, err = GetValueFrom("position", tcertder, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bytes.Compare(value, []byte("Software Engineer")) != 0 {
+		t.Fatalf("Value expected was [%v] and result was [%v].", []byte("Software Engineer"), value)
+	}
+}
+
+func TestGetValue_BadHeaderTCert(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertFromFile("./test_resources/tcert_bad.dump")
+	if err != nil {
+		t.Error(err)
+	}
+	tcertder := tcert.Raw
+	_, err = GetValueFrom("position", tcertder, nil)
+	if err == nil {
+		t.Fatal("Test should be fail due TCert has an invalid header.")
+	}
+}
+
+func TestGetValue_Clear_NullTCert(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+	_, err := GetValueFrom("position", nil, nil)
+	if err == nil {
+		t.Error(err)
+	}
+}
+
 func TestGetValue_InvalidAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
@@ -422,6 +480,34 @@ func TestGetValue_InvalidAttribute(t *testing.T) {
 	_, err = handler.GetValue("age")
 	if err == nil {
 		t.Error(err)
+	}
+
+	//Force invalid key
+	handler.keys["position"] = nil
+	_, err = handler.GetValue("position")
+	if err == nil {
+		t.Error(err)
+	}
+}
+
+func TestGetValue_Clear_InvalidAttribute(t *testing.T) {
+	primitives.SetSecurityLevel("SHA3", 256)
+
+	tcert, err := loadTCertClear()
+	if err != nil {
+		t.Error(err)
+	}
+	metadata := []byte{32, 64}
+	tcertder := tcert.Raw
+	stub := &chaincodeStubMock{callerCert: tcertder, metadata: metadata}
+	handler, err := NewAttributesHandlerImpl(stub)
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err := handler.GetValue("age")
+	if value != nil || err == nil {
+		t.Fatalf("Test should fail [%v] \n", string(value))
 	}
 }
 
@@ -460,6 +546,22 @@ func TestGetValue_InvalidAttribute_ValidAttribute(t *testing.T) {
 	}
 }
 
+func loadTCertFromFile(filepath string) (*x509.Certificate, error) {
+	tcertRaw, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	tcertDecoded, _ := pem.Decode(tcertRaw)
+
+	tcert, err := x509.ParseCertificate(tcertDecoded.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return tcert, nil
+}
+
 func loadTCertAndPreK0() (*x509.Certificate, []byte, error) {
 	preKey0, err := ioutil.ReadFile("./test_resources/prek0.dump")
 	if err != nil {
@@ -470,17 +572,14 @@ func loadTCertAndPreK0() (*x509.Certificate, []byte, error) {
 		return nil, nil, err
 	}
 
-	tcertRaw, err := ioutil.ReadFile("./test_resources/tcert.dump")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	tcertDecoded, _ := pem.Decode(tcertRaw)
-
-	tcert, err := x509.ParseCertificate(tcertDecoded.Bytes)
+	tcert, err := loadTCertFromFile("./test_resources/tcert.dump")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return tcert, preKey0, nil
+}
+
+func loadTCertClear() (*x509.Certificate, error) {
+	return loadTCertFromFile("./test_resources/tcert_clear.dump")
 }

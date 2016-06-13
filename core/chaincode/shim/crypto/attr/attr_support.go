@@ -82,6 +82,30 @@ type AttributesHandlerImpl struct {
 	encrypted bool
 }
 
+type chaincodeHolderImpl struct {
+	Certificate []byte
+	Metadata    []byte
+}
+
+// GetCallerCertificate returns caller certificate
+func (holderImpl *chaincodeHolderImpl) GetCallerCertificate() ([]byte, error) {
+	return holderImpl.Certificate, nil
+}
+
+// GetCallerMetadata returns caller metadata
+func (holderImpl *chaincodeHolderImpl) GetCallerMetadata() ([]byte, error) {
+	return holderImpl.Metadata, nil
+}
+
+//GetValueFrom returns the value of 'attributeName0' from a cert.
+func GetValueFrom(attributeName string, cert []byte, keys []byte) ([]byte, error) {
+	handler, err := NewAttributesHandlerImpl(&chaincodeHolderImpl{Certificate: cert, Metadata: keys})
+	if err != nil {
+		return nil, err
+	}
+	return handler.GetValue(attributeName)
+}
+
 //NewAttributesHandlerImpl creates a new AttributesHandlerImpl from a pb.ChaincodeSecurityContext object.
 func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, error) {
 	// Getting certificate
@@ -106,19 +130,15 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 		return nil, err
 	}
 
-	if rawMetadata == nil {
-		return nil, errors.New("The rawMetadata can't be nil.")
-	}
-
-	attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
-
-	if err != nil {
-		return nil, err
-	}
-
 	keys := make(map[string][]byte)
-	for _, entry := range attrsMetadata.Entries {
-		keys[entry.AttributeName] = entry.AttributeKey
+
+	if rawMetadata != nil {
+		attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
+		if err == nil {
+			for _, entry := range attrsMetadata.Entries {
+				keys[entry.AttributeName] = entry.AttributeKey
+			}
+		}
 	}
 
 	cache := make(map[string][]byte)
@@ -153,10 +173,12 @@ func (attributesHandler *AttributesHandlerImpl) GetValue(attributeName string) (
 	if err != nil {
 		return nil, errors.New("Error reading attribute value '" + err.Error() + "'")
 	}
-	if attributesHandler.keys[attributeName] == nil {
-		return nil, errors.New("Cannot find decryption key for attribute")
-	}
+
 	if encrypted {
+		if attributesHandler.keys[attributeName] == nil {
+			return nil, errors.New("Cannot find decryption key for attribute")
+		}
+
 		value, err = attributes.DecryptAttributeValue(attributesHandler.keys[attributeName], value)
 		if err != nil {
 			return nil, errors.New("Error decrypting value '" + err.Error() + "'")

@@ -91,9 +91,9 @@ func getMetadata(chaincodeSpec *obc.ChaincodeSpec, tCert tCert, attrs ...string)
 			return nil, errors.New("Invalid TCert.")
 		}
 
-		return attributes.CreateAttributesMetadata(tCert.GetCertificate().Raw, chaincodeSpec.Metadata, tCert.GetPreK0(), attrs)*/
+		return attributes.CreateAttributesMetadata(tCert.GetCertificate().Raw, chaincodeSpec.Metadata, tCert.GetPreK0(), attrs)
+	*/
 	return chaincodeSpec.Metadata, nil
-
 }
 
 func (client *clientImpl) createExecuteTx(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, nonce []byte, tCert tCert, attrs ...string) (*obc.Transaction, error) {

@@ -431,6 +431,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	defer closeNodes()
 
 	tCerts, err := deployer.GetNextTCerts(1, attrs...)
+
 	if err != nil {
 		t.Fatalf("Failed getting TCert by calling GetNextTCerts(1): [%s]", err)
 	}
@@ -1772,6 +1773,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		return nil, nil, err
 	}
 	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1917,7 +1919,6 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		return nil, nil, err
 	}
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
-
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
@@ -1962,7 +1963,6 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 		return nil, nil, err
 	}
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
-
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {

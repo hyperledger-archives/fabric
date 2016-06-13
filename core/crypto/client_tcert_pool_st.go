@@ -18,7 +18,6 @@ package crypto
 
 import (
 	"encoding/hex"
-
 	"fmt"
 	"sort"
 	"sync"
@@ -182,7 +181,6 @@ func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCertBlock *TCertBlock) (er
 }
 
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
-
 	tCertPool.client = client
 	tCertPool.client.debug("Init TCert Pool...")
 
