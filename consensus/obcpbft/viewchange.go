@@ -158,10 +158,16 @@ func (instance *pbftCore) sendViewChange() events.Event {
 	}
 
 	for _, p := range instance.pset {
+		if p.SequenceNumber < instance.h {
+			logger.Errorf("BUG! Replica %d should not have anything in our pset less than h, found %+v", instance.id, p)
+		}
 		vc.Pset = append(vc.Pset, p)
 	}
 
 	for _, q := range instance.qset {
+		if q.SequenceNumber < instance.h {
+			logger.Errorf("BUG! Replica %d should not have anything in our qset less than h, found %+v", instance.id, q)
+		}
 		vc.Qset = append(vc.Qset, q)
 	}
 
@@ -407,8 +413,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
-	instance.seqNo = 0
+	instance.seqNo = instance.h
 	for n, d := range nv.Xset {
+		if n <= instance.h {
+			continue
+		}
 		preprep := &PrePrepare{
 			View:           instance.view,
 			SequenceNumber: n,
@@ -434,9 +443,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 				RequestDigest:  d,
 				ReplicaId:      instance.id,
 			}
-			cert := instance.getCert(instance.view, n)
-			cert.sentPrepare = true
-			instance.recvPrepare(prep)
+			if n > instance.h {
+				cert := instance.getCert(instance.view, n)
+				cert.sentPrepare = true
+				instance.recvPrepare(prep)
+			}
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {

@@ -43,7 +43,6 @@ type Helper struct {
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	persist.Helper
-	stateTransfering bool // Whether state transfer is active
 
 	executor consensus.Executor
 }

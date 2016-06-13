@@ -68,7 +68,7 @@ type ReadOnlyLedger interface {
 	GetBlockHeadMetadata() ([]byte, error)
 }
 
-// Executor is used to invoke transactions, potentially modifying the backing ledger
+// LegacyExecutor is used to invoke transactions, potentially modifying the backing ledger
 type LegacyExecutor interface {
 	BeginTxBatch(id interface{}) error
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)

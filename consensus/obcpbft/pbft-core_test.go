@@ -1411,6 +1411,7 @@ func TestNetworkPeriodicViewChange(t *testing.T) {
 		if pep.sc.executions != 5 {
 			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
 		}
+		// We should be in view 2, 2 exec, VC, 2 exec, VC, exec
 		if pep.pbft.view != 2 {
 			t.Errorf("Instance %d: expected view=2", pep.id)
 		}
@@ -1444,6 +1445,75 @@ func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
 		}
 		if pep.pbft.view != 1 {
 			t.Errorf("Instance %d: expected view=1", pep.id)
+		}
+	}
+}
+
+func TestViewWithOldSeqNos(t *testing.T) {
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		//viewChangeImpl: func(v uint64) {},
+		//skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+		//skipped = true
+		//},
+		//invalidateStateImpl: func() {},
+		broadcastImpl: func(b []byte) {},
+		signImpl:      func(b []byte) ([]byte, error) { return b, nil },
+		verifyImpl:    func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.activeView = false
+	instance.view = 1
+
+	vset := make([]*ViewChange, 3)
+
+	cset := []*ViewChange_C{
+		{
+			SequenceNumber: 0,
+			Id:             base64.StdEncoding.EncodeToString([]byte("Zero")),
+		},
+	}
+
+	qset := []*ViewChange_PQ{
+		{
+			SequenceNumber: 9,
+			Digest:         "nine",
+			View:           0,
+		},
+		{
+			SequenceNumber: 2,
+			Digest:         "two",
+			View:           0,
+		},
+	}
+
+	for i := 0; i < 3; i++ {
+		// Replica 0 sent checkpoints for 100
+		vset[i] = &ViewChange{
+			H:    0,
+			Cset: cset,
+			Qset: qset,
+			Pset: qset,
+		}
+	}
+
+	xset := instance.assignSequenceNumbers(vset, 0)
+
+	instance.lastExec = 10
+	instance.moveWatermarks(instance.lastExec)
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      xset,
+		ReplicaId: 1,
+	}
+
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	for idx, val := range instance.certStore {
+		if idx.n < instance.h {
+			t.Errorf("Found %+v=%+v in certStore who's seqNo < %d", idx, val, instance.h)
 		}
 	}
 }

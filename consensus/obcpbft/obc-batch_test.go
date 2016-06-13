@@ -17,6 +17,7 @@ limitations under the License.
 package obcpbft
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -49,14 +50,11 @@ func TestNetworkBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
-
-	net.process()
-
-	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 1 {
-		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, l)
+	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
+	if err != nil {
+		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
-	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	net.process()
 
 	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 0 {
@@ -100,23 +98,33 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 }
 
 func TestOutstandingReqsIngestion(t *testing.T) {
-	batchSize := 2
-	validatorCount := 4
-	net := makeConsumerNetwork(validatorCount, obcBatchHelper, func(ce *consumerEndpoint) {
-		ce.consumer.(*obcBatch).batchSize = batchSize
-	})
-	defer net.stop()
+	bs := [3]*obcBatch{}
+	for i := range bs {
+		omni := &omniProto{
+			BroadcastImpl: func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error { return nil },
+		}
+		bs[i] = newObcBatch(1, loadConfig(), omni)
+		defer bs[i].Close()
 
-	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
-	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+		// Have vp1 only deliver messages
+		if i == 1 {
+			omni.BroadcastImpl = func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+				fmt.Println("ASDF: sending to others")
+				bs[0].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
+				bs[2].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
+				return nil
+			}
+		}
+	}
+
+	err := bs[1].RecvMsg(createOcMsgWithChainTx(1), &pb.PeerID{"vp1"})
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
-	net.process()
-
-	for i, ep := range net.endpoints {
-		count := len(ep.(*consumerEndpoint).consumer.(*obcBatch).outstandingReqs)
+	for i, b := range bs {
+		b.manager.Queue() <- nil
+		count := len(b.outstandingReqs)
 		if i == 0 {
 			if count != 0 {
 				t.Errorf("Batch primary should not have the request in its store")

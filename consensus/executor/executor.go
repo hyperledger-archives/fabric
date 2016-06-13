@@ -17,8 +17,6 @@ limitations under the License.
 package executor
 
 import (
-	"fmt"
-
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	"github.com/hyperledger/fabric/core/peer/statetransfer"
