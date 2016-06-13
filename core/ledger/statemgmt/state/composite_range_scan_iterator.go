@@ -47,14 +47,14 @@ func newCompositeRangeScanIterator(
 func (itr *CompositeRangeScanIterator) Next() bool {
 	currentItrNumber := itr.currentItrNumber
 	currentItr := itr.itrs[currentItrNumber]
-	logger.Debug("Operating on iterator number = %d", currentItrNumber)
+	logger.Debugf("Operating on iterator number = %d", currentItrNumber)
 	keyAvailable := currentItr.Next()
 	for keyAvailable {
 		key, _ := currentItr.GetKeyValue()
-		logger.Debug("Retrieved key = %s", key)
+		logger.Debugf("Retrieved key = %s", key)
 		skipKey := false
 		for i := currentItrNumber - 1; i >= 0; i-- {
-			logger.Debug("Evaluating key = %s in itr number = %d. currentItrNumber = %d", key, i, currentItrNumber)
+			logger.Debugf("Evaluating key = %s in itr number = %d. currentItrNumber = %d", key, i, currentItrNumber)
 			previousItr := itr.itrs[i]
 			if previousItr.(*statemgmt.StateDeltaIterator).ContainsKey(key) {
 				skipKey = true
@@ -62,7 +62,7 @@ func (itr *CompositeRangeScanIterator) Next() bool {
 			}
 		}
 		if skipKey {
-			logger.Debug("Skipping key = %s", key)
+			logger.Debugf("Skipping key = %s", key)
 			keyAvailable = currentItr.Next()
 			continue
 		}

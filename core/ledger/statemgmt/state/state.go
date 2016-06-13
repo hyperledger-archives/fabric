@@ -51,7 +51,7 @@ type State struct {
 // NewState constructs a new State. This Initializes encapsulated state implementation
 func NewState() *State {
 	initConfig()
-	logger.Info("Initializing state implementation [%s]", stateImplName)
+	logger.Infof("Initializing state implementation [%s]", stateImplName)
 	switch stateImplName {
 	case "buckettree":
 		stateImpl = buckettree.NewStateImpl()
@@ -72,7 +72,7 @@ func NewState() *State {
 
 // TxBegin marks begin of a new tx. If a tx is already in progress, this call panics
 func (state *State) TxBegin(txUUID string) {
-	logger.Debug("txBegin() for txUuid [%s]", txUUID)
+	logger.Debugf("txBegin() for txUuid [%s]", txUUID)
 	if state.txInProgress() {
 		panic(fmt.Errorf("A tx [%s] is already in progress. Received call for begin of another tx [%s]", state.currentTxUUID, txUUID))
 	}
@@ -81,13 +81,13 @@ func (state *State) TxBegin(txUUID string) {
 
 // TxFinish marks the completion of on-going tx. If txUUID is not same as of the on-going tx, this call panics
 func (state *State) TxFinish(txUUID string, txSuccessful bool) {
-	logger.Debug("txFinish() for txUuid [%s], txSuccessful=[%t]", txUUID, txSuccessful)
+	logger.Debugf("txFinish() for txUuid [%s], txSuccessful=[%t]", txUUID, txSuccessful)
 	if state.currentTxUUID != txUUID {
 		panic(fmt.Errorf("Different Uuid in tx-begin [%s] and tx-finish [%s]", state.currentTxUUID, txUUID))
 	}
 	if txSuccessful {
 		if !state.currentTxStateDelta.IsEmpty() {
-			logger.Debug("txFinish() for txUuid [%s] merging state changes", txUUID)
+			logger.Debugf("txFinish() for txUuid [%s] merging state changes", txUUID)
 			state.stateDelta.ApplyChanges(state.currentTxStateDelta)
 			state.txStateDeltaHash[txUUID] = state.currentTxStateDelta.ComputeCryptoHash()
 			state.updateStateImpl = true
@@ -138,7 +138,7 @@ func (state *State) GetRangeScanIterator(chaincodeID string, startKey string, en
 
 // Set sets state to given value for chaincodeID and key. Does not immideatly writes to DB
 func (state *State) Set(chaincodeID string, key string, value []byte) error {
-	logger.Debug("set() chaincodeID=[%s], key=[%s], value=[%#v]", chaincodeID, key, value)
+	logger.Debugf("set() chaincodeID=[%s], key=[%s], value=[%#v]", chaincodeID, key, value)
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
@@ -162,7 +162,7 @@ func (state *State) Set(chaincodeID string, key string, value []byte) error {
 
 // Delete tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
 func (state *State) Delete(chaincodeID string, key string) error {
-	logger.Debug("delete() chaincodeID=[%s], key=[%s]", chaincodeID, key)
+	logger.Debugf("delete() chaincodeID=[%s], key=[%s]", chaincodeID, key)
 	if !state.txInProgress() {
 		panic("State can be changed only in context of a tx.")
 	}
@@ -290,14 +290,14 @@ func (state *State) AddChangesForPersistence(blockNumber uint64, writeBatch *gor
 
 	serializedStateDelta := state.stateDelta.Marshal()
 	cf := db.GetDBHandle().StateDeltaCF
-	logger.Debug("Adding state-delta corresponding to block number[%d]", blockNumber)
+	logger.Debugf("Adding state-delta corresponding to block number[%d]", blockNumber)
 	writeBatch.PutCF(cf, encodeStateDeltaKey(blockNumber), serializedStateDelta)
 	if blockNumber >= state.historyStateDeltaSize {
 		blockNumberToDelete := blockNumber - state.historyStateDeltaSize
-		logger.Debug("Deleting state-delta corresponding to block number[%d]", blockNumberToDelete)
+		logger.Debugf("Deleting state-delta corresponding to block number[%d]", blockNumberToDelete)
 		writeBatch.DeleteCF(cf, encodeStateDeltaKey(blockNumberToDelete))
 	} else {
-		logger.Debug("Not deleting previous state-delta. Block number [%d] is smaller than historyStateDeltaSize [%d]",
+		logger.Debugf("Not deleting previous state-delta. Block number [%d] is smaller than historyStateDeltaSize [%d]",
 			blockNumber, state.historyStateDeltaSize)
 	}
 	logger.Debug("state.addChangesForPersistence()...finished")
@@ -334,7 +334,7 @@ func (state *State) DeleteState() error {
 	state.ClearInMemoryChanges(false)
 	err := db.GetDBHandle().DeleteState()
 	if err != nil {
-		logger.Error("Error deleting state", err)
+		logger.Errorf("Error deleting state: %s", err)
 	}
 	return err
 }

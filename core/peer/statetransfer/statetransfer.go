@@ -182,7 +182,7 @@ func (sts *StateTransferState) BlockingUntilSuccessAddTarget(blockNumber uint64,
 // If the peerIDs are nil, then all peers are assumed to have the given block.  If state transfer has not been initiated already,
 // this will kick state transfer off
 func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, peerIDs []*protos.PeerID, metadata interface{}) {
-	logger.Debug("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
+	logger.Debugf("%v informed of a new block hash for block number %d with peers %v", sts.id, blockNumber, peerIDs)
 	bhr := &blockHashReply{
 		syncMark: syncMark{
 			blockNumber: blockNumber,
@@ -194,7 +194,7 @@ func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, p
 
 	sts.stateTransferListenersLock.Lock()
 	if sts.asynchronousTransferInProgress {
-		logger.Debug("%v state transfer already in progress, not kicking off", sts.id)
+		logger.Debugf("%v state transfer already in progress, not kicking off", sts.id)
 		sts.stateTransferListenersLock.Unlock()
 	} else {
 		sts.asynchronousTransferInProgress = true
@@ -208,9 +208,9 @@ func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, p
 			blockHash: blockHash,
 			metadata:  metadata,
 		}:
-			logger.Debug("%v initiating a new state transfer request", sts.id)
+			logger.Debugf("%v initiating a new state transfer request", sts.id)
 		case <-sts.threadExit:
-			logger.Debug("%v state transfer has been told to exit", sts.id)
+			logger.Debugf("%v state transfer has been told to exit", sts.id)
 			return
 		}
 	}
@@ -219,11 +219,11 @@ func (sts *StateTransferState) AddTarget(blockNumber uint64, blockHash []byte, p
 		select {
 		// This channel has a buffer of one, so this loop should always exit eventually
 		case sts.blockHashReceiver <- bhr:
-			logger.Debug("%v block hash reply for block %d queued for state transfer", sts.id, blockNumber)
+			logger.Debugf("%v block hash reply for block %d queued for state transfer", sts.id, blockNumber)
 			return
 
 		case lastHash := <-sts.blockHashReceiver:
-			logger.Debug("%v block hash reply for block %d discarded", sts.id, lastHash.blockNumber)
+			logger.Debugf("%v block hash reply for block %d discarded", sts.id, lastHash.blockNumber)
 		}
 	}
 
@@ -447,7 +447,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 	peerIDs := passedPeerIDs
 
 	if nil == passedPeerIDs {
-		logger.Debug("%v tryOverPeers, no peerIDs given, discovering", sts.id)
+		logger.Debugf("%v tryOverPeers, no peerIDs given, discovering", sts.id)
 
 		peersMsg, err := sts.stack.GetPeers()
 		if err != nil {
@@ -463,13 +463,13 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 			}
 		}
 
-		logger.Debug("%v discovered %d peerIDs", sts.id, len(peerIDs))
+		logger.Debugf("%v discovered %d peerIDs", sts.id, len(peerIDs))
 	}
 
-	logger.Debug("%v in tryOverPeers, using peerIDs: %v", sts.id, peerIDs)
+	logger.Debugf("%v in tryOverPeers, using peerIDs: %v", sts.id, peerIDs)
 
 	if 0 == len(peerIDs) {
-		logger.Error("%v invoked tryOverPeers with no peers specified, throttling thread", sts.id)
+		logger.Errorf("%v invoked tryOverPeers with no peers specified, throttling thread", sts.id)
 		// Unless we throttle here, this condition will likely cause a tight loop which will adversely affect the rest of the system
 		time.Sleep(sts.DiscoveryThrottleTime)
 		return fmt.Errorf("No peers available to try over")
@@ -484,7 +484,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 		if err == nil {
 			break
 		} else {
-			logger.Warning("%v in tryOverPeers loop trying %v : %s", sts.id, peerIDs[index], err)
+			logger.Warningf("%v in tryOverPeers loop trying %v : %s", sts.id, peerIDs[index], err)
 		}
 	}
 
@@ -496,7 +496,7 @@ func (sts *StateTransferState) tryOverPeers(passedPeerIDs []*protos.PeerID, do f
 // Will return the last block number attempted to sync, and the last block successfully synced (or nil) and error on failure
 // This means on failure, the returned block corresponds to 1 higher than the returned block number
 func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash []byte, peerIDs []*protos.PeerID) (uint64, *protos.Block, error) {
-	logger.Debug("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
+	logger.Debugf("%v syncing blocks from %d to %d with head hash of %x", sts.id, highBlock, lowBlock, highHash)
 	validBlockHash := highHash
 	blockCursor := highBlock
 	var block *protos.Block
@@ -519,12 +519,12 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 					if intermediateBlock < lowBlock {
 						intermediateBlock = lowBlock
 					}
-					logger.Debug("%v requesting block range from %d to %d", sts.id, blockCursor, intermediateBlock)
+					logger.Debugf("%v requesting block range from %d to %d", sts.id, blockCursor, intermediateBlock)
 					blockChan, err = sts.GetRemoteBlocks(peerID, blockCursor, intermediateBlock)
 				}
 
 				if nil != err {
-					logger.Warning("%v failed to get blocks from %d to %d from %v: %s",
+					logger.Warningf("%v failed to get blocks from %d to %d from %v: %s",
 						sts.id, blockCursor, lowBlock, peerID, err)
 					return err
 				}
@@ -559,7 +559,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 								sts.id, blockCursor, peerID, testHash, validBlockHash)
 						}
 
-						logger.Debug("%v putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+						logger.Debugf("%v putting block %d to with PreviousBlockHash %x and StateHash %x", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 						if !sts.RecoverDamage {
 
 							// If we are not supposed to be destructive in our recovery, check to make sure this block doesn't already exist
@@ -570,10 +570,10 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 										panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
 									}
 								} else {
-									logger.Error("%v could not compute the hash of block %d", sts.id, blockCursor)
+									logger.Errorf("%v could not compute the hash of block %d", sts.id, blockCursor)
 									panic("The blockchain is corrupt and the configuration has specified that bad blocks should not be deleted/overridden")
 								}
-								logger.Debug("%v not actually putting block %d to with PreviousBlockHash %x and StateHash %x, as it already exists", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
+								logger.Debugf("%v not actually putting block %d to with PreviousBlockHash %x and StateHash %x, as it already exists", sts.id, blockCursor, block.PreviousBlockHash, block.StateHash)
 							} else {
 								sts.stack.PutBlock(blockCursor, block)
 							}
@@ -590,7 +590,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 						validBlockHash = block.PreviousBlockHash
 
 						if blockCursor == lowBlock {
-							logger.Debug("%v successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
+							logger.Debugf("%v successfully synced from block %d to block %d", sts.id, highBlock, lowBlock)
 							return nil
 						}
 						blockCursor--
@@ -604,9 +604,9 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 	})
 
 	if nil != block {
-		logger.Debug("%v returned from sync with block %d and state hash %x", sts.id, blockCursor, block.StateHash)
+		logger.Debugf("%v returned from sync with block %d and state hash %x", sts.id, blockCursor, block.StateHash)
 	} else {
-		logger.Debug("%v returned from sync with no new blocks", sts.id)
+		logger.Debugf("%v returned from sync with no new blocks", sts.id)
 	}
 
 	if goodRange != nil {
@@ -620,7 +620,7 @@ func (sts *StateTransferState) syncBlocks(highBlock, lowBlock uint64, highHash [
 
 func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyncReq) {
 
-	logger.Debug("%v is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
+	logger.Debugf("%v is processing a blockSyncReq to block %d", sts.id, blockSyncReq.blockNumber)
 
 	blockchainSize := sts.stack.GetBlockchainSize()
 
@@ -636,7 +636,7 @@ func (sts *StateTransferState) syncBlockchainToCheckpoint(blockSyncReq *blockSyn
 		_, _, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.peerIDs)
 
 		if nil != blockSyncReq.replyChan {
-			logger.Debug("%v replying to blockSyncReq on reply channel with : %s", sts.id, err)
+			logger.Debugf("%v replying to blockSyncReq on reply channel with : %s", sts.id, err)
 			blockSyncReq.replyChan <- err
 		}
 	}
@@ -647,13 +647,13 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 	if 0 == len(sts.validBlockRanges) {
 		size := sts.stack.GetBlockchainSize()
 		if 0 == size {
-			logger.Warning("%v has no blocks in its blockchain, including the genesis block", sts.id)
+			logger.Warningf("%v has no blocks in its blockchain, including the genesis block", sts.id)
 			return false
 		}
 
 		block, err := sts.stack.GetBlockByNumber(size - 1)
 		if nil != err {
-			logger.Warning("%v could not retrieve its head block %d: %s", sts.id, size, err)
+			logger.Warningf("%v could not retrieve its head block %d: %s", sts.id, size, err)
 			return false
 		}
 
@@ -669,7 +669,7 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 
 	lowBlock := sts.validBlockRanges[0].lowBlock
 
-	logger.Debug("%v validating existing blockchain, highest validated block is %d, valid through %d", sts.id, sts.validBlockRanges[0].highBlock, lowBlock)
+	logger.Debugf("%v validating existing blockchain, highest validated block is %d, valid through %d", sts.id, sts.validBlockRanges[0].highBlock, lowBlock)
 
 	if 1 == len(sts.validBlockRanges) {
 		if 0 == lowBlock {
@@ -688,7 +688,7 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 				// Range overlaps or is adjacent
 				block, err := sts.stack.GetBlockByNumber(lowBlock - 1) // Subtraction is safe here, lowBlock > 0
 				if nil != err {
-					logger.Warning("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+					logger.Warningf("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 				} else {
 					if blockHash, err := sts.stack.HashBlock(block); nil != err {
 						if bytes.Equal(blockHash, lowNextHash) {
@@ -696,10 +696,10 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 							sts.validBlockRanges[0].lowBlock = sts.validBlockRanges[1].lowBlock
 							sts.validBlockRanges[0].lowNextHash = sts.validBlockRanges[1].lowNextHash
 						} else {
-							logger.Warning("%v detected that a block range starting at %d previously believed to be valid did not hash correctly", sts.id, lowBlock-1)
+							logger.Warningf("%v detected that a block range starting at %d previously believed to be valid did not hash correctly", sts.id, lowBlock-1)
 						}
 					} else {
-						logger.Warning("%v could not hash block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+						logger.Warningf("%v could not hash block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 					}
 				}
 			} else {
@@ -711,7 +711,7 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 				sts.validBlockRanges[j] = (sts.validBlockRanges)[j+1]
 			}
 			sts.validBlockRanges = sts.validBlockRanges[:len(sts.validBlockRanges)-1]
-			logger.Debug("Deleted from validBlockRanges, new length %d", len(sts.validBlockRanges))
+			logger.Debugf("Deleted from validBlockRanges, new length %d", len(sts.validBlockRanges))
 			return false
 		}
 
@@ -729,13 +729,13 @@ func (sts *StateTransferState) verifyAndRecoverBlockchain() bool {
 	badBlockNumber, err := sts.stack.VerifyBlockchain(lowBlock, targetBlock)
 
 	if nil == err {
-		logger.Debug("%v validated chain from %d to %d", sts.id, lowBlock, targetBlock)
+		logger.Debugf("%v validated chain from %d to %d", sts.id, lowBlock, targetBlock)
 
 		sts.validBlockRanges[0].lowBlock = targetBlock
 
 		block, err := sts.stack.GetBlockByNumber(targetBlock)
 		if nil != err {
-			logger.Warning("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+			logger.Warningf("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
 			return false
 		}
 
@@ -769,7 +769,7 @@ func (sts *StateTransferState) blockThread() {
 			}
 		}
 
-		logger.Debug("%v has validated its blockchain to the genesis block", sts.id)
+		logger.Debugf("%v has validated its blockchain to the genesis block", sts.id)
 
 	outer:
 		for {
@@ -782,7 +782,7 @@ func (sts *StateTransferState) blockThread() {
 				sts.syncBlockchainToCheckpoint(blockSyncReq)
 				break outer
 			case sts.blockThreadIdleChan <- struct{}{}:
-				logger.Debug("%v block thread reporting as idle to unblock someone", sts.id)
+				logger.Debugf("%v block thread reporting as idle to unblock someone", sts.id)
 				continue
 			case <-sts.threadExit:
 				logger.Debug("Block thread received request for block transfer thread to exit (2)")
@@ -811,7 +811,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 			return fmt.Errorf("%v could not retrieve state as recent as %d from any of specified peers", sts.id, (*mark).blockNumber)
 		}
 
-		logger.Debug("%v completed state transfer to block %d", sts.id, *currentStateBlockNumber)
+		logger.Debugf("%v completed state transfer to block %d", sts.id, *currentStateBlockNumber)
 	} else {
 		*currentStateBlockNumber = sts.stack.GetBlockchainSize() - 1 // The block height is one more than the latest block number
 	}
@@ -820,9 +820,9 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 	if nil == *blockHReply || (*blockHReply).blockNumber < *currentStateBlockNumber {
 
 		if nil == *blockHReply {
-			logger.Debug("%v has no valid block hash to validate the blockchain with yet, waiting for a known valid block hash", sts.id)
+			logger.Debugf("%v has no valid block hash to validate the blockchain with yet, waiting for a known valid block hash", sts.id)
 		} else {
-			logger.Debug("%v already has valid blocks through %d but needs to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+			logger.Debugf("%v already has valid blocks through %d but needs to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
 		}
 
 	outer:
@@ -830,7 +830,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 			select {
 			case *blockHReply = <-sts.blockHashReceiver:
 				if (*blockHReply).blockNumber < *currentStateBlockNumber {
-					logger.Debug("%v received a block hash reply for block number %d, which is not high enough", sts.id, (*blockHReply).blockNumber)
+					logger.Debugf("%v received a block hash reply for block number %d, which is not high enough", sts.id, (*blockHReply).blockNumber)
 				} else {
 					break outer
 				}
@@ -839,7 +839,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 				return fmt.Errorf("Interrupted with request to exit while in state transfer.")
 			}
 		}
-		logger.Debug("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
+		logger.Debugf("%v received a block hash reply for block %d with sync sources %v", sts.id, (*blockHReply).blockNumber, (*blockHReply).syncMark.peerIDs)
 		*blocksValid = false // We retrieved a new hash, we will need to sync to a new block
 
 		if *currentStateBlockNumber+uint64(sts.maxStateDeltas) < (*blockHReply).blockNumber {
@@ -868,9 +868,9 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 			return fmt.Errorf("Interrupted with request to exit while waiting for block sync reply.")
 		}
 
-		logger.Debug("%v state transfer thread waiting for block sync to complete", sts.id)
+		logger.Debugf("%v state transfer thread waiting for block sync to complete", sts.id)
 		err = <-blockReplyChannel // TODO, double check we can't get stuck here in shutdown
-		logger.Debug("%v state transfer thread continuing", sts.id)
+		logger.Debugf("%v state transfer thread continuing", sts.id)
 
 		if err != nil {
 			return fmt.Errorf("%v could not retrieve all blocks as recent as %d as the block hash advertised", sts.id, (*mark).blockNumber)
@@ -878,7 +878,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 
 		*blocksValid = true
 	} else {
-		logger.Debug("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
+		logger.Debugf("%v already has valid blocks through %d necessary to validate the state for block %d", sts.id, (*blockHReply).blockNumber, *currentStateBlockNumber)
 	}
 
 	stateHash, err := sts.stack.GetCurrentStateHash()
@@ -902,7 +902,7 @@ func (sts *StateTransferState) attemptStateTransfer(currentStateBlockNumber *uin
 		return fmt.Errorf("%v recovered to an incorrect state at block number %d, (%x %x) retrying", sts.id, *currentStateBlockNumber, stateHash, block.StateHash)
 	}
 
-	logger.Debug("%v state is now valid", sts.id)
+	logger.Debugf("%v state is now valid", sts.id)
 
 	sts.stateValid = true
 
@@ -928,7 +928,7 @@ func (sts *StateTransferState) stateThread() {
 			sts.informListeners(mark.blockNumber, mark.blockHash, mark.peerIDs, mark.metadata, nil, initiated)
 			sts.stateThreadIdle = false
 
-			logger.Debug("%v is initiating state transfer", sts.id)
+			logger.Debugf("%v is initiating state transfer", sts.id)
 
 			var currentStateBlockNumber uint64
 			var blockHReply *blockHashReply
@@ -936,7 +936,7 @@ func (sts *StateTransferState) stateThread() {
 
 			for {
 				if err := sts.attemptStateTransfer(&currentStateBlockNumber, &mark, &blockHReply, &blocksValid); err != nil {
-					logger.Error("%s", err)
+					logger.Errorf("%s", err)
 					sts.informListeners(0, nil, mark.peerIDs, nil, err, errored)
 					select {
 					case <-sts.threadExit:
@@ -952,13 +952,13 @@ func (sts *StateTransferState) stateThread() {
 				break
 			}
 
-			logger.Debug("%v is completing state transfer", sts.id)
+			logger.Debugf("%v is completing state transfer", sts.id)
 
 			sts.asynchronousTransferInProgress = false
 
 			sts.informListeners(blockHReply.blockNumber, blockHReply.blockHash, blockHReply.peerIDs, blockHReply.metadata, nil, completed)
 		case sts.stateThreadIdleChan <- struct{}{}:
-			logger.Debug("%v state thread reporting as idle to unblock someone", sts.id)
+			logger.Debugf("%v state thread reporting as idle to unblock someone", sts.id)
 			continue
 		case <-sts.threadExit:
 			logger.Debug("Received request for state thread to exit")
@@ -972,7 +972,7 @@ func (sts *StateTransferState) stateThread() {
 // This is not an atomic operation, and no locking is performed
 // so it is possible in rare cases that this may unblock prematurely
 func (sts *StateTransferState) blockUntilIdle() {
-	logger.Debug("%v caller requesting to block until idle", sts.id)
+	logger.Debugf("%v caller requesting to block until idle", sts.id)
 	for i := 0; i < 3; i++ {
 		// The goal is that both threads are simulatenously idle
 		// but checking idle-ness is not atomic, so checking 3 times
@@ -1016,7 +1016,7 @@ func (sts *StateTransferState) informListeners(blockNumber uint64, blockHash []b
 }
 
 func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
-	logger.Debug("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
+	logger.Debugf("%v attempting to play state forward from %v to block %d", sts.id, peerIDs, toBlockNumber)
 	currentBlock := fromBlockNumber
 	err := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
 
@@ -1029,7 +1029,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 				if intermediateBlock > toBlockNumber {
 					intermediateBlock = toBlockNumber
 				}
-				logger.Debug("%v requesting state delta range from %d to %d", sts.id, currentBlock, intermediateBlock)
+				logger.Debugf("%v requesting state delta range from %d to %d", sts.id, currentBlock, intermediateBlock)
 				var err error
 				deltaMessages, err = sts.GetRemoteStateDeltas(peerID, currentBlock, intermediateBlock)
 
@@ -1061,14 +1061,14 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 				testBlock, err := sts.stack.GetBlockByNumber(deltaMessage.Range.End)
 
 				if nil != err {
-					logger.Warning("%v could not retrieve block %d, though it should be present", sts.id, deltaMessage.Range.End)
+					logger.Warningf("%v could not retrieve block %d, though it should be present", sts.id, deltaMessage.Range.End)
 				} else {
 
 					stateHash, err := sts.stack.GetCurrentStateHash()
 					if nil != err {
-						logger.Warning("%v could not compute its state hash for some reason: %s", sts.id, err)
+						logger.Warningf("%v could not compute its state hash for some reason: %s", sts.id, err)
 					}
-					logger.Debug("%v has played state forward from %v to block %d with StateHash (%x), the corresponding block has StateHash (%x)",
+					logger.Debugf("%v has played state forward from %v to block %d with StateHash (%x), the corresponding block has StateHash (%x)",
 						sts.id, peerID, deltaMessage.Range.End, stateHash, testBlock.StateHash)
 
 					if bytes.Equal(testBlock.StateHash, stateHash) {
@@ -1096,7 +1096,7 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 				currentBlock++
 
 			case <-time.After(sts.StateDeltaRequestTimeout):
-				logger.Warning("%v timed out during state delta recovery from %v", sts.id, peerID)
+				logger.Warningf("%v timed out during state delta recovery from %v", sts.id, peerID)
 				return fmt.Errorf("%v timed out during state delta recovery from %v", sts.id, peerID)
 			}
 		}
@@ -1110,15 +1110,15 @@ func (sts *StateTransferState) playStateUpToBlockNumber(fromBlockNumber, toBlock
 // not to consider this state as valid
 func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs []*protos.PeerID) (uint64, error) {
 
-	logger.Debug("%v attempting to retrieve state snapshot from recovery from %v", sts.id, peerIDs)
+	logger.Debugf("%v attempting to retrieve state snapshot from recovery from %v", sts.id, peerIDs)
 
 	currentStateBlock := uint64(0)
 
 	ok := sts.tryOverPeers(peerIDs, func(peerID *protos.PeerID) error {
-		logger.Debug("%v is initiating state recovery from %v", sts.id, peerID)
+		logger.Debugf("%v is initiating state recovery from %v", sts.id, peerID)
 
 		if err := sts.stack.EmptyState(); nil != err {
-			logger.Error("Could not empty the current state: %s", err)
+			logger.Errorf("Could not empty the current state: %s", err)
 		}
 
 		stateChan, err := sts.GetRemoteStateSnapshot(peerID)
@@ -1144,7 +1144,7 @@ func (sts *StateTransferState) syncStateSnapshot(minBlockNumber uint64, peerIDs 
 
 					}
 
-					logger.Debug("%v received final piece of state snapshot from %v after %d deltas, now has hash %x", sts.id, peerID, counter, stateHash)
+					logger.Debugf("%v received final piece of state snapshot from %v after %d deltas, now has hash %x", sts.id, peerID, counter, stateHash)
 					return nil
 				}
 				umDelta := &statemgmt.StateDelta{}

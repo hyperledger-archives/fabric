@@ -22,11 +22,10 @@ import (
 	"errors"
 
 	"github.com/hyperledger/fabric/core/crypto/attributes"
-	attributespb "github.com/hyperledger/fabric/core/crypto/attributes/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
-//Attribute defines a key, value pair to be verified.
+//Attribute defines a name, value pair to be verified.
 type Attribute struct {
 	Name  string
 	Value []byte
@@ -38,11 +37,13 @@ type chaincodeHolder interface {
 	GetCallerCertificate() ([]byte, error)
 
 	// GetCallerMetadata returns caller metadata
-	GetCallerMetadata() ([]byte, error)
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		GetCallerMetadata() ([]byte, error)
+	*/
 }
 
 //AttributesHandler is an entity can be used to both verify and read attributes.
-//		The hanlder can retrieve the attributes, and the propertly keys to decrypt the values from the chaincodeHolder
 //		The functions declared can be used to access the attributes stored in the transaction certificates from the application layer. Can be used directly from the ChaincodeStub API but
 //		 if you need multiple access create a hanlder is better:
 // 	Multiple accesses
@@ -84,7 +85,6 @@ type AttributesHandlerImpl struct {
 
 type chaincodeHolderImpl struct {
 	Certificate []byte
-	Metadata    []byte
 }
 
 // GetCallerCertificate returns caller certificate
@@ -92,14 +92,9 @@ func (holderImpl *chaincodeHolderImpl) GetCallerCertificate() ([]byte, error) {
 	return holderImpl.Certificate, nil
 }
 
-// GetCallerMetadata returns caller metadata
-func (holderImpl *chaincodeHolderImpl) GetCallerMetadata() ([]byte, error) {
-	return holderImpl.Metadata, nil
-}
-
 //GetValueFrom returns the value of 'attributeName0' from a cert.
-func GetValueFrom(attributeName string, cert []byte, keys []byte) ([]byte, error) {
-	handler, err := NewAttributesHandlerImpl(&chaincodeHolderImpl{Certificate: cert, Metadata: keys})
+func GetValueFrom(attributeName string, cert []byte) ([]byte, error) {
+	handler, err := NewAttributesHandlerImpl(&chaincodeHolderImpl{Certificate: cert})
 	if err != nil {
 		return nil, err
 	}
@@ -122,24 +117,27 @@ func NewAttributesHandlerImpl(holder chaincodeHolder) (*AttributesHandlerImpl, e
 		return nil, err
 	}
 
-	//Getting Attributes Metadata from security context.
-	var attrsMetadata *attributespb.AttributesMetadata
-	var rawMetadata []byte
-	rawMetadata, err = holder.GetCallerMetadata()
-	if err != nil {
-		return nil, err
-	}
-
 	keys := make(map[string][]byte)
 
-	if rawMetadata != nil {
-		attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
-		if err == nil {
-			for _, entry := range attrsMetadata.Entries {
-				keys[entry.AttributeName] = entry.AttributeKey
-			}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+
+		//Getting Attributes Metadata from security context.
+		var attrsMetadata *attributespb.AttributesMetadata
+		var rawMetadata []byte
+		rawMetadata, err = holder.GetCallerMetadata()
+		if err != nil {
+			return nil, err
 		}
-	}
+
+		if rawMetadata != nil {
+			attrsMetadata, err = attributes.GetAttributesMetadata(rawMetadata)
+			if err == nil {
+				for _, entry := range attrsMetadata.Entries {
+					keys[entry.AttributeName] = entry.AttributeKey
+				}
+			}
+		}*/
 
 	cache := make(map[string][]byte)
 	return &AttributesHandlerImpl{tcert, cache, keys, nil, false}, nil

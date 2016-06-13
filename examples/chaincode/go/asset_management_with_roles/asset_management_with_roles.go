@@ -97,13 +97,13 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 		return nil, fmt.Errorf("The caller does not have the rights to invoke assign. Expected role [%v], caller role [%v]", assigner, caller)
 	}
 
-	account, err := attr.GetValueFrom("account", owner, nil)
+	account, err := attr.GetValueFrom("account", owner)
 	if err != nil {
 		return nil, fmt.Errorf("Failed fetching recipient account. Error was [%v]", err)
 	}
 
 	// Register assignment
-	myLogger.Debug("New owner of [%s] is [%s]", asset, account)
+	myLogger.Debugf("New owner of [%s] is [% x]", asset, owner)
 
 	ok, err := stub.InsertRow("AssetsOwnership", shim.Row{
 		Columns: []*shim.Column{
@@ -138,7 +138,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	prvOwner := row.Columns[1].GetBytes()
-	myLogger.Debug("Previous owener of [%s] is [% x]", asset, prvOwner)
+	myLogger.Debugf("Previous owener of [%s] is [% x]", asset, prvOwner)
 	if len(prvOwner) == 0 {
 		return nil, fmt.Errorf("Invalid previous owner. Nil")
 	}
@@ -153,7 +153,7 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 		return nil, fmt.Errorf("Failed verifying caller ownership.")
 	}
 
-	newOwnerAccount, err := attr.GetValueFrom("account", newOwner, nil)
+	newOwnerAccount, err := attr.GetValueFrom("account", newOwner)
 	if err != nil {
 		return nil, fmt.Errorf("Failed fetching new owner account. Error was [%v]", err)
 	}

@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
@@ -34,7 +33,10 @@ var (
 
 type chaincodeStubMock struct {
 	callerCert []byte
-	metadata   []byte
+	/*
+		TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata   []byte
+	*/
 }
 
 // GetCallerCertificate returns caller certificate
@@ -42,13 +44,19 @@ func (shim *chaincodeStubMock) GetCallerCertificate() ([]byte, error) {
 	return shim.callerCert, nil
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 // GetCallerMetadata returns caller metadata
 func (shim *chaincodeStubMock) GetCallerMetadata() ([]byte, error) {
 	return shim.metadata, nil
 }
+*/
 
 type certErrorMock struct {
-	metadata []byte
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata []byte
+	*/
 }
 
 // GetCallerCertificate returns caller certificate
@@ -56,10 +64,12 @@ func (shim *certErrorMock) GetCallerCertificate() ([]byte, error) {
 	return nil, errors.New("GetCallerCertificate error")
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 // GetCallerMetadata returns caller metadata
 func (shim *certErrorMock) GetCallerMetadata() ([]byte, error) {
 	return shim.metadata, nil
-}
+}*/
 
 type metadataErrorMock struct {
 	callerCert []byte
@@ -70,25 +80,34 @@ func (shim *metadataErrorMock) GetCallerCertificate() ([]byte, error) {
 	return shim.callerCert, nil
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 // GetCallerMetadata returns caller metadata
 func (shim *metadataErrorMock) GetCallerMetadata() ([]byte, error) {
 	return nil, errors.New("GetCallerCertificate error")
-}
+}*/
 
 func TestVerifyAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32, 64}
+
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -104,6 +123,8 @@ func TestVerifyAttribute(t *testing.T) {
 	}
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
@@ -113,6 +134,7 @@ func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
 	}
 
 	tcertder := tcert.Raw
+
 	attributeMetadata := []byte{123, 22, 34, 56, 78, 44}
 
 	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
@@ -124,28 +146,34 @@ func TestVerifyAttribute_InvalidAttributeMetadata(t *testing.T) {
 	if keySize != 0 {
 		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
-}
+}*/
 
 func TestNewAttributesHandlerImpl_CertificateError(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
-	if err != nil {
-		t.Error(err)
-	}
-	metadata := []byte{32, 64}
-	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &certErrorMock{metadata: attributeMetadata}
-	_, err = NewAttributesHandlerImpl(stub)
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		tcert, prek0, err := loadTCertAndPreK0()
+		tcert, err := loadTCertClear()
+		if err != nil {
+			t.Error(err)
+		}
+		tcertder := tcert.Raw
+		metadata := []byte{32, 64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &certErrorMock{metadata: attributeMetadata}*/
+	stub := &certErrorMock{}
+	_, err := NewAttributesHandlerImpl(stub)
 	if err == nil {
 		t.Fatal("Error shouldn't be nil")
 	}
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 func TestNewAttributesHandlerImpl_MetadataError(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
@@ -162,7 +190,7 @@ func TestNewAttributesHandlerImpl_MetadataError(t *testing.T) {
 	if err == nil {
 		t.Fatal("Error shouldn't be nil")
 	}
-}
+}*/
 
 func TestNewAttributesHandlerImpl_InvalidCertificate(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
@@ -185,23 +213,29 @@ func TestNewAttributesHandlerImpl_InvalidCertificate(t *testing.T) {
 func TestNewAttributesHandlerImpl_NullCertificate(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
-	if err != nil {
-		t.Error(err)
-	}
-	metadata := []byte{32, 64}
-	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: nil, metadata: attributeMetadata}
-	_, err = NewAttributesHandlerImpl(stub)
+	/*
+				TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		tcert, prek0, err := loadTCertAndPreK0()
+		tcert, err := loadTCertClear()
+		if err != nil {
+			t.Error(err)
+		}
+		metadata := []byte{32, 64}
+		tcertder := tcert.Raw
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: nil, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: nil}
+	_, err := NewAttributesHandlerImpl(stub)
 	if err == nil {
 		t.Fatal("Error can't be nil.")
 	}
 }
 
+/*
+	TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
 func TestNewAttributesHandlerImpl_NullMetadata(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
@@ -222,22 +256,29 @@ func TestNewAttributesHandlerImpl_NullMetadata(t *testing.T) {
 	if keySize != 0 {
 		t.Errorf("Test failed expected [%v] keys but found [%v]", keySize, 0)
 	}
-}
+}*/
 
 func TestVerifyAttributes(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32,64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata} */
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -256,17 +297,24 @@ func TestVerifyAttributes(t *testing.T) {
 func TestVerifyAttributes_Invalid(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
+
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32,64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -285,7 +333,10 @@ func TestVerifyAttributes_Invalid(t *testing.T) {
 func TestVerifyAttributes_InvalidHeader(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
@@ -293,13 +344,16 @@ func TestVerifyAttributes_InvalidHeader(t *testing.T) {
 	//Change header extensions
 	tcert.Raw[583] = tcert.Raw[583] + 124
 
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32,64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -314,24 +368,33 @@ func TestVerifyAttributes_InvalidHeader(t *testing.T) {
 func TestVerifyAttributes_InvalidAttributeValue(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
 
 	//Change header extensions
-	tcert.Raw[371] = tcert.Raw[371] + 124
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field. 337 is the offset in encrypted tcert.
+	tcert.Raw[371] = tcert.Raw[371] + 124*/
+	tcert.Raw[558] = tcert.Raw[558] + 124
 
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32,64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata} */
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Error creating attribute handlder %v", err)
 	}
 
 	v, err := handler.GetValue("position")
@@ -343,17 +406,24 @@ func TestVerifyAttributes_InvalidAttributeValue(t *testing.T) {
 func TestVerifyAttributes_Null(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+		metadata := []byte{32,64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -372,17 +442,24 @@ func TestVerifyAttributes_Null(t *testing.T) {
 func TestGetValue(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+			metadata := []byte{32, 64}
+
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -416,7 +493,7 @@ func TestGetValue_Clear(t *testing.T) {
 		t.Error(err)
 	}
 	tcertder := tcert.Raw
-	value, err := GetValueFrom("position", tcertder, nil)
+	value, err := GetValueFrom("position", tcertder)
 	if err != nil {
 		t.Error(err)
 	}
@@ -426,7 +503,7 @@ func TestGetValue_Clear(t *testing.T) {
 	}
 
 	//Second time read from cache.
-	value, err = GetValueFrom("position", tcertder, nil)
+	value, err = GetValueFrom("position", tcertder)
 	if err != nil {
 		t.Error(err)
 	}
@@ -444,7 +521,7 @@ func TestGetValue_BadHeaderTCert(t *testing.T) {
 		t.Error(err)
 	}
 	tcertder := tcert.Raw
-	_, err = GetValueFrom("position", tcertder, nil)
+	_, err = GetValueFrom("position", tcertder)
 	if err == nil {
 		t.Fatal("Test should be fail due TCert has an invalid header.")
 	}
@@ -452,7 +529,7 @@ func TestGetValue_BadHeaderTCert(t *testing.T) {
 
 func TestGetValue_Clear_NullTCert(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
-	_, err := GetValueFrom("position", nil, nil)
+	_, err := GetValueFrom("position", nil)
 	if err == nil {
 		t.Error(err)
 	}
@@ -461,17 +538,23 @@ func TestGetValue_Clear_NullTCert(t *testing.T) {
 func TestGetValue_InvalidAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+				metadata := []byte{32, 64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -484,7 +567,7 @@ func TestGetValue_InvalidAttribute(t *testing.T) {
 
 	//Force invalid key
 	handler.keys["position"] = nil
-	_, err = handler.GetValue("position")
+	_, err = handler.GetValue("positions")
 	if err == nil {
 		t.Error(err)
 	}
@@ -497,9 +580,16 @@ func TestGetValue_Clear_InvalidAttribute(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: metadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+				metadata := []byte{32, 64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)
@@ -514,17 +604,23 @@ func TestGetValue_Clear_InvalidAttribute(t *testing.T) {
 func TestGetValue_InvalidAttribute_ValidAttribute(t *testing.T) {
 	primitives.SetSecurityLevel("SHA3", 256)
 
-	tcert, prek0, err := loadTCertAndPreK0()
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+	tcert, prek0, err := loadTCertAndPreK0() */
+	tcert, err := loadTCertClear()
 	if err != nil {
 		t.Error(err)
 	}
-	metadata := []byte{32, 64}
 	tcertder := tcert.Raw
-	attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
-	if err != nil {
-		t.Error(err)
-	}
-	stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}
+	/*
+			TODO: ##attributes-keys-pending This code have be redefined to avoid use of metadata field.
+			metadata := []byte{32, 64}
+		attributeMetadata, err := attributes.CreateAttributesMetadata(tcertder, metadata, prek0, attributeNames)
+		if err != nil {
+			t.Error(err)
+		}
+		stub := &chaincodeStubMock{callerCert: tcertder, metadata: attributeMetadata}*/
+	stub := &chaincodeStubMock{callerCert: tcertder}
 	handler, err := NewAttributesHandlerImpl(stub)
 	if err != nil {
 		t.Error(err)

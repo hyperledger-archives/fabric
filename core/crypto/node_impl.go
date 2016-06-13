@@ -86,7 +86,7 @@ func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID
 
 	// Init Conf
 	if err := node.initConfiguration(name); err != nil {
-		log.Error("Failed initiliazing configuration [%s]: [%s].", enrollID, err)
+		log.Errorf("Failed initiliazing configuration [%s]: [%s].", enrollID, err)
 
 		return err
 	}

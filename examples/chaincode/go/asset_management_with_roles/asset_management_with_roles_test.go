@@ -130,7 +130,7 @@ func TestAssetManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	aliceAccount, err := attr.GetValueFrom("account", aliceCert.GetCertificate(), nil)
+	aliceAccount, err := attr.GetValueFrom("account", aliceCert.GetCertificate())
 	if !reflect.DeepEqual(theOnwerIs, aliceAccount) {
 		fmt.Printf("%v --- %v", string(theOnwerIs), string(aliceAccount))
 		t.Fatal("Alice is not the owner of Picasso")
@@ -158,7 +158,7 @@ func TestAssetManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bobAccount, err := attr.GetValueFrom("account", bobCert.GetCertificate(), nil)
+	bobAccount, err := attr.GetValueFrom("account", bobCert.GetCertificate())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,21 +430,21 @@ func initVP() {
 		var err error
 
 		if viper.GetBool("peer.validator.enabled") {
-			testLogger.Debug("Registering validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Registering validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 				panic(err)
 			}
-			testLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Initializing validator with enroll ID: %s", enrollID)
 			secHelper, err = crypto.InitValidator(enrollID, nil)
 			if nil != err {
 				panic(err)
 			}
 		} else {
-			testLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				panic(err)
 			}
-			testLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Initializing non-validator with enroll ID: %s", enrollID)
 			secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				panic(err)

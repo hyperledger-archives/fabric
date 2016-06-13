@@ -57,9 +57,9 @@ func (fan *MessageFan) RegisterChannel(sender *pb.PeerID, channel <-chan *Messag
 	defer fan.lock.Unlock()
 
 	if _, ok := fan.ins[sender]; ok {
-		logger.Warning("Received duplicate connection from %v, switching to new connection", sender)
+		logger.Warningf("Received duplicate connection from %v, switching to new connection", sender)
 	} else {
-		logger.Info("Registering connection from %v", sender)
+		logger.Infof("Registering connection from %v", sender)
 	}
 
 	fan.ins[sender] = channel
@@ -69,7 +69,7 @@ func (fan *MessageFan) RegisterChannel(sender *pb.PeerID, channel <-chan *Messag
 			fan.out <- msg
 		}
 
-		logger.Info("Connection from peer %v terminated", sender)
+		logger.Infof("Connection from peer %v terminated", sender)
 
 		fan.lock.Lock()
 		defer fan.lock.Unlock()

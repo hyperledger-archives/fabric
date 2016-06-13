@@ -83,13 +83,6 @@ func TestMain(m *testing.M) {
 		os.Exit(ret)
 	}
 
-	////Second scenario with multithread
-	properties["security.multithreading.enabled"] = "true"
-	ret = runTestsOnScenario(m, properties, "Using multithread enabled")
-	if ret != 0 {
-		os.Exit(ret)
-	}
-
 	//properties["security.multithreading.enabled"] = "false"
 	//Third scenario using confidentialityProtocolVersion = 1.1
 	/*

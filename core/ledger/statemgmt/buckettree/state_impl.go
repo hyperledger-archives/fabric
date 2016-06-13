@@ -133,7 +133,7 @@ func (stateImpl *StateImpl) processDataNodeDelta() error {
 			return err
 		}
 		cryptoHashForBucket := computeDataNodesCryptoHash(bucketKey, updatedDataNodes, existingDataNodes)
-		logger.Debug("Crypto-hash for lowest-level bucket [%s] is [%x]", bucketKey, cryptoHashForBucket)
+		logger.Debugf("Crypto-hash for lowest-level bucket [%s] is [%x]", bucketKey, cryptoHashForBucket)
 		parentBucket := stateImpl.bucketTreeDelta.getOrCreateBucketNode(bucketKey.getParentKey())
 		parentBucket.setChildCryptoHash(bucketKey, cryptoHashForBucket)
 	}
@@ -144,24 +144,24 @@ func (stateImpl *StateImpl) processBucketTreeDelta() error {
 	secondLastLevel := conf.getLowestLevel() - 1
 	for level := secondLastLevel; level >= 0; level-- {
 		bucketNodes := stateImpl.bucketTreeDelta.getBucketNodesAt(level)
-		logger.Debug("Bucket tree delta. Number of buckets at level [%d] are [%d]", level, len(bucketNodes))
+		logger.Debugf("Bucket tree delta. Number of buckets at level [%d] are [%d]", level, len(bucketNodes))
 		for _, bucketNode := range bucketNodes {
-			logger.Debug("bucketNode in tree-delta [%s]", bucketNode)
+			logger.Debugf("bucketNode in tree-delta [%s]", bucketNode)
 			dbBucketNode, err := stateImpl.bucketCache.get(*bucketNode.bucketKey)
-			logger.Debug("bucket node from db [%s]", dbBucketNode)
+			logger.Debugf("bucket node from db [%s]", dbBucketNode)
 			if err != nil {
 				return err
 			}
 			if dbBucketNode != nil {
 				bucketNode.mergeBucketNode(dbBucketNode)
-				logger.Debug("After merge... bucketNode in tree-delta [%s]", bucketNode)
+				logger.Debugf("After merge... bucketNode in tree-delta [%s]", bucketNode)
 			}
 			if level == 0 {
 				return nil
 			}
-			logger.Debug("Computing cryptoHash for bucket [%s]", bucketNode)
+			logger.Debugf("Computing cryptoHash for bucket [%s]", bucketNode)
 			cryptoHash := bucketNode.computeCryptoHash()
-			logger.Debug("cryptoHash for bucket [%s] is [%x]", bucketNode, cryptoHash)
+			logger.Debugf("cryptoHash for bucket [%s] is [%x]", bucketNode, cryptoHash)
 			parentBucket := stateImpl.bucketTreeDelta.getOrCreateBucketNode(bucketNode.bucketKey.getParentKey())
 			parentBucket.setChildCryptoHash(bucketNode.bucketKey, cryptoHash)
 		}
@@ -174,7 +174,7 @@ func (stateImpl *StateImpl) computeRootNodeCryptoHash() []byte {
 }
 
 func computeDataNodesCryptoHash(bucketKey *bucketKey, updatedNodes dataNodes, existingNodes dataNodes) []byte {
-	logger.Debug("Computing crypto-hash for bucket [%s]. numUpdatedNodes=[%d], numExistingNodes=[%d]", bucketKey, len(updatedNodes), len(existingNodes))
+	logger.Debugf("Computing crypto-hash for bucket [%s]. numUpdatedNodes=[%d], numExistingNodes=[%d]", bucketKey, len(updatedNodes), len(existingNodes))
 	bucketHashCalculator := newBucketHashCalculator(bucketKey)
 	i := 0
 	j := 0
@@ -240,10 +240,10 @@ func (stateImpl *StateImpl) addDataNodeChangesForPersistence(writeBatch *gorocks
 		dataNodes := stateImpl.dataNodesDelta.getSortedDataNodesFor(affectedBucket)
 		for _, dataNode := range dataNodes {
 			if dataNode.isDelete() {
-				logger.Debug("Deleting data node key = %#v", dataNode.dataKey)
+				logger.Debugf("Deleting data node key = %#v", dataNode.dataKey)
 				writeBatch.DeleteCF(openchainDB.StateCF, dataNode.dataKey.getEncodedBytes())
 			} else {
-				logger.Debug("Adding data node with value = %#v", dataNode.value)
+				logger.Debugf("Adding data node with value = %#v", dataNode.value)
 				writeBatch.PutCF(openchainDB.StateCF, dataNode.dataKey.getEncodedBytes(), dataNode.value)
 			}
 		}

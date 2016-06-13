@@ -145,7 +145,7 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 
 	// Register node
 	if err := validator.peerImpl.register(NodeValidator, id, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s]: [%s]", enrollID, err)
+		log.Errorf("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
 
