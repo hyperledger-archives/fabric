@@ -95,7 +95,7 @@ POST localhost:5000/registrar
 
 {
   "enrollId": "jim",
-  "enrollSecret": "NPKYL39uKbkj"
+  "enrollSecret": "6avZQLwcUe9b"
 }
 ```
 
