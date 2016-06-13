@@ -26,7 +26,6 @@ var hlc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
-var sleep = require('sleep');
 
 // constants
 var registrar = {
@@ -42,9 +41,6 @@ var testChaincodePath = "github.com/asset_management/";
 
 // Chaincode name/hash that will be filled in by the deployment operation
 var testChaincodeName = "";
-
-// A number of seconds to sleep after a chaincode deploy operation
-var sleepSec = 20;
 
 //
 //  Create and configure a test chain
@@ -81,7 +77,7 @@ function pass(t, msg) {
 }
 
 function fail(t, msg, err) {
-    t.pass("Failure: [" + msg + "]: [" + err + "]");
+    t.fail("Failure: [" + msg + "]: [" + err + "]");
     t.end(err);
 }
 
@@ -103,7 +99,7 @@ test('Enroll Alice', function (t) {
     getUser('Alice', function (err, user) {
         if (err) return fail(t, "enroll Alice", err);
         alice = user;
-        alice.getUserCert(function (err, userCert) {
+        alice.getUserCert(null, function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             alicesCert = userCert;
             pass(t, "enroll Alice");
@@ -115,7 +111,7 @@ test('Enroll Bob', function (t) {
     getUser('Bob', function (err, user) {
         if (err) return fail(t, "enroll Bob", err);
         bob = user;
-        bob.getUserCert(function (err, userCert) {
+        bob.getUserCert(null, function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             bobAppCert = userCert;
             pass(t, "enroll Bob");
@@ -127,7 +123,7 @@ test('Enroll Charlie', function (t) {
     getUser('Charlie', function (err, user) {
         if (err) return fail(t, "enroll Charlie", err);
         charlie = user;
-        charlie.getUserCert(function (err, userCert) {
+        charlie.getUserCert(null, function (err, userCert) {
             if (err) fail(t, "Failed getting Application certificate.");
             charlieAppCert = userCert;
             pass(t, "enroll Charlie");
@@ -158,21 +154,17 @@ test("Alice deploys chaincode", function (t) {
     var deployTx = alice.deploy(deployRequest);
 
     // Print the deploy results
-    deployTx.on('complete', function(results, chaincodeHash) {
+    deployTx.on('complete', function(results) {
       // Deploy request completed successfully
-
-      // Sleep for sleepSec to allow the chaincode Docker container to come up
-      console.log(util.format("Sleeping for [%s] seconds...", sleepSec));
-      sleep.sleep(sleepSec);
-
+      console.log("deploy results: %j", results);
       // Set the chaincode name (hash returned) for subsequent tests
-      testChaincodeName = chaincodeHash;
-      console.log("testChaincodeName:" + chaincodeHash);
-      t.pass("Successfully deployed chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> txUUID : " + results);
+      testChaincodeName = results.chaincodeID;
+      console.log("testChaincodeName:" + testChaincodeName);
+      t.pass("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results);
     });
-    deployTx.on('error', function(results) {
+    deployTx.on('error', function(err) {
       // Deploy request failed
-      t.fail("Failed to deploy chaincode" + " ---> " + deployRequest.chaincodePath + " with " + deployRequest.args + " ---> " + results);
+      t.fail("Failed to deploy chaincode: request=%j, error=%j", deployRequest, err);
     });
 });
 
@@ -194,8 +186,9 @@ test("Alice assign ownership", function (t) {
     };
 
     var tx = alice.invoke(invokeRequest);
-    tx.on('submitted', function () {
-        console.log("invoke submitted");
+    tx.on('submitted', function (results) {
+        // Invoke transaction submitted successfully
+        console.log("Successfully submitted chaincode invoke transaction");
     });
     tx.on('complete', function (results) {
         console.log("invoke completed");
@@ -221,8 +214,9 @@ test("Bob transfers ownership to Charlie", function (t) {
     };
 
     var tx = bob.invoke(invokeRequest);
-    tx.on('submitted', function () {
-        console.log("query submitted");
+    tx.on('submitted', function (results) {
+        // Invoke transaction submitted successfully
+        console.log("Successfully submitted chaincode invoke transaction");
     });
     tx.on('complete', function (results) {
         console.log("invoke completed");
