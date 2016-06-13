@@ -89,12 +89,13 @@ var once sync.Once
 // GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
 	once.Do(func() {
-		ledger, ledgerError = newLedger()
+		ledger, ledgerError = GetNewLedger()
 	})
 	return ledger, ledgerError
 }
 
-func newLedger() (*Ledger, error) {
+// GetNewLedger - gives a reference to a new ledger TODO need better approach
+func GetNewLedger() (*Ledger, error) {
 	blockchain, err := newBlockchain()
 	if err != nil {
 		return nil, err

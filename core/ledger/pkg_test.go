@@ -165,7 +165,7 @@ type ledgerTestWrapper struct {
 
 func createFreshDBAndTestLedgerWrapper(tb testing.TB) *ledgerTestWrapper {
 	testDBWrapper.CreateFreshDB(tb)
-	ledger, err := newLedger()
+	ledger, err := GetNewLedger()
 	testutil.AssertNoError(tb, err, "Error while constructing ledger")
 	return &ledgerTestWrapper{ledger, tb}
 }
