@@ -43,6 +43,7 @@ type Helper struct {
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	persist.Helper
+	stateTransfering bool // Whether state transfer is active
 
 	sts *statetransfer.StateTransferState
 }
@@ -56,7 +57,6 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
 	}
 	h.sts = statetransfer.NewStateTransferState(mhc)
-	h.sts.RegisterListener(h)
 	return h
 }
 
@@ -313,9 +313,33 @@ func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
 	if h.valid {
 		logger.Warning("State transfer is being called for, but the state has not been invalidated")
 	}
-	info := &pb.BlockchainInfo{}
-	proto.Unmarshal(id, info)
-	h.sts.AddTarget(info.Height-1, info.CurrentBlockHash, peers, tag)
+
+	// This looks racey, but this should always be called in a serial fashion so it should not be, also this will be removed when the executor is introduced
+	// This is just a temporary hack to enable legacy-like behavior until the executor is finished
+	if !h.stateTransfering {
+		h.stateTransfering = true
+		info := &pb.BlockchainInfo{}
+		proto.Unmarshal(id, info)
+		go func() {
+			h.Initiated(info.Height-1, info.CurrentBlockHash, peers, tag)
+
+			for {
+				err, recoverable := h.sts.SyncToTarget(info.Height-1, info.CurrentBlockHash, peers)
+				if err != nil {
+					h.Errored(info.Height-1, info.CurrentBlockHash, peers, tag, err)
+				}
+				if !recoverable {
+					break
+				}
+				if err != nil {
+					h.Completed(info.Height-1, info.CurrentBlockHash, peers, tag)
+					break
+				}
+			}
+			h.stateTransfering = false
+
+		}()
+	}
 }
 
 // InvalidateState is invoked to tell us that consensus realizes the ledger is out of sync
