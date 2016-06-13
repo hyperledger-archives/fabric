@@ -33,7 +33,7 @@ Furthermore, logging levels can be enabled/disabled by adjusting the following s
 - `logging.error`
 - `logging.panic`
 
-Alternatively, these fields can be set via environment variables, which---if set---have precedence over entries in the yaml file.  The correspnding environment variables are named as follows:
+Alternatively, these fields can be set via environment variables, which---if set---have precedence over entries in the yaml file.  The corresponding environment variables are named as follows:
 
     MEMBERSRVC_CA_SERVER_GOMAXPROCS
     MEMBERSRVC_CA_SERVER_ROOTPATH
