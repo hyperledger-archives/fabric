@@ -130,11 +130,17 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 }
 
 func TestOutstandingReqsResubmission(t *testing.T) {
-	omni := &omniProto{
-		ExecuteImpl: func(tag interface{}, txs []*pb.Transaction) {},
-	}
+	omni := &omniProto{}
 	b := newObcBatch(0, loadConfig(), omni)
 	defer b.Close()
+
+	omni.ExecuteImpl = func(tag interface{}, txs []*pb.Transaction) {
+		b.manager.Inject(executedEvent{tag: tag})
+	}
+
+	omni.CommitImpl = func(tag interface{}, meta []byte) {
+		b.manager.Inject(committedEvent{})
+	}
 
 	omni.BroadcastImpl = func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error {
 		batchMsg := &BatchMessage{}
