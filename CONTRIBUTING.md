@@ -52,12 +52,12 @@ To work on something, whether a new feature or a bugfix:
 
   8. Did we mention tests? All code changes should be accompanied by new or modified tests.
 
-  9. Continuous Integration (CI): Be sure to check [Travis](https://travis-ci.org/) or the slack #fabric-ci-status chennel for status of your build.
+  9. Continuous Integration (CI): Be sure to check [Travis](https://travis-ci.org/) or the slack #fabric-ci-status channel for status of your build.
    _Note: while there is some underlying work to migrate the build system from [Travis](https://travis-ci.org/) to [Jenkins](https://jenkins.io/): you can trigger a rebuild of jenkins with a PR comment containing `reverify Jenkins` and you can trigger a Travis build by visiting the failed build page and clicking on the little re-run glyph in upper right.
 
   10. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
 
-After your pull request has been reviewed and signed off, a maintainer will merge it into the master branch.
+After your Pull Request (PR) has been reviewed and signed off, a maintainer will merge it into the master branch.
 
 ## Coding guidelines
 
