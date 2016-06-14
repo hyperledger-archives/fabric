@@ -50,14 +50,12 @@ func (testDB *TestDBWrapper) CleanDB(t testing.TB) {
 }
 
 // CreateFreshDBGinkgo creates a fresh database for ginkgo testing
-func (testDB *TestDBWrapper) CreateFreshDBGinkgo() error {
+func (testDB *TestDBWrapper) CreateFreshDBGinkgo() {
 	// cleaning up test db here so that each test does not have to call it explicitly
 	// at the end of the test
 	testDB.cleanup()
 	testDB.removeDBPath()
-	errx := CreateDB()
 	testDB.performCleanup = true
-	return errx
 }
 
 func (testDB *TestDBWrapper) cleanup() {
