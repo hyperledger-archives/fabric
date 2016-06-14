@@ -58,7 +58,7 @@ vagrant up
 
 **NOTE:** The first time you run this command it may take quite a while to complete (it could take 30 minutes or more depending on your environment) and at times it may look like it's not doing anything. As long you don't get any error messages just leave it alone, it's all good, it's just cranking.
 
-**NOTE to Windows 10 Users:** There is a known problem with vagrant on Windows 10 (see [mitchellh/vagrant#6754](https://github.com/mitchellh/vagrant/issues/6754). If the `vagrant up` command fails it may be because you do not have Microsoft Visual C++ Redistributable installed. You can download the missing package at the following address: http://www.microsoft.com/en-us/download/details.aspx?id=8328
+**NOTE to Windows 10 Users:** There is a known problem with vagrant on Windows 10 (see [mitchellh/vagrant#6754](https://github.com/mitchellh/vagrant/issues/6754)). If the `vagrant up` command fails it may be because you do not have Microsoft Visual C++ Redistributable installed. You can download the missing package at the following address: http://www.microsoft.com/en-us/download/details.aspx?id=8328
 
 
 Once complete, you should now be able to SSH into your new VM with the following command from the same directory.
