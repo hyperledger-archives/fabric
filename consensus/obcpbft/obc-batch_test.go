@@ -173,12 +173,8 @@ func TestBatchStaleCustody(t *testing.T) {
 		BeginTxBatchImpl: func(id interface{}) error {
 			return nil
 		},
-		ExecTxsImpl: func(id interface{}, txs []*pb.Transaction) ([]byte, error) {
-			return nil, nil
-		},
-		CommitTxBatchImpl: func(id interface{}, meta []byte) (*pb.Block, error) {
-			return nil, nil
-		},
+		ExecuteImpl: func(tag interface{}, txs []*pb.Transaction) {},
+		CommitImpl:  func(tag interface{}, meta []byte) {},
 	}
 	op := newObcBatch(1, config, stack)
 	defer op.Close()

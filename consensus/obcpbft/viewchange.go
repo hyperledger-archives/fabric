@@ -353,8 +353,9 @@ func (instance *pbftCore) processNewView() events.Event {
 			return nil
 		}
 
+		instance.skipInProgress = true
+		instance.stateTransferring = true
 		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
-		instance.lastExec = cp.SequenceNumber
 	}
 
 	for n, d := range nv.Xset {

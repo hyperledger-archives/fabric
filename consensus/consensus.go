@@ -20,12 +20,19 @@ import (
 	pb "github.com/hyperledger/fabric/protos"
 )
 
+// ExecutionConsumer allows callbacks from asycnhronous execution and statetransfer
+type ExecutionConsumer interface {
+	Executed(tag interface{})                                // Called whenever Execute completes
+	Committed(tag interface{}, target *pb.BlockchainInfo)    // Called whenever Commit completes
+	RolledBack(tag interface{})                              // Called whenever a Rollback completes
+	StateUpdated(tag interface{}, target *pb.BlockchainInfo) // Called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
+}
+
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
 	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error // Called serially with incoming messages from gRPC
-	StateUpdated(tag uint64, id []byte)                     // Called when state transfer completes, serial with StateUpdating
-	StateUpdating(tag uint64, id []byte)                    // Called when SkipTo causes state transfer to start serial with StateUpdated
+	ExecutionConsumer
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -56,12 +63,13 @@ type SecurityUtils interface {
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
 	GetBlockchainSize() uint64
+	GetBlockchainInfo() *pb.BlockchainInfo
 	GetBlockchainInfoBlob() []byte
 	GetBlockHeadMetadata() ([]byte, error)
 }
 
-// Executor is used to invoke transactions, potentially modifying the backing ledger
-type Executor interface {
+// LegacyExecutor is used to invoke transactions, potentially modifying the backing ledger
+type LegacyExecutor interface {
 	BeginTxBatch(id interface{}) error
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
@@ -69,11 +77,22 @@ type Executor interface {
 	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
 }
 
+// Executor is intended to eventually supplant the old Executor interface
+// The problem with invoking the calls directly above, is that they must be coordinated
+// with state transfer, to eliminate possible races and ledger corruption
+type Executor interface {
+	Start()                                                                     // Bring up the resources needed to use this interface
+	Halt()                                                                      // Tear down the resources needed to use this interface
+	Execute(tag interface{}, txs []*pb.Transaction)                             // Executes a set of transactions, this may be called in succession
+	Commit(tag interface{}, metadata []byte)                                    // Commits whatever transactions have been executed
+	Rollback(tag interface{})                                                   // Rolls back whatever transactions have been executed
+	UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) // Attempts to synchronize state to a particular target, implicitly calls rollback if needed
+}
+
 // LedgerManager is used to manipulate the state of the ledger
 type LedgerManager interface {
-	SkipTo(tag uint64, id []byte, peers []*pb.PeerID) // SkipTo tells state transfer to bring the ledger to a particular state, it should generally be preceeded/proceeded by Invalidate/Validate
-	InvalidateState()                                 // Invalidate informs the ledger that it is out of date and should reject queries
-	ValidateState()                                   // Validate informs the ledger that it is back up to date and should resume replying to queries
+	InvalidateState() // Invalidate informs the ledger that it is out of date and should reject queries
+	ValidateState()   // Validate informs the ledger that it is back up to date and should resume replying to queries
 }
 
 // StatePersistor is used to store consensus state which should survive a process crash
@@ -89,6 +108,7 @@ type Stack interface {
 	NetworkStack
 	SecurityUtils
 	Executor
+	LegacyExecutor
 	LedgerManager
 	ReadOnlyLedger
 	StatePersistor

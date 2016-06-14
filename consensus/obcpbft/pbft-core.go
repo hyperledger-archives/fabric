@@ -106,15 +106,15 @@ type checkpointMessage struct {
 	id    []byte
 }
 
+type stateUpdateTarget struct {
+	checkpointMessage
+	replicas []uint64
+}
+
 type pbftCore struct {
 	// internal data
-	internalLock      sync.Mutex
-	executing         bool                    // signals that application is executing
-	closed            chan struct{}           // informs the main thread to exit (never written to, only closed)
-	incomingChan      chan *pbftMessage       // informs the main thread of new messages
-	stateUpdatedChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
-	stateUpdatingChan chan *checkpointMessage // informs the main thread the state update has started (via state transfer)
-	execCompleteChan  chan struct{}           // informs the main thread an execution has finished
+	internalLock sync.Mutex
+	executing    bool // signals that application is executing
 
 	idleChan   chan struct{} // Used to detect idleness for testing
 	injectChan chan func()   // Used as a hack to inject work onto the PBFT thread, to be removed eventually
@@ -139,8 +139,10 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	skipInProgress bool              // Set when we have detected a fall behind scenario until we pick a new starting point
-	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
+	skipInProgress    bool               // Set when we have detected a fall behind scenario until we pick a new starting point
+	stateTransferring bool               // Set when state transfer is executing
+	highStateTarget   *stateUpdateTarget // Set to the highest weak checkpoint cert we have observed
+	hChkpts           map[uint64]uint64  // highest checkpoint sequence number observed for each replica
 
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
@@ -215,13 +217,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
-	instance.closed = make(chan struct{})
-	instance.incomingChan = make(chan *pbftMessage)
-	instance.stateUpdatedChan = make(chan *checkpointMessage)
-	instance.stateUpdatingChan = make(chan *checkpointMessage)
-	instance.execCompleteChan = make(chan struct{})
-	instance.idleChan = make(chan struct{})
-	instance.injectChan = make(chan func())
 
 	instance.newViewTimer = etf.CreateTimer()
 	instance.nullRequestTimer = etf.CreateTimer()
@@ -351,17 +346,28 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 		err = instance.recvFetchRequest(et)
 	case returnRequestEvent:
 		return instance.recvReturnRequest(et)
-	case stateUpdatingEvent:
-		update := et
-		instance.skipInProgress = true
-		instance.lastExec = update.seqNo
-		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 	case stateUpdatedEvent:
-		update := et
-		seqNo := update.seqNo
-		logger.Infof("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+		update := et.chkpt
+		instance.stateTransferring = false
+		// If state transfer did not complete successfully, or if it did not reach our low watermark, do it again
+		if et.target == nil || update.seqNo < instance.h {
+			if et.target == nil {
+				logger.Warningf("Replica %d attempted state transfer target was not reachable (%v)", instance.id, et.chkpt)
+			} else {
+				logger.Warningf("Replica %d recovered to seqNo %d but our low watermark has moved to %d", instance.id, update.seqNo, instance.h)
+			}
+			if instance.highStateTarget != nil && update.seqNo < instance.highStateTarget.seqNo {
+				logger.Debugf("Replica %d has state target for %d, transferring", instance.id, instance.highStateTarget.seqNo)
+				instance.stateTransferring = true
+				instance.consumer.skipTo(instance.highStateTarget.seqNo, instance.highStateTarget.id, instance.highStateTarget.replicas)
+			} else {
+				logger.Debugf("Replica %d has no state target above %d, highest is %d", instance.id, update.seqNo, instance.highStateTarget.seqNo)
+			}
+			return nil
+		}
+		logger.Infof("Replica %d application caught up via state transfer, lastExec now %d", instance.id, update.seqNo)
 		// XXX create checkpoint
-		instance.lastExec = seqNo
+		instance.lastExec = update.seqNo
 		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 		instance.skipInProgress = false
 		instance.consumer.validateState()
@@ -1082,11 +1088,22 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 
-	if instance.skipInProgress {
+	if instance.highStateTarget == nil || instance.highStateTarget.seqNo < chkpt.SequenceNumber {
+		instance.highStateTarget = &stateUpdateTarget{
+			checkpointMessage: checkpointMessage{
+				seqNo: chkpt.SequenceNumber,
+				id:    snapshotID,
+			},
+			replicas: checkpointMembers,
+		}
+	}
+
+	if instance.skipInProgress && !instance.stateTransferring {
 		logger.Debugf("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
 		// The view should not be set to active, this should be handled by the yet unimplemented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
+		instance.stateTransferring = true
 	}
 }
 

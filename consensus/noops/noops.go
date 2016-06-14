@@ -112,16 +112,6 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	return nil
 }
 
-// StateUpdating is called once state transfer is initiated, currently unused
-func (i *Noops) StateUpdating(seqNo uint64, id []byte) {
-	// ignored as it is never initiated
-}
-
-// StateUpdated is called once state transfer finishes, currently unused
-func (i *Noops) StateUpdated(seqNo uint64, id []byte) {
-	// ignored as it is never initiated
-}
-
 func (i *Noops) broadcastConsensusMsg(msg *pb.Message) error {
 	t := &pb.Transaction{}
 	if err := proto.Unmarshal(msg.Payload, t); err != nil {
@@ -302,4 +292,24 @@ func (i *Noops) notifyBlockAdded(block *pb.Block, delta *statemgmt.StateDelta) e
 		return fmt.Errorf("Failed to broadcast with errors: %v", errs)
 	}
 	return nil
+}
+
+// Executed is called whenever Execute completes, no-op for noops as it uses the legacy synchronous api
+func (i *Noops) Executed(tag interface{}) {
+	// Never called
+}
+
+// Committed is called whenever Commit completes, no-op for noops as it uses the legacy synchronous api
+func (i *Noops) Committed(tag interface{}, target *pb.BlockchainInfo) {
+	// Never called
+}
+
+// RolledBack is called whenever a Rollback completes, no-op for noops as it uses the legacy synchronous api
+func (i *Noops) RolledBack(tag interface{}) {
+	// Never called
+}
+
+// StatedUpdates is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied, no-op for noops as it uses the legacy synchronous api
+func (i *Noops) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	// Never called
 }

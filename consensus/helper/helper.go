@@ -24,12 +24,12 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/executor"
 	"github.com/hyperledger/fabric/consensus/helper/persist"
 	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/peer"
-	"github.com/hyperledger/fabric/core/peer/statetransfer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -45,7 +45,7 @@ type Helper struct {
 	persist.Helper
 	stateTransfering bool // Whether state transfer is active
 
-	sts *statetransfer.StateTransferState
+	executor consensus.Executor
 }
 
 // NewHelper constructs the consensus helper object
@@ -56,7 +56,8 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secHelper:   mhc.GetSecHelper(),
 		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
 	}
-	h.sts = statetransfer.NewStateTransferState(mhc)
+	h.executor = executor.NewImpl(h, h, mhc)
+	h.executor.Start()
 	return h
 }
 
@@ -286,6 +287,13 @@ func (h *Helper) GetBlockchainSize() uint64 {
 	return h.coordinator.GetBlockchainSize()
 }
 
+// GetBlockchainInfo gets the ledger's BlockchainInfo
+func (h *Helper) GetBlockchainInfo() *pb.BlockchainInfo {
+	ledger, _ := ledger.GetLedger()
+	info, _ := ledger.GetBlockchainInfo()
+	return info
+}
+
 // GetBlockchainInfoBlob marshals a ledger's BlockchainInfo into a protobuf
 func (h *Helper) GetBlockchainInfoBlob() []byte {
 	ledger, _ := ledger.GetLedger()
@@ -308,40 +316,6 @@ func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	return block.ConsensusMetadata, nil
 }
 
-// SkipTo is invoked to tell state transfer of a possible sync target, if state transfer is not already executing, it is initiated
-func (h *Helper) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
-	if h.valid {
-		logger.Warning("State transfer is being called for, but the state has not been invalidated")
-	}
-
-	// This looks racey, but this should always be called in a serial fashion so it should not be, also this will be removed when the executor is introduced
-	// This is just a temporary hack to enable legacy-like behavior until the executor is finished
-	if !h.stateTransfering {
-		h.stateTransfering = true
-		info := &pb.BlockchainInfo{}
-		proto.Unmarshal(id, info)
-		go func() {
-			h.Initiated(info.Height-1, info.CurrentBlockHash, peers, tag)
-
-			for {
-				err, recoverable := h.sts.SyncToTarget(info.Height-1, info.CurrentBlockHash, peers)
-				if err != nil {
-					h.Errored(info.Height-1, info.CurrentBlockHash, peers, tag, err)
-				}
-				if !recoverable {
-					break
-				}
-				if err != nil {
-					h.Completed(info.Height-1, info.CurrentBlockHash, peers, tag)
-					break
-				}
-			}
-			h.stateTransfering = false
-
-		}()
-	}
-}
-
 // InvalidateState is invoked to tell us that consensus realizes the ledger is out of sync
 func (h *Helper) InvalidateState() {
 	logger.Debug("Invalidating the current state")
@@ -354,21 +328,60 @@ func (h *Helper) ValidateState() {
 	h.valid = true
 }
 
-// Initiated is called when state transfer is kicked off, this occurs if SkipTo is invoked while statetransfer is not currently running
-func (h *Helper) Initiated(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
-	h.consenter.StateUpdating(m.(uint64), bh)
+// Execute will execute a set of transactions, this may be called in succession
+func (h *Helper) Execute(tag interface{}, txs []*pb.Transaction) {
+	h.executor.Execute(tag, txs)
 }
 
-// Completed is called when state transfer finishes moving the state to some point added via SkipTo
-func (h *Helper) Completed(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}) {
-	h.consenter.StateUpdated(m.(uint64), bh)
+// Commit will commit whatever transactions have been executed
+func (h *Helper) Commit(tag interface{}, metadata []byte) {
+	h.executor.Commit(tag, metadata)
 }
 
-// Errored is called when state transfer encounters an error, this is not necessarily fatal
-func (h *Helper) Errored(bn uint64, bh []byte, pids []*pb.PeerID, m interface{}, e error) {
-	if seqNo, ok := m.(uint64); !ok {
-		logger.Warningf("state transfer reported error for block %d, seqNo %d: %s", bn, seqNo, e)
-	} else {
-		logger.Warningf("state transfer reported error for block %d, %s", bn, e)
+// Rollback will roll back whatever transactions have been executed
+func (h *Helper) Rollback(tag interface{}) {
+	h.executor.Rollback(tag)
+}
+
+// UpdateState attempts to synchronize state to a particular target, implicitly calls rollback if needed
+func (h *Helper) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
+	if h.valid {
+		logger.Warning("State transfer is being called for, but the state has not been invalidated")
+	}
+
+	h.executor.UpdateState(tag, target, peers)
+}
+
+// Executed is called whenever Execute completes
+func (h *Helper) Executed(tag interface{}) {
+	if h.consenter != nil {
+		h.consenter.Executed(tag)
 	}
 }
+
+// Committed is called whenever Commit completes
+func (h *Helper) Committed(tag interface{}, target *pb.BlockchainInfo) {
+	if h.consenter != nil {
+		h.consenter.Committed(tag, target)
+	}
+}
+
+// RolledBack is called whenever a Rollback completes
+func (h *Helper) RolledBack(tag interface{}) {
+	if h.consenter != nil {
+		h.consenter.RolledBack(tag)
+	}
+}
+
+// StateUpdated is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
+func (h *Helper) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	if h.consenter != nil {
+		h.consenter.StateUpdated(tag, target)
+	}
+}
+
+// Start his is a byproduct of the consensus API needing some cleaning, for now it's a no-op
+func (h *Helper) Start() {}
+
+// Halt is a byproduct of the consensus API needing some cleaning, for now it's a no-op
+func (h *Helper) Halt() {}
