@@ -357,7 +357,7 @@ export interface InvokeRequest extends InvokeOrQueryRequest {
 /**
  * A transaction.
  */
-export interface Transaction {
+export interface TransactionProtobuf {
     getType():string;
     setCert(cert:Buffer):void;
     setSignature(sig:Buffer):void;
@@ -373,6 +373,10 @@ export interface Transaction {
     getPayload():{buffer: Buffer};
     setPayload(buffer:Buffer):void;
     toBuffer():Buffer;
+}
+
+export class Transaction {
+    constructor(public pb:TransactionProtobuf, public chaincodeID:string){};
 }
 
 /**
@@ -1250,7 +1254,7 @@ export class TransactionContext extends events.EventEmitter {
 
             if (tcert) {
                 // Set nonce
-                tx.setNonce(self.nonce);
+                tx.pb.setNonce(self.nonce);
 
                 // Process confidentiality
                 debug('Process Confidentiality...');
@@ -1260,18 +1264,18 @@ export class TransactionContext extends events.EventEmitter {
                 debug('Sign transaction...');
 
                 // Add the tcert
-                tx.setCert(tcert.publicKey);
+                tx.pb.setCert(tcert.publicKey);
                 // sign the transaction bytes
-                let txBytes = tx.toBuffer();
+                let txBytes = tx.pb.toBuffer();
                 let derSignature = self.chain.cryptoPrimitives.ecdsaSign(tcert.privateKey.getPrivate('hex'), txBytes).toDER();
                 // debug('signature: ', derSignature);
-                tx.setSignature(new Buffer(derSignature));
+                tx.pb.setSignature(new Buffer(derSignature));
 
                 debug('Send transaction...');
-                debug('Confidentiality: ', tx.getConfidentialityLevel());
+                debug('Confidentiality: ', tx.pb.getConfidentialityLevel());
 
-                if (tx.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
-                        tx.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
+                if (tx.pb.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
+                        tx.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
                     // Need to send a different event emitter so we can catch the response
                     // and perform decryption before sending the real complete response
                     // to the caller
@@ -1314,7 +1318,7 @@ export class TransactionContext extends events.EventEmitter {
 
     private processConfidentiality(transaction:Transaction) {
         // is confidentiality required?
-        if (transaction.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
+        if (transaction.pb.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
             // No confidentiality is required
             return
         }
@@ -1323,7 +1327,7 @@ export class TransactionContext extends events.EventEmitter {
         var self = this;
 
         // Set confidentiality level and protocol version
-        transaction.setConfidentialityProtocolVersion('1.2');
+        transaction.pb.setConfidentialityProtocolVersion('1.2');
 
         // Generate transaction key. Common to all type of transactions
         var txKey = self.chain.cryptoPrimitives.eciesKeyGen();
@@ -1336,10 +1340,10 @@ export class TransactionContext extends events.EventEmitter {
 
         // Generate stateKey. Transaction type dependent step.
         var stateKey;
-        if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
+        if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
             // The request is for a deploy
             stateKey = new Buffer(self.chain.cryptoPrimitives.aesKeyGen());
-        } else if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE ) {
+        } else if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE ) {
             // The request is for an execute
             // Empty state key
             stateKey = new Buffer([]);
@@ -1377,33 +1381,33 @@ export class TransactionContext extends events.EventEmitter {
             ecdsaChainKey,
             chainCodeValidatorMessage1_2.buffer
         );
-        transaction.setToValidators(encMsgToValidators);
+        transaction.pb.setToValidators(encMsgToValidators);
 
         // Encrypts chaincodeID using txKey
         // debug('CHAINCODE ID %j', transaction.chaincodeID);
 
         let encryptedChaincodeID = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
-            transaction.getChaincodeID().buffer
+            transaction.pb.getChaincodeID().buffer
         );
-        transaction.setChaincodeID(encryptedChaincodeID);
+        transaction.pb.setChaincodeID(encryptedChaincodeID);
 
         // Encrypts payload using txKey
         // debug('PAYLOAD ID %j', transaction.payload);
         let encryptedPayload = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
-            transaction.getPayload().buffer
+            transaction.pb.getPayload().buffer
         );
-        transaction.setPayload(encryptedPayload);
+        transaction.pb.setPayload(encryptedPayload);
 
         // Encrypt metadata using txKey
-        if (transaction.getMetadata() != null && transaction.getMetadata().buffer != null) {
-            debug('Metadata [%j]', transaction.getMetadata().buffer);
+        if (transaction.pb.getMetadata() != null && transaction.pb.getMetadata().buffer != null) {
+            debug('Metadata [%j]', transaction.pb.getMetadata().buffer);
             let encryptedMetadata = self.chain.cryptoPrimitives.eciesEncrypt(
                 txKey.pubKeyObj,
-                transaction.getMetadata().buffer
+                transaction.pb.getMetadata().buffer
             );
-            transaction.setMetadata(encryptedMetadata);
+            transaction.pb.setMetadata(encryptedMetadata);
         }
     }
 
@@ -1520,6 +1524,8 @@ export class TransactionContext extends events.EventEmitter {
             // debug('========== Sigma [%s]', sigma.toString('hex'));
             tx.setMetadata(sigma);
         }
+
+        tx = new Transaction(tx, request.chaincodeID);
 
         return cb(null, tx);
     }
@@ -1718,6 +1724,8 @@ export class TransactionContext extends events.EventEmitter {
                             // Return the deploy transaction structure
                             //
 
+                            tx = new Transaction(tx, hash);
+
                             return cb(null, tx);
                         }); // end delete Dockerfile
                     }); // end delete .tar.gz
@@ -1800,6 +1808,9 @@ export class TransactionContext extends events.EventEmitter {
             // debug('========== Sigma [%s]', sigma.toString('hex'));
             tx.setMetadata(sigma)
         }
+
+        tx = new Transaction(tx, request.chaincodeID);
+
         return tx;
     }
 
@@ -1982,19 +1993,12 @@ export class Peer {
     sendTransaction = function (tx:Transaction, eventEmitter:events.EventEmitter) {
         var self = this;
 
-        debug("peer.sendTransaction: sending %j", tx);
-
-        // Get the chaincode hash generated during deploy operation
-        let hashBuf = tx.getChaincodeID().buffer;
-        // It is unclear why, but to get the hash to be correct, you have to
-        // convert starting with index 2, not 0. If I convert starting at index
-        // 0, a @ character is appended to the beginning of the hash string.
-        let hashStr = hashBuf.toString('utf8', 2, hashBuf.length);
+        debug("peer.sendTransaction");
 
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
         //     rpc ProcessTransaction(Transaction) returns (Response) {}
-        self.peerClient.processTransaction(tx, function (err, response) {
+        self.peerClient.processTransaction(tx.pb, function (err, response) {
             if (err) {
                 debug("peer.sendTransaction: error=%j", err);
                 return eventEmitter.emit('error', new EventTransactionError(err));
@@ -2006,7 +2010,7 @@ export class Peer {
             // whereas a deploy and a query are synchonous calls. As such,
             // invoke will emit 'submitted' and 'error', while a deploy/query
             // will emit 'complete' and 'error'.
-            let txType = tx.getType();
+            let txType = tx.pb.getType();
             switch (txType) {
                case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
                   if (response.status === "SUCCESS") {
@@ -2014,7 +2018,8 @@ export class Peer {
                      if (!response.msg || response.msg === "") {
                         eventEmitter.emit("error", new EventTransactionError("the deploy response is missing the transaction UUID"));
                      } else {
-                        let event = new EventDeploySubmitted(response.msg.toString(),hashStr);
+                        let event = new EventDeploySubmitted(response.msg.toString(), tx.chaincodeID);
+                        debug("EventDeploySubmitted event: %j", event);
                         eventEmitter.emit("submitted", event);
                         self.waitForDeployComplete(eventEmitter,event);
                      }
@@ -2040,7 +2045,7 @@ export class Peer {
                case _fabricProto.Transaction.Type.CHAINCODE_QUERY: // sync
                   if (response.status === "SUCCESS") {
                      // Query transaction has been completed
-                     eventEmitter.emit("complete", new EventQueryComplete(response));
+                     eventEmitter.emit("complete", new EventQueryComplete(response.msg));
                   } else {
                      // Query completed with status "FAILURE" or "UNDEFINED"
                      eventEmitter.emit("error", new EventTransactionError(response));

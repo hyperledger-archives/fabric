@@ -39,8 +39,10 @@ var alicesCert, bobAppCert, charlieAppCert;
 // Path to the local directory containing the chaincode project under $GOPATH
 var testChaincodePath = "github.com/asset_management/";
 
-// Chaincode name/hash that will be filled in by the deployment operation
-var testChaincodeName = "";
+// Chaincode hash that will be filled in by the deployment operation or
+// chaincode name that will be referenced in development mode.
+var testChaincodeName = "mycc";
+
 
 //
 //  Create and configure a test chain
@@ -49,7 +51,20 @@ var chain = hlc.newChain("testChain");
 chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
-chain.setDevMode(false);
+
+//
+// Set the chaincode deployment mode to either developent mode (user runs chaincode)
+// or network mode (code package built and sent to the peer).
+//
+
+var mode =  process.env['DEPLOY_MODE'];
+console.log("$DEPLOY_MODE: " + mode);
+if (mode === 'dev') {
+    chain.setDevMode(true);
+} else {
+    chain.setDevMode(false);
+}
+
 
 /**
  * Get the user and if not enrolled, register and enroll the user.
@@ -138,8 +153,10 @@ test("Alice deploys chaincode", function (t) {
 
     // Construct the deploy request
     var deployRequest = {
-      // Path (under $GOPATH) required for deploy
+      // Path (under $GOPATH) required for deploy in network mode
       chaincodePath: testChaincodePath,
+      // Name required for deploy in development mode
+      chaincodeID: testChaincodeName,
       // Function to trigger
       fcn: "init",
       // Arguments to the initializing function
@@ -156,15 +173,15 @@ test("Alice deploys chaincode", function (t) {
     // Print the deploy results
     deployTx.on('complete', function(results) {
       // Deploy request completed successfully
-      console.log("deploy results: %j", results);
+      console.log(util.format("deploy results: %j", results));
       // Set the chaincode name (hash returned) for subsequent tests
       testChaincodeName = results.chaincodeID;
       console.log("testChaincodeName:" + testChaincodeName);
-      t.pass("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results);
+      t.pass(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
     });
     deployTx.on('error', function(err) {
       // Deploy request failed
-      t.fail("Failed to deploy chaincode: request=%j, error=%j", deployRequest, err);
+      t.fail(util.format("Failed to deploy chaincode: request=%j, error=%j", deployRequest, err));
     });
 });
 
@@ -244,13 +261,13 @@ test("Alice queries chaincode", function (t) {
 
     var tx = alice.query(queryRequest);
     tx.on('complete', function (results) {
-        console.log('Results          [%j]', results);
-        console.log('Charlie identity [%s]', charlieAppCert.encode().toString('hex'));
+        console.log(util.format('Results: %j', results));
+        console.log(util.format('Charlie identity: %s', charlieAppCert.encode().toString('hex')));
 
-        if (results != charlieAppCert.encode().toString('hex')) {
+        if (results.result != charlieAppCert.encode().toString('hex')) {
             fail(t, "Charlie is not the owner of the asset.")
         }
-        pass(t, "Alice query. Result : " + results);
+        pass(t, "Alice query. Result: " + results);
     });
     tx.on('error', function (err) {
         fail(t, "Alice query", err);

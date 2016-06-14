@@ -299,7 +299,7 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
+        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
@@ -333,7 +333,7 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
+        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
     });
     queryTx.on('error', function (err) {
       // Query failed
@@ -366,7 +366,7 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail(util.format("Successfully queried non-existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
+        t.fail(util.format("Successfully queried non-existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
@@ -399,7 +399,7 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail(util.format("Successfully queried non-existing chaincode function: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
+        t.fail(util.format("Successfully queried non-existing chaincode function: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
