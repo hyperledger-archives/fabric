@@ -39,6 +39,22 @@ import (
 
 var logger = logging.MustGetLogger("golang/hash")
 
+//core hash computation factored out for testing
+func computeHash(contents []byte, hash []byte) []byte {
+	newSlice := make([]byte, len(hash)+len(contents))
+
+	//copy the contents
+	copy(newSlice[0:len(contents)], contents[:])
+
+	//add the previous hash
+	copy(newSlice[len(contents):], hash[:])
+
+	//compute new hash
+	hash = util.ComputeCryptoHash(newSlice)
+
+	return hash
+}
+
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
@@ -67,10 +83,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			return hash, err
 		}
 
-		newSlice := make([]byte, len(hash)+len(buf))
-		copy(newSlice[len(buf):], hash[:])
-		//hash = md5.Sum(newSlice)
-		hash = util.ComputeCryptoHash(newSlice)
+		//get the new hash from file contents
+		hash = computeHash(buf, hash)
 
 		if tw != nil {
 			is := bytes.NewReader(buf)
