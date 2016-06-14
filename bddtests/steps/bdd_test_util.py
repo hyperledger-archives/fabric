@@ -212,5 +212,18 @@ def getArgsFromContextForUser(context, enrollId):
               args.append(arg)
     return args
 
+def getContainerDataValuesFromContext(context, aliases, callback):
+    """Returns the IPAddress based upon a name part of the full container name"""
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    values = []
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    for namePart in aliases:
+        for containerData in context.compose_containers:
+            if containerData.containerName.startswith(containerNamePrefix + namePart):
+                values.append(callback(containerData))
+                break
+    return values
+
+
 
 
