@@ -74,11 +74,6 @@ type BlockChainAccessor interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 }
 
-// TransactionAccessor interface for retrieving transaction information
-type TransactionAccessor interface {
-	GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error)
-}
-
 // BlockChainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
@@ -117,7 +112,6 @@ type MessageHandlerCoordinator interface {
 	BlockChainModifier
 	BlockChainUtil
 	StateAccessor
-	TransactionAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.Message, pb.PeerEndpoint_Type) []error
@@ -786,13 +780,6 @@ func (p *PeerImpl) signMessageMutating(msg *pb.Message) error {
 		msg.Signature = sig
 	}
 	return nil
-}
-
-// GetTransactionResultByUUID Return the TransactionResult for the specified transaction ID.
-func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error) {
-	p.ledgerWrapper.RLock()
-	defer p.ledgerWrapper.RUnlock()
-	return p.ledgerWrapper.ledger.GetTransactionResultByUUID(txUuid)
 }
 
 // initDiscovery load the addresses from the discovery list previously saved to disk and adds them to the current discovery list

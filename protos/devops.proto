@@ -39,9 +39,6 @@ service Devops {
     // Invoke chaincode.
     rpc Query(ChaincodeInvocationSpec) returns (Response) {}
 
-    // Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
-    rpc GetTransactionResult(TransactionRequest) returns (Response) {}
-
     // Retrieve a TCert.
     rpc EXP_GetApplicationTCert(Secret) returns (Response) {}
 
