@@ -93,7 +93,7 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, 1000, nil))
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, 30000, nil))
 
 	go grpcServer.Serve(lis)
 
