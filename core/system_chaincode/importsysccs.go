@@ -20,22 +20,14 @@ import (
 	"github.com/hyperledger/fabric/core/system_chaincode/api"
 
 	//import system chain codes here
-	"github.com/hyperledger/fabric/core/system_chaincode/samplesyscc"
 )
 
-var systemChaincodes = []*api.SystemChaincode{
-	{
-		Enabled:   true,
-		Name:      "sample_syscc",
-		Path:      "github.com/hyperledger/fabric/core/system_chaincode/samplesyscc",
-		InitArgs:  []string{},
-		Chaincode: &samplesyscc.SampleSysCC{}},
-}
+//see systemchaincode_test.go for an example using "sample_syscc"
+var systemChaincodes = []*api.SystemChaincode{}
 
 //RegisterSysCCs is the hook for system chaincodes where system chaincodes are registered with the fabric
 //note the chaincode must still be deployed and launched like a user chaincode will be
 func RegisterSysCCs() {
-	//sampleCC := &api.SystemChaincode{Enabled: true, Name: "sample_syscc", Path: "github.com/hyperledger/fabric/core/system_chaincode/samplesyscc", InitArgs: []string{}, Chaincode: &samplesyscc.SampleSysCC{}}
 	for _, sysCC := range systemChaincodes {
 		api.RegisterSysCC(sysCC)
 	}
