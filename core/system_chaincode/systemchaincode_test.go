@@ -93,7 +93,8 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
 	}
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, 30000, nil))
+	ccStartupTimeout := time.Duration(5000) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chaincode.DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
 
 	go grpcServer.Serve(lis)
 
