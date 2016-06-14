@@ -25,46 +25,31 @@
 var hlc = require('../..');
 var test = require('tape');
 var util = require('util');
-var fs = require('fs');
 
-var chain, admin, alice, bob, chaincodeID;
+var chain, chaincodeID;
+var chaincodeName = "assetmgmt_with_roles";
+var deployer, assigner, nonAssigner;
+var networkMode = process.env.NETWORK_MODE;
 
-// Path to the local directory containing the chaincode project under $GOPATH
-var testChaincodePath = "github.com/asset_management_with_roles";
-
-// Chaincode name/hash that will be filled in by the deployment operation
-var testChaincodeName = "";
-
-// Create the chain and set users admin, alice, and bob
-function runTest(cb) {
+// Create the chain and enroll users as deployer, assigner, and nonAssigner (who doesn't have privilege to assign.
+function setup(cb) {
    console.log("initializing ...");
    var chain = hlc.newChain("testChain");
    chain.setKeyValStore(hlc.newFileKeyValStore("/tmp/keyValStore"));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.addPeer("grpc://localhost:30303");
-   chain.setDevMode(false);
-   console.log("enrolling WebAppAdmin ...");
+   console.log("enrolling deployer ...");
    chain.enroll("WebAppAdmin", "DJY27pEnl16d", function (err, user) {
       if (err) return cb(err);
-      admin = user;
-      chain.setRegistrar(admin);
-      // Register and enroll webAdmin
-      console.log("registering Alice ...");
-      var rr = {
-          enrollmentID: "Alice",
-          account: "bank_a",
-          affiliation: "00001"
-      }
-      chain.registerAndEnroll(rr, function(err,user) {
+      deployer = user;
+      console.log("enrolling assigner ...");
+      chain.enroll("jim","6avZQLwcUe9b", function (err, user) {
          if (err) return cb(err);
-         alice = user;
-         console.log("registering Bob ...");
-         rr.enrollmentID = "Bob",
-         chain.registerAndEnroll(rr, function(err,user) {
+         assigner = user;
+         console.log("enrolling nonAssigner ...");
+         chain.enroll("lukas","NPKYL39uKbkj", function (err, user) {
             if (err) return cb(err);
-            bob = user;
-            console.log("initialized");
-            return deploy(cb);
+            nonAssigner = user;
          });
       });
    });
@@ -74,24 +59,22 @@ function runTest(cb) {
 function deploy(cb) {
     console.log("deploying with the role name 'assigner' in metadata ...");
     var req = {
-        chaincodePath: testChaincodePath,
         fcn: "init",
         args: [],
-        confidential: true,
         metadata: "assigner"
     };
-
+    if (networkMode) {
+       req.chaincodePath = "github.com/asset_management_with_roles/";
+    } else {
+       req.chaincodeName = "asset_management_with_roles";
+    }
     var tx = admin.deploy(req);
     tx.on('submitted', function (results) {
-        console.log("deploy chaincode submitted");
+        console.log("deploy submitted: %j", results);
     });
     tx.on('complete', function (results) {
-        // Deploy request completed successfully
-        console.log("deploy results: %j", results);
-        // Set the chaincode name (hash returned) for subsequent tests
-        testChaincodeName = results.chaincodeID;
-        console.log("testChaincodeName:" + testChaincodeName);
-
+        console.log("deploy complete: %j", results);
+        chaincodeID = results.chaincodeID;
         return assign(cb);
     });
     tx.on('error', function (err) {
@@ -100,15 +83,15 @@ function deploy(cb) {
     });
 }
 
-function assign(cb) {
+function assign(user,cb) {
     var req = {
-        chaincodeID: testChaincodeName,
+        chaincodeID: chaincodeID,
         fcn: "assign",
         args: ["MyAsset","ownerID"],
-        confidential: true,
         attrs: ['role']
     };
-    var tx = admin.invoke(req);
+    console.log("assign: invoking %j",req);
+    var tx = user.invoke(req);
     tx.on('submitted', function (results) {
         console.log("assign transaction ID: %j", results);
     });
@@ -122,14 +105,53 @@ function assign(cb) {
     });
 }
 
-test('asset management with roles', function (t) {
-    runTest(function(err) {
+test('setup asset management with roles', function (t) {
+    setup(function(err) {
+        if (err) {
+            t.fail("error: "+err.toString());
+            t.end(err);
+            process.exit(1);
+        } else {
+            t.pass("setup successful");
+            t.end();
+        }
+    });
+});
+
+test('deploy asset management with roles', function (t) {
+    deploy(function(err) {
+        if (err) {
+            t.fail("error: "+err.toString());
+            t.end(err);
+            process.exit(1);
+        } else {
+            t.pass("deploy successful");
+            t.end();
+        }
+    });
+});
+
+test('assign asset management with roles', function (t) {
+    assign(assigner, function(err) {
         if (err) {
             t.fail("error: "+err.toString());
             t.end(err);
         } else {
-            t.pass("successfully ran asset management with roles test");
+            t.pass("assign successful");
             t.end();
+        }
+    });
+});
+
+test('not assign asset management with roles', function (t) {
+    assign(notAssigner, function(err) {
+        if (err) {
+            t.pass("not assign successful");
+            t.end();
+        } else {
+            err = new Error ("this user should not have been allowed to assign");
+            t.fail("error: "+err.toString());
+            t.end(err);
         }
     });
 });
