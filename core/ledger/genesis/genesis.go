@@ -71,11 +71,11 @@ func MakeGenesis() error {
 				return
 			}
 
-			genesisLogger.Debug("Genesis chaincodes are %s", chaincodes)
+			genesisLogger.Debugf("Genesis chaincodes are %s", chaincodes)
 
 			for i := range chaincodes {
 				name := i.(string)
-				genesisLogger.Debug("Chaincode %s", name)
+				genesisLogger.Debugf("Chaincode %s", name)
 
 				chaincode := chaincodes[name]
 				chaincodeMap, chaincodeMapOK := chaincode.(map[interface{}]interface{})
@@ -105,7 +105,7 @@ func MakeGenesis() error {
 
 				chaincodeID := &protos.ChaincodeID{Path: path, Name: name}
 
-				genesisLogger.Debug("Genesis chaincodeID %s", chaincodeID)
+				genesisLogger.Debugf("Genesis chaincodeID %s", chaincodeID)
 
 				constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
 				if !constructorMapOK {
@@ -130,7 +130,7 @@ func MakeGenesis() error {
 					ctorArgs, ctorArgsOK := constructorMap["args"].([]interface{})
 					var ctorArgsStringArray []string
 					if ctorArgsOK {
-						genesisLogger.Debug("Genesis chaincode constructor args %s", ctorArgs)
+						genesisLogger.Debugf("Genesis chaincode constructor args %s", ctorArgs)
 						for j := 0; j < len(ctorArgs); j++ {
 							ctorArgsStringArray = append(ctorArgsStringArray, ctorArgs[j].(string))
 						}
@@ -156,7 +156,7 @@ func MakeGenesis() error {
 
 //BuildLocal builds a given chaincode code
 func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
-	genesisLogger.Debug("Received build request for chaincode spec: %v", spec)
+	genesisLogger.Debugf("Received build request for chaincode spec: %v", spec)
 	var codePackageBytes []byte
 	/*****  We will need this only when we support non-go SYSTEM chaincode ****
 	if getMode() != chaincode.DevModeUserRunsChaincode {
@@ -198,7 +198,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 			genesisLogger.Warning(fmt.Sprintf("cannot get deployment transaction for %s - %s", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name, err))
 			transaction = nil
 		} else {
-			genesisLogger.Debug("deployment transaction for %s exists", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
+			genesisLogger.Debugf("deployment transaction for %s exists", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
 		}
 	}
 
