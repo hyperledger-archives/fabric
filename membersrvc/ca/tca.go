@@ -338,7 +338,7 @@ func (tcap *TCAP) CreateCertificateSet(ctx context.Context, in *pb.TCertCreateSe
 	Trace.Println("grpc TCAP:CreateCertificateSet")
 
 	id := in.Id.Id
-	raw, err := tcap.tca.eca.readCertificate(id, x509.KeyUsageDigitalSignature)
+	raw, err := tcap.tca.eca.readCertificateByKeyUsage(id, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -467,9 +467,6 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 		return nil, nil, err
 	}
 
-	// save k used to encrypt EnrollmentID
-	//ks["enrollmentId"] = enrollmentIdKey
-
 	attributeIdentifierIndex := 9
 	count := 0
 	attrsHeader := make(map[string]int)
@@ -531,7 +528,7 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb
 		return nil, errors.New("access denied")
 	}
 
-	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	raw, err := tcap.tca.eca.readCertificateByKeyUsage(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +552,7 @@ func (tcap *TCAP) ReadCertificate(ctx context.Context, in *pb.TCertReadReq) (*pb
 	}
 
 	if in.Ts.Seconds != 0 {
-		raw, err = tcap.tca.readCertificate1(id, in.Ts.Seconds)
+		raw, err = tcap.tca.readCertificateByTimestamp(id, in.Ts.Seconds)
 	} else {
 		raw, err = tcap.tca.readCertificateByHash(in.Hash.Hash)
 	}
@@ -577,7 +574,7 @@ func (tcap *TCAP) ReadCertificateSet(ctx context.Context, in *pb.TCertReadSetReq
 		return nil, errors.New("access denied")
 	}
 
-	raw, err := tcap.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	raw, err := tcap.tca.eca.readCertificateByKeyUsage(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +643,7 @@ func (tcaa *TCAA) ReadCertificateSets(ctx context.Context, in *pb.TCertReadSetsR
 		return nil, errors.New("access denied")
 	}
 
-	raw, err := tcaa.tca.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	raw, err := tcaa.tca.eca.readCertificateByKeyUsage(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}

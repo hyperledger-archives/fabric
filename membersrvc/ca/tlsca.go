@@ -129,7 +129,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, in *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
-	raw, err := tlscap.tlsca.readCertificate(in.Id.Id, x509.KeyUsageKeyAgreement)
+	raw, err := tlscap.tlsca.readCertificateByKeyUsage(in.Id.Id, x509.KeyUsageKeyAgreement)
 	if err != nil {
 		return nil, err
 	}
