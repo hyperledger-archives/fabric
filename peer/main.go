@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -236,6 +237,8 @@ func main() {
 	mainFlags := mainCmd.PersistentFlags()
 	mainFlags.String("logging-level", "", "Default logging level and overrides, see core.yaml for full syntax")
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
+	testCoverProfile := ""
+	mainFlags.StringVarP(&testCoverProfile, "test.coverprofile", "", "coverage.cov", "Done")
 
 	// Set the flags on the node start command.
 	flags := nodeStartCmd.Flags()
@@ -314,8 +317,9 @@ func main() {
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if mainCmd.Execute() != nil {
-		os.Exit(1)
+		//os.Exit(1)
 	}
+	logger.Info("Exiting.....")
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
@@ -515,6 +519,16 @@ func serve(args []string) error {
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
 	serve := make(chan error)
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println()
+		fmt.Println(sig)
+		serve <- nil
+	}()
+
 	go func() {
 		var grpcErr error
 		if grpcErr = grpcServer.Serve(lis); grpcErr != nil {
