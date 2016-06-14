@@ -121,24 +121,6 @@ func (blockchain *blockchain) getTransactionByUUID(txUUID string) (*protos.Trans
 	return transaction, nil
 }
 
-// getTransactions get all transactions in a block identified by block number
-func (blockchain *blockchain) getTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
-	block, err := blockchain.getBlock(blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	return block.GetTransactions(), nil
-}
-
-// getTransactionsByBlockHash get all transactions in a block identified by block hash
-func (blockchain *blockchain) getTransactionsByBlockHash(blockHash []byte) ([]*protos.Transaction, error) {
-	block, err := blockchain.getBlockByHash(blockHash)
-	if err != nil {
-		return nil, err
-	}
-	return block.GetTransactions(), nil
-}
-
 // getTransaction get a transaction identified by blocknumber and index within the block
 func (blockchain *blockchain) getTransaction(blockNumber uint64, txIndex uint64) (*protos.Transaction, error) {
 	block, err := blockchain.getBlock(blockNumber)
@@ -261,33 +243,6 @@ func (blockchain *blockchain) persistRawBlock(block *protos.Block, blockNumber u
 	return nil
 }
 
-// addBlock add a new block to blockchain
-// func (blockchain *blockchain) addBlock(ctx context.Context, block *protos.Block) error {
-// 	block.SetPreviousBlockHash(blockchain.previousBlockHash)
-// 	state := getState()
-// 	stateHash, err := state.getHash()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	block.StateHash = stateHash
-// 	currentBlockNumber := blockchain.size
-// 	currentBlockHash, err := block.GetHash()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = blockchain.persistBlock(block, currentBlockNumber, currentBlockHash, true)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	blockchain.size++
-// 	blockchain.previousBlockHash = currentBlockHash
-// 	state.clearInMemoryChanges()
-// 	if !blockchain.indexer.isSynchronous() {
-// 		blockchain.indexer.createIndexesAsync(block, currentBlockNumber, currentBlockHash)
-// 	}
-// 	return nil
-// }
-
 func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 	blockBytes, err := db.GetDBHandle().GetFromBlockchainCF(encodeBlockNumberDBKey(blockNumber))
 	if err != nil {
@@ -297,14 +252,6 @@ func fetchBlockFromDB(blockNumber uint64) (*protos.Block, error) {
 		return nil, nil
 	}
 	return protos.UnmarshallBlock(blockBytes)
-}
-
-func fetchTransactionFromDB(blockNum uint64, txIndex uint64) (*protos.Transaction, error) {
-	block, err := fetchBlockFromDB(blockNum)
-	if err != nil {
-		return nil, err
-	}
-	return block.GetTransactions()[txIndex], nil
 }
 
 func fetchBlockchainSizeFromDB() (uint64, error) {
@@ -334,10 +281,6 @@ var blockCountKey = []byte("blockCount")
 
 func encodeBlockNumberDBKey(blockNumber uint64) []byte {
 	return encodeUint64(blockNumber)
-}
-
-func decodeBlockNumberDBKey(dbKey []byte) uint64 {
-	return decodeToUint64(dbKey)
 }
 
 func encodeUint64(number uint64) []byte {

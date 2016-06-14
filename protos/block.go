@@ -44,7 +44,7 @@ import (
 func (block *Block) Bytes() ([]byte, error) {
 	data, err := proto.Marshal(block)
 	if err != nil {
-		logger.Error("Error marshalling block: %s", err)
+		logger.Errorf("Error marshalling block: %s", err)
 		return nil, fmt.Errorf("Could not marshal block: %s", err)
 	}
 	return data, nil
@@ -99,7 +99,7 @@ func UnmarshallBlock(blockBytes []byte) (*Block, error) {
 	block := &Block{}
 	err := proto.Unmarshal(blockBytes, block)
 	if err != nil {
-		logger.Error("Error unmarshalling block: %s", err)
+		logger.Errorf("Error unmarshalling block: %s", err)
 		return nil, fmt.Errorf("Could not unmarshal block: %s", err)
 	}
 	return block, nil

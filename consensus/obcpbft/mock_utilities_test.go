@@ -154,6 +154,7 @@ type omniProto struct {
 	GetCurrentStateHashImpl    func() (stateHash []byte, err error)
 	GetBlockchainSizeImpl      func() uint64
 	GetBlockHeadMetadataImpl   func() ([]byte, error)
+	GetBlockchainInfoImpl      func() *pb.BlockchainInfo
 	GetBlockchainInfoBlobImpl  func() []byte
 	HashBlockImpl              func(block *pb.Block) ([]byte, error)
 	VerifyBlockchainImpl       func(start, finish uint64) (uint64, error)
@@ -162,6 +163,10 @@ type omniProto struct {
 	CommitStateDeltaImpl       func(id interface{}) error
 	RollbackStateDeltaImpl     func(id interface{}) error
 	EmptyStateImpl             func() error
+	ExecuteImpl                func(id interface{}, txs []*pb.Transaction)
+	CommitImpl                 func(id interface{}, meta []byte)
+	RollbackImpl               func(id interface{})
+	UpdateStateImpl            func(id interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID)
 	BeginTxBatchImpl           func(id interface{}) error
 	ExecTxsImpl                func(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatchImpl          func(id interface{}, metadata []byte) (*pb.Block, error)
@@ -274,6 +279,13 @@ func (op *omniProto) GetBlockHeadMetadata() ([]byte, error) {
 func (op *omniProto) GetBlockchainInfoBlob() []byte {
 	if nil != op.GetBlockchainInfoBlobImpl {
 		return op.GetBlockchainInfoBlobImpl()
+	}
+
+	panic("Unimplemented")
+}
+func (op *omniProto) GetBlockchainInfo() *pb.BlockchainInfo {
+	if nil != op.GetBlockchainInfoImpl {
+		return op.GetBlockchainInfoImpl()
 	}
 
 	panic("Unimplemented")
@@ -562,34 +574,35 @@ func (op *omniProto) invalidateState() {
 	}
 	panic("unimplemented")
 }
-
-/*
-
-	op := &omniProto{
-		GetNetworkInfoImpl:         net.GetNetworkInfo,
-		GetNetworkHandlesImpl:      net.GetNetworkHandles,
-		BroadcastImpl:              net.Broadcast,
-		UnicastImpl:                net.Unicast,
-		SignImpl:                   security.Sign,
-		VerifyImpl:                 security.Verify,
-		GetBlockImpl:               ml.GetBlock,
-		GetCurrentStateHashImpl:    ml.GetCurrentStateHash,
-		GetBlockchainSizeImpl:      ml.GetBlockchainSize,
-		HashBlockImpl:              ml.HashBlock,
-		VerifyBlockchainImpl:       ml.VerifyBlockchain,
-		PutBlockImpl:               ml.PutBlock,
-		ApplyStateDeltaImpl:        ml.ApplyStateDelta,
-		CommitStateDeltaImpl:       ml.CommitStateDelta,
-		RollbackStateDeltaImpl:     ml.RollbackStateDelta,
-		EmptyStateImpl:             ml.EmptyState,
-		BeginTxBatchImpl:           ml.BeginTxBatch,
-		ExecTxsImpl:                ml.ExecTxs,
-		CommitTxBatchImpl:          ml.CommitTxBatch,
-		RollbackTxBatchImpl:        ml.RollbackTxBatch,
-		PreviewCommitTxBatchImpl:   ml.PreviewCommitTxBatch,
-		GetRemoteBlocksImpl:        ml.GetRemoteBlocks,
-		GetRemoteStateSnapshotImpl: ml.GetRemoteStateSnapshot,
-		GetRemoteStateDeltasImpl:   ml.GetRemoteStateDeltas,
+func (op *omniProto) Commit(tag interface{}, meta []byte) {
+	if nil != op.CommitImpl {
+		op.CommitImpl(tag, meta)
+		return
 	}
+	panic("unimplemented")
+}
+func (op *omniProto) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
+	if nil != op.UpdateStateImpl {
+		op.UpdateStateImpl(tag, target, peers)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Rollback(tag interface{}) {
+	if nil != op.RollbackImpl {
+		op.RollbackImpl(tag)
+		return
+	}
+	panic("unimplemented")
+}
+func (op *omniProto) Execute(tag interface{}, txs []*pb.Transaction) {
+	if nil != op.ExecuteImpl {
+		op.ExecuteImpl(tag, txs)
+		return
+	}
+	panic("unimplemented")
+}
 
-*/
+// These methods are a temporary hack until the consensus API can be cleaned a little
+func (op *omniProto) Start() {}
+func (op *omniProto) Halt()  {}

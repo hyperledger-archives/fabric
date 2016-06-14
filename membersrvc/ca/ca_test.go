@@ -21,9 +21,10 @@ import (
 	"os"
 	"testing"
 
+	"database/sql"
+
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"database/sql"
 )
 
 const (
@@ -88,17 +89,6 @@ func TestNewCA(t *testing.T) {
 			cacert.Subject.Country, country)
 	}
 
-	//cleanup
-	err = cleanupFiles(ca.path)
-	if err != nil {
-		t.Logf("Failed removing [%s] [%s]\n", ca.path, err)
-	}
-
-}
-
-//cleanup files between and after tests
-func cleanupFiles(path string) error {
-	return os.RemoveAll(path)
 }
 
 // Empty initializer for CA

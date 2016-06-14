@@ -404,9 +404,13 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-      attributes:
-        company: ACompany
-        position: "Software Engineer"
+    # Enable the release of keys needed to decrypt attributes from TCerts in
+    # the chaincode using the metadata field of the transaction (requires
+    # security to be enabled).
+    attributes:
+      enabled: false
+    multithreading:
+      enabled: false
 
     # Confidentiality protocol version could be 1.1 or 1.2
     confidentialityProtocolVersion: 1.2

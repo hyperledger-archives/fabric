@@ -54,12 +54,11 @@ type obcSieve struct {
 
 	persistForward
 
-	executeChan       chan *pbftExecute       // Written to by a go routine from PBFT execute method
-	incomingChan      chan *msgWithSender     // Written to by RecvMsg
-	custodyTimerChan  chan custodyInfo        // Written to by Complaint
-	stateUpdatedChan  chan *checkpointMessage // Written to by StateUpdate
-	stateUpdatingChan chan *checkpointMessage // Written to by StateUpdate
-	idleChan          chan struct{}           // Used for detecting thread idleness for testing
+	executeChan      chan *pbftExecute       // Written to by a go routine from PBFT execute method
+	incomingChan     chan *msgWithSender     // Written to by RecvMsg
+	custodyTimerChan chan custodyInfo        // Written to by Complaint
+	stateUpdatedChan chan *checkpointMessage // Written to by StateUpdate
+	idleChan         chan struct{}           // Used for detecting thread idleness for testing
 }
 
 type pbftExecute struct {
@@ -92,7 +91,6 @@ func newObcSieve(id uint64, config *viper.Viper, stack consensus.Stack) *obcSiev
 	op.incomingChan = make(chan *msgWithSender)
 	op.custodyTimerChan = make(chan custodyInfo)
 	op.stateUpdatedChan = make(chan *checkpointMessage)
-	op.stateUpdatingChan = make(chan *checkpointMessage)
 
 	op.idleChan = make(chan struct{})
 
@@ -147,7 +145,7 @@ func (op *obcSieve) request(tx []byte) error {
 	// XXX sign req
 	hash := hashReq(req)
 
-	logger.Info("Sieve replica %d: New consensus request received: %s", op.id, hash)
+	logger.Infof("Sieve replica %d: New consensus request received: %s", op.id, hash)
 
 	op.complainer.Custody(req)
 
@@ -238,7 +236,7 @@ func (op *obcSieve) verify(senderID uint64, signature []byte, message []byte) er
 
 // called by pbft-core to signal when a view change happened
 func (op *obcSieve) viewChange(newView uint64) {
-	logger.Info("Replica %d observing pbft view change to %d", op.id, newView)
+	logger.Infof("Replica %d observing pbft view change to %d", op.id, newView)
 	op.queuedTx = nil
 	op.imminentEpoch = newView
 
@@ -288,19 +286,19 @@ func (op *obcSieve) invokePbft(msg *SievePbftMessage) {
 
 func (op *obcSieve) recvRequest(req *Request) {
 	if op.pbft.primary(op.epoch) != op.id || !op.pbft.activeView {
-		logger.Debug("Sieve backup %d ignoring request", op.id)
+		logger.Debugf("Sieve backup %d ignoring request", op.id)
 		return
 	}
 
 	// XXX check req sig
 
 	if !op.deduplicator.Request(req) {
-		logger.Debug("Sieve replica %d received stale request from %d",
+		logger.Debugf("Sieve replica %d received stale request from %d",
 			op.id, req.ReplicaId)
 		return
 	}
 
-	logger.Debug("Sieve primary %d received request %s", op.id, hashReq(req))
+	logger.Debugf("Sieve primary %d received request %s", op.id, hashReq(req))
 	op.queuedTx = append(op.queuedTx, req)
 
 	if op.currentReq == "" {
@@ -317,13 +315,13 @@ func (op *obcSieve) recvComplaint(req *Request, senderID uint64) {
 	// XXX check req sig
 
 	if !op.deduplicator.IsNew(req) {
-		logger.Debug("Sieve replica %d received stale complaint from %d via %d",
+		logger.Debugf("Sieve replica %d received stale complaint from %d via %d",
 			op.id, req.ReplicaId, senderID)
 		return
 	}
 
 	hash := op.complainer.Complaint(req)
-	logger.Debug("Sieve replica %d received complaint %s", op.id, hash)
+	logger.Debugf("Sieve replica %d received complaint %s", op.id, hash)
 
 	op.submitToLeader(req)
 }
@@ -343,7 +341,7 @@ func (op *obcSieve) processRequest() {
 		Request:     req,
 		ReplicaId:   op.id,
 	}
-	logger.Debug("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
+	logger.Debugf("Sieve primary %d broadcasting execute epoch=%d, blockNo=%d",
 		op.id, exec.View, exec.BlockNumber)
 	op.broadcastMsg(&SieveMessage{&SieveMessage_Execute{exec}})
 	op.recvExecute(exec)
@@ -351,14 +349,14 @@ func (op *obcSieve) processRequest() {
 
 func (op *obcSieve) recvExecute(exec *Execute) {
 	if !(exec.View >= op.epoch && exec.BlockNumber > op.blockNumber && op.pbft.primary(exec.View) == exec.ReplicaId) {
-		logger.Debug("Replica %d got invalid execute from %d for view %d and block %d", op.pbft.id, exec.ReplicaId, exec.View, exec.BlockNumber)
+		logger.Debugf("Replica %d got invalid execute from %d for view %d and block %d", op.pbft.id, exec.ReplicaId, exec.View, exec.BlockNumber)
 		return
 	}
 
 	// XXX check req sig
 
 	if !op.deduplicator.IsNew(exec.Request) {
-		logger.Debug("Sieve replica %d received exec of stale request from %d via %d",
+		logger.Debugf("Sieve replica %d received exec of stale request from %d via %d",
 			op.id, exec.Request.ReplicaId, exec.ReplicaId)
 		return
 	}
@@ -383,12 +381,12 @@ func (op *obcSieve) processExecute() {
 	}
 
 	if !(exec.View == op.epoch && op.pbft.primary(op.epoch) == exec.ReplicaId && op.pbft.activeView) {
-		logger.Debug("Invalid execute from %d", exec.ReplicaId)
+		logger.Debugf("Invalid execute from %d", exec.ReplicaId)
 		return
 	}
 
 	if exec.BlockNumber != op.blockNumber+1 {
-		logger.Debug("Block block number in execute wrong: expected %d, got %d",
+		logger.Debugf("Block block number in execute wrong: expected %d, got %d",
 			op.blockNumber, exec.BlockNumber)
 		return
 	}
@@ -396,7 +394,7 @@ func (op *obcSieve) processExecute() {
 	op.currentReqFull = exec.Request
 	op.currentReq = hashReq(op.currentReqFull)
 
-	logger.Debug("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d, request=%s",
+	logger.Debugf("Sieve replica %d received exec from %d, epoch=%d, blockNo=%d, request=%s",
 		op.id, exec.ReplicaId, exec.View, exec.BlockNumber, op.currentReq)
 
 	// With the execution decoupled from the ordering, this sanity check is challenging and introduces a race
@@ -404,7 +402,7 @@ func (op *obcSieve) processExecute() {
 		blockchainSize, _ := op.stack.GetBlockchainSize()
 		blockchainSize--
 		if op.blockNumber != blockchainSize {
-			logger.Critical("Sieve replica %d block number and ledger blockchain size diverged: blockNo=%d, blockchainSize=%d", op.id, op.blockNumber, blockchainSize)
+			logger.Criticalf("Sieve replica %d block number and ledger blockchain size diverged: blockNo=%d, blockchainSize=%d", op.id, op.blockNumber, blockchainSize)
 			return
 		}
 	*/
@@ -419,17 +417,17 @@ func (op *obcSieve) processExecute() {
 	_ = results // XXX what to do?
 	_ = err     // XXX what to do?
 
-	logger.Debug("Sieve replica %d results=%x err=%v using lastPbftExec of %d", op.id, results, err, op.lastExecPbftSeqNo)
+	logger.Debugf("Sieve replica %d results=%x err=%v using lastPbftExec of %d", op.id, results, err, op.lastExecPbftSeqNo)
 
 	meta, _ := proto.Marshal(&Metadata{op.lastExecPbftSeqNo})
 	op.currentResult, err = op.stack.PreviewCommitTxBatch(op.currentReq, meta)
 	if err != nil {
-		logger.Error("could not preview next block: %s", err)
+		logger.Errorf("could not preview next block: %s", err)
 		op.rollback()
 		return
 	}
 
-	logger.Debug("Sieve replica %d executed blockNo=%d, request=%s", op.id, op.blockNumber, op.currentReq)
+	logger.Debugf("Sieve replica %d executed blockNo=%d, request=%s", op.id, op.blockNumber, op.currentReq)
 
 	verify := &Verify{
 		View:          op.epoch,
@@ -440,7 +438,7 @@ func (op *obcSieve) processExecute() {
 	}
 	op.pbft.sign(verify)
 
-	logger.Debug("Sieve replica %d sending verify blockNo=%d with result %x",
+	logger.Debugf("Sieve replica %d sending verify blockNo=%d with result %x",
 		op.id, verify.BlockNumber, op.currentResult)
 
 	op.recvVerify(verify)
@@ -455,20 +453,20 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 		return
 	}
 
-	logger.Debug("Sieve primary %d received verify from %d, blockNo=%d, result %x",
+	logger.Debugf("Sieve primary %d received verify from %d, blockNo=%d, result %x",
 		op.id, verify.ReplicaId, verify.BlockNumber, verify.ResultDigest)
 
 	if err := op.pbft.verify(verify); err != nil {
-		logger.Warning("Invalid verify message: %s", err)
+		logger.Warningf("Invalid verify message: %s", err)
 		return
 	}
 	if verify.View != op.epoch {
-		logger.Debug("Invalid verify view: expected %d, got %d",
+		logger.Debugf("Invalid verify view: expected %d, got %d",
 			op.epoch, verify.View)
 		return
 	}
 	if verify.BlockNumber != op.blockNumber {
-		logger.Debug("Invalid verify block number: expected %d, got %d",
+		logger.Debugf("Invalid verify block number: expected %d, got %d",
 			op.blockNumber, verify.BlockNumber)
 		return
 	}
@@ -479,14 +477,14 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 
 	for _, v := range op.verifyStore {
 		if v.ReplicaId == verify.ReplicaId {
-			logger.Info("Duplicate verify from %d", op.id)
+			logger.Infof("Duplicate verify from %d", op.id)
 			return
 		}
 	}
 	op.verifyStore = append(op.verifyStore, verify)
 
 	if len(op.verifyStore) == op.moreCorrectThanByzantineQuorum() {
-		logger.Debug("Sieve primary %d has enough verify records to make decision", op.id)
+		logger.Debugf("Sieve primary %d has enough verify records to make decision", op.id)
 		dSet, _ := op.verifyDset(op.verifyStore)
 		verifySet := &VerifySet{
 			View:          op.epoch,
@@ -498,9 +496,9 @@ func (op *obcSieve) recvVerify(verify *Verify) {
 		op.pbft.sign(verifySet)
 		req := &SievePbftMessage{Payload: &SievePbftMessage_VerifySet{verifySet}}
 		op.invokePbft(req)
-		logger.Debug("Sieve primary %d sent request to PBFT for final ordering", op.id)
+		logger.Debugf("Sieve primary %d sent request to PBFT for final ordering", op.id)
 	} else {
-		logger.Debug("Sieve primary %d recording verify message; now have %d of total %d", op.id, len(op.verifyStore), op.moreCorrectThanByzantineQuorum())
+		logger.Debugf("Sieve primary %d recording verify message; now have %d of total %d", op.id, len(op.verifyStore), op.moreCorrectThanByzantineQuorum())
 	}
 }
 
@@ -550,12 +548,12 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	dups := make(map[uint64]bool)
 	for _, v := range vset.Dset {
 		if err := op.pbft.verify(v); err != nil {
-			logger.Warning("verify-set invalid: %s", err)
+			logger.Warningf("verify-set invalid: %s", err)
 			return err
 		}
 		if dups[v.ReplicaId] {
 			err := fmt.Errorf("verify-set invalid: duplicate entry for replica %d", v.ReplicaId)
-			logger.Warning("%s", err)
+			logger.Warningf("%s", err)
 			return err
 		}
 		dups[v.ReplicaId] = true
@@ -564,7 +562,7 @@ func (op *obcSieve) validateVerifySet(vset *VerifySet) error {
 	for _, v := range vset.Dset {
 		if v.View != vset.View || v.BlockNumber != vset.BlockNumber || v.RequestDigest != vset.RequestDigest {
 			err := fmt.Errorf("verify-set invalid: inconsistent verify member")
-			logger.Warning("%s", err)
+			logger.Warningf("%s", err)
 			return err
 		}
 	}
@@ -609,17 +607,15 @@ func (op *obcSieve) main() {
 		case msgWithSender := <-op.incomingChan:
 
 			if err := op.recvMsg(msgWithSender.msg, msgWithSender.sender); nil != err {
-				logger.Error("Could not process message: %v", err)
+				logger.Errorf("Could not process message: %v", err)
 			}
 
 		case exec := <-op.executeChan:
 			op.executeImpl(exec.seqNo, exec.txRaw)
 		case <-op.pbft.closed:
-			logger.Debug("Sieve replica %d requested to stop", op.id)
+			logger.Debugf("Sieve replica %d requested to stop", op.id)
 			close(op.idleChan)
 			return
-		case update := <-op.stateUpdatingChan:
-			op.pbft.stateUpdating(update.seqNo, update.id)
 		case update := <-op.stateUpdatedChan:
 			op.restoreBlockNumber()
 
@@ -633,11 +629,11 @@ func (op *obcSieve) main() {
 			}
 		case c := <-op.custodyTimerChan:
 			if !c.complaint {
-				logger.Warning("Sieve replica %d custody expired, complaining: %s", op.id, c.hash)
+				logger.Warningf("Sieve replica %d custody expired, complaining: %s", op.id, c.hash)
 				op.broadcastMsg(&SieveMessage{&SieveMessage_Complaint{c.req.(*Request)}})
 			} else {
 				if op.pbft.activeView {
-					logger.Debug("Sieve replica %d complaint timeout expired for %s", op.id, c.hash)
+					logger.Debugf("Sieve replica %d complaint timeout expired for %s", op.id, c.hash)
 					op.pbft.sendViewChange()
 				}
 			}
@@ -655,7 +651,7 @@ func (op *obcSieve) execute(seqNo uint64, raw []byte) {
 			seqNo: seqNo,
 			txRaw: raw,
 		}
-		logger.Debug("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
+		logger.Debugf("Sieve replica %d successfully sent transaction for sequence number %d", op.id, seqNo)
 	}()
 }
 
@@ -679,29 +675,29 @@ func (op *obcSieve) executeImpl(seqNo uint64, raw []byte) {
 func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 	sync := false
 
-	logger.Debug("Replica %d received verify-set from pbft, view %d, block %d",
+	logger.Debugf("Replica %d received verify-set from pbft, view %d, block %d",
 		op.id, vset.View, vset.BlockNumber)
 
 	if vset.View != op.epoch {
-		logger.Debug("Replica %d ignoring verify-set for wrong epoch: expected %d, got %d",
+		logger.Debugf("Replica %d ignoring verify-set for wrong epoch: expected %d, got %d",
 			op.id, op.epoch, vset.View)
 		return
 	}
 
 	if vset.BlockNumber < op.blockNumber {
-		logger.Debug("Replica %d ignoring verify-set for old block: expected %d, got %d",
+		logger.Debugf("Replica %d ignoring verify-set for old block: expected %d, got %d",
 			op.id, op.blockNumber, vset.BlockNumber)
 		return
 	}
 
 	if vset.BlockNumber == op.blockNumber && op.currentReq == "" {
-		logger.Debug("Replica %d ignoring verify-set for already committed block",
+		logger.Debugf("Replica %d ignoring verify-set for already committed block",
 			op.id)
 		return
 	}
 
 	if op.currentReq == "" {
-		logger.Debug("Replica %d received verify-set without pending execute",
+		logger.Debugf("Replica %d received verify-set without pending execute",
 			op.id)
 		sync = true
 	}
@@ -709,17 +705,17 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 	op.complainer.Success(op.currentReqFull)
 
 	if !op.deduplicator.Execute(op.currentReqFull) {
-		logger.Error("Replica %d executing stale request %s, this indicates a bug", op.id, op.currentReq)
+		logger.Errorf("Replica %d executing stale request %s, this indicates a bug", op.id, op.currentReq)
 	}
 
 	if vset.BlockNumber != op.blockNumber {
-		logger.Debug("Replica %d received verify-set for wrong block: expected %d, got %d",
+		logger.Debugf("Replica %d received verify-set for wrong block: expected %d, got %d",
 			op.id, op.blockNumber, vset.BlockNumber)
 		sync = true
 	}
 
 	if vset.RequestDigest != op.currentReq {
-		logger.Debug("Replica %d received verify-set for different execute",
+		logger.Debugf("Replica %d received verify-set for different execute",
 			op.id)
 		sync = true
 	}
@@ -728,11 +724,11 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 
 	if !shouldCommit {
 		if !sync {
-			logger.Warning("Sieve replica %d execute vset: not deterministic", op.id)
+			logger.Warningf("Sieve replica %d execute vset: not deterministic", op.id)
 
 			op.rollback()
 		} else {
-			logger.Debug("Sieve replica %d told to roll back transactions for a block it doesn't have")
+			logger.Debugf("Sieve replica %d told to roll back transactions for a block it doesn't have")
 		}
 	} else {
 		var peers []uint64
@@ -743,17 +739,17 @@ func (op *obcSieve) executeVerifySet(vset *VerifySet, seqNo uint64) {
 		decision := dSet[0].ResultDigest
 
 		if !reflect.DeepEqual(op.currentResult, decision) {
-			logger.Info("Decision successful, but our output does not match (%x) vs (%x)", op.currentResult, decision)
+			logger.Infof("Decision successful, but our output does not match (%x) vs (%x)", op.currentResult, decision)
 			sync = true
 		}
 
 		if !sync {
-			logger.Debug("Sieve replica %d arrived at decision %x for block %d", op.id, decision, vset.BlockNumber)
+			logger.Debugf("Sieve replica %d arrived at decision %x for block %d", op.id, decision, vset.BlockNumber)
 
 			op.commit()
 			op.lastExecPbftSeqNo = seqNo
 		} else {
-			logger.Debug("Sieve replica %d must sync to decision %x for block %d", op.id, decision, vset.BlockNumber)
+			logger.Debugf("Sieve replica %d must sync to decision %x for block %d", op.id, decision, vset.BlockNumber)
 
 			op.rollback()
 			op.execOutstanding = true
@@ -778,23 +774,23 @@ func (op *obcSieve) execDone() {
 }
 
 func (op *obcSieve) executeFlush(flush *Flush) {
-	logger.Debug("Replica %d received flush from pbft", op.id)
+	logger.Debugf("Replica %d received flush from pbft", op.id)
 	if flush.View < op.epoch {
-		logger.Warning("Replica %d ignoring old flush for epoch %d, we are in epoch %d",
+		logger.Warningf("Replica %d ignoring old flush for epoch %d, we are in epoch %d",
 			op.id, flush.View, op.epoch)
 		return
 	}
 	op.epoch = flush.View
-	logger.Info("Replica %d advancing epoch to %d", op.id, op.epoch)
+	logger.Infof("Replica %d advancing epoch to %d", op.id, op.epoch)
 	op.queuedTx = nil
 	if op.currentReq != "" {
-		logger.Info("Replica %d rolling back speculative execution", op.id)
+		logger.Infof("Replica %d rolling back speculative execution", op.id)
 		op.rollback()
 	}
 
 	op.complainer.Restart()
 	for _, pair := range op.complainer.CustodyElements() {
-		logger.Info("Replica %d resubmitting request under custody: %s", op.id, pair.Hash)
+		logger.Infof("Replica %d resubmitting request under custody: %s", op.id, pair.Hash)
 		op.submitToLeader(pair.Request)
 	}
 }
@@ -804,19 +800,8 @@ func (op *obcSieve) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 }
 
 // StateUpdated is a signal from the stack that it has fast-forwarded its state
-func (op *obcSieve) StateUpdated(seqNo uint64, id []byte) {
-	op.stateUpdatedChan <- &checkpointMessage{
-		seqNo: seqNo,
-		id:    id,
-	}
-}
-
-// StateUpdating is a signal from the stack that state transfer has started
-func (op *obcSieve) StateUpdating(seqNo uint64, id []byte) {
-	op.stateUpdatingChan <- &checkpointMessage{
-		seqNo: seqNo,
-		id:    id,
-	}
+func (op *obcSieve) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	op.stateUpdatedChan <- tag.(*checkpointMessage)
 }
 
 func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
@@ -824,7 +809,7 @@ func (op *obcSieve) sync(seqNo uint64, id []byte, peers []uint64) {
 		op.rollback()
 	}
 	op.stack.InvalidateState()
-	op.obcGeneric.skipTo(seqNo, id, peers)
+	op.legacyGenericShim.skipTo(seqNo, id, peers)
 }
 
 func (op *obcSieve) rollback() {
@@ -845,10 +830,10 @@ func (op *obcSieve) restoreBlockNumber() {
 	var err error
 	op.blockNumber = op.stack.GetBlockchainSize() - 1 // The highest block number is one less than the size
 	if err != nil {
-		logger.Error("Sieve replica %d could not update its blockNumber", op.id)
+		logger.Errorf("Sieve replica %d could not update its blockNumber", op.id)
 		return
 	}
-	logger.Info("Sieve replica %d restored blockNumber to %d", op.id, op.blockNumber)
+	logger.Infof("Sieve replica %d restored blockNumber to %d", op.id, op.blockNumber)
 }
 
 // Retrieve the idle channel, only used for testing

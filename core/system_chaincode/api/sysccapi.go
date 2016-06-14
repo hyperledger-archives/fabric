@@ -30,13 +30,13 @@ var sysccLogger = logging.MustGetLogger("sysccapi")
 func RegisterSysCC(path string, o interface{}) error {
 	syscc := o.(shim.Chaincode)
 	if syscc == nil {
-		sysccLogger.Warning(fmt.Sprintf("invalid chaincode %v", o))
+		sysccLogger.Warningf("invalid chaincode %v", o)
 		return fmt.Errorf(fmt.Sprintf("invalid chaincode %v", o))
 	}
 	err := inproc.Register(path, syscc)
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("could not register (%s,%v): %s", path, syscc, err))
 	}
-	sysccLogger.Debug("system chaincode %s registered", path)
+	sysccLogger.Debugf("system chaincode %s registered", path)
 	return err
 }

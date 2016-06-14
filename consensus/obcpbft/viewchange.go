@@ -30,7 +30,7 @@ type viewChangeQuorumEvent struct{}
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, p := range append(vc.Pset, vc.Qset...) {
 		if !(p.View < vc.View && p.SequenceNumber > vc.H && p.SequenceNumber <= vc.H+instance.L) {
-			logger.Debug("Replica %d invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
+			logger.Debugf("Replica %d invalid p entry in view-change: vc(v:%d h:%d) p(v:%d n:%d)",
 				instance.id, vc.View, vc.H, p.View, p.SequenceNumber)
 			return false
 		}
@@ -39,7 +39,7 @@ func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
 	for _, c := range vc.Cset {
 		// PBFT: the paper says c.n > vc.h
 		if !(c.SequenceNumber >= vc.H && c.SequenceNumber <= vc.H+instance.L) {
-			logger.Debug("Replica %d invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
+			logger.Debugf("Replica %d invalid c entry in view-change: vc(v:%d h:%d) c(n:%d)",
 				instance.id, vc.View, vc.H, c.SequenceNumber)
 			return false
 		}
@@ -167,7 +167,7 @@ func (instance *pbftCore) sendViewChange() events.Event {
 
 	instance.sign(vc)
 
-	logger.Info("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
+	logger.Infof("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
 	instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
@@ -176,26 +176,26 @@ func (instance *pbftCore) sendViewChange() events.Event {
 }
 
 func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
-	logger.Info("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
+	logger.Infof("Replica %d received view-change from replica %d, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.ReplicaId, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
 	if err := instance.verify(vc); err != nil {
-		logger.Warning("Replica %d found incorrect signature in view-change message: %s", instance.id, err)
+		logger.Warningf("Replica %d found incorrect signature in view-change message: %s", instance.id, err)
 		return nil
 	}
 
 	if vc.View < instance.view {
-		logger.Warning("Replica %d found view-change message for old view", instance.id)
+		logger.Warningf("Replica %d found view-change message for old view", instance.id)
 		return nil
 	}
 
 	if !instance.correctViewChange(vc) {
-		logger.Warning("Replica %d found view-change message incorrect", instance.id)
+		logger.Warningf("Replica %d found view-change message incorrect", instance.id)
 		return nil
 	}
 
 	if _, ok := instance.viewChangeStore[vcidx{vc.View, vc.ReplicaId}]; ok {
-		logger.Warning("Replica %d already has a view change message for view %d from replica %d", instance.id, vc.View, vc.ReplicaId)
+		logger.Warningf("Replica %d already has a view change message for view %d from replica %d", instance.id, vc.View, vc.ReplicaId)
 		return nil
 	}
 
@@ -221,7 +221,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 
 	// We only enter this if there are enough view change messages _greater_ than our current view
 	if len(replicas) >= instance.f+1 {
-		logger.Info("Replica %d received f+1 view-change messages, triggering view-change to view %d",
+		logger.Infof("Replica %d received f+1 view-change messages, triggering view-change to view %d",
 			instance.id, minView)
 		// subtract one, because sendViewChange() increments
 		instance.view = minView - 1
@@ -234,7 +234,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 			quorum++
 		}
 	}
-	logger.Debug("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
+	logger.Debugf("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
 	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
 		if quorum == instance.allCorrectReplicasQuorum() {
@@ -251,7 +251,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 func (instance *pbftCore) sendNewView() events.Event {
 
 	if _, ok := instance.newViewStore[instance.view]; ok {
-		logger.Debug("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
+		logger.Debugf("Replica %d already has new view in store for view %d, skipping", instance.id, instance.view)
 		return nil
 	}
 
@@ -259,13 +259,13 @@ func (instance *pbftCore) sendNewView() events.Event {
 
 	cp, ok, _ := instance.selectInitialCheckpoint(vset)
 	if !ok {
-		logger.Info("Replica %d could not find consistent checkpoint: %+v", instance.id, instance.viewChangeStore)
+		logger.Infof("Replica %d could not find consistent checkpoint: %+v", instance.id, instance.viewChangeStore)
 		return nil
 	}
 
 	msgList := instance.assignSequenceNumbers(vset, cp.SequenceNumber)
 	if msgList == nil {
-		logger.Info("Replica %d could not assign sequence numbers for new view", instance.id)
+		logger.Infof("Replica %d could not assign sequence numbers for new view", instance.id)
 		return nil
 	}
 
@@ -276,7 +276,7 @@ func (instance *pbftCore) sendNewView() events.Event {
 		ReplicaId: instance.id,
 	}
 
-	logger.Info("Replica %d is new primary, sending new-view, v:%d, X:%+v",
+	logger.Infof("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
 	instance.innerBroadcast(&Message{&Message_NewView{nv}})
@@ -285,18 +285,18 @@ func (instance *pbftCore) sendNewView() events.Event {
 }
 
 func (instance *pbftCore) recvNewView(nv *NewView) events.Event {
-	logger.Info("Replica %d received new-view %d",
+	logger.Infof("Replica %d received new-view %d",
 		instance.id, nv.View)
 
 	if !(nv.View > 0 && nv.View >= instance.view && instance.primary(nv.View) == nv.ReplicaId && instance.newViewStore[nv.View] == nil) {
-		logger.Info("Replica %d rejecting invalid new-view from %d, v:%d",
+		logger.Infof("Replica %d rejecting invalid new-view from %d, v:%d",
 			instance.id, nv.ReplicaId, nv.View)
 		return nil
 	}
 
 	for _, vc := range nv.Vset {
 		if err := instance.verify(vc); err != nil {
-			logger.Warning("Replica %d found incorrect view-change signature in new-view message: %s", instance.id, err)
+			logger.Warningf("Replica %d found incorrect view-change signature in new-view message: %s", instance.id, err)
 			return nil
 		}
 	}
@@ -309,32 +309,32 @@ func (instance *pbftCore) processNewView() events.Event {
 	var newRequestMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
-		logger.Debug("Replica %d ignoring processNewView as it could not find view %d in its newViewStore", instance.id, instance.view)
+		logger.Debugf("Replica %d ignoring processNewView as it could not find view %d in its newViewStore", instance.id, instance.view)
 		return nil
 	}
 
 	if instance.activeView {
-		logger.Info("Replica %d ignoring new-view from %d, v:%d: we are active in view %d",
+		logger.Infof("Replica %d ignoring new-view from %d, v:%d: we are active in view %d",
 			instance.id, nv.ReplicaId, nv.View, instance.view)
 		return nil
 	}
 
 	cp, ok, replicas := instance.selectInitialCheckpoint(nv.Vset)
 	if !ok {
-		logger.Warning("Replica %d could not determine initial checkpoint: %+v",
+		logger.Warningf("Replica %d could not determine initial checkpoint: %+v",
 			instance.id, instance.viewChangeStore)
 		return instance.sendViewChange()
 	}
 
 	msgList := instance.assignSequenceNumbers(nv.Vset, cp.SequenceNumber)
 	if msgList == nil {
-		logger.Warning("Replica %d could not assign sequence numbers: %+v",
+		logger.Warningf("Replica %d could not assign sequence numbers: %+v",
 			instance.id, instance.viewChangeStore)
 		return instance.sendViewChange()
 	}
 
 	if !(len(msgList) == 0 && len(nv.Xset) == 0) && !reflect.DeepEqual(msgList, nv.Xset) {
-		logger.Warning("Replica %d failed to verify new-view Xset: computed %+v, received %+v",
+		logger.Warningf("Replica %d failed to verify new-view Xset: computed %+v, received %+v",
 			instance.id, msgList, nv.Xset)
 		return instance.sendViewChange()
 	}
@@ -344,7 +344,7 @@ func (instance *pbftCore) processNewView() events.Event {
 	}
 
 	if instance.lastExec < cp.SequenceNumber {
-		logger.Warning("Replica %d missing base checkpoint %d (%s)", instance.id, cp.SequenceNumber, cp.Id)
+		logger.Warningf("Replica %d missing base checkpoint %d (%s)", instance.id, cp.SequenceNumber, cp.Id)
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
@@ -353,8 +353,9 @@ func (instance *pbftCore) processNewView() events.Event {
 			return nil
 		}
 
+		instance.skipInProgress = true
+		instance.stateTransferring = true
 		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
-		instance.lastExec = cp.SequenceNumber
 	}
 
 	for n, d := range nv.Xset {
@@ -369,10 +370,10 @@ func (instance *pbftCore) processNewView() events.Event {
 			}
 
 			if _, ok := instance.reqStore[d]; !ok {
-				logger.Warning("Replica %d missing assigned, non-checkpointed request %s",
+				logger.Warningf("Replica %d missing assigned, non-checkpointed request %s",
 					instance.id, d)
 				if _, ok := instance.missingReqs[d]; !ok {
-					logger.Warning("Replica %v requesting to fetch %s",
+					logger.Warningf("Replica %v requesting to fetch %s",
 						instance.id, d)
 					newRequestMissing = true
 					instance.missingReqs[d] = true
@@ -391,7 +392,7 @@ func (instance *pbftCore) processNewView() events.Event {
 }
 
 func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
-	logger.Info("Replica %d accepting new-view to view %d", instance.id, instance.view)
+	logger.Infof("Replica %d accepting new-view to view %d", instance.id, instance.view)
 
 	instance.stopTimer()
 	instance.nullRequestTimer.Stop()
@@ -432,13 +433,13 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {
-		logger.Debug("Replica %d is now primary, attempting to resubmit requests", instance.id)
+		logger.Debugf("Replica %d is now primary, attempting to resubmit requests", instance.id)
 		instance.resubmitRequests()
 	}
 
 	instance.startTimerIfOutstandingRequests()
 
-	logger.Debug("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
+	logger.Debugf("Replica %d done cleaning view change artifacts, calling into consumer", instance.id)
 
 	return viewChangedEvent{}
 }
@@ -456,12 +457,12 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for _, vc := range vset {
 		for _, c := range vc.Cset { // TODO, verify that we strip duplicate checkpoints from this set
 			checkpoints[*c] = append(checkpoints[*c], vc)
-			logger.Debug("Replica %d appending checkpoint from replica %d with seqNo=%d, h=%d, and checkpoint digest %s", instance.id, vc.ReplicaId, vc.H, c.SequenceNumber, c.Id)
+			logger.Debugf("Replica %d appending checkpoint from replica %d with seqNo=%d, h=%d, and checkpoint digest %s", instance.id, vc.ReplicaId, vc.H, c.SequenceNumber, c.Id)
 		}
 	}
 
 	if len(checkpoints) == 0 {
-		logger.Debug("Replica %d has no checkpoints to select from: %d %s",
+		logger.Debugf("Replica %d has no checkpoints to select from: %d %s",
 			instance.id, len(instance.viewChangeStore), checkpoints)
 		return
 	}
@@ -469,7 +470,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 	for idx, vcList := range checkpoints {
 		// need weak certificate for the checkpoint
 		if len(vcList) <= instance.f { // type casting necessary to match types
-			logger.Debug("Replica %d has no weak certificate for n:%d, vcList was %d long",
+			logger.Debugf("Replica %d has no weak certificate for n:%d, vcList was %d long",
 				instance.id, idx.SequenceNumber, len(vcList))
 			continue
 		}
@@ -485,7 +486,7 @@ func (instance *pbftCore) selectInitialCheckpoint(vset []*ViewChange) (checkpoin
 		}
 
 		if quorum < instance.intersectionQuorum() {
-			logger.Debug("Replica %d has no quorum for n:%d", instance.id, idx.SequenceNumber)
+			logger.Debugf("Replica %d has no quorum for n:%d", instance.id, idx.SequenceNumber)
 			continue
 		}
 
@@ -578,7 +579,7 @@ nLoop:
 			continue nLoop
 		}
 
-		logger.Warning("Replica %d could not assign value to contents of seqNo %d, found only %d missing P entries", instance.id, n, quorum)
+		logger.Warningf("Replica %d could not assign value to contents of seqNo %d, found only %d missing P entries", instance.id, n, quorum)
 		return nil
 	}
 

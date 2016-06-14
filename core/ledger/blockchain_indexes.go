@@ -84,7 +84,7 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 	cf := openchainDB.IndexesCF
 
 	// add blockhash -> blockNumber
-	indexLogger.Debug("Indexing block number [%d] by hash = [%x]", blockNumber, blockHash)
+	indexLogger.Debugf("Indexing block number [%d] by hash = [%x]", blockNumber, blockHash)
 	writeBatch.PutCF(cf, encodeBlockHashKey(blockHash), encodeBlockNumber(blockNumber))
 
 	addressToTxIndexesMap := make(map[string][]uint64)
@@ -113,9 +113,14 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 }
 
 func fetchBlockNumberByBlockHashFromDB(blockHash []byte) (uint64, error) {
+	indexLogger.Debugf("fetchBlockNumberByBlockHashFromDB() for blockhash [%x]", blockHash)
 	blockNumberBytes, err := db.GetDBHandle().GetFromIndexesCF(encodeBlockHashKey(blockHash))
 	if err != nil {
 		return 0, err
+	}
+	indexLogger.Debugf("blockNumberBytes for blockhash [%x] is [%x]", blockHash, blockNumberBytes)
+	if len(blockNumberBytes) == 0 {
+		return 0, newLedgerError(ErrorTypeBlockNotFound, fmt.Sprintf("No block indexed with block hash [%x]", blockHash))
 	}
 	blockNumber := decodeBlockNumber(blockNumberBytes)
 	return blockNumber, nil
@@ -204,11 +209,6 @@ func encodeListTxIndexes(listTx []uint64) []byte {
 		b.EncodeVarint(listTx[i])
 	}
 	return b.Bytes()
-}
-
-func encodeChaincodeID(c *protos.ChaincodeID) []byte {
-	// TODO serialize chaincodeID
-	return []byte{}
 }
 
 func prependKeyPrefix(prefix byte, key []byte) []byte {

@@ -163,7 +163,7 @@ func BenchmarkLedgerRandomTransactions(b *testing.B) {
 	b.Logf(`Running test with params: keyPrefix=%s, kvSize=%d, batchSize=%d, maxKeySuffix=%d, numBatches=%d, numReadsFromLedger=%d, numWritesToLedger=%d`,
 		*keyPrefix, *kvSize, *batchSize, *maxKeySuffix, *numBatches, *numReadsFromLedger, *numWritesToLedger)
 
-	ledger, err := newLedger()
+	ledger, err := GetNewLedger()
 	testutil.AssertNoError(b, err, "Error while constructing ledger")
 
 	chaincode := "chaincodeId"

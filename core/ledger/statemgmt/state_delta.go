@@ -164,7 +164,7 @@ func (stateDelta *StateDelta) ComputeCryptoHash() []byte {
 		}
 	}
 	hashingContent := buffer.Bytes()
-	logger.Debug("computing hash on %#v", hashingContent)
+	logger.Debugf("computing hash on %#v", hashingContent)
 	return util.ComputeCryptoHash(hashingContent)
 }
 
@@ -215,7 +215,7 @@ func (chaincodeStateDelta *ChaincodeStateDelta) getSortedKeys() []string {
 		updatedKeys = append(updatedKeys, k)
 	}
 	sort.Strings(updatedKeys)
-	logger.Debug("Sorted keys = %#v", updatedKeys)
+	logger.Debugf("Sorted keys = %#v", updatedKeys)
 	return updatedKeys
 }
 

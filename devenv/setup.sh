@@ -70,7 +70,8 @@ esac
 apt-get install -y linux-image-extra-$(uname -r) apparmor docker-engine
 
 # Configure docker
-echo "DOCKER_OPTS=\"-s=${DOCKER_STORAGE_BACKEND_STRING} -r=true --api-cors-header='*' -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock ${DOCKER_OPTS}\"" > /etc/default/docker
+DOCKER_OPTS="-s=${DOCKER_STORAGE_BACKEND_STRING} -r=true --api-cors-header='*' -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock ${DOCKER_OPTS}"
+sed -i.bak '/^DOCKER_OPTS=/{h;s|=.*|=\"'"${DOCKER_OPTS}"'\"|};${x;/^$/{s||DOCKER_OPTS=\"'"${DOCKER_OPTS}"'\"|;H};x}' /etc/default/docker
 
 service docker restart
 usermod -a -G docker vagrant # Add vagrant user to the docker group

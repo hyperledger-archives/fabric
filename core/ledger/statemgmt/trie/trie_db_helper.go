@@ -19,11 +19,11 @@ package trie
 import "github.com/hyperledger/fabric/core/db"
 
 func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
-	stateTrieLogger.Debug("Enter fetchTrieNodeFromDB() for trieKey [%s]", key)
+	stateTrieLogger.Debugf("Enter fetchTrieNodeFromDB() for trieKey [%s]", key)
 	openchainDB := db.GetDBHandle()
 	trieNodeBytes, err := openchainDB.GetFromStateCF(key.getEncodedBytes())
 	if err != nil {
-		stateTrieLogger.Error("Error in retrieving trie node from DB for triekey [%s]. Error:%s", key, err)
+		stateTrieLogger.Errorf("Error in retrieving trie node from DB for triekey [%s]. Error:%s", key, err)
 		return nil, err
 	}
 
@@ -33,9 +33,9 @@ func fetchTrieNodeFromDB(key *trieKey) (*trieNode, error) {
 
 	trieNode, err := unmarshalTrieNode(key, trieNodeBytes)
 	if err != nil {
-		stateTrieLogger.Error("Error in unmarshalling trie node for triekey [%s]. Error:%s", key, err)
+		stateTrieLogger.Errorf("Error in unmarshalling trie node for triekey [%s]. Error:%s", key, err)
 		return nil, err
 	}
-	stateTrieLogger.Debug("Exit fetchTrieNodeFromDB() for trieKey [%s]", key)
+	stateTrieLogger.Debugf("Exit fetchTrieNodeFromDB() for trieKey [%s]", key)
 	return trieNode, nil
 }

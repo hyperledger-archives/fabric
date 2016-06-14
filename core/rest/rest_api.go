@@ -40,8 +40,8 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
-	pb "github.com/hyperledger/fabric/protos"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var restLogger = logging.MustGetLogger("rest")
@@ -206,7 +206,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
+			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
 		}
 
 		return
@@ -224,19 +224,19 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
-	restLogger.Info("Local data store for client loginToken: %s", localStore)
+	restLogger.Infof("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
-		restLogger.Info("User '%s' is already logged in.\n", loginSpec.EnrollId)
+		restLogger.Infof("User '%s' is already logged in.\n", loginSpec.EnrollId)
 
 		return
 	}
 
 	// User is not logged in, proceed with login
-	restLogger.Info("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
+	restLogger.Infof("Logging in user '%s' on REST interface...\n", loginSpec.EnrollId)
 
 	loginResult, err := s.devops.Login(context.Background(), &loginSpec)
 
@@ -260,7 +260,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		}
 
 		// Store client security context into a file
-		restLogger.Info("Storing login token for user '%s'.\n", loginSpec.EnrollId)
+		restLogger.Infof("Storing login token for user '%s'.\n", loginSpec.EnrollId)
 		err = ioutil.WriteFile(localStore+"loginToken_"+loginSpec.EnrollId, []byte(loginSpec.EnrollId), 0755)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
@@ -270,13 +270,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
-		restLogger.Info("Login successful for user '%s'.\n", loginSpec.EnrollId)
+		restLogger.Infof("Login successful for user '%s'.\n", loginSpec.EnrollId)
 	} else {
 		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
 
 		rw.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", loginErr)
-		restLogger.Error(fmt.Sprintf("Error on client login: %s", loginErr))
+		restLogger.Errorf("Error on client login: %s", loginErr)
 	}
 
 	return
@@ -296,11 +296,11 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 	if _, err := os.Stat(localStore + "loginToken_" + enrollmentID); err == nil {
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", enrollmentID)
-		restLogger.Info("User '%s' is already logged in.\n", enrollmentID)
+		restLogger.Infof("User '%s' is already logged in.\n", enrollmentID)
 	} else {
 		rw.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(rw, "{\"Error\": \"User %s must log in.\"}", enrollmentID)
-		restLogger.Info("User '%s' must log in.\n", enrollmentID)
+		restLogger.Infof("User '%s' must log in.\n", enrollmentID)
 	}
 
 	return
@@ -333,7 +333,7 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	if os.IsNotExist(err1) && os.IsNotExist(err2) {
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"User %s is not logged in.\"}", enrollmentID)
-		restLogger.Info("User '%s' is not logged in.\n", enrollmentID)
+		restLogger.Infof("User '%s' is not logged in.\n", enrollmentID)
 
 		return
 	}
@@ -342,7 +342,7 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	if err := os.RemoveAll(loginTok); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err))
+		restLogger.Errorf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
 
 		return
 	}
@@ -351,14 +351,14 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	if err := os.RemoveAll(cryptoDir); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err))
+		restLogger.Errorf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
 	fmt.Fprintf(rw, "{\"OK\": \"Deleted login token and directory for user %s.\"}", enrollmentID)
-	restLogger.Info("Deleted login token and directory for user %s.\n", enrollmentID)
+	restLogger.Infof("Deleted login token and directory for user %s.\n", enrollmentID)
 
 	return
 }
@@ -368,12 +368,12 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
-	restLogger.Debug("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
+	restLogger.Debugf("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
 
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
 		if restLogger.IsEnabledFor(logging.DEBUG) {
-			restLogger.Debug("Initializing secure client using context '%s'", enrollmentID)
+			restLogger.Debugf("Initializing secure client using context '%s'", enrollmentID)
 		}
 
 		// Initialize the security client
@@ -381,7 +381,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error\": \"%s\"}", err)
 
 			return
 		}
@@ -391,7 +391,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error\": \"%s\"}", err)
 
 			return
 		}
@@ -437,7 +437,7 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
-		restLogger.Debug("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
+		restLogger.Debugf("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
@@ -453,7 +453,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
-	restLogger.Debug("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
+	restLogger.Debugf("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
 
 	// Parse out the count query parameter
 	req.ParseForm()
@@ -491,7 +491,7 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
 		if restLogger.IsEnabledFor(logging.DEBUG) {
-			restLogger.Debug("Initializing secure client using context '%s'", enrollmentID)
+			restLogger.Debugf("Initializing secure client using context '%s'", enrollmentID)
 		}
 
 		// Initialize the security client
@@ -499,17 +499,19 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error\": \"%s\"}", err)
 
 			return
 		}
 
 		// Obtain the client CertificateHandler
-		handler, err := sec.GetTCertificateHandlerNext()
+		// TODO - Replace empty attributes map
+		attributes := []string{}
+		handler, err := sec.GetTCertificateHandlerNext(attributes...)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error\": \"%s\"}", err)
 
 			return
 		}
@@ -566,14 +568,14 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error marshalling TCert array\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error marshalling TCert array\": \"%s\"}", err)
 
 			return
 		}
 
 		rw.WriteHeader(http.StatusOK)
 		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
-		restLogger.Debug("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
+		restLogger.Debugf("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
@@ -654,14 +656,14 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 		default:
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err))
+			restLogger.Errorf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
 		}
 	} else {
 		// Return existing transaction
 		rw.WriteHeader(http.StatusOK)
 		encoder := json.NewEncoder(rw)
 		encoder.Encode(tx)
-		restLogger.Info(fmt.Sprintf("Successfully retrieved transaction: %s", txUUID))
+		restLogger.Infof("Successfully retrieved transaction: %s", txUUID)
 	}
 }
 
@@ -692,7 +694,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
+			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
 		}
 
 		return
@@ -758,7 +760,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			restLogger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -799,7 +801,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Deploying Chaincode -- %s\"}", errVal))
+		restLogger.Errorf("{\"Error\": \"Deploying Chaincode -- %s\"}", errVal)
 
 		return
 	}
@@ -809,7 +811,7 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 
 	rw.WriteHeader(http.StatusOK)
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully deployed chainCode.\",\"message\":\""+chainID+"\"}")
-	restLogger.Info("Successfully deployed chainCode: " + chainID + ".\n")
+	restLogger.Infof("Successfully deployed chainCode: %s \n", chainID)
 }
 
 // Invoke executes a specified function within a target Chaincode.
@@ -838,7 +840,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
+			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
 		}
 
 		return
@@ -897,7 +899,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			restLogger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -938,7 +940,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Invoking Chaincode -- %s\"}", errVal))
+		restLogger.Errorf("{\"Error\": \"Invoking Chaincode -- %s\"}", errVal)
 
 		return
 	}
@@ -949,7 +951,7 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	rw.WriteHeader(http.StatusOK)
 	// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
 	fmt.Fprintf(rw, "{\"OK\": \"Successfully submitted invoke transaction.\",\"message\": \"%s\"}", string(txuuid))
-	restLogger.Info("Successfully submitted invoke transaction (%s).\n", string(txuuid))
+	restLogger.Infof("Successfully submitted invoke transaction (%s).\n", string(txuuid))
 }
 
 // Query performs the requested query on the target Chaincode.
@@ -978,7 +980,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Error(fmt.Sprintf("{\"Error\": \"%s\"}", errVal))
+			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
 		}
 
 		return
@@ -1037,7 +1039,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			restLogger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -1078,7 +1080,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Querying Chaincode -- %s\"}", errVal))
+		restLogger.Errorf("{\"Error\": \"Querying Chaincode -- %s\"}", errVal)
 
 		return
 	}
@@ -1094,7 +1096,7 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Error(fmt.Sprintf("{\"Error marshalling query response\": \"%s\"}", err))
+			restLogger.Errorf("{\"Error marshalling query response\": \"%s\"}", err)
 
 			return
 		}
@@ -1154,7 +1156,7 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, string(jsonResponse))
-		restLogger.Error(fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
+		restLogger.Errorf("Error unmarshalling chaincode request payload: %s", err)
 
 		return
 	}
@@ -1323,9 +1325,9 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 
 	// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
 	if *(requestPayload.Method) == "invoke" {
-		restLogger.Info(fmt.Sprintf("REST successfully submitted invoke transaction: %s", string(jsonResponse)))
+		restLogger.Infof("REST successfully submitted invoke transaction: %s", string(jsonResponse))
 	} else {
-		restLogger.Info(fmt.Sprintf("REST successfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse)))
+		restLogger.Infof("REST successfully %s chaincode: %s", *(requestPayload.Method), string(jsonResponse))
 	}
 
 	return
@@ -1408,14 +1410,14 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
 			// No error returned, therefore token exists so user is already logged in
-			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.", chaincodeUsr)
+			restLogger.Infof("Local user '%s' is already logged in. Retrieving login token.", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				// Format the error appropriately for further processing
 				error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Fatal error when reading client login token: %s", err))
-				restLogger.Error(fmt.Sprintf("Fatal error when reading client login token: %s", err))
+				restLogger.Errorf("Fatal error when reading client login token: %s", err)
 
 				return error
 			}
@@ -1439,7 +1441,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 			// Unexpected error
 			// Format the error appropriately for further processing
 			error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
-			restLogger.Error(fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
+			restLogger.Errorf("Unexpected fatal error when checking for client login token: %s", err)
 
 			return error
 		}
@@ -1448,7 +1450,6 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	//
 	// Trigger the chaincode deployment through the devops service
 	//
-
 	chaincodeDeploymentSpec, err := s.devops.Deploy(context.Background(), spec)
 
 	//
@@ -1461,7 +1462,7 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 
 		// Format the error appropriately for further processing
 		error := formatRPCError(ChaincodeDeployError.Code, ChaincodeDeployError.Message, fmt.Sprintf("Error when deploying chaincode: %s", errVal))
-		restLogger.Error(fmt.Sprintf("Error when deploying chaincode: %s", errVal))
+		restLogger.Errorf("Error when deploying chaincode: %s", errVal)
 
 		return error
 	}
@@ -1478,14 +1479,14 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	//
 
 	result := formatRPCOK(chainID)
-	restLogger.Info(fmt.Sprintf("Successfully deployed chainCode: %s", chainID))
+	restLogger.Infof("Successfully deployed chainCode: %s", chainID)
 
 	return result
 }
 
 // processChaincodeInvokeOrQuery triggers chaincode invoke or query and returns a result or an error
 func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec *pb.ChaincodeInvocationSpec) rpcResult {
-	restLogger.Info(fmt.Sprintf("REST %s chaincode...", method))
+	restLogger.Infof("REST %s chaincode...", method)
 
 	// Check that the ChaincodeID is not nil.
 	if spec.ChaincodeSpec.ChaincodeID == nil {
@@ -1536,14 +1537,14 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		// Check if the user is logged in before sending transaction
 		if _, err := os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
 			// No error returned, therefore token exists so user is already logged in
-			restLogger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			restLogger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
 			if err != nil {
 				// Format the error appropriately for further processing
 				error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Fatal error when reading client login token: %s", err))
-				restLogger.Error(fmt.Sprintf("Fatal error when reading client login token: %s", err))
+				restLogger.Errorf("Fatal error when reading client login token: %s", err)
 
 				return error
 			}
@@ -1567,7 +1568,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 			// Unexpected error
 			// Format the error appropriately for further processing
 			error := formatRPCError(InternalError.Code, InternalError.Message, fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
-			restLogger.Error(fmt.Sprintf("Unexpected fatal error when checking for client login token: %s", err))
+			restLogger.Errorf("Unexpected fatal error when checking for client login token: %s", err)
 
 			return error
 		}
@@ -1597,7 +1598,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 
 			// Format the error appropriately for further processing
 			error := formatRPCError(ChaincodeInvokeError.Code, ChaincodeInvokeError.Message, fmt.Sprintf("Error when invoking chaincode: %s", errVal))
-			restLogger.Error(fmt.Sprintf("Error when invoking chaincode: %s", errVal))
+			restLogger.Errorf("Error when invoking chaincode: %s", errVal)
 
 			return error
 		}
@@ -1615,7 +1616,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 
 		result = formatRPCOK(txuuid)
 		// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
-		restLogger.Info(fmt.Sprintf("Successfully submitted invoke transaction with txuuid (%s)", txuuid))
+		restLogger.Infof("Successfully submitted invoke transaction with txuuid (%s)", txuuid)
 	}
 
 	if method == "query" {
@@ -1636,7 +1637,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 
 			// Format the error appropriately for further processing
 			error := formatRPCError(ChaincodeQueryError.Code, ChaincodeQueryError.Message, fmt.Sprintf("Error when querying chaincode: %s", errVal))
-			restLogger.Error(fmt.Sprintf("Error when querying chaincode: %s", errVal))
+			restLogger.Errorf("Error when querying chaincode: %s", errVal)
 
 			return error
 		}
@@ -1653,7 +1654,7 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		result = formatRPCOK(val)
-		restLogger.Info(fmt.Sprintf("Successfully queried chaincode: %s", val))
+		restLogger.Infof("Successfully queried chaincode: %s", val)
 	}
 
 	return result
@@ -1671,12 +1672,12 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Querying network peers -- %s\"}", err))
+		restLogger.Errorf("{\"Error\": \"Querying network peers -- %s\"}", err)
 	} else if err1 != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err1)
-		restLogger.Error(fmt.Sprintf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1))
+		restLogger.Errorf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1)
 	} else {
 		currentPeerFound := false
 		peersList := peers.Peers
@@ -1708,7 +1709,7 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 // middleware and routes.
 func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	// Initialize the REST service object
-	restLogger.Info("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
+	restLogger.Infof("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
 	router := web.New(ServerOpenchainREST{})
 
 	// Record the pointer to the underlying ServerOpenchain and Devops objects.
@@ -1748,12 +1749,12 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 	if comm.TLSEnabled() {
 		err := http.ListenAndServeTLS(viper.GetString("rest.address"), viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"), router)
 		if err != nil {
-			restLogger.Error(fmt.Sprintf("ListenAndServeTLS: %s", err))
+			restLogger.Errorf("ListenAndServeTLS: %s", err)
 		}
 	} else {
 		err := http.ListenAndServe(viper.GetString("rest.address"), router)
 		if err != nil {
-			restLogger.Error(fmt.Sprintf("ListenAndServe: %s", err))
+			restLogger.Errorf("ListenAndServe: %s", err)
 		}
 	}
 }

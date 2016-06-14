@@ -19,10 +19,9 @@ package ca
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"database/sql"
 	"errors"
 	"math/big"
-	"database/sql"
-
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -50,7 +49,7 @@ type TLSCAA struct {
 	tlsca *TLSCA
 }
 
-func initializeTLSCATables(db *sql.DB) error { 
+func initializeTLSCATables(db *sql.DB) error {
 	return initializeCommonTables(db)
 }
 

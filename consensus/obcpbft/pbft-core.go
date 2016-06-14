@@ -106,15 +106,15 @@ type checkpointMessage struct {
 	id    []byte
 }
 
+type stateUpdateTarget struct {
+	checkpointMessage
+	replicas []uint64
+}
+
 type pbftCore struct {
 	// internal data
-	internalLock      sync.Mutex
-	executing         bool                    // signals that application is executing
-	closed            chan struct{}           // informs the main thread to exit (never written to, only closed)
-	incomingChan      chan *pbftMessage       // informs the main thread of new messages
-	stateUpdatedChan  chan *checkpointMessage // informs the main thread the state has updated (via state transfer)
-	stateUpdatingChan chan *checkpointMessage // informs the main thread the state update has started (via state transfer)
-	execCompleteChan  chan struct{}           // informs the main thread an execution has finished
+	internalLock sync.Mutex
+	executing    bool // signals that application is executing
 
 	idleChan   chan struct{} // Used to detect idleness for testing
 	injectChan chan func()   // Used as a hack to inject work onto the PBFT thread, to be removed eventually
@@ -139,8 +139,10 @@ type pbftCore struct {
 	pset          map[uint64]*ViewChange_PQ
 	qset          map[qidx]*ViewChange_PQ
 
-	skipInProgress bool              // Set when we have detected a fall behind scenario until we pick a new starting point
-	hChkpts        map[uint64]uint64 // highest checkpoint sequence number observed for each replica
+	skipInProgress    bool               // Set when we have detected a fall behind scenario until we pick a new starting point
+	stateTransferring bool               // Set when state transfer is executing
+	highStateTarget   *stateUpdateTarget // Set to the highest weak checkpoint cert we have observed
+	hChkpts           map[uint64]uint64  // highest checkpoint sequence number observed for each replica
 
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
@@ -215,13 +217,6 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events
 	instance := &pbftCore{}
 	instance.id = id
 	instance.consumer = consumer
-	instance.closed = make(chan struct{})
-	instance.incomingChan = make(chan *pbftMessage)
-	instance.stateUpdatedChan = make(chan *checkpointMessage)
-	instance.stateUpdatingChan = make(chan *checkpointMessage)
-	instance.execCompleteChan = make(chan struct{})
-	instance.idleChan = make(chan struct{})
-	instance.injectChan = make(chan func())
 
 	instance.newViewTimer = etf.CreateTimer()
 	instance.nullRequestTimer = etf.CreateTimer()
@@ -259,15 +254,15 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events
 	instance.activeView = true
 	instance.replicaCount = instance.N
 
-	logger.Info("PBFT type = %T", instance.consumer)
-	logger.Info("PBFT Max number of validating peers (N) = %v", instance.N)
-	logger.Info("PBFT Max number of failing peers (f) = %v", instance.f)
-	logger.Info("PBFT byzantine flag = %v", instance.byzantine)
-	logger.Info("PBFT request timeout = %v", instance.requestTimeout)
-	logger.Info("PBFT view change timeout = %v", instance.newViewTimeout)
-	logger.Info("PBFT Checkpoint period (K) = %v", instance.K)
-	logger.Info("PBFT Log multiplier = %v", instance.logMultiplier)
-	logger.Info("PBFT log size (L) = %v", instance.L)
+	logger.Infof("PBFT type = %T", instance.consumer)
+	logger.Infof("PBFT Max number of validating peers (N) = %v", instance.N)
+	logger.Infof("PBFT Max number of failing peers (f) = %v", instance.f)
+	logger.Infof("PBFT byzantine flag = %v", instance.byzantine)
+	logger.Infof("PBFT request timeout = %v", instance.requestTimeout)
+	logger.Infof("PBFT view change timeout = %v", instance.newViewTimeout)
+	logger.Infof("PBFT Checkpoint period (K) = %v", instance.K)
+	logger.Infof("PBFT Log multiplier = %v", instance.logMultiplier)
+	logger.Infof("PBFT log size (L) = %v", instance.L)
 	if instance.nullRequestTimeout > 0 {
 		logger.Info("PBFT null requests timeout = %v", instance.nullRequestTimeout)
 	} else {
@@ -316,18 +311,18 @@ func (instance *pbftCore) close() {
 func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 	var err error
 
-	logger.Debug("Replica %d processing event", instance.id)
+	logger.Debugf("Replica %d processing event", instance.id)
 
 	switch et := e.(type) {
 	case viewChangeTimerEvent:
-		logger.Info("Replica %d view change timer expired, sending view change: %s", instance.id, instance.newViewTimerReason)
+		logger.Infof("Replica %d view change timer expired, sending view change: %s", instance.id, instance.newViewTimerReason)
 		instance.timerActive = false
 		instance.sendViewChange()
 	case *pbftMessage:
 		return pbftMessageEvent(*et)
 	case pbftMessageEvent:
 		msg := et
-		logger.Debug("Replica %d received incoming message from %v", instance.id, msg.sender)
+		logger.Debugf("Replica %d received incoming message from %v", instance.id, msg.sender)
 		next, err := instance.recvMsg(msg.msg, msg.sender)
 		if err != nil {
 			break
@@ -351,17 +346,28 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 		err = instance.recvFetchRequest(et)
 	case returnRequestEvent:
 		return instance.recvReturnRequest(et)
-	case stateUpdatingEvent:
-		update := et
-		instance.skipInProgress = true
-		instance.lastExec = update.seqNo
-		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 	case stateUpdatedEvent:
-		update := et
-		seqNo := update.seqNo
-		logger.Info("Replica %d application caught up via state transfer, lastExec now %d", instance.id, seqNo)
+		update := et.chkpt
+		instance.stateTransferring = false
+		// If state transfer did not complete successfully, or if it did not reach our low watermark, do it again
+		if et.target == nil || update.seqNo < instance.h {
+			if et.target == nil {
+				logger.Warningf("Replica %d attempted state transfer target was not reachable (%v)", instance.id, et.chkpt)
+			} else {
+				logger.Warningf("Replica %d recovered to seqNo %d but our low watermark has moved to %d", instance.id, update.seqNo, instance.h)
+			}
+			if instance.highStateTarget != nil && update.seqNo < instance.highStateTarget.seqNo {
+				logger.Debugf("Replica %d has state target for %d, transferring", instance.id, instance.highStateTarget.seqNo)
+				instance.stateTransferring = true
+				instance.consumer.skipTo(instance.highStateTarget.seqNo, instance.highStateTarget.id, instance.highStateTarget.replicas)
+			} else {
+				logger.Debugf("Replica %d has no state target above %d, highest is %d", instance.id, update.seqNo, instance.highStateTarget.seqNo)
+			}
+			return nil
+		}
+		logger.Infof("Replica %d application caught up via state transfer, lastExec now %d", instance.id, update.seqNo)
 		// XXX create checkpoint
-		instance.lastExec = seqNo
+		instance.lastExec = update.seqNo
 		instance.moveWatermarks(instance.lastExec) // The watermark movement handles moving this to a checkpoint boundary
 		instance.skipInProgress = false
 		instance.consumer.validateState()
@@ -382,7 +388,7 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 	case viewChangedEvent:
 		// No-op, processed by plugins if needed
 	default:
-		logger.Warning("Replica %d received an unknown message type %T", instance.id, et)
+		logger.Warningf("Replica %d received an unknown message type %T", instance.id, et)
 	}
 
 	if err != nil {
@@ -459,7 +465,7 @@ func (instance *pbftCore) prePrepared(digest string, v uint64, n uint64) bool {
 			return true
 		}
 	}
-	logger.Debug("Replica %d does not have view=%d/seqNo=%d pre-prepared",
+	logger.Debugf("Replica %d does not have view=%d/seqNo=%d pre-prepared",
 		instance.id, v, n)
 	return false
 }
@@ -485,7 +491,7 @@ func (instance *pbftCore) prepared(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d prepare count for view=%d/seqNo=%d: %d",
+	logger.Debugf("Replica %d prepare count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= instance.intersectionQuorum()-1
@@ -508,7 +514,7 @@ func (instance *pbftCore) committed(digest string, v uint64, n uint64) bool {
 		}
 	}
 
-	logger.Debug("Replica %d commit count for view=%d/seqNo=%d: %d",
+	logger.Debugf("Replica %d commit count for view=%d/seqNo=%d: %d",
 		instance.id, v, n, quorum)
 
 	return quorum >= instance.intersectionQuorum()
@@ -587,10 +593,10 @@ func (instance *pbftCore) recvMsg(msg *Message, senderID uint64) (interface{}, e
 
 func (instance *pbftCore) recvRequest(req *Request) error {
 	digest := hashReq(req)
-	logger.Debug("Replica %d received request: %s", instance.id, digest)
+	logger.Debugf("Replica %d received request: %s", instance.id, digest)
 
 	if err := instance.consumer.validate(req.Payload); err != nil {
-		logger.Warning("Request %s did not verify: %s", digest, err)
+		logger.Warningf("Request %s did not verify: %s", digest, err)
 		return err
 	}
 
@@ -612,7 +618,7 @@ func (instance *pbftCore) recvRequest(req *Request) error {
 }
 
 func (instance *pbftCore) sendPrePrepare(req *Request, digest string) {
-	logger.Debug("Replica %d is primary, issuing pre-prepare for request %s", instance.id, digest)
+	logger.Debugf("Replica %d is primary, issuing pre-prepare for request %s", instance.id, digest)
 	n := instance.seqNo + 1
 
 	for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
@@ -625,7 +631,7 @@ func (instance *pbftCore) sendPrePrepare(req *Request, digest string) {
 	}
 
 	if !instance.inWV(instance.view, n) || n > instance.h+instance.L/2 {
-		logger.Debug("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
+		logger.Debugf("Replica %d is primary, not sending pre-prepare for request %s because it is out of sequence numbers", instance.id, digest)
 		return
 	}
 
@@ -665,11 +671,11 @@ outer:
 	for d, req := range instance.outstandingReqs {
 		for _, cert := range instance.certStore {
 			if cert.digest == d {
-				logger.Debug("Replica %d already has certificate for request %s not going to resubmit", instance.id, d)
+				logger.Debugf("Replica %d already has certificate for request %s not going to resubmit", instance.id, d)
 				continue outer
 			}
 		}
-		logger.Debug("Replica %d has detected request %s must be resubmitted", instance.id, d)
+		logger.Debugf("Replica %d has detected request %s must be resubmitted", instance.id, d)
 
 		submissionOrder = append(submissionOrder, req)
 	}
@@ -689,25 +695,25 @@ outer:
 }
 
 func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
-	logger.Debug("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
+	logger.Debugf("Replica %d received pre-prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
-		logger.Debug("Replica %d ignoring pre-prepare as we in a view change", instance.id)
+		logger.Debugf("Replica %d ignoring pre-prepare as we in a view change", instance.id)
 		return nil
 	}
 
 	if instance.primary(instance.view) != preprep.ReplicaId {
-		logger.Warning("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.primary(instance.view))
+		logger.Warningf("Pre-prepare from other than primary: got %d, should be %d", preprep.ReplicaId, instance.primary(instance.view))
 		return nil
 	}
 
 	if !instance.inWV(preprep.View, preprep.SequenceNumber) {
 		if preprep.SequenceNumber != instance.h && !instance.skipInProgress {
-			logger.Warning("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+			logger.Warningf("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
+			logger.Debugf("Replica %d pre-prepare view different, or sequence number outside watermarks: preprep.View %d, expected.View %d, seqNo %d, low-mark %d", instance.id, preprep.View, instance.primary(instance.view), preprep.SequenceNumber, instance.h)
 		}
 
 		return nil
@@ -721,7 +727,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 
 	cert := instance.getCert(preprep.View, preprep.SequenceNumber)
 	if cert.digest != "" && cert.digest != preprep.RequestDigest {
-		logger.Warning("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
+		logger.Warningf("Pre-prepare found for same view/seqNo but different digest: received %s, stored %s", preprep.RequestDigest, cert.digest)
 		instance.sendViewChange()
 		return nil
 	}
@@ -733,17 +739,17 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	if _, ok := instance.reqStore[preprep.RequestDigest]; !ok && preprep.RequestDigest != "" {
 		digest := hashReq(preprep.Request)
 		if digest != preprep.RequestDigest {
-			logger.Warning("Pre-prepare request and request digest do not match: request %s, digest %s",
+			logger.Warningf("Pre-prepare request and request digest do not match: request %s, digest %s",
 				digest, preprep.RequestDigest)
 			return nil
 		}
 		if err := instance.consumer.validate(preprep.Request.Payload); err != nil {
-			logger.Warning("Request %s did not verify: %s", digest, err)
+			logger.Warningf("Request %s did not verify: %s", digest, err)
 			return err
 		}
 
 		instance.reqStore[digest] = preprep.Request
-		logger.Debug("Replica %d storing request %s in outstanding request store", instance.id, digest)
+		logger.Debugf("Replica %d storing request %s in outstanding request store", instance.id, digest)
 		instance.outstandingReqs[digest] = preprep.Request
 		instance.persistRequest(digest)
 	}
@@ -752,7 +758,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 	instance.nullRequestTimer.Stop()
 
 	if instance.primary(instance.view) != instance.id && instance.prePrepared(preprep.RequestDigest, preprep.View, preprep.SequenceNumber) && !cert.sentPrepare {
-		logger.Debug("Backup %d broadcasting prepare for view=%d/seqNo=%d",
+		logger.Debugf("Backup %d broadcasting prepare for view=%d/seqNo=%d",
 			instance.id, preprep.View, preprep.SequenceNumber)
 
 		prep := &Prepare{
@@ -772,20 +778,20 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 }
 
 func (instance *pbftCore) recvPrepare(prep *Prepare) error {
-	logger.Debug("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
+	logger.Debugf("Replica %d received prepare from replica %d for view=%d/seqNo=%d",
 		instance.id, prep.ReplicaId, prep.View, prep.SequenceNumber)
 
 	if instance.primary(prep.View) == prep.ReplicaId {
-		logger.Warning("Replica %d received prepare from primary, ignoring", instance.id)
+		logger.Warningf("Replica %d received prepare from primary, ignoring", instance.id)
 		return nil
 	}
 
 	if !instance.inWV(prep.View, prep.SequenceNumber) {
 		if prep.SequenceNumber != instance.h && !instance.skipInProgress {
-			logger.Warning("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, low water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
+			logger.Warningf("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, low water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, low water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
+			logger.Debugf("Replica %d ignoring prepare for view=%d/seqNo=%d: not in-wv, in view %d, low water mark %d", instance.id, prep.View, prep.SequenceNumber, instance.view, instance.h)
 		}
 		return nil
 	}
@@ -794,7 +800,7 @@ func (instance *pbftCore) recvPrepare(prep *Prepare) error {
 
 	for _, prevPrep := range cert.prepare {
 		if prevPrep.ReplicaId == prep.ReplicaId {
-			logger.Warning("Ignoring duplicate prepare from %d", prep.ReplicaId)
+			logger.Warningf("Ignoring duplicate prepare from %d", prep.ReplicaId)
 			return nil
 		}
 	}
@@ -808,7 +814,7 @@ func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) err
 	cert := instance.getCert(v, n)
 
 	if instance.prepared(digest, v, n) && !cert.sentCommit {
-		logger.Debug("Replica %d broadcasting commit for view=%d/seqNo=%d",
+		logger.Debugf("Replica %d broadcasting commit for view=%d/seqNo=%d",
 			instance.id, v, n)
 
 		commit := &Commit{
@@ -828,15 +834,15 @@ func (instance *pbftCore) maybeSendCommit(digest string, v uint64, n uint64) err
 }
 
 func (instance *pbftCore) recvCommit(commit *Commit) error {
-	logger.Debug("Replica %d received commit from replica %d for view=%d/seqNo=%d",
+	logger.Debugf("Replica %d received commit from replica %d for view=%d/seqNo=%d",
 		instance.id, commit.ReplicaId, commit.View, commit.SequenceNumber)
 
 	if !instance.inWV(commit.View, commit.SequenceNumber) {
 		if commit.SequenceNumber != instance.h && !instance.skipInProgress {
-			logger.Warning("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
+			logger.Warningf("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
 		} else {
 			// This is perfectly normal
-			logger.Debug("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
+			logger.Debugf("Replica %d ignoring commit for view=%d/seqNo=%d: not in-wv, in view %d, high water mark %d", instance.id, commit.View, commit.SequenceNumber, instance.view, instance.h)
 		}
 		return nil
 	}
@@ -844,7 +850,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 	cert := instance.getCert(commit.View, commit.SequenceNumber)
 	for _, prevCommit := range cert.commit {
 		if prevCommit.ReplicaId == commit.ReplicaId {
-			logger.Warning("Ignoring duplicate commit from %d", commit.ReplicaId)
+			logger.Warningf("Ignoring duplicate commit from %d", commit.ReplicaId)
 			return nil
 		}
 	}
@@ -868,10 +874,10 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) executeOutstanding() {
 	if instance.currentExec != nil {
-		logger.Debug("Replica %d not attempting to executeOutstanding because it is currently executing %d", instance.id, *instance.currentExec)
+		logger.Debugf("Replica %d not attempting to executeOutstanding because it is currently executing %d", instance.id, *instance.currentExec)
 		return
 	}
-	logger.Debug("Replica %d attempting to executeOutstanding", instance.id)
+	logger.Debugf("Replica %d attempting to executeOutstanding", instance.id)
 
 	for idx := range instance.certStore {
 		if instance.executeOne(idx) {
@@ -879,7 +885,7 @@ func (instance *pbftCore) executeOutstanding() {
 		}
 	}
 
-	logger.Debug("Replica %d certstore %+v", instance.id, instance.certStore)
+	logger.Debugf("Replica %d certstore %+v", instance.id, instance.certStore)
 
 	return
 }
@@ -892,7 +898,7 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 	}
 
 	if instance.skipInProgress {
-		logger.Debug("Replica %d currently picking a starting point to resume, will not execute", instance.id)
+		logger.Debugf("Replica %d currently picking a starting point to resume, will not execute", instance.id)
 		return false
 	}
 
@@ -911,11 +917,11 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 	// null request
 	if digest == "" {
-		logger.Info("Replica %d executing/committing null request for view=%d/seqNo=%d",
+		logger.Infof("Replica %d executing/committing null request for view=%d/seqNo=%d",
 			instance.id, idx.v, idx.n)
 		instance.execDoneSync()
 	} else {
-		logger.Info("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
+		logger.Infof("Replica %d executing/committing request for view=%d/seqNo=%d and digest %s",
 			instance.id, idx.v, idx.n, digest)
 
 		// synchronously execute, it is the other side's responsibility to execute in the background if needed
@@ -926,13 +932,13 @@ func (instance *pbftCore) executeOne(idx msgID) bool {
 
 func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 	if seqNo%instance.K != 0 {
-		logger.Error("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
+		logger.Errorf("Attempted to checkpoint a sequence number (%d) which is not a multiple of the checkpoint interval (%d)", seqNo, instance.K)
 		return
 	}
 
 	idAsString := base64.StdEncoding.EncodeToString(id)
 
-	logger.Debug("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
+	logger.Debugf("Replica %d preparing checkpoint for view=%d/seqNo=%d and b64 id of %s",
 		instance.id, instance.view, seqNo, idAsString)
 
 	chkpt := &Checkpoint{
@@ -949,7 +955,7 @@ func (instance *pbftCore) Checkpoint(seqNo uint64, id []byte) {
 
 func (instance *pbftCore) execDoneSync() {
 	if instance.currentExec != nil {
-		logger.Info("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
+		logger.Infof("Replica %d finished execution %d, trying next", instance.id, *instance.currentExec)
 		instance.lastExec = *instance.currentExec
 		if instance.lastExec%instance.K == 0 {
 			instance.Checkpoint(instance.lastExec, instance.consumer.getState())
@@ -957,7 +963,7 @@ func (instance *pbftCore) execDoneSync() {
 
 	} else {
 		// XXX This masks a bug, this should not be called when currentExec is nil
-		logger.Warning("Replica %d had execDoneSync called, flagging ourselves as out of date", instance.id)
+		logger.Warningf("Replica %d had execDoneSync called, flagging ourselves as out of date", instance.id)
 		instance.skipInProgress = true
 	}
 	instance.currentExec = nil
@@ -971,7 +977,7 @@ func (instance *pbftCore) moveWatermarks(n uint64) {
 
 	for idx, cert := range instance.certStore {
 		if idx.n <= h {
-			logger.Debug("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
+			logger.Debugf("Replica %d cleaning quorum certificate for view=%d/seqNo=%d",
 				instance.id, idx.v, idx.n)
 			instance.persistDelRequest(cert.digest)
 			delete(instance.reqStore, cert.digest)
@@ -981,7 +987,7 @@ func (instance *pbftCore) moveWatermarks(n uint64) {
 
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber <= h {
-			logger.Debug("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 snapshot id %s",
+			logger.Debugf("Replica %d cleaning checkpoint message from replica %d, seqNo %d, b64 snapshot id %s",
 				instance.id, testChkpt.ReplicaId, testChkpt.SequenceNumber, testChkpt.Id)
 			delete(instance.checkpointStore, testChkpt)
 		}
@@ -1008,7 +1014,7 @@ func (instance *pbftCore) moveWatermarks(n uint64) {
 
 	instance.h = h
 
-	logger.Debug("Replica %d updated low watermark to %d",
+	logger.Debugf("Replica %d updated low watermark to %d",
 		instance.id, instance.h)
 
 	instance.resubmitRequests()
@@ -1045,7 +1051,7 @@ func (instance *pbftCore) weakCheckpointSetOutOfRange(chkpt *Checkpoint) bool {
 			// we will never record 2f+1 checkpoints for that sequence number, we are out of date
 			// (This is because all_replicas - missed - me = 3f+1 - f - 1 = 2f)
 			if m := chkptSeqNumArray[len(chkptSeqNumArray)-(instance.f+1)]; m > H {
-				logger.Warning("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
+				logger.Warningf("Replica %d is out of date, f+1 nodes agree checkpoint with seqNo %d exists but our high water mark is %d", instance.id, chkpt.SequenceNumber, H)
 				instance.reqStore = make(map[string]*Request) // Discard all our requests, as we will never know which were executed, to be addressed in #394
 				instance.persistDelAllRequests()
 				instance.moveWatermarks(m)
@@ -1070,7 +1076,7 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 	for testChkpt := range instance.checkpointStore {
 		if testChkpt.SequenceNumber == chkpt.SequenceNumber && testChkpt.Id == chkpt.Id {
 			checkpointMembers[i] = testChkpt.ReplicaId
-			logger.Debug("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
+			logger.Debugf("Replica %d adding replica %d (handle %v) to weak cert", instance.id, testChkpt.ReplicaId, checkpointMembers[i])
 			i++
 		}
 	}
@@ -1082,16 +1088,27 @@ func (instance *pbftCore) witnessCheckpointWeakCert(chkpt *Checkpoint) {
 		return
 	}
 
-	if instance.skipInProgress {
-		logger.Debug("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
+	if instance.highStateTarget == nil || instance.highStateTarget.seqNo < chkpt.SequenceNumber {
+		instance.highStateTarget = &stateUpdateTarget{
+			checkpointMessage: checkpointMessage{
+				seqNo: chkpt.SequenceNumber,
+				id:    snapshotID,
+			},
+			replicas: checkpointMembers,
+		}
+	}
+
+	if instance.skipInProgress && !instance.stateTransferring {
+		logger.Debugf("Replica %d is catching up and witnessed a weak certificate for checkpoint %d, weak cert attested to by %d of %d (%v)",
 			instance.id, chkpt.SequenceNumber, i, instance.replicaCount, checkpointMembers)
 		// The view should not be set to active, this should be handled by the yet unimplemented SUSPECT, see https://github.com/hyperledger/fabric/issues/1120
 		instance.consumer.skipTo(chkpt.SequenceNumber, snapshotID, checkpointMembers) // This will kick off state transfer if it is not already going, but if it is going, we may transfer to an earlier point
+		instance.stateTransferring = true
 	}
 }
 
 func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
-	logger.Debug("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
+	logger.Debugf("Replica %d received checkpoint from replica %d, seqNo %d, digest %s",
 		instance.id, chkpt.ReplicaId, chkpt.SequenceNumber, chkpt.Id)
 
 	if instance.weakCheckpointSetOutOfRange(chkpt) {
@@ -1101,9 +1118,9 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	if !instance.inW(chkpt.SequenceNumber) {
 		if chkpt.SequenceNumber != instance.h && !instance.skipInProgress {
 			// It is perfectly normal that we receive checkpoints for the watermark we just raised, as we raise it after 2f+1, leaving f replies left
-			logger.Warning("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+			logger.Warningf("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		} else {
-			logger.Debug("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
+			logger.Debugf("Checkpoint sequence number outside watermarks: seqNo %d, low-mark %d", chkpt.SequenceNumber, instance.h)
 		}
 		return nil
 	}
@@ -1116,7 +1133,7 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 			matching++
 		}
 	}
-	logger.Debug("Replica %d found %d matching checkpoints for seqNo %d, digest %s",
+	logger.Debugf("Replica %d found %d matching checkpoints for seqNo %d, digest %s",
 		instance.id, matching, chkpt.SequenceNumber, chkpt.Id)
 
 	if matching == instance.f+1 {
@@ -1138,12 +1155,12 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	// Note, this is not divergent from the paper, as the paper requires that
 	// the quorum certificate must contain 2f+1 messages, including its own
 	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
-		logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
+		logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
 			instance.id, chkpt.SequenceNumber, chkpt.Id)
 		return nil
 	}
 
-	logger.Debug("Replica %d found checkpoint quorum for seqNo %d, digest %s",
+	logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.Id)
 
 	instance.moveWatermarks(chkpt.SequenceNumber)
@@ -1226,7 +1243,7 @@ func (instance *pbftCore) innerBroadcast(msg *Message) error {
 			if i != ignoreidx && uint64(i) != instance.id { //Pick a random replica and do not send message
 				instance.consumer.unicast(msgRaw, uint64(i))
 			} else {
-				logger.Debug("PBFT byzantine: not broadcasting to replica %v", i)
+				logger.Debugf("PBFT byzantine: not broadcasting to replica %v", i)
 			}
 		}
 	} else {
@@ -1263,20 +1280,20 @@ func (instance *pbftCore) startTimerIfOutstandingRequests() {
 }
 
 func (instance *pbftCore) softStartTimer(timeout time.Duration, reason string) {
-	logger.Debug("Replica %d soft starting new view timer for %s: %s", instance.id, timeout, reason)
+	logger.Debugf("Replica %d soft starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.newViewTimerReason = reason
 	instance.timerActive = true
 	instance.newViewTimer.SoftReset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) startTimer(timeout time.Duration, reason string) {
-	logger.Debug("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
+	logger.Debugf("Replica %d starting new view timer for %s: %s", instance.id, timeout, reason)
 	instance.timerActive = true
 	instance.newViewTimer.Reset(timeout, viewChangeTimerEvent{})
 }
 
 func (instance *pbftCore) stopTimer() {
-	logger.Debug("Replica %d stopping a running new view timer", instance.id)
+	logger.Debugf("Replica %d stopping a running new view timer", instance.id)
 	instance.timerActive = false
 	instance.newViewTimer.Stop()
 }

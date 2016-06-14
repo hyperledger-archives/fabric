@@ -18,6 +18,7 @@ package crypto
 
 import (
 	"crypto/ecdsa"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
@@ -25,13 +26,13 @@ func (client *clientImpl) registerCryptoEngine() (err error) {
 	// Store query state key
 	client.queryStateKey, err = primitives.GetRandomNonce()
 	if err != nil {
-		log.Error("Failed generating query state key: [%s].", err.Error())
+		log.Errorf("Failed generating query state key: [%s].", err.Error())
 		return
 	}
 
 	err = client.ks.storeKey(client.conf.getQueryStateKeyFilename(), client.queryStateKey)
 	if err != nil {
-		log.Error("Failed storing query state key: [%s].", err.Error())
+		log.Errorf("Failed storing query state key: [%s].", err.Error())
 		return
 	}
 

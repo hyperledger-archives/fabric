@@ -172,14 +172,15 @@ var (
 
 // Chaincode-related variables.
 var (
-	chaincodeLang     string
-	chaincodeCtorJSON string
-	chaincodePath     string
-	chaincodeName     string
-	chaincodeDevMode  bool
-	chaincodeUsr      string
-	chaincodeQueryRaw bool
-	chaincodeQueryHex bool
+	chaincodeLang           string
+	chaincodeCtorJSON       string
+	chaincodePath           string
+	chaincodeName           string
+	chaincodeDevMode        bool
+	chaincodeUsr            string
+	chaincodeQueryRaw       bool
+	chaincodeQueryHex       bool
+	chaincodeAttributesJSON string
 )
 
 var chaincodeCmd = &cobra.Command{
@@ -289,6 +290,7 @@ func main() {
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeAttributesJSON, "attributes", "a", "[]", fmt.Sprintf("User attributes for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
@@ -356,21 +358,21 @@ func getSecHelper() (crypto.Peer, error) {
 			enrollID := viper.GetString("security.enrollID")
 			enrollSecret := viper.GetString("security.enrollSecret")
 			if peer.ValidatorEnabled() {
-				logger.Debug("Registering validator with enroll ID: %s", enrollID)
+				logger.Debugf("Registering validator with enroll ID: %s", enrollID)
 				if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 					return
 				}
-				logger.Debug("Initializing validator with enroll ID: %s", enrollID)
+				logger.Debugf("Initializing validator with enroll ID: %s", enrollID)
 				secHelper, err = crypto.InitValidator(enrollID, nil)
 				if nil != err {
 					return
 				}
 			} else {
-				logger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+				logger.Debugf("Registering non-validator with enroll ID: %s", enrollID)
 				if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 					return
 				}
-				logger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+				logger.Debugf("Initializing non-validator with enroll ID: %s", enrollID)
 				secHelper, err = crypto.InitPeer(enrollID, nil)
 				if nil != err {
 					return
@@ -425,15 +427,15 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
-	logger.Info("Security enabled status: %t", core.SecurityEnabled())
+	logger.Infof("Security enabled status: %t", core.SecurityEnabled())
 	if viper.GetBool("security.privacy") {
 		if core.SecurityEnabled() {
-			logger.Info("Privacy enabled status: true")
+			logger.Infof("Privacy enabled status: true")
 		} else {
 			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
 		}
 	} else {
-		logger.Info("Privacy enabled status: false")
+		logger.Infof("Privacy enabled status: false")
 	}
 
 	var opts []grpc.ServerOption
@@ -469,7 +471,7 @@ func serve(args []string) error {
 		if makeGenesisError != nil {
 			return makeGenesisError
 		}
-		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
 	} else {
 		logger.Debug("Running as non-validating peer")
@@ -509,7 +511,7 @@ func serve(args []string) error {
 
 	rootNodes := discInstance.GetRootNodes()
 
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
+	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),
 		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
 
@@ -538,9 +540,9 @@ func serve(args []string) error {
 	if viper.GetBool("peer.profile.enabled") {
 		go func() {
 			profileListenAddress := viper.GetString("peer.profile.listenAddress")
-			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
+			logger.Infof("Starting profiling server with listenAddress = %s", profileListenAddress)
 			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
-				logger.Error(fmt.Sprintf("Error starting profiler: %s", profileErr))
+				logger.Errorf("Error starting profiler: %s", profileErr)
 			}
 		}()
 	}
@@ -552,7 +554,7 @@ func serve(args []string) error {
 func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Info("Error trying to connect to local peer: %s", err)
+		logger.Infof("Error trying to connect to local peer: %s", err)
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
 		return err
@@ -562,7 +564,7 @@ func status() (err error) {
 
 	status, err := serverClient.GetStatus(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
-		logger.Info("Error trying to get status from local peer: %s", err)
+		logger.Infof("Error trying to get status from local peer: %s", err)
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
 		return err
@@ -576,8 +578,8 @@ func stop() (err error) {
 	if err != nil {
 		pidFile := stopPidFile + "/peer.pid"
 		//fmt.Printf("Stopping local peer using process pid from %s \n", pidFile)
-		logger.Info("Error trying to connect to local peer: %s", err)
-		logger.Info("Stopping local peer using process pid from %s", pidFile)
+		logger.Infof("Error trying to connect to local peer: %s", err)
+		logger.Infof("Stopping local peer using process pid from %s", pidFile)
 		pid, ferr := readPid(pidFile)
 		if ferr != nil {
 			err = fmt.Errorf("Error trying to read pid from %s: %s", pidFile, ferr)
@@ -624,11 +626,11 @@ func networkLogin(args []string) (err error) {
 	// Retrieve the CLI data storage path
 	// Returns /var/openchain/production/client/
 	localStore := getCliFilePath()
-	logger.Info("Local data store for client loginToken: %s", localStore)
+	logger.Infof("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err = os.Stat(localStore + "loginToken_" + args[0]); err == nil {
-		logger.Info("User '%s' is already logged in.\n", args[0])
+		logger.Infof("User '%s' is already logged in.\n", args[0])
 		return
 	}
 
@@ -645,7 +647,7 @@ func networkLogin(args []string) (err error) {
 	}
 
 	// Log in the user
-	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
+	logger.Infof("Logging in user '%s' on CLI interface...\n", args[0])
 
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
@@ -675,13 +677,13 @@ func networkLogin(args []string) (err error) {
 		}
 
 		// Store client security context into a file
-		logger.Info("Storing login token for user '%s'.\n", args[0])
+		logger.Infof("Storing login token for user '%s'.\n", args[0])
 		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
 
-		logger.Info("Login successful for user '%s'.\n", args[0])
+		logger.Infof("Login successful for user '%s'.\n", args[0])
 	} else {
 		err = fmt.Errorf("Error on client login: %s", string(loginResult.Msg))
 		return
@@ -759,6 +761,15 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 		return
 	}
 
+	if chaincodeAttributesJSON != "[]" {
+		var f interface{}
+		err = json.Unmarshal([]byte(chaincodeAttributesJSON), &f)
+		if err != nil {
+			err = fmt.Errorf("Chaincode argument error: %s", err)
+			return
+		}
+	}
+
 	return
 }
 
@@ -789,9 +800,16 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {
@@ -807,7 +825,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 
 		// Check if the user is logged in before sending transaction
 		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			logger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -846,7 +864,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Error building %s: %s\n", chainFuncName, err)
 		return
 	}
-	logger.Info("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
+	logger.Infof("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 	fmt.Println(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
 	return nil
 }
@@ -887,9 +905,16 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {
@@ -904,7 +929,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 		// Check if the user is logged in before sending transaction
 		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			logger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -958,10 +983,10 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 	}
 	if invoke {
 		transactionID := string(resp.Msg)
-		logger.Info("Successfully invoked transaction: %s(%s)", invocation, transactionID)
+		logger.Infof("Successfully invoked transaction: %s(%s)", invocation, transactionID)
 		fmt.Println(transactionID)
 	} else {
-		logger.Info("Successfully queried transaction: %s", invocation)
+		logger.Infof("Successfully queried transaction: %s", invocation)
 		if resp != nil {
 			if chaincodeQueryRaw {
 				if chaincodeQueryHex {

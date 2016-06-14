@@ -17,7 +17,9 @@ limitations under the License.
 package ca
 
 import (
+	"bytes"
 	"errors"
+	"google/protobuf"
 	"io/ioutil"
 	"math/big"
 	"strings"
@@ -25,7 +27,6 @@ import (
 	"time"
 
 	"crypto/x509"
-	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -33,9 +34,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-var identity string = "diego"
+var identity = "diego"
 
-func loadECert(identityId string) (*x509.Certificate, error) {
+func loadECert(identityID string) (*x509.Certificate, error) {
 	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert.dump")
 	if err != nil {
 		return nil, err
@@ -47,9 +48,9 @@ func loadECert(identityId string) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	var certificateId = strings.Split(ecert.Subject.CommonName, "\\")[0]
+	var certificateID = strings.Split(ecert.Subject.CommonName, "\\")[0]
 
-	if identityId != certificateId {
+	if identityID != certificateID {
 		return nil, errors.New("Incorrect ecert user.")
 	}
 
@@ -57,27 +58,124 @@ func loadECert(identityId string) (*x509.Certificate, error) {
 }
 
 func TestFetchAttributes(t *testing.T) {
+	resp, err := fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
 
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+}
+
+func TestFetchAttributes_MultipleInvocations(t *testing.T) {
+	expectedAttributesSize := 4
+	expectedCount := 4
+
+	resp, err := fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+
+	attributesMap1, count, err := readAttributesFromDB("diego", "institution_a")
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if count != expectedCount {
+		t.Fatalf("Error executing test: Expected count [%v], Actual count [%v]", expectedCount, count)
+	}
+
+	resp, err = fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+
+	attributesMap2, count, err := readAttributesFromDB("diego", "institution_a")
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if count != expectedCount {
+		t.Fatalf("Error executing test: Expected count [%v], Actual count [%v]", expectedCount, count)
+	}
+
+	if len(attributesMap1) != expectedAttributesSize {
+		t.Fatalf("Error executing test: Expected attributes size [%v], Actual attributes size [%v]", expectedAttributesSize, len(attributesMap1))
+	}
+
+	if len(attributesMap1) != len(attributesMap2) {
+		t.Fatalf("Error executing test: %v", "attributes should be the same each time")
+	}
+
+	for key, value := range attributesMap1 {
+		if bytes.Compare(value, attributesMap2[key]) != 0 {
+			t.Fatalf("Error executing test: %v. Expected: [%v], Actual: [%v]", "attributes should be the same each time", value, attributesMap2[key])
+		}
+	}
+
+	if len(attributesMap1) != len(attributesMap2) {
+		t.Fatalf("Error executing test: %v", "attributes should be the same each time")
+	}
+
+}
+
+func readAttributesFromDB(id string, affiliation string) (map[string][]byte, int, error) {
+	var attributeName string
+	var attributeValue []byte
+
+	query := "SELECT attributeName, attributeValue FROM attributes WHERE id=? AND affiliation=?"
+
+	rows, err := aca.db.Query(query, id, affiliation)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	defer rows.Close()
+
+	count := 0
+	attributesMap := make(map[string][]byte)
+	for rows.Next() {
+		err := rows.Scan(&attributeName, &attributeValue)
+		if err != nil {
+			return nil, 0, err
+		}
+		attributesMap[attributeName] = attributeValue
+		count++
+	}
+
+	return attributesMap, count, nil
+}
+
+func fetchAttributes() (*pb.ACAFetchAttrResp, error) {
 	cert, err := loadECert(identity)
 
 	if err != nil {
-		t.Fatalf("Error loading ECert: %v", err)
+		return nil, err
 	}
 	sock, acaP, err := GetACAClient()
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 	defer sock.Close()
 
 	req := &pb.ACAFetchAttrReq{
 		Ts:        &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		ECert:     &pb.Cert{cert.Raw},
+		ECert:     &pb.Cert{Cert: cert.Raw},
 		Signature: nil}
 
 	var rawReq []byte
 	rawReq, err = proto.Marshal(req)
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 
 	var r, s *big.Int
@@ -85,7 +183,7 @@ func TestFetchAttributes(t *testing.T) {
 	r, s, err = primitives.ECDSASignDirect(eca.priv, rawReq)
 
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 
 	R, _ := r.MarshalText()
@@ -94,13 +192,8 @@ func TestFetchAttributes(t *testing.T) {
 	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err := acaP.FetchAttributes(context.Background(), req)
-	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
-	}
 
-	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
-		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
-	}
+	return resp, err
 }
 
 func TestFetchAttributes_MissingSignature(t *testing.T) {
@@ -118,7 +211,7 @@ func TestFetchAttributes_MissingSignature(t *testing.T) {
 
 	req := &pb.ACAFetchAttrReq{
 		Ts:        &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		ECert:     &pb.Cert{cert.Raw},
+		ECert:     &pb.Cert{Cert: cert.Raw},
 		Signature: nil}
 
 	resp, err := acaP.FetchAttributes(context.Background(), req)
@@ -146,23 +239,16 @@ func TestRequestAttributes(t *testing.T) {
 	}
 	defer sock.Close()
 
-	var attributesHash = make([]*pb.TCertAttributeHash, 0)
-
 	var attributes = make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
-	attributes = append(attributes, &pb.TCertAttribute{"position", "Software Engineer"})
-	attributes = append(attributes, &pb.TCertAttribute{"identity-number", "1234"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "position"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "identity-number"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -229,21 +315,15 @@ func TestRequestAttributes_AttributesMismatch(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
 	var attributes = make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "BCompany"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "account"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -275,7 +355,7 @@ func TestRequestAttributes_AttributesMismatch(t *testing.T) {
 	}
 
 	if resp.Status != pb.ACAAttrResp_NO_ATTRIBUTES_FOUND {
-		t.Fatal("Test failed 'company' attribute shouldn't be found.")
+		t.Fatal("Test failed 'account' attribute shouldn't be found.")
 	}
 
 }
@@ -293,23 +373,17 @@ func TestRequestAttributes_MissingSignature(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
 	var attributes = make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
-	attributes = append(attributes, &pb.TCertAttribute{"position", "Software Engineer"})
-	attributes = append(attributes, &pb.TCertAttribute{"identity-number", "1234"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "position"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "identity-number"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	resp, err := acaP.RequestAttributes(context.Background(), req)
@@ -335,22 +409,16 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	var attributesHash = make([]*pb.TCertAttributeHash, 0)
 
 	var attributes = make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
-	attributes = append(attributes, &pb.TCertAttribute{"company", "BCompany"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -395,22 +463,16 @@ func TestRequestAttributes_FullAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
-	attributes = append(attributes, &pb.TCertAttribute{"business_unit", "Sales"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	var attributes []*pb.TCertAttribute
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "business_unit"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	var rawReq []byte
@@ -481,22 +543,16 @@ func TestRequestAttributes_PartialAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 	defer sock.Close()
-	attributesHash := make([]*pb.TCertAttributeHash, 0)
 
-	attributes := make([]*pb.TCertAttribute, 0)
-	attributes = append(attributes, &pb.TCertAttribute{"company", "ACompany"})
-	attributes = append(attributes, &pb.TCertAttribute{"credit_card", "883994898378994"})
-
-	for _, att := range attributes {
-		attributeHash := pb.TCertAttributeHash{att.AttributeName, primitives.Hash([]byte(att.AttributeValue))}
-		attributesHash = append(attributesHash, &attributeHash)
-	}
+	var attributes []*pb.TCertAttribute
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "company"})
+	attributes = append(attributes, &pb.TCertAttribute{AttributeName: "credit_card"})
 
 	req := &pb.ACAAttrReq{
 		Ts:         &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
-		Id:         &pb.Identity{identity},
-		ECert:      &pb.Cert{ecert},
-		Attributes: attributesHash,
+		Id:         &pb.Identity{Id: identity},
+		ECert:      &pb.Cert{Cert: ecert},
+		Attributes: attributes,
 		Signature:  nil}
 
 	var rawReq []byte

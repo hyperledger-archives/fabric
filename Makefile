@@ -47,7 +47,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
 BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
 
-GOTOOLS = golint govendor goimports protoc-gen-go
+GOTOOLS = golint govendor goimports protoc-gen-go ginkgo gomega
 GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
 
 PROJECT_FILES = $(shell git ls-files)
@@ -57,6 +57,8 @@ IMAGES = base src ccenv peer membersrvc
 go.fqp.govendor  := github.com/kardianos/govendor
 go.fqp.golint    := github.com/golang/lint/golint
 go.fqp.goimports := golang.org/x/tools/cmd/goimports
+go.fqp.ginkgo := github.com/onsi/ginkgo/ginkgo
+go.fqp.gomega := github.com/onsi/gomega
 
 all: peer membersrvc checks
 
@@ -155,7 +157,7 @@ build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
 	@echo "Building docker src-image"
 	@mkdir -p $(@D)
 	@cat images/src/Dockerfile.in > $(@D)/Dockerfile
-	@git ls-files | tar -zcT - > $(@D)/gopath.tar.bz2
+	@git ls-files | tar -jcT - > $(@D)/gopath.tar.bz2
 	docker build -t $(PROJECT_NAME)-src:latest $(@D)
 	@touch $@
 
