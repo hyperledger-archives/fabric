@@ -37,8 +37,8 @@ var sysccLogger = logging.MustGetLogger("sysccapi")
 type SystemChaincode struct {
 	// Enabled a convenient switch to enable/disable system chaincode without
 	// having to remove entry from importsysccs.go
-
 	Enabled bool
+
 	//Unique name of the system chaincode
 	Name string
 
