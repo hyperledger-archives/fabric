@@ -545,6 +545,7 @@ def compose_op(context, op):
     assert 'table' in context, "table (of peers) not found in context"
     assert 'compose_yaml' in context, "compose_yaml not found in context"
 
+    fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     services =  context.table.headings
     # Loop through services and start/stop them, and modify the container data list if successful.
     for service in services:
