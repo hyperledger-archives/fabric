@@ -281,13 +281,13 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLa
 	envs = []string{"CORE_CHAINCODE_ID_NAME=" + cID.Name}
 	//if TLS is enabled, pass TLS material to chaincode
 	if chaincodeSupport.peerTLS {
-	envs = append(envs, "CORE_PEER_TLS_ENABLED=true")
-	envs = append(envs, "CORE_PEER_TLS_CERT_FILE="+chaincodeSupport.peerTLSCertFile)
-	if chaincodeSupport.peerTLSSvrHostOrd != "" {
-	envs = append(envs, "CORE_PEER_TLS_SERVERHOSTOVERRIDE="+chaincodeSupport.peerTLSSvrHostOrd)
-	}
+		envs = append(envs, "CORE_PEER_TLS_ENABLED=true")
+		envs = append(envs, "CORE_PEER_TLS_CERT_FILE="+chaincodeSupport.peerTLSCertFile)
+		if chaincodeSupport.peerTLSSvrHostOrd != "" {
+			envs = append(envs, "CORE_PEER_TLS_SERVERHOSTOVERRIDE="+chaincodeSupport.peerTLSSvrHostOrd)
+		}
 	} else {
-	envs = append(envs, "CORE_PEER_TLS_ENABLED=false")
+		envs = append(envs, "CORE_PEER_TLS_ENABLED=false")
 	}
 	switch cLang {
 	case pb.ChaincodeSpec_GOLANG:
