@@ -515,8 +515,12 @@ func (chaincodeSupport *ChaincodeSupport) getVMType(cds *pb.ChaincodeDeploymentS
 func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
-	cLang := cds.ChaincodeSpec.Type
+
+
 	err := proto.Unmarshal(t.Payload, cds)
+
+	cLang := cds.ChaincodeSpec.Type
+
 	if err != nil {
 		return nil, err
 	}
