@@ -155,10 +155,17 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 
     vagrant ssh
 
-Build and run the peer process with the commands below.
+Build the peer process with the commands below.
 
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     go build
+
+To run the peer process for chaincode deployment tests in development mode use the following command:
+
+    ./peer node start --peer-chaincodedev
+
+To run the peer process for chaincode deployment tests in network mode use the following command:
+
     ./peer node start
 
 We also assume that the peer is running at security level 256, which is the default value.
@@ -203,8 +210,36 @@ member.webAdmin
 member.webUser
 ```
 
+#### chain-tests (development mode)
+This test case exercises chaincode *chaincode_example02* when it has been deployed in development mode (as opposed to network mode).
+
+To run the test case in development mode, start the peer in network mode per the instructions [here](setting-up-the-testing-environment). Subsequently, start the chaincode as follows.
+
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+
+    vagrant ssh
+
+Build the <b>chaincode_example02</b> code, which is provided in the source code repository:
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
+    go build
+
+Run the following chaincode command to start and register the chaincode with the validating peer:
+
+    CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+
+The chaincode console will display the message "Received REGISTERED, ready for invocations", which indicates that the chaincode is ready to receive requests.
+
+Set the `DEPLOY_MODE` environment variable to `dev` and run the chain-tests as follows:
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
+export DEPLOY_MODE='dev'
+node test/unit/chain-tests.js | node_modules/.bin/tap-spec
+```
+
 #### chain-tests (network mode)
-This test case exercises chaincode *chaincode_example02* when it has been deployed in network mode (as opposed to development mode).
+This test case exercises chaincode *chaincode_example02* when it has been deployed in network mode (as opposed to development mode). Before proceeding with these tests, make sure to clear our any remaining crypto material for the membership service, the client `keyValStore`, as well as restart the peer in network mode per the instructions [here](setting-up-the-testing-environment).
 
 To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the `chaincode_example02` project may be placed inside `$GOPATH/src/` as shown below.
 
@@ -241,10 +276,11 @@ Once the chaincode is built, you need to verify that [chain-tests.js](https://gi
 var testChaincodePath = "github.com/chaincode_example02/";
 ```
 
-Then run the chain-tests as follows:
+Set the `DEPLOY_MODE` environment variable to `net` and run the chain-tests as follows:
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
+export DEPLOY_MODE='net'
 node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 ```
 
@@ -282,8 +318,11 @@ At this point *chain-tests.js* will automatically load the *tlsca.cert* file and
 
 *Note:* If you cleanup the folder `/var/hyperledger/production` then don't forget to copy again the *tlsca.cert* file as described above.
 
+### asset-mgmt (development mode)
+
+
 #### asset-mgmt (network mode)
-This test case exercises the *asset_management* chaincode when it has been deployed in network mode (as opposed to development mode).
+This test case exercises the *asset_management* chaincode when it has been deployed in network mode (as opposed to development mode). Before proceeding with these tests, make sure to clear our any remaining crypto material for the membership service, the client `keyValStore`, as well as restart the peer in network mode per the instructions [here](setting-up-the-testing-environment).
 
 Follow the instruction in the [chain-tests](#chain-tests-network-mode) section in order to properly set up your chaincode project outside of your Hyperledger Fabric source tree. Keep in mind, that this test will also require you to include another package, `op/go-logging` inside your `vendor` directory. You will discover that without this package the *asset_management* chaincode does not build successfully locally. Correct project directory structure is shown below.
 
@@ -320,8 +359,11 @@ cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
 node test/unit/asset-mgmt.js | node_modules/.bin/tap-spec
 ```
 
+#### asset-mgmt-with-roles (development mode)
+
+
 #### asset-mgmt-with-roles (network mode)
-This test case exercises the *asset_management_with_roles* chaincode when it has been deployed in network mode (as opposed to development mode).
+This test case exercises the *asset_management_with_roles* chaincode when it has been deployed in network mode (as opposed to development mode). Before proceeding with these tests, make sure to clear our any remaining crypto material for the membership service, the client `keyValStore`, as well as restart the peer in network mode per the instructions [here](setting-up-the-testing-environment).
 
 Follow the instruction in the [chain-tests](#chain-tests-network-mode) section in order to properly set up your chaincode project outside of your Hyperledger Fabric source tree. Keep in mind, that this test will also require you to include another package, `op/go-logging` inside your `vendor` directory. You will discover that without this package the *asset_management_with_roles* chaincode does not build successfully locally. Correct project directory structure is shown below.
 

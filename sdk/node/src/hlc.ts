@@ -1427,6 +1427,112 @@ export class TransactionContext extends events.EventEmitter {
 
         let self = this;
 
+        // Determine if deployment is for dev mode or net mode
+        if (self.chain.isDevMode()) {
+            // Deployment in developent mode. Build a dev mode transaction.
+            this.newDevModeTransaction(request, isBuildRequest, function(err, tx) {
+                return cb(null, tx);
+            });
+        } else {
+          // Deployment in network mode. Build a net mode transaction.
+          this.newNetModeTransaction(request, isBuildRequest, function(err, tx) {
+              return cb(null, tx);
+          });
+        }
+    } // end newBuildOrDeployTransaction
+
+    /**
+     * Create a development mode deploy transaction.
+     * @param request {Object} A development mode BuildRequest or DeployRequest
+     */
+    private newDevModeTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+        debug("newDevModeTransaction");
+
+        let self = this;
+
+        let tx = new _fabricProto.Transaction();
+
+        if (isBuildRequest) {
+            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+        } else {
+            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+        }
+
+        // Set the chaincodeID
+        let chaincodeID = new _chaincodeProto.ChaincodeID();
+        chaincodeID.setName(request.chaincodeID);
+        debug("newDevModeTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
+        tx.setChaincodeID(chaincodeID.toBuffer());
+
+        // Construct the ChaincodeSpec
+        let chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+        // Set Type -- GOLANG is the only chaincode language supported at this time
+        chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+        // Set chaincodeID
+        chaincodeSpec.setChaincodeID(chaincodeID);
+        // Set ctorMsg
+        let chaincodeInput = new _chaincodeProto.ChaincodeInput();
+        chaincodeInput.setFunction(request.fcn);
+        chaincodeInput.setArgs(request.args);
+        chaincodeSpec.setCtorMsg(chaincodeInput);
+
+        // Construct the ChaincodeDeploymentSpec (i.e. the payload)
+        let chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
+        chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+        tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+
+        // Set the transaction UUID
+        tx.setUuid(request.chaincodeID);
+
+        // Set the transaction timestamp
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
+
+        // Set confidentiality level
+        if (request.confidential) {
+            debug("Set confidentiality level to CONFIDENTIAL");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
+        } else {
+            debug("Set confidentiality level to PUBLIC");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
+        }
+
+        // Set request metadata
+        if (request.metadata) {
+            tx.setMetadata(request.metadata);
+        }
+
+        // Set the user certificate data
+        if (request.userCert) {
+            // cert based
+            let certRaw = new Buffer(self.tcert.publicKey);
+            // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+            let nonceRaw = new Buffer(self.nonce);
+            let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+            // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+            this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+            // debug('========== Binding [%s]', this.binding.toString('hex'));
+            let ctor = chaincodeSpec.getCtorMsg().toBuffer();
+            // debug('========== Ctor [%s]', ctor.toString('hex'));
+            let txmsg = Buffer.concat([ctor, this.binding]);
+            // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
+            let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+            let sigma = new Buffer(mdsig.toDER());
+            // debug('========== Sigma [%s]', sigma.toString('hex'));
+            tx.setMetadata(sigma);
+        }
+
+        return cb(null, tx);
+    }
+
+    /**
+     * Create a network mode deploy transaction.
+     * @param request {Object} A network mode BuildRequest or DeployRequest
+     */
+    private newNetModeTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+        debug("newNetModeTransaction");
+
+        let self = this;
+
         // Determine the user's $GOPATH
         let goPath =  process.env['GOPATH'];
         debug("$GOPATH: " + goPath);
@@ -1536,11 +1642,7 @@ export class TransactionContext extends events.EventEmitter {
                     // Set the transaction UUID
                     //
 
-                    if (self.chain.isDevMode()) {
-                        tx.setUuid(request.chaincodeID);
-                    } else {
-                        tx.setUuid(sdk_util.GenerateUUID());
-                    }
+                    tx.setUuid(sdk_util.GenerateUUID());
 
                     //
                     // Set the transaction timestamp
@@ -1622,7 +1724,7 @@ export class TransactionContext extends events.EventEmitter {
               }); // end reading .tar.zg and composing transaction
 	         }); // end writing .tar.gz
 	      }); // end writing Dockerfile
-    } // end newBuildOrDeployTransaction
+    }
 
     /**
      * Create an invoke or query transaction.

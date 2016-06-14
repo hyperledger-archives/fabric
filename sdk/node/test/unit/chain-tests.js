@@ -54,7 +54,19 @@ if (fs.existsSync("tlsca.cert")) {
     chain.setMemberServicesUrl("grpc://localhost:50051");
 }
 chain.addPeer("grpc://localhost:30303");
-chain.setDevMode(false);
+
+//
+// Set the chaincode deployment mode to either developent mode (user runs chaincode)
+// or network mode (code package built and sent to the peer).
+//
+
+var mode =  process.env['DEPLOY_MODE'];
+console.log("$DEPLOY_MODE: " + mode);
+if (mode === 'dev') {
+    chain.setDevMode(true);
+} else {
+    chain.setDevMode(false);
+}
 
 //
 // Configure test users
@@ -84,8 +96,9 @@ var test_user_Member1;
 // Path to the local directory containing the chaincode project under $GOPATH
 var testChaincodePath = "github.com/chaincode_example02/";
 
-// Chaincode name/hash that will be filled in by the deployment operation
-var testChaincodeName = "";
+// Chaincode hash that will be filled in by the deployment operation or
+// chaincode name that will be referenced in development mode.
+var testChaincodeName = "mycc";
 
 // Initializing values for chaincode parameters
 var initA = "100";
@@ -232,8 +245,10 @@ test('Deploy a chaincode by enrolled user', function(t) {
 
   // Construct the deploy request
   var deployRequest = {
-    // Path (under $GOPATH) required for deploy
+    // Path (under $GOPATH) required for deploy in network mode
     chaincodePath: testChaincodePath,
+    // Name required for deploy in development mode
+    chaincodeID: testChaincodeName,
     // Function to trigger
     fcn: "init",
     // Arguments to the initializing function
@@ -246,15 +261,15 @@ test('Deploy a chaincode by enrolled user', function(t) {
   // Print the deploy results
   deployTx.on('complete', function(results) {
     // Deploy request completed successfully
-    console.log("deploy results: %j",results);
+    console.log(util.format("deploy results: %j",results));
     // Set the chaincode name (hash returned) for subsequent tests
     testChaincodeName = results.chaincodeID;
     console.log("testChaincodeName:" + testChaincodeName);
-    t.pass("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results);
+    t.pass(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
   });
   deployTx.on('error', function(err) {
     // Deploy request failed
-    t.fail("Failed to deploy chaincode: request=%j, error=%j",deployRequest,err);
+    t.fail(util.format("Failed to deploy chaincode: request=%j, error=%j",deployRequest,err));
   });
 });
 
@@ -265,6 +280,8 @@ test('Deploy a chaincode by enrolled user', function(t) {
 //
 
 test('Query existing chaincode state by enrolled user with batch size of 1', function (t) {
+    t.plan(1);
+
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
@@ -282,13 +299,11 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass("Successfully queried existing chaincode state: request=%j, response=%j", queryRequest, results);
-        t.end();
+        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
-        t.fail("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err);
-        t.end();
+        t.fail(util.format("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err));
     });
 });
 
@@ -318,12 +333,11 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.pass("Successfully queried existing chaincode state: request=%j, response=%j",queryRequest,results);
+        t.pass(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
     });
     queryTx.on('error', function (err) {
       // Query failed
-      t.fail("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err);
-      t.end();
+      t.fail(util.format("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err));
     });
 });
 
@@ -352,11 +366,11 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail("Successfully queried non-existing chaincode state: request=%j, response=%j",queryRequest,results);
+        t.fail(util.format("Successfully queried non-existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
-        t.pass("Failed to query non-existing chaincode state: request=%j, error=%j",queryRequest,err);
+        t.pass(util.format("Failed to query non-existing chaincode state: request=%j, error=%j",queryRequest,err));
     });
 });
 
@@ -385,11 +399,11 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Print the query results
     queryTx.on('complete', function (results) {
         // Query completed successfully
-        t.fail("Successfully queried non-existing chaincode function: request=%j, response=%j",queryRequest,results);
+        t.fail(util.format("Successfully queried non-existing chaincode function: request=%j, response=%j, value=%s", queryRequest, results, results.result.msg.toString()));
     });
     queryTx.on('error', function (err) {
         // Query failed
-        t.pass("Failed to query non-existing chaincode function: request=%j, error=%j",queryRequest,err);
+        t.pass(util.format("Failed to query non-existing chaincode function: request=%j, error=%j",queryRequest,err));
     });
 });
 
@@ -417,10 +431,10 @@ test('Invoke a chaincode by enrolled user', function (t) {
     // Print the invoke results
     invokeTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
-        t.pass("Successfully submitted chaincode invoke transaction: request=%j, response=%j", invokeRequest,results);
+        t.pass(util.format("Successfully submitted chaincode invoke transaction: request=%j, response=%j", invokeRequest,results));
     });
     invokeTx.on('error', function (err) {
         // Invoke transaction submission failed
-        t.fail("Failed to submit chaincode invoke transaction: request=%j, error=%j", invokeRequest, err);
+        t.fail(util.format("Failed to submit chaincode invoke transaction: request=%j, error=%j", invokeRequest, err));
     });
 });
