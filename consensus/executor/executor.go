@@ -138,7 +138,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 				co.consumer.StateUpdated(et.tag, nil)
 				return nil
 			}
-			logger.Warning("State transfer did not complete successfully but is recoverable, trying again: %s", err)
+			logger.Warningf("State transfer did not complete successfully but is recoverable, trying again: %s", err)
 			et.peers = nil // Broaden the peers included in recover to all connected
 		}
 	default:

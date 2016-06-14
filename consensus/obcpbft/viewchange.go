@@ -332,6 +332,56 @@ func (instance *pbftCore) processNewView() events.Event {
 		return instance.sendViewChange()
 	}
 
+	speculativeLastExec := instance.lastExec
+	if instance.currentExec != nil {
+		speculativeLastExec = *instance.currentExec
+	}
+
+	// If we have no reached the sequence number, check to see if we can reach it without state transfer
+	// in general executions are better than state transfer
+	if speculativeLastExec < cp.SequenceNumber {
+		canExecuteToTarget := true
+	outer:
+		for seqNo := speculativeLastExec; seqNo <= cp.SequenceNumber; seqNo++ {
+			found := false
+			for idx, cert := range instance.certStore {
+				if idx.n != seqNo {
+					continue
+				}
+
+				quorum := 0
+				for _, p := range cert.commit {
+					// Was this committed in the previous view
+					if p.View == idx.v && p.SequenceNumber == seqNo {
+						quorum++
+					}
+				}
+
+				if quorum < instance.intersectionQuorum() {
+					logger.Debugf("Replica %d missing quorum of commit certificate for seqNo=%d, only has %d of %d", instance.id, quorum, instance.intersectionQuorum())
+					continue
+				}
+
+				found = true
+				break
+			}
+
+			if !found {
+				canExecuteToTarget = false
+				logger.Debugf("Replica %d missing commit certificate for seqNo=%d", instance.id, seqNo)
+				break outer
+			}
+
+		}
+
+		if canExecuteToTarget {
+			logger.Debugf("Replica %d needs to process a new view, but can execute to the checkpoint seqNo %d, delaying processing of new view", instance.id, cp.SequenceNumber)
+			return nil
+		}
+
+		logger.Infof("Replica %d cannot execute to the view change checkpoint with seqNo %d", instance.id, cp.SequenceNumber)
+	}
+
 	msgList := instance.assignSequenceNumbers(nv.Vset, cp.SequenceNumber)
 	if msgList == nil {
 		logger.Warningf("Replica %d could not assign sequence numbers: %+v",
@@ -349,8 +399,8 @@ func (instance *pbftCore) processNewView() events.Event {
 		instance.moveWatermarks(cp.SequenceNumber)
 	}
 
-	if instance.lastExec < cp.SequenceNumber {
-		logger.Warningf("Replica %d missing base checkpoint %d (%s)", instance.id, cp.SequenceNumber, cp.Id)
+	if speculativeLastExec < cp.SequenceNumber {
+		logger.Warningf("Replica %d missing base checkpoint %d (%s), our most recent execution %d", instance.id, cp.SequenceNumber, cp.Id, speculativeLastExec)
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {

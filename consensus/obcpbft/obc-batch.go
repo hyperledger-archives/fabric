@@ -344,8 +344,13 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	case executedEvent:
 		op.stack.Commit(nil, et.tag.([]byte))
 	case committedEvent:
-		op.pbft.ProcessEvent(execDoneEvent{})
 		op.startTimerIfOutstandingRequests()
+		return execDoneEvent{}
+	case execDoneEvent:
+		if res := op.pbft.ProcessEvent(event); res != nil {
+			return res
+		}
+
 		// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
 		// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
 		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
