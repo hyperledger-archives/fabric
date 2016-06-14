@@ -328,18 +328,6 @@ def step_impl(context, seconds):
     print("Result of request to all peers = {0}".format(respMap))
     print("")
 
-def getContainerDataValuesFromContext(context, aliases, callback):
-    """Returns the IPAddress based upon a name part of the full container name"""
-    assert 'compose_containers' in context, "compose_containers not found in context"
-    values = []
-    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-    for namePart in aliases:
-        for containerData in context.compose_containers:
-            if containerData.containerName.startswith(containerNamePrefix + namePart):
-                values.append(callback(containerData))
-                break
-    return values
-
 
 @then(u'I wait up to "{seconds}" seconds for transaction to be committed to peers')
 def step_impl(context, seconds):
@@ -348,7 +336,7 @@ def step_impl(context, seconds):
     assert 'table' in context, "table (of peers) not found in context"
 
     aliases =  context.table.headings
-    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     # Build map of "containerName" : resp.statusCode
     respMap = {container.containerName:0 for container in containerDataList}
@@ -420,7 +408,7 @@ def query_common(context, chaincodeName, functionName, value, failOnError):
     assert 'peerToSecretMessage' in context, "peerToSecretMessage map not found in context"
 
     aliases =  context.table.headings
-    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     # Update the chaincodeSpec ctorMsg for invoke
     context.chaincodeSpec['ctorMsg']['function'] = functionName
@@ -471,7 +459,7 @@ def step_impl(context, userName, secret):
 
     # Get list of IPs to login to
     aliases =  context.table.headings
-    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     secretMsg = {
         "enrollId": userName,
