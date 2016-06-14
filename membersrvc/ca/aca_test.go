@@ -17,7 +17,9 @@ limitations under the License.
 package ca
 
 import (
+	"bytes"
 	"errors"
+	"google/protobuf"
 	"io/ioutil"
 	"math/big"
 	"strings"
@@ -25,7 +27,6 @@ import (
 	"time"
 
 	"crypto/x509"
-	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -57,15 +58,112 @@ func loadECert(identityID string) (*x509.Certificate, error) {
 }
 
 func TestFetchAttributes(t *testing.T) {
+	resp, err := fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
 
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+}
+
+func TestFetchAttributes_MultipleInvocations(t *testing.T) {
+	expectedAttributesSize := 4
+	expectedCount := 4
+
+	resp, err := fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+
+	attributesMap1, count, err := readAttributesFromDB("diego", "institution_a")
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if count != expectedCount {
+		t.Fatalf("Error executing test: Expected count [%v], Actual count [%v]", expectedCount, count)
+	}
+
+	resp, err = fetchAttributes()
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
+		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
+	}
+
+	attributesMap2, count, err := readAttributesFromDB("diego", "institution_a")
+	if err != nil {
+		t.Fatalf("Error executing test: %v", err)
+	}
+
+	if count != expectedCount {
+		t.Fatalf("Error executing test: Expected count [%v], Actual count [%v]", expectedCount, count)
+	}
+
+	if len(attributesMap1) != expectedAttributesSize {
+		t.Fatalf("Error executing test: Expected attributes size [%v], Actual attributes size [%v]", expectedAttributesSize, len(attributesMap1))
+	}
+
+	if len(attributesMap1) != len(attributesMap2) {
+		t.Fatalf("Error executing test: %v", "attributes should be the same each time")
+	}
+
+	for key, value := range attributesMap1 {
+		if bytes.Compare(value, attributesMap2[key]) != 0 {
+			t.Fatalf("Error executing test: %v. Expected: [%v], Actual: [%v]", "attributes should be the same each time", value, attributesMap2[key])
+		}
+	}
+
+	if len(attributesMap1) != len(attributesMap2) {
+		t.Fatalf("Error executing test: %v", "attributes should be the same each time")
+	}
+
+}
+
+func readAttributesFromDB(id string, affiliation string) (map[string][]byte, int, error) {
+	var attributeName string
+	var attributeValue []byte
+
+	query := "SELECT attributeName, attributeValue FROM attributes WHERE id=? AND affiliation=?"
+
+	rows, err := aca.db.Query(query, id, affiliation)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	defer rows.Close()
+
+	count := 0
+	attributesMap := make(map[string][]byte)
+	for rows.Next() {
+		err := rows.Scan(&attributeName, &attributeValue)
+		if err != nil {
+			return nil, 0, err
+		}
+		attributesMap[attributeName] = attributeValue
+		count++
+	}
+
+	return attributesMap, count, nil
+}
+
+func fetchAttributes() (*pb.ACAFetchAttrResp, error) {
 	cert, err := loadECert(identity)
 
 	if err != nil {
-		t.Fatalf("Error loading ECert: %v", err)
+		return nil, err
 	}
 	sock, acaP, err := GetACAClient()
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 	defer sock.Close()
 
@@ -77,7 +175,7 @@ func TestFetchAttributes(t *testing.T) {
 	var rawReq []byte
 	rawReq, err = proto.Marshal(req)
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 
 	var r, s *big.Int
@@ -85,7 +183,7 @@ func TestFetchAttributes(t *testing.T) {
 	r, s, err = primitives.ECDSASignDirect(eca.priv, rawReq)
 
 	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
+		return nil, err
 	}
 
 	R, _ := r.MarshalText()
@@ -94,13 +192,8 @@ func TestFetchAttributes(t *testing.T) {
 	req.Signature = &pb.Signature{Type: pb.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err := acaP.FetchAttributes(context.Background(), req)
-	if err != nil {
-		t.Fatalf("Error executing test: %v", err)
-	}
 
-	if resp.Status == pb.ACAFetchAttrResp_FAILURE {
-		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
-	}
+	return resp, err
 }
 
 func TestFetchAttributes_MissingSignature(t *testing.T) {

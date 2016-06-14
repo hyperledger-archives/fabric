@@ -107,7 +107,7 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 
 //ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
 func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
-	if position < 0 {
+	if position <= 0 {
 		return nil, fmt.Errorf("Invalid attribute position. Received [%v]", position)
 	}
 
