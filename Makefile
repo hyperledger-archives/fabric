@@ -39,7 +39,6 @@ PROJECT_NAME=hyperledger/fabric
 PKGNAME = github.com/$(PROJECT_NAME)
 CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 UID = $(shell id -u)
-DOCKER_USER_NS="host"
 
 EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
@@ -115,7 +114,7 @@ $(GOPATH)/bin/%:
 	@echo "Building $@"
 	@mkdir -p $(@D)
 	@docker run -i \
-		--user=$(UID) --userns=$(DOCKER_USER_NS) \
+		--user=$(UID) \
 		-v $(abspath vendor/github.com/golang/protobuf):/opt/gopath/src/github.com/golang/protobuf \
 		-v $(abspath $(@D)):/opt/gopath/bin \
 		hyperledger/fabric-baseimage go install github.com/golang/protobuf/protoc-gen-go
@@ -131,7 +130,7 @@ build/docker/bin/%: build/image/src/.dummy $(PROJECT_FILES)
 	@echo "Building $@"
 	@mkdir -p build/docker/bin build/docker/pkg
 	@docker run -i \
-		--user=$(UID) --userns=$(DOCKER_USER_NS) \
+		--user=$(UID) \
 		-v $(abspath build/docker/bin):/opt/gopath/bin \
 		-v $(abspath build/docker/pkg):/opt/gopath/pkg \
 		hyperledger/fabric-src go install github.com/hyperledger/fabric/$(TARGET)
