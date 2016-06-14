@@ -55,7 +55,7 @@ func MakeGenesis() error {
 
 		defer func() {
 			if !genesisBlockExists && makeGenesisError == nil {
-				genesisLogger.Info("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
+				genesisLogger.Infof("Adding %d system chaincodes to the genesis block.", len(genesisTransactions))
 				ledger.CommitTxBatch(0, genesisTransactions, nil, nil)
 			}
 		}()
