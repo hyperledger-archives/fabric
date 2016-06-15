@@ -215,14 +215,7 @@ func (tca *TCA) Start(srv *grpc.Server) {
 	tca.startTCAP(srv)
 	tca.startTCAA(srv)
 
-	tca.startValidityPeriodUpdate()
 	Info.Println("TCA started.")
-}
-
-func (tca *TCA) startValidityPeriodUpdate() {
-	if validityPeriodUpdateEnabled() {
-		go updateValidityPeriod()
-	}
 }
 
 func (tca *TCA) startTCAP(srv *grpc.Server) {
