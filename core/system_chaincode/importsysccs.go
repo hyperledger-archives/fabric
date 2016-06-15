@@ -17,13 +17,17 @@ limitations under the License.
 package system_chaincode
 
 import (
-	//import system chain codes here
 	"github.com/hyperledger/fabric/core/system_chaincode/api"
-	"github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
+	//import system chain codes here
 )
+
+//see systemchaincode_test.go for an example using "sample_syscc"
+var systemChaincodes = []*api.SystemChaincode{}
 
 //RegisterSysCCs is the hook for system chaincodes where system chaincodes are registered with the fabric
 //note the chaincode must still be deployed and launched like a user chaincode will be
 func RegisterSysCCs() {
-	api.RegisterSysCC("github.com/hyperledger/fabric/core/system_chaincode/sample_syscc", &sample_syscc.SampleSysCC{})
+	for _, sysCC := range systemChaincodes {
+		api.RegisterSysCC(sysCC)
+	}
 }
