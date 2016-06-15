@@ -204,7 +204,20 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	b.broadcaster.Wait()
 
 	if len(b.outstandingReqs) != 0 {
-		t.Fatalf("All requests should have been resubmitted")
+		t.Fatalf("All requests should have been resubmitted after exec")
+	}
+
+	// Add two more requests
+	b.outstandingReqs[createPbftRequestWithChainTx(3, 0)] = struct{}{}
+	b.outstandingReqs[createPbftRequestWithChainTx(4, 0)] = struct{}{}
+
+	b.pbft.currentExec = nil
+
+	b.manager.Queue() <- viewChangedEvent{}
+	b.manager.Queue() <- nil
+
+	if len(b.outstandingReqs) != 0 {
+		t.Fatalf("All requests should have been resubmitted after view change")
 	}
 }
 

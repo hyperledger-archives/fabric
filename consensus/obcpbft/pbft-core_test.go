@@ -1533,7 +1533,7 @@ func TestViewChangeCanExecuteToCheckpoint(t *testing.T) {
 	nextExec := uint64(6)
 	instance.currentExec = &nextExec
 
-	for i := instance.lastExec + 1; i <= newViewBaseSeqNo; i++ {
+	for i := nextExec + 1; i <= newViewBaseSeqNo; i++ {
 		commit := &Commit{View: 0, SequenceNumber: i}
 		prepare := &Prepare{View: 0, SequenceNumber: i}
 		instance.certStore[msgID{v: 0, n: i}] = &msgCert{

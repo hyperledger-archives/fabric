@@ -97,6 +97,8 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		info := co.rawExecutor.GetBlockchainInfo()
 
+		logger.Debugf("Committed block %d with hash %x to chain", info.Height-1, info.CurrentBlockHash)
+
 		co.consumer.Committed(et.tag, info)
 	case rollbackEvent:
 		logger.Debug("Executor is processing an rollbackEvent")

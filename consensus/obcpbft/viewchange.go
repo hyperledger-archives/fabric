@@ -342,7 +342,7 @@ func (instance *pbftCore) processNewView() events.Event {
 	if speculativeLastExec < cp.SequenceNumber {
 		canExecuteToTarget := true
 	outer:
-		for seqNo := speculativeLastExec; seqNo <= cp.SequenceNumber; seqNo++ {
+		for seqNo := speculativeLastExec + 1; seqNo <= cp.SequenceNumber; seqNo++ {
 			found := false
 			for idx, cert := range instance.certStore {
 				if idx.n != seqNo {

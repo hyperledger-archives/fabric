@@ -28,6 +28,7 @@ import (
 	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
@@ -121,6 +122,9 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	// Broadcast the request to the network, in case we're in the wrong view
 	op.broadcastMsg(&BatchMessage{&BatchMessage_Request{req}})
 
+	op.logTxFromRequest(req)
+	op.outstandingReqs[req] = struct{}{}
+
 	// if we believe we are the leader, then process this request
 	leader := op.pbft.primary(op.pbft.view)
 	if leader == op.pbft.id && op.pbft.activeView {
@@ -194,8 +198,6 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 		return
 	}
 
-	logger.Debugf("Batch replica %d received exec for seqNo %d", op.pbft.id, seqNo)
-
 	var txs []*pb.Transaction
 
 	for _, req := range reqs.Requests {
@@ -206,16 +208,23 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			continue
 		}
 		// TODO, this is a really and inefficient way to do this, but because reqs aren't comparable, they cannot be retrieved from the map directly
+		found := false
 		for oreq := range op.outstandingReqs {
 			if reflect.DeepEqual(oreq, req) {
+				logger.Debugf("Batch replica %d deleting request with transaction %s from outstandingReqs, have %d left", op.pbft.id, tx.Uuid, len(op.outstandingReqs))
 				delete(op.outstandingReqs, oreq)
 				break
 			}
+		}
+		if !found {
+			logger.Debugf("Batch replica %d executing request with transaction %s which was not in its outstandingReqs", op.pbft.id, tx.Uuid)
 		}
 		txs = append(txs, tx)
 	}
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
+
+	logger.Debugf("Batch replica %d received exec for seqNo %d containing %d transactions", op.pbft.id, seqNo, len(txs))
 
 	op.stack.Execute(meta, txs) // This executes in the background, we will receive an executedEvent once it completes
 }
@@ -310,7 +319,9 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
 			return op.leaderProcReq(req)
 		}
+		op.logTxFromRequest(req)
 		op.outstandingReqs[req] = struct{}{}
+		op.startTimerIfOutstandingRequests()
 		return nil
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
 		senderID, err := getValidatorID(senderHandle) // who sent this?
@@ -334,6 +345,33 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	return nil
 }
 
+func (op *obcBatch) logTxFromRequest(req *Request) {
+	if logger.IsEnabledFor(logging.DEBUG) {
+		// This is potentially a very large expensive debug statement, guard
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(req.Payload, tx)
+		if err != nil {
+			logger.Errorf("Replica %d was sent a transaction which did not unmarshal: %s", op.pbft.id, err)
+		} else {
+			logger.Debugf("Replica %d adding request from %d with transaction %s into outstandingReqs", op.pbft.id, req.ReplicaId, tx.Uuid)
+		}
+	}
+}
+
+func (op *obcBatch) resubmitOutstandingReqs() events.Event {
+	op.startTimerIfOutstandingRequests()
+	// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
+	// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
+	if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
+		for nreq := range op.outstandingReqs {
+			if msg := op.leaderProcReq(nreq); msg != nil {
+				return msg
+			}
+		}
+	}
+	return nil
+}
+
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	logger.Debugf("Replica %d batch main thread looping", op.pbft.id)
@@ -344,22 +382,13 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	case executedEvent:
 		op.stack.Commit(nil, et.tag.([]byte))
 	case committedEvent:
-		op.startTimerIfOutstandingRequests()
 		return execDoneEvent{}
 	case execDoneEvent:
 		if res := op.pbft.ProcessEvent(event); res != nil {
+			// This may trigger a view change, if so, process it, we will resubmit on new view
 			return res
 		}
-
-		// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
-		// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
-		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
-			for nreq := range op.outstandingReqs {
-				if msg := op.leaderProcReq(nreq); msg != nil {
-					return msg
-				}
-			}
-		}
+		return op.resubmitOutstandingReqs()
 	case batchTimerEvent:
 		logger.Infof("Replica %d batch timer expired", op.pbft.id)
 		if op.pbft.activeView && (len(op.batchStore) > 0) {
@@ -375,7 +404,7 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		if op.batchTimerActive {
 			op.stopBatchTimer()
 		}
-
+		return op.resubmitOutstandingReqs()
 	case stateUpdatedEvent:
 		// When the state is updated, clear any outstanding requests, they may have been processed while we were gone
 		op.outstandingReqs = make(map[*Request]struct{})
