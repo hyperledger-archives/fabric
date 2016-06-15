@@ -10,6 +10,4 @@ vp:
 
 membersrvc:
    image: hyperledger/fabric-membersrvc
-   environment:
-    - CORE_VM_ENDPOINT=http://172.17.0.1:2375
    command: membersrvc
