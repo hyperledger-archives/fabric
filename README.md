@@ -15,7 +15,7 @@ We welcome contributions to the Hyperledger Project in many forms. There's alway
 The project's [maintainers](MAINTAINERS.txt): are responsible for reviewing and merging all pull requests and they guide the over-all technical direction of the project within the guidelines established by the Hyperledger Project's Technical Steering Committee (TSC).
 
 ## Communication <a name="communication"></a>
-We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
+We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers. Go To Meeting is also used.
 
 ## Installing the fabric
 [Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
