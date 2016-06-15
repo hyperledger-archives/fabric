@@ -213,3 +213,24 @@ func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
 	}
 
 }
+
+func TestServerOpenchainREST_API_GetPeers(t *testing.T) {
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPGet(t, httpServer.URL+"/network/peers")
+	var msg protos.PeersMessage
+	err := json.Unmarshal(body, &msg)
+	if err != nil {
+		t.Fatalf("Invalid JSON response: %v", err)
+	}
+	if len(msg.Peers) != 1 {
+		t.Errorf("Expected a list of 1 peer but got %d peers", len(msg.Peers))
+	}
+	if msg.Peers[0].ID.Name != "jdoe" {
+		t.Errorf("Expected a 'jdoe' peer but got '%s'", msg.Peers[0].ID.Name)
+	}
+}

@@ -1674,13 +1674,13 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		restLogger.Errorf("{\"Error\": \"Querying network peers -- %s\"}", err)
+		encoder.Encode(restResult{Error: err.Error()})
+		restLogger.Errorf("Error: Querying network peers -- %s", err)
 	} else if err1 != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err1)
-		restLogger.Errorf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1)
+		encoder.Encode(restResult{Error: err1.Error()})
+		restLogger.Errorf("Error: Accesing target peer endpoint data -- %s", err1)
 	} else {
 		currentPeerFound := false
 		peersList := peers.Peers
