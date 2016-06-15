@@ -647,21 +647,22 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 	// Retrieve the transaction matching the UUID
 	tx, err := s.server.GetTransactionByUUID(context.Background(), txUUID)
 
+	encoder := json.NewEncoder(rw)
+
 	// Check for Error
 	if err != nil {
 		switch err {
 		case ErrNotFound:
 			rw.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Transaction %s is not found.", txUUID)})
 		default:
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
-			restLogger.Errorf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Error retrieving transaction %s: %s.", txUUID, err)})
+			restLogger.Errorf("Error retrieving transaction %s: %s", txUUID, err)
 		}
 	} else {
 		// Return existing transaction
 		rw.WriteHeader(http.StatusOK)
-		encoder := json.NewEncoder(rw)
 		encoder.Encode(tx)
 		restLogger.Infof("Successfully retrieved transaction: %s", txUUID)
 	}

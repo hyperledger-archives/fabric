@@ -185,4 +185,10 @@ func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
 	if tx1.Timestamp.Seconds < startTime {
 		t.Errorf("Expected transaction timestamp (%v) to be after the start time (%v)", tx1.Timestamp.Seconds, startTime)
 	}
+
+	badBody := performHTTPGet(t, httpServer.URL+"/transactions/with-\"-chars-in-the-URL")
+	badRes := parseRESTResult(t, badBody)
+	if badRes.Error == "" {
+		t.Errorf("Expected a proper error when retrieive transaction with bad UUID")
+	}
 }
