@@ -3047,17 +3047,14 @@ You will receive a response similar to below:
       peer [command]
 
     Available Commands:
-      peer        Run the peer.
-      status      Status of the peer.
-      stop        Stop the peer.
-      login       Login user on CLI.
-      vm          VM functionality on the fabric.
+      node        node specific commands.
+      network     network specific commands.
       chaincode   chaincode specific commands.
       help        Help about any command
 
     Flags:
-      -h, --help[=false]: help
-
+      -h, --help[=false]: help for peer
+          --logging-level="": Default logging level and overrides, see core.yaml for full syntax
 
     Use "peer [command] --help" for more information about a command.
 ```
@@ -3078,32 +3075,32 @@ Not all of the above commands are fully implemented in the current release. The 
 
 Note, that any configuration settings for the peer node listed in the `core.yaml` configuration file, which is the  configuration file for the `peer` process, may be modified on the command line with an environment variable. For example, to set the `peer.id` or the `peer.addressAutoDetect` settings, one may pass the `CORE_PEER_ID=vp1` and `CORE_PEER_ADDRESSAUTODETECT=true` on the command line.
 
-#### 6.3.1.1 peer
+#### 6.3.1.1 node start
 
-The CLI `peer` command will execute the peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete network. An example for starting the peer in development mode follows:
+The CLI `node start` command will execute the peer process in either the development or production mode. The development mode is meant for running a single peer node locally, together with a local chaincode deployment. This allows a chaincode developer to modify and debug their code without standing up a complete network. An example for starting the peer in development mode follows:
 
 ```
-peer peer --peer-chaincodedev
+peer node start --peer-chaincodedev
 ```
 
 To start the peer process in production mode, modify the above command as follows:
 
 ```
-peer peer
+peer node start
 ```
 
-#### 6.3.1.2 login
+#### 6.3.1.2 network login
 
-The CLI `login` command will login a user, that is already registered with the CA, through the CLI. To login through the CLI, issue the following command, where `username` is the enrollment ID of a registered user.
+The CLI `network login` command will login a user, that is already registered with the CA, through the CLI. To login through the CLI, issue the following command, where `username` is the enrollment ID of a registered user.
 
 ```
-peer login <username>
+peer network login <username>
 ```
 
 The example below demonstrates the login process for user `jim`.
 
 ```
-peer login jim
+peer network login jim
 ```
 
 The command will prompt for a password, which must match the enrollment password for this user registered with the certificate authority. If the password entered does not match the registered password, an error will result.
@@ -3120,7 +3117,7 @@ Enter password for user 'jim': ************
 You can also pass a password for the user with `-p` parameter. An example is below.
 
 ```
-peer login jim -p 123456
+peer network login jim -p 123456
 ```
 
 #### 6.3.1.3 chaincode deploy
