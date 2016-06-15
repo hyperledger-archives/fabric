@@ -5,13 +5,21 @@ main() {
    # Initialization
    init
 
-   # Start member services, then run tests in network mode & dev mode
    {
+   # Start member services
    startMemberServices
-   #runTestsInNetworkMode
-   runTestsInDevMode
-   #stopPeer
-   #stopMemberServices
+
+   # Run tests in network mode
+   export DEPLOY_MODE='net'
+   runTests
+
+   # Run tests in dev mode
+   export DEPLOY_MODE='dev'
+   runTests
+
+   # Stop peer and member services
+   stopPeer
+   stopMemberServices
 
    } | tee $LOGDIR/log 2>&1
 }
@@ -35,33 +43,18 @@ init() {
    mkdir $LOGDIR
 }
 
-# Run tests in network mode
-runTestsInNetworkMode() {
-   echo "Begin running tests in network mode ..."
-   # start/restart peer in network mode
+# Run tests
+runTests() {
+   echo "Begin running tests in $DEPLOY_MODE mode ..."
+   # restart peer
    stopPeer
-   startPeerInNetworkMode
-   export DEPLOY_MODE='net'
+   startPeer
    # Run some tests in network mode
-   #runRegistrarTests
-   #runChainTests
-   runAssetMgmtTests
-   echo "End running tests in network mode"
-}
-
-# Run tests in dev mode
-runTestsInDevMode() {
-   echo "Begin running tests in dev mode ..."
-   # start/restart peer in dev mode
-   stopPeer
-   startPeerInDevMode
-   export DEPLOY_MODE='dev'
-   # Run some tests in dev mode
-   # runAssetMgmtWithRolesTests
    runRegistrarTests
    runChainTests
    runAssetMgmtTests
-   echo "End running tests in dev mode"
+   #runAssetMgmtWithRolesTests
+   echo "End running tests in network mode"
 }
 
 startMemberServices() {
@@ -72,16 +65,34 @@ stopMemberServices() {
    killProcess $MSEXE
 }
 
-startPeerInNetworkMode() {
-   startProcess "$PEEREXE node start" $PEERLOGFILE "peer"
-}
-
-startPeerInDevMode() {
-   startProcess "$PEEREXE node start --peer-chaincodedev" $PEERLOGFILE "peer"
+startPeer() {
+   if [ "$DEPLOY_MODE" = "net" ]; then
+      startProcess "$PEEREXE node start" $PEERLOGFILE "peer"
+   else
+      startProcess "$PEEREXE node start --peer-chaincodedev" $PEERLOGFILE "peer"
+   fi
 }
 
 stopPeer() {
    killProcess $PEEREXE
+}
+
+# $1 is the name of the example to prepare
+preExample() {
+  if [ "$DEPLOY_MODE" = "net" ]; then
+    prepareExampleForDeployInNetworkMode $1
+  else
+    startExampleInDevMode $1 $2
+  fi
+}
+
+# $1 is the name of the example to stop
+postExample() {
+  if [ "$DEPLOY_MODE" = "net" ]; then
+    echo "finished $1"
+  else
+    stopExampleInDevMode $1
+  fi
 }
 
 # $1 is name of example to prepare on disk
@@ -103,9 +114,8 @@ prepareExampleForDeployInNetworkMode() {
    cd vendor/github.com/hyperledger
    echo "cloning github.com/hyperledger/fabric; please wait ..."
    git clone https://github.com/hyperledger/fabric > /dev/null
+   cp -r fabric/vendor/github.com/op ..
    cd ../../..
-   go get github.com/op/go-logging
-   govendor add github.com/op/go-logging
    go build
 }
 
@@ -121,7 +131,7 @@ startExampleInDevMode() {
       cd $SRCDIR
       go build
    fi
-   export CORE_CHAINCODE_ID_NAME=$1
+   export CORE_CHAINCODE_ID_NAME=$2
    export CORE_PEER_ADDRESS=0.0.0.0:30303
    startProcess "$EXE" "${EXE}.log" "$1"
 }
@@ -138,33 +148,27 @@ runRegistrarTests() {
 }
 
 runChainTests() {
-   prepare chaincode_example02
    echo "BEGIN running chain-tests ..."
+   preExample chaincode_example02 mycc1
    node $UNITTEST/chain-tests.js
+   postExample chaincode_example02
    echo "END running chain-tests"
 }
 
 runAssetMgmtTests() {
-   prepare asset_management
    echo "BEGIN running asset-mgmt tests ..."
+   preExample asset_management mycc2
    node $UNITTEST/asset-mgmt.js
+   postExample asset_management
    echo "END running asset-mgmt tests"
 }
 
 runAssetMgmtWithRolesTests() {
    echo "BEGIN running asset management with roles tests ..."
-   prepare asset_management_with_roles
+   preExample asset_management_with_roles
    node $UNITTEST/asset-mgmt-with-roles.js
-   stopExampleInDevMode asset_management_with_roles
+   postExample asset_management_with_roles
    echo "END running asset management with roles tests"
-}
-
-prepare() {
-  if [ "$DEPLOY_MODE" = "net" ]; then
-    prepareExampleForDeployInNetworkMode $1
-  else
-    startExampleInDevMode $1
-  fi
 }
 
 # start process

@@ -41,7 +41,7 @@ var testChaincodePath = "github.com/asset_management/";
 
 // Chaincode hash that will be filled in by the deployment operation or
 // chaincode name that will be referenced in development mode.
-var testChaincodeName = "mycc";
+var testChaincodeName = "mycc2";
 
 
 //

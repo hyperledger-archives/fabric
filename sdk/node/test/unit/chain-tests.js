@@ -98,7 +98,7 @@ var testChaincodePath = "github.com/chaincode_example02/";
 
 // Chaincode hash that will be filled in by the deployment operation or
 // chaincode name that will be referenced in development mode.
-var testChaincodeName = "mycc";
+var testChaincodeName = "mycc1";
 
 // Initializing values for chaincode parameters
 var initA = "100";
