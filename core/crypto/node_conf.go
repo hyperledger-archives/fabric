@@ -33,7 +33,7 @@ func (node *nodeImpl) initConfiguration(name string) (err error) {
 		return
 	}
 
-	node.debug("Data will be stored at [%s]", node.conf.configurationPath)
+	node.Debugf("Data will be stored at [%s]", node.conf.configurationPath)
 
 	return
 }

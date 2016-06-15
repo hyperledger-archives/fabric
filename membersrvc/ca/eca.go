@@ -453,7 +453,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	}
 
 	// Register the user
-	registrarId := in.Registrar.Id.Id
+	registrarID := in.Registrar.Id.Id
 	in.Registrar.Id = nil
 	registrar := pb.RegisterUserReq{Registrar: in.Registrar}
 	json, err := json.Marshal(registrar)
@@ -462,7 +462,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	}
 	jsonStr := string(json)
 	Trace.Println("gRPC ECAA:RegisterUser: json=" + jsonStr)
-	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarId, jsonStr)
+	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarID, jsonStr)
 
 	// Return the one-time password
 	return &pb.Token{[]byte(tok)}, err
@@ -480,7 +480,7 @@ func (ecaa *ECAA) checkRegistrarSignature(in *pb.RegisterUserReq) error {
 
 	// Get the raw cert for the registrar
 	registrar := in.Registrar.Id.Id
-	raw, err := ecaa.eca.readCertificate(registrar, x509.KeyUsageDigitalSignature)
+	raw, err := ecaa.eca.readCertificateByKeyUsage(registrar, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return err
 	}
@@ -526,7 +526,7 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 		return nil, errors.New("Access denied.")
 	}
 
-	raw, err := ecaa.eca.readCertificate(req, x509.KeyUsageDigitalSignature)
+	raw, err := ecaa.eca.readCertificateByKeyUsage(req, x509.KeyUsageDigitalSignature)
 	if err != nil {
 		return nil, err
 	}

@@ -621,10 +621,10 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
 
 		// Check for error
-		if err != nil {
+		if err != nil || block == nil {
 			// Failure
-			switch err {
-			case ErrNotFound:
+			switch {
+			case err == ErrNotFound || block == nil:
 				rw.WriteHeader(http.StatusNotFound)
 			default:
 				rw.WriteHeader(http.StatusInternalServerError)

@@ -137,6 +137,12 @@ func (c *complainer) CustodyElements() []CustodyPair {
 	return ret
 }
 
+// Clear empties all requests and complaints from custody
+func (c *complainer) Clear() {
+	c.custody.RemoveAll()
+	c.complaints.RemoveAll()
+}
+
 // Restart resets custody and complaint queues without calling into
 // the complaintHandler.  The complaint queue is drained completely.
 // The custody queue timeouts are reset.  Restart returns all requests

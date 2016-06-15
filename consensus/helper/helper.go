@@ -43,7 +43,6 @@ type Helper struct {
 	curBatch     []*pb.Transaction       // TODO, remove after issue 579
 	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
 	persist.Helper
-	stateTransfering bool // Whether state transfer is active
 
 	executor consensus.Executor
 }
@@ -56,6 +55,7 @@ func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
 		secHelper:   mhc.GetSecHelper(),
 		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
 	}
+
 	h.executor = executor.NewImpl(h, h, mhc)
 	h.executor.Start()
 	return h

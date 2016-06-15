@@ -61,6 +61,12 @@ type obcSieve struct {
 	idleChan         chan struct{}           // Used for detecting thread idleness for testing
 }
 
+type custodyInfo struct {
+	hash      string
+	req       interface{}
+	complaint bool
+}
+
 type pbftExecute struct {
 	seqNo uint64
 	txRaw []byte
