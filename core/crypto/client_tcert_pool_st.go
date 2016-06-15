@@ -55,24 +55,24 @@ func (tCertPool *tCertPoolSingleThreadImpl) Start() (err error) {
 	tCertPool.m.Lock()
 	defer tCertPool.m.Unlock()
 
-	tCertPool.client.debug("Starting TCert Pool...")
+	tCertPool.client.Debug("Starting TCert Pool...")
 
 	// Load unused TCerts if any
 	tCertDBBlocks, err := tCertPool.client.ks.loadUnusedTCerts()
 	if err != nil {
-		tCertPool.client.error("Failed loading TCerts from cache: [%s]", err)
+		tCertPool.client.Errorf("Failed loading TCerts from cache: [%s]", err)
 
 		return
 	}
 
 	if len(tCertDBBlocks) > 0 {
 
-		tCertPool.client.debug("TCerts in cache found! Loading them...")
+		tCertPool.client.Debug("TCerts in cache found! Loading them...")
 
 		for _, tCertDBBlock := range tCertDBBlocks {
 			tCertBlock, err := tCertPool.client.getTCertFromDER(tCertDBBlock)
 			if err != nil {
-				tCertPool.client.error("Failed paring TCert [% x]: [%s]", tCertDBBlock.tCertDER, err)
+				tCertPool.client.Errorf("Failed paring TCert [% x]: [%s]", tCertDBBlock.tCertDER, err)
 
 				continue
 			}
@@ -93,7 +93,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) Stop() (err error) {
 		tCertPool.client.ks.storeUnusedTCerts(certList[:certListLen])
 	}
 
-	tCertPool.client.debug("Store unused TCerts...done!")
+	tCertPool.client.Debug("Store unused TCerts...done!")
 
 	return
 }
@@ -161,7 +161,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) getNextTCert(attributes ...string) (
 //AddTCert adds a TCert into the pool is invoked by the client after TCA is called.
 func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCertBlock *TCertBlock) (err error) {
 
-	tCertPool.client.debug("Adding new Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
+	tCertPool.client.Debugf("Adding new Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
 
 	if tCertPool.length[tCertBlock.attributesHash] <= 0 {
 		tCertPool.length[tCertBlock.attributesHash] = 0
@@ -182,7 +182,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) AddTCert(tCertBlock *TCertBlock) (er
 
 func (tCertPool *tCertPoolSingleThreadImpl) init(client *clientImpl) (err error) {
 	tCertPool.client = client
-	tCertPool.client.debug("Init TCert Pool...")
+	tCertPool.client.Debug("Init TCert Pool...")
 
 	tCertPool.tCerts = make(map[string][]*TCertBlock)
 
