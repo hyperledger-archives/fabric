@@ -93,12 +93,12 @@ func (vmc *VMController) lockContainer(id string) {
 		vmcontroller.containerLocks[id] = refLck
 	} else {
 		refLck.refCount++
-		vmLogger.Debug("refcount %d (%s)", refLck.refCount, id)
+		vmLogger.Debugf("refcount %d (%s)", refLck.refCount, id)
 	}
 	vmcontroller.Unlock()
-	vmLogger.Debug("waiting for container(%s) lock", id)
+	vmLogger.Debugf("waiting for container(%s) lock", id)
 	refLck.lock.Lock()
-	vmLogger.Debug("got container (%s) lock", id)
+	vmLogger.Debugf("got container (%s) lock", id)
 }
 
 func (vmc *VMController) unlockContainer(id string) {
@@ -109,11 +109,11 @@ func (vmc *VMController) unlockContainer(id string) {
 		}
 		refLck.lock.Unlock()
 		if refLck.refCount--; refLck.refCount == 0 {
-			vmLogger.Debug("container lock deleted(%s)", id)
+			vmLogger.Debugf("container lock deleted(%s)", id)
 			delete(vmcontroller.containerLocks, id)
 		}
 	} else {
-		vmLogger.Debug("no lock to unlock(%s)!!", id)
+		vmLogger.Debugf("no lock to unlock(%s)!!", id)
 	}
 	vmcontroller.Unlock()
 }

@@ -90,7 +90,7 @@ func (c *Custodian) Register(id string, data interface{}) {
 		data:     data,
 		deadline: time.Now().Add(c.timeout),
 	}
-	logger.Debug("Registering %s into custody with timeout %v", id, obj.deadline)
+	logger.Debugf("Registering %s into custody with timeout %v", id, obj.deadline)
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.requests[obj.id] = obj
@@ -105,11 +105,11 @@ func (c *Custodian) Register(id string, data interface{}) {
 func (c *Custodian) Remove(id string) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	logger.Debug("Removing %s from custody", id)
+	logger.Debugf("Removing %s from custody", id)
 	obj, ok := c.requests[id]
 	if ok {
 		delete(c.requests, id)
-		logger.Debug("Canceling %s", id)
+		logger.Debugf("Canceling %s", id)
 		obj.canceled = true
 		obj.data = nil
 	}

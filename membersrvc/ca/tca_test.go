@@ -195,20 +195,3 @@ func buildCertificateSetRequest(enrollID string, enrollmentPrivKey *ecdsa.Privat
 	req.Sig = &protos.Signature{Type: protos.CryptoType_ECDSA, R: R, S: S}
 	return req, nil
 }
-
-func TestReadCACertificate(t *testing.T) {
-	tca, err := initTCA()
-	if nil != err {
-		t.Fatal(err)
-	}
-
-	pbempty := &protos.Empty{}
-	tcap := &TCAP{tca}
-	response, err := tcap.ReadCACertificate(context.Background(), pbempty)
-	if nil != err {
-		t.Fatal(err)
-	}
-	if nil == response {
-		t.Fatal("tca.ReadCACertificate() returned nil")
-	}
-}

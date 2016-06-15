@@ -282,15 +282,15 @@ func (p *PeerImpl) Chat(stream pb.Peer_ChatServer) error {
 
 // ProcessTransaction implementation of the ProcessTransaction RPC function
 func (p *PeerImpl) ProcessTransaction(ctx context.Context, tx *pb.Transaction) (response *pb.Response, err error) {
-	peerLogger.Debug("ProcessTransaction processing transaction uuid = %s", tx.Uuid)
+	peerLogger.Debugf("ProcessTransaction processing transaction uuid = %s", tx.Uuid)
 	// Need to validate the Tx's signature if we are a validator.
 	if p.isValidator {
 		// Verify transaction signature if security is enabled
 		secHelper := p.secHelper
 		if nil != secHelper {
-			peerLogger.Debug("Verifying transaction signature %s", tx.Uuid)
+			peerLogger.Debugf("Verifying transaction signature %s", tx.Uuid)
 			if tx, err = secHelper.TransactionPreValidation(tx); err != nil {
-				peerLogger.Error("ProcessTransaction failed to verify transaction %v", err)
+				peerLogger.Errorf("ProcessTransaction failed to verify transaction %v", err)
 				return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
 			}
 		}
@@ -371,7 +371,7 @@ func (p *PeerImpl) RegisterHandler(messageHandler MessageHandler) error {
 		return newDuplicateHandlerError(messageHandler)
 	}
 	p.handlerMap.m[*key] = messageHandler
-	peerLogger.Debug("registered handler with key: %s", key)
+	peerLogger.Debugf("registered handler with key: %s", key)
 	return nil
 }
 
@@ -388,7 +388,7 @@ func (p *PeerImpl) DeregisterHandler(messageHandler MessageHandler) error {
 		return fmt.Errorf("Error deregistering handler, could not find handler with key: %s", key)
 	}
 	delete(p.handlerMap.m, *key)
-	peerLogger.Debug("Deregistered handler with key: %s", key)
+	peerLogger.Debugf("Deregistered handler with key: %s", key)
 	return nil
 }
 
@@ -431,7 +431,7 @@ func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error 
 				toPeerEndpoint, _ := msgHandler.To()
 				errorsFromHandlers <- fmt.Errorf("Error broadcasting msg (%s) to PeerEndpoint (%s): %s", msg.Type, toPeerEndpoint, err)
 			}
-			peerLogger.Debug("Sending %d bytes to %s took %v", len(msg.Payload), host.Address, time.Since(t1))
+			peerLogger.Debugf("Sending %d bytes to %s took %v", len(msg.Payload), host.Address, time.Since(t1))
 
 		}(msgHandler)
 
@@ -444,7 +444,7 @@ func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error 
 	}
 
 	elapsed := time.Since(start)
-	peerLogger.Debug("Broadcast took %v", elapsed)
+	peerLogger.Debugf("Broadcast took %v", elapsed)
 
 	return returnedErrors
 }
@@ -481,7 +481,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 	}
 	defer conn.Close()
 	serverClient := pb.NewPeerClient(conn)
-	peerLogger.Debug("Sending TX to Peer: %s", peerAddress)
+	peerLogger.Debugf("Sending TX to Peer: %s", peerAddress)
 	response, err = serverClient.ProcessTransaction(context.Background(), transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error calling ProcessTransaction on remote peer at address=%s:  %s", peerAddress, err))}
@@ -492,7 +492,7 @@ func (p *PeerImpl) SendTransactionsToPeer(peerAddress string, transaction *pb.Tr
 // sendTransactionsToLocalEngine send the transaction to the local engine (This Peer is a validator)
 func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *pb.Response {
 
-	peerLogger.Debug("Marshalling transaction %s to send to local engine", transaction.Type)
+	peerLogger.Debugf("Marshalling transaction %s to send to local engine", transaction.Type)
 	data, err := proto.Marshal(transaction)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error sending transaction to local engine: %s", err))}
@@ -500,7 +500,7 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 
 	var response *pb.Response
 	msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: data, Timestamp: util.CreateUtcTimestamp()}
-	peerLogger.Debug("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
+	peerLogger.Debugf("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
 	response = p.engine.ProcessTransactionMsg(msg, transaction)
 
 	return response
@@ -543,7 +543,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string, chatTokens chan token) error
 		// acquire token
 		chatTokens <- token{}
 
-		peerLogger.Debug("Initiating Chat with peer address: %s", peerAddress)
+		peerLogger.Debugf("Initiating Chat with peer address: %s", peerAddress)
 		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
 		if err != nil {
 			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
@@ -557,12 +557,12 @@ func (p *PeerImpl) chatWithPeer(peerAddress string, chatTokens chan token) error
 		stream, err := serverClient.Chat(ctx)
 		if err != nil {
 			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-			peerLogger.Error(fmt.Sprintf("%s", e.Error()))
+			peerLogger.Errorf("%s", e.Error())
 			// relinquish token
 			<-chatTokens
 			continue
 		}
-		peerLogger.Debug("Established Chat with peer address: %s", peerAddress)
+		peerLogger.Debugf("Established Chat with peer address: %s", peerAddress)
 
 		err = p.handleChat(ctx, stream, true)
 		stream.CloseSend()
@@ -578,7 +578,7 @@ func (p *PeerImpl) chatWithPeer(peerAddress string, chatTokens chan token) error
 // Chat implementation of the the Chat bidi streaming RPC function
 func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedStream bool) error {
 	deadline, ok := ctx.Deadline()
-	peerLogger.Debug("Current context deadline = %s, ok = %v", deadline, ok)
+	peerLogger.Debugf("Current context deadline = %s, ok = %v", deadline, ok)
 	handler, err := p.handlerFactory(p, stream, initiatedStream, nil)
 	if err != nil {
 		return fmt.Errorf("Error creating handler during handleChat initiation: %s", err)
@@ -597,7 +597,7 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
-			peerLogger.Error(fmt.Sprintf("Error handling message: %s", err))
+			peerLogger.Errorf("Error handling message: %s", err)
 			//return err
 		}
 	}

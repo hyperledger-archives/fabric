@@ -21,9 +21,11 @@ import (
 	"os"
 	"testing"
 
+	"database/sql"
+
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"database/sql"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -76,29 +78,18 @@ func TestNewCA(t *testing.T) {
 	}
 
 	//check that commonname, organization and country match config
-	org := GetConfigString("pki.ca.subject.organization")
+	org := viper.GetString("pki.ca.subject.organization")
 	if cacert.Subject.Organization[0] != org {
 		t.Fatalf("ca cert subject organization [%s] did not match configuration [%s]",
 			cacert.Subject.Organization, org)
 	}
 
-	country := GetConfigString("pki.ca.subject.country")
+	country := viper.GetString("pki.ca.subject.country")
 	if cacert.Subject.Country[0] != country {
 		t.Fatalf("ca cert subject country [%s] did not match configuration [%s]",
 			cacert.Subject.Country, country)
 	}
 
-	//cleanup
-	err = cleanupFiles(ca.path)
-	if err != nil {
-		t.Logf("Failed removing [%s] [%s]\n", ca.path, err)
-	}
-
-}
-
-//cleanup files between and after tests
-func cleanupFiles(path string) error {
-	return os.RemoveAll(path)
 }
 
 // Empty initializer for CA

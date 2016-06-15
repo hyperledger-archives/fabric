@@ -36,11 +36,11 @@ var (
 )
 
 func addDefaultCert(key string, cert []byte) error {
-	log.Debug("Adding Default Cert [%s][%s]", key, utils.EncodeBase64(cert))
+	log.Debugf("Adding Default Cert [%s][%s]", key, utils.EncodeBase64(cert))
 
 	der, err := utils.PEMtoDER(cert)
 	if err != nil {
-		log.Error("Failed adding default cert: [%s]", err)
+		log.Errorf("Failed adding default cert: [%s]", err)
 
 		return err
 	}

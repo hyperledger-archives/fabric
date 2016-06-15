@@ -220,7 +220,7 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 	client.info("Register crypto engine...")
 	err = client.registerCryptoEngine()
 	if err != nil {
-		log.Error("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
+		log.Errorf("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
 		return
 	}
 	client.info("Register crypto engine...done.")

@@ -43,10 +43,10 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Registering peer [%s] with id [%s]...", enrollID, name)
+	log.Infof("Registering peer [%s] with id [%s]...", enrollID, name)
 
 	if _, ok := peers[name]; ok {
-		log.Info("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
+		log.Infof("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
 	}
@@ -54,18 +54,18 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 	peer := newPeer()
 	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
-			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
+			log.Errorf("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Info("Registering peer [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Infof("Registering peer [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := peer.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Warning("Registering peer [%s] with id [%s]. Failed closing [%s].", enrollID, name, err)
+		log.Warningf("Registering peer [%s] with id [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering peer [%s] with id [%s]...done!", enrollID, name)
+	log.Infof("Registering peer [%s] with id [%s]...done!", enrollID, name)
 
 	return nil
 }
@@ -75,10 +75,10 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Initializing peer [%s]...", name)
+	log.Infof("Initializing peer [%s]...", name)
 
 	if entry, ok := peers[name]; ok {
-		log.Info("Peer  already initiliazied [%s]. Increasing counter from [%d]", name, peers[name].counter)
+		log.Infof("Peer  already initiliazied [%s]. Increasing counter from [%d]", name, peers[name].counter)
 		entry.counter++
 		peers[name] = entry
 
@@ -87,13 +87,13 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 
 	peer := newPeer()
 	if err := peer.init(NodePeer, name, pwd); err != nil {
-		log.Error("Failed peer initialization [%s]: [%s]", name, err)
+		log.Errorf("Failed peer initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
 	peers[name] = peerEntry{peer, 1}
-	log.Info("Initializing peer [%s]...done!", name)
+	log.Infof("Initializing peer [%s]...done!", name)
 
 	return peer, nil
 }
@@ -137,7 +137,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	}
 
 	name := peer.GetName()
-	log.Info("Closing peer [%s]...", name)
+	log.Infof("Closing peer [%s]...", name)
 	entry, ok := peers[name]
 	if !ok {
 		return utils.ErrInvalidReference
@@ -145,7 +145,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	if entry.counter == 1 || force {
 		defer delete(peers, name)
 		err := peers[name].peer.(*peerImpl).close()
-		log.Info("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
+		log.Infof("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
 
 		return err
 	}
@@ -153,7 +153,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	// decrease counter
 	entry.counter--
 	peers[name] = entry
-	log.Info("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
+	log.Infof("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
 
 	return nil
 }

@@ -119,6 +119,15 @@ func (sc *simpleConsumer) validateState()   {}
 func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.skipOccurred = true
 	sc.executions = seqNo
+	go func() {
+		sc.pe.manager.Queue() <- stateUpdatedEvent{
+			chkpt: &checkpointMessage{
+				seqNo: seqNo,
+				id:    id,
+			},
+			target: &pb.BlockchainInfo{},
+		}
+	}()
 	sc.pbftNet.debugMsg("TEST: skipping to %d\n", seqNo)
 }
 

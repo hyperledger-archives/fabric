@@ -36,10 +36,10 @@ func Init() (err error) {
 	if err == nil {
 		// No error, use the setting
 		logging.SetLevel(level, "crypto")
-		log.Info("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
+		log.Infof("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
 			logging.GetLevel("crypto"))
 	} else {
-		log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"),
+		log.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"),
 			logging.GetLevel("crypto"), err)
 	}
 
@@ -61,9 +61,9 @@ func Init() (err error) {
 		}
 	}
 
-	log.Debug("Working at security level [%d]", securityLevel)
+	log.Debugf("Working at security level [%d]", securityLevel)
 	if err = primitives.InitSecurityLevel(hashAlgorithm, securityLevel); err != nil {
-		log.Debug("Failed setting security level: [%s]", err)
+		log.Debugf("Failed setting security level: [%s]", err)
 
 		return
 	}

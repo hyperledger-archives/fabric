@@ -60,7 +60,7 @@ var isOpen bool
 // CreateDB creates a rocks db database
 func CreateDB() error {
 	dbPath := getDBPath()
-	dbLogger.Debug("Creating DB at [%s]", dbPath)
+	dbLogger.Debugf("Creating DB at [%s]", dbPath)
 	missing, err := dirMissingOrEmpty(dbPath)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func CreateDB() error {
 	}
 	err = os.MkdirAll(path.Dir(dbPath), 0755)
 	if err != nil {
-		dbLogger.Error("Error calling  os.MkdirAll for directory path [%s]: %s", dbPath, err)
+		dbLogger.Errorf("Error calling  os.MkdirAll for directory path [%s]: %s", dbPath, err)
 		return fmt.Errorf("Error making directory path [%s]: %s", dbPath, err)
 	}
 	opts := gorocksdb.NewDefaultOptions()
@@ -85,7 +85,7 @@ func CreateDB() error {
 
 	defer db.Close()
 
-	dbLogger.Debug("DB created at [%s]", dbPath)
+	dbLogger.Debugf("DB created at [%s]", dbPath)
 	return nil
 }
 
@@ -178,7 +178,7 @@ func createDBIfDBPathEmpty() error {
 	if err != nil {
 		return err
 	}
-	dbLogger.Debug("Is db path [%s] empty [%t]", dbPath, missing)
+	dbLogger.Debugf("Is db path [%s] empty [%t]", dbPath, missing)
 	if missing {
 		err := CreateDB()
 		if err != nil {
@@ -235,24 +235,24 @@ func (openchainDB *OpenchainDB) CloseDB() {
 func (openchainDB *OpenchainDB) DeleteState() error {
 	err := openchainDB.DB.DropColumnFamily(openchainDB.StateCF)
 	if err != nil {
-		dbLogger.Error("Error dropping state CF", err)
+		dbLogger.Errorf("Error dropping state CF: %s", err)
 		return err
 	}
 	err = openchainDB.DB.DropColumnFamily(openchainDB.StateDeltaCF)
 	if err != nil {
-		dbLogger.Error("Error dropping state delta CF", err)
+		dbLogger.Errorf("Error dropping state delta CF: %s", err)
 		return err
 	}
 	opts := gorocksdb.NewDefaultOptions()
 	defer opts.Destroy()
 	openchainDB.StateCF, err = openchainDB.DB.CreateColumnFamily(opts, stateCF)
 	if err != nil {
-		dbLogger.Error("Error creating state CF", err)
+		dbLogger.Errorf("Error creating state CF: %s", err)
 		return err
 	}
 	openchainDB.StateDeltaCF, err = openchainDB.DB.CreateColumnFamily(opts, stateDeltaCF)
 	if err != nil {
-		dbLogger.Error("Error creating state delta CF", err)
+		dbLogger.Errorf("Error creating state delta CF: %s", err)
 		return err
 	}
 	return nil

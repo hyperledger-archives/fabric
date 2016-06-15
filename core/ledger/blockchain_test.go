@@ -25,6 +25,31 @@ import (
 	"github.com/hyperledger/fabric/protos"
 )
 
+func TestBlockchain_InfoNoBlock(t *testing.T) {
+	testDBWrapper.CreateFreshDB(t)
+	blockchainTestWrapper := newTestBlockchainWrapper(t)
+	blockchain := blockchainTestWrapper.blockchain
+	blockchainInfo, err := blockchain.getBlockchainInfo()
+	testutil.AssertNoError(t, err, "Error while invoking getBlockchainInfo() on an emply blockchain")
+	testutil.AssertEquals(t, blockchainInfo.Height, uint64(0))
+	testutil.AssertEquals(t, blockchainInfo.CurrentBlockHash, nil)
+	testutil.AssertEquals(t, blockchainInfo.PreviousBlockHash, nil)
+}
+
+func TestBlockchain_Info(t *testing.T) {
+	testDBWrapper.CreateFreshDB(t)
+	blockchainTestWrapper := newTestBlockchainWrapper(t)
+	blocks, _, _ := blockchainTestWrapper.populateBlockChainWithSampleData()
+
+	blockchain := blockchainTestWrapper.blockchain
+	blockchainInfo, _ := blockchain.getBlockchainInfo()
+	testutil.AssertEquals(t, blockchainInfo.Height, uint64(3))
+	currentBlockHash, _ := blocks[len(blocks)-1].GetHash()
+	previousBlockHash, _ := blocks[len(blocks)-2].GetHash()
+	testutil.AssertEquals(t, blockchainInfo.CurrentBlockHash, currentBlockHash)
+	testutil.AssertEquals(t, blockchainInfo.PreviousBlockHash, previousBlockHash)
+}
+
 func TestBlockChain_SingleBlock(t *testing.T) {
 	testDBWrapper.CreateFreshDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)

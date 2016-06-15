@@ -337,8 +337,11 @@ eca:
                   - institution_a
         users:
                 # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
+                admin: 1 Xurw3yU9zI0l institution_a 00001 '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
+                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 '{"registrar":{"roles":["client"]}}'
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
-                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 # Node.js UT user. Do not modify.
+                jim: 1 6avZQLwcUe9b bank_a      00004
+                lukas: 1 NPKYL39uKbkj bank_a    00001
 
                 test_user0: 1 MS9qrN8hFjlE bank_a        00001
                 test_user1: 1 jGlNl6ImkuDo institution_a 00002
@@ -350,7 +353,6 @@ eca:
                 test_user7: 1 YsWZD4qQmYxo institution_a 00008
                 test_user8: 1 W8G0usrU7jRk bank_a        00009
                 test_user9: 1 H80SiB5ODKKQ institution_a 00010
-
 aca:
     attributes:
         attribute-entry-0: test_user0;bank_a;company;ACompany;2015-01-01T00:00:00-03:00;;

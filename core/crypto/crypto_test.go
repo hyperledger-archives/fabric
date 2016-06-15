@@ -83,13 +83,6 @@ func TestMain(m *testing.M) {
 		os.Exit(ret)
 	}
 
-	////Second scenario with multithread
-	properties["security.multithreading.enabled"] = "true"
-	ret = runTestsOnScenario(m, properties, "Using multithread enabled")
-	if ret != 0 {
-		os.Exit(ret)
-	}
-
 	//properties["security.multithreading.enabled"] = "false"
 	//Third scenario using confidentialityProtocolVersion = 1.1
 	/*
@@ -438,6 +431,7 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 	defer closeNodes()
 
 	tCerts, err := deployer.GetNextTCerts(1, attrs...)
+
 	if err != nil {
 		t.Fatalf("Failed getting TCert by calling GetNextTCerts(1): [%s]", err)
 	}
@@ -1779,6 +1773,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		return nil, nil, err
 	}
 	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1924,7 +1919,6 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 		return nil, nil, err
 	}
 	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
-
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
@@ -1969,7 +1963,6 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 		return nil, nil, err
 	}
 	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
-
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {

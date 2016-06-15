@@ -36,7 +36,6 @@ It has these top-level messages:
 	ChaincodeReg
 	Interest
 	Register
-	Generic
 	Event
 	Transaction
 	TransactionBlock

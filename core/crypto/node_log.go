@@ -17,17 +17,17 @@ limitations under the License.
 package crypto
 
 func (node *nodeImpl) info(format string, args ...interface{}) {
-	log.Info(node.conf.logPrefix+format, args...)
+	log.Infof(node.conf.logPrefix+format, args...)
 }
 
 func (node *nodeImpl) debug(format string, args ...interface{}) {
-	log.Debug(node.conf.logPrefix+format, args...)
+	log.Debugf(node.conf.logPrefix+format, args...)
 }
 
 func (node *nodeImpl) error(format string, args ...interface{}) {
-	log.Error(node.conf.logPrefix+format, args...)
+	log.Errorf(node.conf.logPrefix+format, args...)
 }
 
 func (node *nodeImpl) warning(format string, args ...interface{}) {
-	log.Warning(node.conf.logPrefix+format, args...)
+	log.Warningf(node.conf.logPrefix+format, args...)
 }

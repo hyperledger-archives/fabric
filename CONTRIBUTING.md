@@ -50,11 +50,15 @@ To work on something, whether a new feature or a bugfix:
 
    _Note: if your PR does not merge cleanly, use ```git rebase master``` in your feature branch to update your pull request rather than using ```git merge master```_.
 
-  8. Did we mention tests? All code changes should be accompanied by new or modified tests. Be sure to check [Travis](https://travis-ci.org/) or the slack #fabric-ci-status chennel for status of your build.
+  8. Did we mention tests? All code changes should be accompanied by new or modified tests.
 
-  9. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
+  9. Continuous Integration (CI): Be sure to check [Travis](https://travis-ci.org/) or the Slack [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) channel for status of your build. You can re-trigger a build on [Jenkins](https://jenkins.io/) with a PR comment containing `reverify jenkins`.
 
-After your pull request has been reviewed and signed off, a maintainer will merge it into the master branch.
+   Note: While some underlying work to migrate the build system from Travis to Jenkins is taking place, you can ask the [maintainers](https://github.com/hyperledger/fabric/blob/master/MAINTAINERS.txt) to re-trigger a Travis build for your PR, either by adding a comment to the PR or on the [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) Slack channel.
+
+  10. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
+
+After your Pull Request (PR) has been reviewed and signed off, a maintainer will merge it into the master branch.
 
 ## Coding guidelines
 

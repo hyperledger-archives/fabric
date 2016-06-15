@@ -56,7 +56,6 @@ func (a *Adapter) Recv(msg *ehpb.Event) (bool, error) {
 	//fmt.Printf("Adapter received %+v\n", msg.Event)
 	switch x := msg.Event.(type) {
 	case *ehpb.Event_Block:
-	case *ehpb.Event_Generic:
 	case *ehpb.Event_ChaincodeEvent:
 	case nil:
 		// The field is not set.
@@ -88,11 +87,6 @@ func createTestBlock() *ehpb.Event {
 
 func createTestChaincodeEvent(tid string, typ string) *ehpb.Event {
 	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{ChaincodeID: tid, EventName: typ})
-	return emsg
-}
-
-func createTestGenericEvent() *ehpb.Event {
-	emsg := producer.CreateGenericEvent(&ehpb.Generic{EventType: "uuid#ccEventName", Payload: []byte("event data")})
 	return emsg
 }
 
@@ -179,7 +173,6 @@ func BenchmarkMessages(b *testing.B) {
 
 	for i := 0; i < numMessages; i++ {
 		go func() {
-			//emsg := createTestGenericEvent()
 			//emsg := createTestBlock()
 			emsg := createTestChaincodeEvent("0xffffffff", "event1")
 			if err = producer.Send(emsg); err != nil {

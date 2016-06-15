@@ -75,7 +75,7 @@ func CacheConfiguration() (err error) {
 				return "", err
 			}
 			peerAddress = net.JoinHostPort(GetLocalIP(), port)
-			peerLogger.Info("Auto detected peer address: %s", peerAddress)
+			peerLogger.Infof("Auto detected peer address: %s", peerAddress)
 		} else {
 			peerAddress = viper.GetString("peer.address")
 		}
@@ -121,7 +121,7 @@ func CacheConfiguration() (err error) {
 // cacheConfiguration logs an error if error checks have failed.
 func cacheConfiguration() {
 	if err := CacheConfiguration(); err != nil {
-		peerLogger.Error("Execution continues after CacheConfiguration() failure : $s", err)
+		peerLogger.Errorf("Execution continues after CacheConfiguration() failure : %s", err)
 	}
 }
 

@@ -43,7 +43,7 @@ func SetupTestLogging() {
 		logging.SetLevel(level, "server")
 		logging.SetLevel(level, "peer")
 	} else {
-		log.Warning("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
+		log.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("peer.logging.level"), logging.ERROR, err)
 		logging.SetLevel(logging.ERROR, "main")
 		logging.SetLevel(logging.ERROR, "server")
 		logging.SetLevel(logging.ERROR, "peer")
@@ -71,7 +71,7 @@ func SetupTestConfig() {
 
 	// Set the number of maxprocs
 	var numProcsDesired = viper.GetInt("peer.gomaxprocs")
-	log.Debug("setting Number of procs to %d, was %d\n", numProcsDesired, runtime.GOMAXPROCS(2))
+	log.Debugf("setting Number of procs to %d, was %d\n", numProcsDesired, runtime.GOMAXPROCS(2))
 
 }
 
@@ -93,7 +93,7 @@ func CacheConfiguration() error {
 
 func cacheConfiguration() {
 	if err := CacheConfiguration(); err != nil {
-		coreLogger.Error("Execution continues after CacheConfiguration() failure : $s", err)
+		coreLogger.Errorf("Execution continues after CacheConfiguration() failure : %s", err)
 	}
 }
 

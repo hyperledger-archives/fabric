@@ -212,6 +212,7 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 				err := tCertPoolEntry.client.getTCertsFromTCA(calculateAttributesHash(tCertPoolEntry.attributes), tCertPoolEntry.attributes, numTCerts)
 				if err != nil {
 					tCertPoolEntry.client.error("Failed getting TCerts from the TCA: [%s]", err)
+					break
 				}
 			}
 		}

@@ -30,10 +30,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
+
+	_ "github.com/mattn/go-sqlite3" // This blank import is required to load sqlite3 driver
+	"github.com/spf13/viper"
 )
 
 // CA is the base certificate authority.
@@ -66,6 +70,10 @@ type AffiliationGroup struct {
 	parent   *AffiliationGroup
 	preKey   []byte
 }
+
+var (
+	mutex = &sync.Mutex{}
+)
 
 // NewCertificateSpec creates a new certificate spec
 func NewCertificateSpec(id string, commonName string, serialNumber *big.Int, pub interface{}, usage x509.KeyUsage, notBefore *time.Time, notAfter *time.Time, opt ...pkix.Extension) *CertificateSpec {
@@ -154,13 +162,13 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 // GetOrganization returns the spec's Organization field/value
 //
 func (spec *CertificateSpec) GetOrganization() string {
-	return GetConfigString("pki.ca.subject.organization")
+	return viper.GetString("pki.ca.subject.organization")
 }
 
 // GetCountry returns the spec's Country field/value
 //
 func (spec *CertificateSpec) GetCountry() string {
-	return GetConfigString("pki.ca.subject.country")
+	return viper.GetString("pki.ca.subject.country")
 }
 
 // GetSubjectKeyID returns the spec's subject KeyID
@@ -181,6 +189,7 @@ func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
 
+// TableInitializer is a function type for table initialization
 type TableInitializer func(*sql.DB) error
 
 func initializeCommonTables(db *sql.DB) error {
@@ -199,7 +208,7 @@ func initializeCommonTables(db *sql.DB) error {
 // NewCA sets up a new CA.
 func NewCA(name string, initTables TableInitializer) *CA {
 	ca := new(CA)
-	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
+	ca.path = viper.GetString("server.rootpath") + "/" + viper.GetString("server.cadir")
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
@@ -339,6 +348,9 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 }
 
 func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte, persist bool) ([]byte, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	Trace.Println("Creating certificate for " + spec.GetID() + ".")
 
 	raw, err := ca.newCertificateFromSpec(spec)
@@ -417,7 +429,7 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
+func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte, error) {
 	Trace.Printf("Reading certificate for %s and usage %v", id, usage)
 
 	var raw []byte
@@ -428,7 +440,7 @@ func (ca *CA) readCertificate(id string, usage x509.KeyUsage) ([]byte, error) {
 	return raw, err
 }
 
-func (ca *CA) readCertificate1(id string, ts int64) ([]byte, error) {
+func (ca *CA) readCertificateByTimestamp(id string, ts int64) ([]byte, error) {
 	Trace.Println("Reading certificate for " + id + ".")
 
 	var raw []byte
@@ -560,20 +572,23 @@ func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role
 // registerUserWithEnrollID registers a new user and its enrollmentID, role and state
 //
 func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role, memberMetadata string, opt ...string) (string, error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	roleStr, _ := MemberRoleToString(role)
 	Trace.Printf("Registering user %s as %s with memberMetadata %s\n", id, roleStr, memberMetadata)
-
-	var row int
-	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
-	if err == nil {
-		return "", errors.New("user is already registered")
-	}
 
 	var tok string
 	if len(opt) > 0 && len(opt[0]) > 0 {
 		tok = opt[0]
 	} else {
 		tok = randomString(12)
+	}
+
+	var row int
+	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
+	if err == nil {
+		return "", errors.New("user is already registered")
 	}
 
 	_, err = ca.db.Exec("INSERT INTO Users (id, enrollmentId, token, role, metadata, state) VALUES (?, ?, ?, ?, ?, ?)", id, enrollID, tok, role, memberMetadata, 0)
@@ -583,12 +598,14 @@ func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role,
 	}
 
 	return tok, err
-
 }
 
 // registerAffiliationGroup registers a new affiliation group
 //
 func (ca *CA) registerAffiliationGroup(name string, parentName string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	Trace.Println("Registering affiliation group " + name + " parent " + parentName + ".")
 
 	var parentID int
@@ -838,6 +855,8 @@ func role2String(role int) string {
 		return "peer"
 	} else if role == int(pb.Role_VALIDATOR) {
 		return "validator"
+	} else if role == int(pb.Role_AUDITOR) {
+		return "auditor"
 	}
 	return ""
 }
