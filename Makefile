@@ -71,7 +71,7 @@ peer-image: build/image/peer/.dummy
 membersrvc: build/bin/membersrvc
 membersrvc-image: build/image/membersrvc/.dummy
 
-unit-test: peer-image gotools node-sdk-unit-tests
+unit-test: peer-image membersrvc-image gotools node-sdk-unit-tests
 	@./scripts/goUnitTests.sh
 
 .PHONY: images

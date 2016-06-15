@@ -21,7 +21,7 @@ main() {
    stopPeer
    stopMemberServices
 
-   } | tee $LOGDIR/log 2>&1
+   } 2>&1 | tee $LOGDIR/log
 }
 
 # initialization & cleanup
@@ -29,9 +29,9 @@ init() {
    # Initialize variables
    FABRIC=$GOPATH/src/github.com/hyperledger/fabric
    LOGDIR=/tmp/node-sdk-unit-test
-   MSEXE=$FABRIC/membersrvc/membersrvc
+   MSEXE=$FABRIC/build/bin/membersrvc
    MSLOGFILE=$LOGDIR/membersrvc.log
-   PEEREXE=$FABRIC/peer/peer
+   PEEREXE=$FABRIC/build/bin/peer
    PEERLOGFILE=$LOGDIR/peer.log
    UNITTEST=$FABRIC/sdk/node/test/unit
    EXAMPLES=$FABRIC/examples/chaincode/go
