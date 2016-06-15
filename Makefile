@@ -196,12 +196,12 @@ images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 node-sdk:
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && sudo apt-get install -y npm && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
 
 .PHONY: node-sdk-unit-tests
-node-sdk-unit-tests: node-sdk
+node-sdk-unit-tests: peer-image membersrvc-image node-sdk
 	@./sdk/node/bin/run-unit-tests.sh
 
 node-sdk:
