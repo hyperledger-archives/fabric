@@ -1705,16 +1705,8 @@ func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 	fmt.Fprintf(rw, "{\"Error\": \"Openchain endpoint not found.\"}")
 }
 
-// StartOpenchainRESTServer initializes the REST service and adds the required
-// middleware and routes.
-func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
-	// Initialize the REST service object
-	restLogger.Infof("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
+func buildOpenchainRESTRouter() *web.Router {
 	router := web.New(ServerOpenchainREST{})
-
-	// Record the pointer to the underlying ServerOpenchain and Devops objects.
-	serverOpenchain = server
-	serverDevops = devops
 
 	// Add middleware
 	router.Middleware((*ServerOpenchainREST).SetOpenchainServer)
@@ -1744,6 +1736,21 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
+
+	return router
+}
+
+// StartOpenchainRESTServer initializes the REST service and adds the required
+// middleware and routes.
+func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
+	// Initialize the REST service object
+	restLogger.Infof("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
+
+	// Record the pointer to the underlying ServerOpenchain and Devops objects.
+	serverOpenchain = server
+	serverDevops = devops
+
+	router := buildOpenchainRESTRouter()
 
 	// Start server
 	if comm.TLSEnabled() {
