@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>GetTCertBatchRequest | Hyperledger OpenBlockChain</title>
+	<title>Transaction | Hyperledger OpenBlockChain</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -60,10 +60,10 @@
 					<a href="../modules/_hlc_.html">&quot;hlc&quot;</a>
 				</li>
 				<li>
-					<a href="_hlc_.gettcertbatchrequest.html">GetTCertBatchRequest</a>
+					<a href="_hlc_.transaction.html">Transaction</a>
 				</li>
 			</ul>
-			<h1>Interface GetTCertBatchRequest</h1>
+			<h1>Class Transaction</h1>
 		</div>
 	</div>
 </header>
@@ -74,7 +74,7 @@
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">GetTCertBatchRequest</span>
+						<span class="target">Transaction</span>
 					</li>
 				</ul>
 			</section>
@@ -83,45 +83,69 @@
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
+							<h3>Constructors</h3>
+							<ul class="tsd-index-list">
+								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="_hlc_.transaction.html#constructor" class="tsd-kind-icon">constructor</a></li>
+							</ul>
+						</section>
+						<section class="tsd-index-section ">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_hlc_.gettcertbatchrequest.html#enrollment" class="tsd-kind-icon">enrollment</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_hlc_.gettcertbatchrequest.html#name" class="tsd-kind-icon">name</a></li>
-								<li class="tsd-kind-property tsd-parent-kind-interface"><a href="_hlc_.gettcertbatchrequest.html#num" class="tsd-kind-icon">num</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="_hlc_.transaction.html#chaincodeid" class="tsd-kind-icon">chaincodeID</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="_hlc_.transaction.html#pb" class="tsd-kind-icon">pb</a></li>
 							</ul>
 						</section>
 					</div>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
+				<h2>Constructors</h2>
+				<section class="tsd-panel tsd-member tsd-kind-constructor tsd-parent-kind-class">
+					<a name="constructor" class="tsd-anchor"></a>
+					<h3>constructor</h3>
+					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Transaction<span class="tsd-signature-symbol">(</span>pb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transactionprotobuf.html" class="tsd-signature-type">TransactionProtobuf</a>, chaincodeID<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L378">hlc.ts:378</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>pb: <a href="../interfaces/_hlc_.transactionprotobuf.html" class="tsd-signature-type">TransactionProtobuf</a></h5>
+								</li>
+								<li>
+									<h5>chaincodeID: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h4>
+						</li>
+					</ul>
+				</section>
+			</section>
+			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="enrollment" class="tsd-anchor"></a>
-					<h3>enrollment</h3>
-					<div class="tsd-signature tsd-kind-icon">enrollment<span class="tsd-signature-symbol">:</span> <a href="_hlc_.enrollment.html" class="tsd-signature-type">Enrollment</a></div>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="chaincodeid" class="tsd-anchor"></a>
+					<h3>chaincodeID</h3>
+					<div class="tsd-signature tsd-kind-icon">chaincodeID<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L205">hlc.ts:205</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L379">hlc.ts:379</a></li>
 						</ul>
 					</aside>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="name" class="tsd-anchor"></a>
-					<h3>name</h3>
-					<div class="tsd-signature tsd-kind-icon">name<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="pb" class="tsd-anchor"></a>
+					<h3>pb</h3>
+					<div class="tsd-signature tsd-kind-icon">pb<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_hlc_.transactionprotobuf.html" class="tsd-signature-type">TransactionProtobuf</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L203">hlc.ts:203</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-interface">
-					<a name="num" class="tsd-anchor"></a>
-					<h3>num</h3>
-					<div class="tsd-signature tsd-kind-icon">num<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L207">hlc.ts:207</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L379">hlc.ts:379</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -140,6 +164,9 @@
 						<a href="../modules/_hlc_.html">"hlc"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
+						<a href="../modules/_sdk_util_.html">"sdk_<wbr>util"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_stats_.html">"stats"</a>
 					</li>
 				</ul>
@@ -148,17 +175,17 @@
 				<ul class="before-current">
 				</ul>
 				<ul class="current">
-					<li class="current tsd-kind-interface tsd-parent-kind-external-module">
-						<a href="_hlc_.gettcertbatchrequest.html" class="tsd-kind-icon">GetTCert<wbr>Batch<wbr>Request</a>
+					<li class="current tsd-kind-class tsd-parent-kind-external-module">
+						<a href="_hlc_.transaction.html" class="tsd-kind-icon">Transaction</a>
 						<ul>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_hlc_.gettcertbatchrequest.html#enrollment" class="tsd-kind-icon">enrollment</a>
+							<li class=" tsd-kind-constructor tsd-parent-kind-class">
+								<a href="_hlc_.transaction.html#constructor" class="tsd-kind-icon">constructor</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_hlc_.gettcertbatchrequest.html#name" class="tsd-kind-icon">name</a>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="_hlc_.transaction.html#chaincodeid" class="tsd-kind-icon">chaincodeID</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-interface">
-								<a href="_hlc_.gettcertbatchrequest.html#num" class="tsd-kind-icon">num</a>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="_hlc_.transaction.html#pb" class="tsd-kind-icon">pb</a>
 							</li>
 						</ul>
 					</li>

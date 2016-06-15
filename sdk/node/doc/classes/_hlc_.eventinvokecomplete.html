@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>X509Certificate | Hyperledger OpenBlockChain</title>
+	<title>EventInvokeComplete | Hyperledger OpenBlockChain</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -57,13 +57,13 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="../modules/_crypto_.html">&quot;crypto&quot;</a>
+					<a href="../modules/_hlc_.html">&quot;hlc&quot;</a>
 				</li>
 				<li>
-					<a href="_crypto_.x509certificate.html">X509Certificate</a>
+					<a href="_hlc_.eventinvokecomplete.html">EventInvokeComplete</a>
 				</li>
 			</ul>
-			<h1>Class X509Certificate</h1>
+			<h1>Class EventInvokeComplete</h1>
 		</div>
 	</div>
 </header>
@@ -74,7 +74,7 @@
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="target">X509Certificate</span>
+						<span class="target">EventInvokeComplete</span>
 					</li>
 				</ul>
 			</section>
@@ -85,19 +85,13 @@
 						<section class="tsd-index-section ">
 							<h3>Constructors</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="_crypto_.x509certificate.html#constructor" class="tsd-kind-icon">constructor</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section tsd-is-private tsd-is-private-protected">
-							<h3>Properties</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_crypto_.x509certificate.html#_cert" class="tsd-kind-icon">_cert</a></li>
+								<li class="tsd-kind-constructor tsd-parent-kind-class"><a href="_hlc_.eventinvokecomplete.html#constructor" class="tsd-kind-icon">constructor</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
-							<h3>Methods</h3>
+							<h3>Properties</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_crypto_.x509certificate.html#criticalextension" class="tsd-kind-icon">critical<wbr>Extension</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="_hlc_.eventinvokecomplete.html#result" class="tsd-kind-icon">result</a></li>
 							</ul>
 						</section>
 					</div>
@@ -109,63 +103,37 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>X509<wbr>Certificate<span class="tsd-signature-symbol">(</span>buffer<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_crypto_.x509certificate.html" class="tsd-signature-type">X509Certificate</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Event<wbr>Invoke<wbr>Complete<span class="tsd-signature-symbol">(</span>result<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.eventinvokecomplete.html" class="tsd-signature-type">EventInvokeComplete</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/crypto.ts#L553">crypto.ts:553</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L232">hlc.ts:232</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>buffer: <span class="tsd-signature-type">any</span></h5>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> result: <span class="tsd-signature-type">any</span></h5>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="_crypto_.x509certificate.html" class="tsd-signature-type">X509Certificate</a></h4>
+							<h4 class="tsd-returns-title">Returns <a href="_hlc_.eventinvokecomplete.html" class="tsd-signature-type">EventInvokeComplete</a></h4>
 						</li>
 					</ul>
-				</section>
-			</section>
-			<section class="tsd-panel-group tsd-member-group tsd-is-private tsd-is-private-protected">
-				<h2>Properties</h2>
-				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
-					<a name="_cert" class="tsd-anchor"></a>
-					<h3><span class="tsd-flag ts-flagPrivate">Private</span> _cert</h3>
-					<div class="tsd-signature tsd-kind-icon">_cert<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/crypto.ts#L553">crypto.ts:553</a></li>
-						</ul>
-					</aside>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Methods</h2>
-				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="criticalextension" class="tsd-anchor"></a>
-					<h3>critical<wbr>Extension</h3>
-					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">critical<wbr>Extension<span class="tsd-signature-symbol">(</span>oid<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/crypto.ts#L571">crypto.ts:571</a></li>
-								</ul>
-							</aside>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>oid: <span class="tsd-signature-type">any</span></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Buffer</span></h4>
-						</li>
-					</ul>
+				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="result" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagOptional">Optional</span> result</h3>
+					<div class="tsd-signature tsd-kind-icon">result<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L233">hlc.ts:233</a></li>
+						</ul>
+					</aside>
 				</section>
 			</section>
 		</div>
@@ -175,10 +143,10 @@
 					<li class="globals  ">
 						<a href="../globals.html"><em>Globals</em></a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_crypto_.html">"crypto"</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="../modules/_hlc_.html">"hlc"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -194,16 +162,13 @@
 				</ul>
 				<ul class="current">
 					<li class="current tsd-kind-class tsd-parent-kind-external-module">
-						<a href="_crypto_.x509certificate.html" class="tsd-kind-icon">X509<wbr>Certificate</a>
+						<a href="_hlc_.eventinvokecomplete.html" class="tsd-kind-icon">Event<wbr>Invoke<wbr>Complete</a>
 						<ul>
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
-								<a href="_crypto_.x509certificate.html#constructor" class="tsd-kind-icon">constructor</a>
+								<a href="_hlc_.eventinvokecomplete.html#constructor" class="tsd-kind-icon">constructor</a>
 							</li>
-							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
-								<a href="_crypto_.x509certificate.html#_cert" class="tsd-kind-icon">_cert</a>
-							</li>
-							<li class=" tsd-kind-method tsd-parent-kind-class">
-								<a href="_crypto_.x509certificate.html#criticalextension" class="tsd-kind-icon">critical<wbr>Extension</a>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="_hlc_.eventinvokecomplete.html#result" class="tsd-kind-icon">result</a>
 							</li>
 						</ul>
 					</li>

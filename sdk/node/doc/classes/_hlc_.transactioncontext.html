@@ -110,6 +110,7 @@
 						<section class="tsd-index-section ">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#attrs" class="tsd-kind-icon">attrs</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#binding" class="tsd-kind-icon">binding</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#chain" class="tsd-kind-icon">chain</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#member" class="tsd-kind-icon">member</a></li>
@@ -128,6 +129,7 @@
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#deploy" class="tsd-kind-icon">deploy</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#emit" class="tsd-kind-icon">emit</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#execute" class="tsd-kind-icon">execute</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#getattrs" class="tsd-kind-icon">get<wbr>Attrs</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#getchain" class="tsd-kind-icon">get<wbr>Chain</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#getmaxlisteners" class="tsd-kind-icon">get<wbr>Max<wbr>Listeners</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#getmember" class="tsd-kind-icon">get<wbr>Member</a></li>
@@ -137,13 +139,16 @@
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#listenercount" class="tsd-kind-icon">listener<wbr>Count</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#listeners" class="tsd-kind-icon">listeners</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#newbuildordeploytransaction" class="tsd-kind-icon">new<wbr>Build<wbr>OrDeploy<wbr>Transaction</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#newdevmodetransaction" class="tsd-kind-icon">new<wbr>Dev<wbr>Mode<wbr>Transaction</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#newinvokeorquerytransaction" class="tsd-kind-icon">new<wbr>Invoke<wbr>OrQuery<wbr>Transaction</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#newnetmodetransaction" class="tsd-kind-icon">new<wbr>Net<wbr>Mode<wbr>Transaction</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#on" class="tsd-kind-icon">on</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#once" class="tsd-kind-icon">once</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><a href="_hlc_.transactioncontext.html#processconfidentiality" class="tsd-kind-icon">process<wbr>Confidentiality</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#query" class="tsd-kind-icon">query</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#removealllisteners" class="tsd-kind-icon">remove<wbr>All<wbr>Listeners</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#removelistener" class="tsd-kind-icon">remove<wbr>Listener</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="_hlc_.transactioncontext.html#setattrs" class="tsd-kind-icon">set<wbr>Attrs</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="_hlc_.transactioncontext.html#setmaxlisteners" class="tsd-kind-icon">set<wbr>Max<wbr>Listeners</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static"><a href="_hlc_.transactioncontext.html#listenercount-1" class="tsd-kind-icon">listener<wbr>Count</a></li>
 							</ul>
@@ -163,7 +168,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1084">hlc.ts:1084</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1116">hlc.ts:1116</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -183,12 +188,22 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Properties</h2>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a name="attrs" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> attrs</h3>
+					<div class="tsd-signature tsd-kind-icon">attrs<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1116">hlc.ts:1116</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
 					<a name="binding" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagPrivate">Private</span> binding</h3>
 					<div class="tsd-signature tsd-kind-icon">binding<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1083">hlc.ts:1083</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1114">hlc.ts:1114</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -198,7 +213,7 @@
 					<div class="tsd-signature tsd-kind-icon">chain<span class="tsd-signature-symbol">:</span> <a href="_hlc_.chain.html" class="tsd-signature-type">Chain</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1080">hlc.ts:1080</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1111">hlc.ts:1111</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -208,7 +223,7 @@
 					<div class="tsd-signature tsd-kind-icon">member<span class="tsd-signature-symbol">:</span> <a href="_hlc_.member.html" class="tsd-signature-type">Member</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1079">hlc.ts:1079</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1110">hlc.ts:1110</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -218,7 +233,7 @@
 					<div class="tsd-signature tsd-kind-icon">member<wbr>Services<span class="tsd-signature-symbol">:</span> <a href="../interfaces/_hlc_.memberservices.html" class="tsd-signature-type">MemberServices</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1081">hlc.ts:1081</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1112">hlc.ts:1112</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -228,7 +243,7 @@
 					<div class="tsd-signature tsd-kind-icon">nonce<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">any</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1082">hlc.ts:1082</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1113">hlc.ts:1113</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -238,7 +253,7 @@
 					<div class="tsd-signature tsd-kind-icon">tcert<span class="tsd-signature-symbol">:</span> <a href="_hlc_.tcert.html" class="tsd-signature-type">TCert</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1084">hlc.ts:1084</a></li>
+							<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1115">hlc.ts:1115</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -303,7 +318,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1355">hlc.ts:1355</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1414">hlc.ts:1414</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -326,7 +341,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1123">hlc.ts:1123</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1155">hlc.ts:1155</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -378,13 +393,13 @@
 					<a name="execute" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagPrivate">Private</span> execute</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">execute<span class="tsd-signature-symbol">(</span>tx<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.transactioncontext.html" class="tsd-signature-type">TransactionContext</a></li>
+						<li class="tsd-signature tsd-kind-icon">execute<span class="tsd-signature-symbol">(</span>tx<span class="tsd-signature-symbol">: </span><a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.transactioncontext.html" class="tsd-signature-type">TransactionContext</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1183">hlc.ts:1183</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1244">hlc.ts:1244</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -395,13 +410,35 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>tx: <a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h5>
+									<h5>tx: <a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>The transaction.</p>
 									</div>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <a href="_hlc_.transactioncontext.html" class="tsd-signature-type">TransactionContext</a></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="getattrs" class="tsd-anchor"></a>
+					<h3>get<wbr>Attrs</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Attrs<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1229">hlc.ts:1229</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Get the attribute names associated</p>
+								</div>
+							</div>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -415,7 +452,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1107">hlc.ts:1107</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1139">hlc.ts:1139</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -456,7 +493,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1099">hlc.ts:1099</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1131">hlc.ts:1131</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -479,7 +516,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1115">hlc.ts:1115</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1147">hlc.ts:1147</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -502,7 +539,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1246">hlc.ts:1246</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1305">hlc.ts:1305</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -525,7 +562,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1143">hlc.ts:1143</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1192">hlc.ts:1192</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -598,13 +635,13 @@
 					<a name="newbuildordeploytransaction" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagPrivate">Private</span> new<wbr>Build<wbr>OrDeploy<wbr>Transaction</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">new<wbr>Build<wbr>OrDeploy<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a>, isBuildRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></li>
+						<li class="tsd-signature tsd-kind-icon">new<wbr>Build<wbr>OrDeploy<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a>, isBuildRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1370">hlc.ts:1370</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1429">hlc.ts:1429</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -623,8 +660,48 @@
 								<li>
 									<h5>isBuildRequest: <span class="tsd-signature-type">boolean</span></h5>
 								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a></h5>
+								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="newdevmodetransaction" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> new<wbr>Dev<wbr>Mode<wbr>Transaction</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">new<wbr>Dev<wbr>Mode<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a>, isBuildRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1452">hlc.ts:1452</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Create a development mode deploy transaction.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>request: <a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>A development mode BuildRequest or DeployRequest</p>
+									</div>
+								</li>
+								<li>
+									<h5>isBuildRequest: <span class="tsd-signature-type">boolean</span></h5>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -632,13 +709,13 @@
 					<a name="newinvokeorquerytransaction" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagPrivate">Private</span> new<wbr>Invoke<wbr>OrQuery<wbr>Transaction</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">new<wbr>Invoke<wbr>OrQuery<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.invokeorqueryrequest.html" class="tsd-signature-type">InvokeOrQueryRequest</a>, isInvokeRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></li>
+						<li class="tsd-signature tsd-kind-icon">new<wbr>Invoke<wbr>OrQuery<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.invokeorqueryrequest.html" class="tsd-signature-type">InvokeOrQueryRequest</a>, isInvokeRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1431">hlc.ts:1431</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1741">hlc.ts:1741</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -658,7 +735,44 @@
 									<h5>isInvokeRequest: <span class="tsd-signature-type">boolean</span></h5>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h4>
+							<h4 class="tsd-returns-title">Returns <a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-private">
+					<a name="newnetmodetransaction" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagPrivate">Private</span> new<wbr>Net<wbr>Mode<wbr>Transaction</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
+						<li class="tsd-signature tsd-kind-icon">new<wbr>Net<wbr>Mode<wbr>Transaction<span class="tsd-signature-symbol">(</span>request<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a>, isBuildRequest<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span>, cb<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1537">hlc.ts:1537</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Create a network mode deploy transaction.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>request: <a href="../interfaces/_hlc_.deployrequest.html" class="tsd-signature-type">DeployRequest</a></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>A network mode BuildRequest or DeployRequest</p>
+									</div>
+								</li>
+								<li>
+									<h5>isBuildRequest: <span class="tsd-signature-type">boolean</span></h5>
+								</li>
+								<li>
+									<h5>cb: <a href="../interfaces/_hlc_.deploytransactioncallback.html" class="tsd-signature-type">DeployTransactionCallback</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -718,19 +832,19 @@
 					<a name="processconfidentiality" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagPrivate">Private</span> process<wbr>Confidentiality</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-private">
-						<li class="tsd-signature tsd-kind-icon">process<wbr>Confidentiality<span class="tsd-signature-symbol">(</span>transaction<span class="tsd-signature-symbol">: </span><a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">process<wbr>Confidentiality<span class="tsd-signature-symbol">(</span>transaction<span class="tsd-signature-symbol">: </span><a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1260">hlc.ts:1260</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1319">hlc.ts:1319</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>transaction: <a href="../interfaces/_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h5>
+									<h5>transaction: <a href="_hlc_.transaction.html" class="tsd-signature-type">Transaction</a></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -747,7 +861,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/smithbk/fabric/blob/2d4b64c/sdk/node/src/hlc.ts#L1162">hlc.ts:1162</a></li>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1211">hlc.ts:1211</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -817,6 +931,34 @@
 						</li>
 					</ul>
 				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="setattrs" class="tsd-anchor"></a>
+					<h3>set<wbr>Attrs</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">set<wbr>Attrs<span class="tsd-signature-symbol">(</span>attrs<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/angrbrd/fabric/blob/7e4cfbe/sdk/node/src/hlc.ts#L1236">hlc.ts:1236</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Set the attributes for this transaction context.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>attrs: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited">
 					<a name="setmaxlisteners" class="tsd-anchor"></a>
 					<h3>set<wbr>Max<wbr>Listeners</h3>
@@ -882,6 +1024,9 @@
 						<a href="../modules/_hlc_.html">"hlc"</a>
 					</li>
 					<li class=" tsd-kind-external-module">
+						<a href="../modules/_sdk_util_.html">"sdk_<wbr>util"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
 						<a href="../modules/_stats_.html">"stats"</a>
 					</li>
 				</ul>
@@ -895,6 +1040,9 @@
 						<ul>
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
 								<a href="_hlc_.transactioncontext.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+								<a href="_hlc_.transactioncontext.html#attrs" class="tsd-kind-icon">attrs</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
 								<a href="_hlc_.transactioncontext.html#binding" class="tsd-kind-icon">binding</a>
@@ -936,6 +1084,9 @@
 								<a href="_hlc_.transactioncontext.html#execute" class="tsd-kind-icon">execute</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.transactioncontext.html#getattrs" class="tsd-kind-icon">get<wbr>Attrs</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="_hlc_.transactioncontext.html#getchain" class="tsd-kind-icon">get<wbr>Chain</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited">
@@ -963,7 +1114,13 @@
 								<a href="_hlc_.transactioncontext.html#newbuildordeploytransaction" class="tsd-kind-icon">new<wbr>Build<wbr>OrDeploy<wbr>Transaction</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="_hlc_.transactioncontext.html#newdevmodetransaction" class="tsd-kind-icon">new<wbr>Dev<wbr>Mode<wbr>Transaction</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
 								<a href="_hlc_.transactioncontext.html#newinvokeorquerytransaction" class="tsd-kind-icon">new<wbr>Invoke<wbr>OrQuery<wbr>Transaction</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-private">
+								<a href="_hlc_.transactioncontext.html#newnetmodetransaction" class="tsd-kind-icon">new<wbr>Net<wbr>Mode<wbr>Transaction</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited">
 								<a href="_hlc_.transactioncontext.html#on" class="tsd-kind-icon">on</a>
@@ -982,6 +1139,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited">
 								<a href="_hlc_.transactioncontext.html#removelistener" class="tsd-kind-icon">remove<wbr>Listener</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="_hlc_.transactioncontext.html#setattrs" class="tsd-kind-icon">set<wbr>Attrs</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited">
 								<a href="_hlc_.transactioncontext.html#setmaxlisteners" class="tsd-kind-icon">set<wbr>Max<wbr>Listeners</a>

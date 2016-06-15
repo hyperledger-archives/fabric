@@ -1,44 +1,175 @@
+/**
+ * Copyright 2016 IBM
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+/**
+ * Licensed Materials - Property of IBM
+ * © Copyright IBM Corp. 2016
+ */
 "use strict";
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
+/**
+ * "hlc" stands for "HyperLedger Client".
+ * The Hyperledger Client SDK provides APIs through which a client can interact with a hyperledger blockchain.
+ *
+ * Terminology:
+ * 1) member - an identity for participating in the blockchain.  There are different types of members (users, peers, etc).
+ * 2) member services - services related to obtaining and managing members
+ * 3) registration - The act of adding a new member identity (with specific privileges) to the system.
+ *               This is done by a member with the 'registrar' privilege.  The member is called a registrar.
+ *               The registrar specifies the new member privileges when registering the new member.
+ * 4) enrollment - Think of this as completing the registration process.  It may be done by the new member with a secret
+ *               that it has obtained out-of-band from a registrar, or it may be performed by a middle-man who has
+ *               delegated authority to act on behalf of the new member.
+ *
+ * These APIs have been designed to support two pluggable components.
+ * 1) Pluggable key value store which is used to retrieve and store keys associated with a member.
+ *    Call Chain.setKeyValStore() to override the default key value store implementation.
+ *    For the default implementations, see FileKeyValStore and SqlKeyValStore (TBD).
+ * 2) Pluggable member service which is used to register and enroll members.
+ *    Call Chain.setMemberService() to override the default implementation.
+ *    For the default implementation, see MemberServices.
+ *    NOTE: This makes member services pluggable from the client side, but more work is needed to make it compatible on
+ *          the server side transaction processing path.
+ */
+// Instruct boringssl to use ECC for tls.
 process.env['GRPC_SSL_CIPHER_SUITES'] = 'HIGH+ECDSA';
 var debugModule = require('debug');
 var fs = require('fs');
-var targz = require('tar.gz');
 var urlParser = require('url');
 var grpc = require('grpc');
 var util = require('util');
 var jsrsa = require('jsrsasign');
 var elliptic = require('elliptic');
 var sha3 = require('js-sha3');
-var uuid = require('node-uuid');
 var BN = require('bn.js');
 var crypto = require("./crypto");
 var stats = require("./stats");
 var sdk_util = require("./sdk_util");
 var events = require('events');
-var debug = debugModule('hlc');
+var debug = debugModule('hlc'); // 'hlc' stands for 'HyperLedger Client'
 var asn1 = jsrsa.asn1;
 var asn1Builder = require('asn1');
 var _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
 var _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
-var _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 var _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 var net = require('net');
 var DEFAULT_SECURITY_LEVEL = 256;
 var DEFAULT_HASH_ALGORITHM = "SHA3";
 var CONFIDENTIALITY_1_2_STATE_KD_C6 = 6;
 var _chains = {};
+// A request to get a batch of TCerts
+var GetTCertBatchRequest = (function () {
+    function GetTCertBatchRequest(name, enrollment, num, attrs) {
+        this.name = name;
+        this.enrollment = enrollment;
+        this.num = num;
+        this.attrs = attrs;
+    }
+    ;
+    return GetTCertBatchRequest;
+}());
+exports.GetTCertBatchRequest = GetTCertBatchRequest;
+// This is the object that is delivered as the result with the "submitted" event
+// from a Transaction object for a **deploy** operation.
+var EventDeploySubmitted = (function () {
+    // The transaction ID of a deploy transaction which was successfully submitted.
+    function EventDeploySubmitted(uuid, chaincodeID) {
+        this.uuid = uuid;
+        this.chaincodeID = chaincodeID;
+    }
+    ;
+    return EventDeploySubmitted;
+}());
+exports.EventDeploySubmitted = EventDeploySubmitted;
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **deploy** operation.
+// TODO: This class may change once the real event processing is added.
+var EventDeployComplete = (function () {
+    function EventDeployComplete(uuid, chaincodeID, result) {
+        this.uuid = uuid;
+        this.chaincodeID = chaincodeID;
+        this.result = result;
+    }
+    ;
+    return EventDeployComplete;
+}());
+exports.EventDeployComplete = EventDeployComplete;
+// This is the data that is delivered as the result with the "submitted" event
+// from a Transaction object for an **invoke** operation.
+var EventInvokeSubmitted = (function () {
+    // The transaction ID of an invoke transaction which was successfully submitted.
+    function EventInvokeSubmitted(uuid) {
+        this.uuid = uuid;
+    }
+    ;
+    return EventInvokeSubmitted;
+}());
+exports.EventInvokeSubmitted = EventInvokeSubmitted;
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **invoke** operation.
+// TODO: This class may change once the real event processing is added.
+var EventInvokeComplete = (function () {
+    function EventInvokeComplete(result) {
+        this.result = result;
+    }
+    ;
+    return EventInvokeComplete;
+}());
+exports.EventInvokeComplete = EventInvokeComplete;
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **query** operation.
+var EventQueryComplete = (function () {
+    function EventQueryComplete(result) {
+        this.result = result;
+    }
+    ;
+    return EventQueryComplete;
+}());
+exports.EventQueryComplete = EventQueryComplete;
+// This is the data that is delivered as the result with the "error" event
+// from a Transaction object for any of the following operations:
+// **deploy**, **invoke**, or **query**.
+var EventTransactionError = (function () {
+    // The transaction ID of an invoke transaction which was successfully submitted.
+    function EventTransactionError(error) {
+        this.error = error;
+        if (error && error.msg && isFunction(error.msg.toString)) {
+            this.msg = error.msg.toString();
+        }
+        else if (isFunction(error.toString)) {
+            this.msg = error.toString();
+        }
+    }
+    ;
+    return EventTransactionError;
+}());
+exports.EventTransactionError = EventTransactionError;
 (function (PrivacyLevel) {
     PrivacyLevel[PrivacyLevel["Nominal"] = 0] = "Nominal";
     PrivacyLevel[PrivacyLevel["Anonymous"] = 1] = "Anonymous";
 })(exports.PrivacyLevel || (exports.PrivacyLevel = {}));
 var PrivacyLevel = exports.PrivacyLevel;
+// The base Certificate class
 var Certificate = (function () {
-    function Certificate(cert, privateKey, privLevel) {
+    function Certificate(cert, privateKey, 
+        /** Denoting if the Certificate is anonymous or carrying its owner's identity. */
+        privLevel) {
         this.cert = cert;
         this.privateKey = privateKey;
         this.privLevel = privLevel;
@@ -49,6 +180,9 @@ var Certificate = (function () {
     return Certificate;
 }());
 exports.Certificate = Certificate;
+/**
+ * Enrollment certificate.
+ */
 var ECert = (function (_super) {
     __extends(ECert, _super);
     function ECert(cert, privateKey) {
@@ -59,6 +193,9 @@ var ECert = (function (_super) {
     return ECert;
 }(Certificate));
 exports.ECert = ECert;
+/**
+ * Transaction certificate.
+ */
 var TCert = (function (_super) {
     __extends(TCert, _super);
     function TCert(publicKey, privateKey) {
@@ -69,41 +206,95 @@ var TCert = (function (_super) {
     return TCert;
 }(Certificate));
 exports.TCert = TCert;
+var Transaction = (function () {
+    function Transaction(pb, chaincodeID) {
+        this.pb = pb;
+        this.chaincodeID = chaincodeID;
+    }
+    ;
+    return Transaction;
+}());
+exports.Transaction = Transaction;
+/**
+ * The class representing a chain with which the client SDK interacts.
+ */
 var Chain = (function () {
     function Chain(name) {
+        // The peers on this chain to which the client can connect
         this.peers = [];
+        // Security enabled flag
         this.securityEnabled = true;
+        // A member cache associated with this chain
+        // TODO: Make an LRU to limit size of member cache
         this.members = {};
+        // The number of tcerts to get in each batch
         this.tcertBatchSize = 200;
+        // Is in dev mode or network mode
         this.devMode = false;
+        // If in prefetch mode, we prefetch tcerts from member services to help performance
         this.preFetchMode = true;
+        // Temporary variables to control how long to wait for deploy and invoke to complete before
+        // emitting events.  This will be removed when the SDK is able to receive events from the
+        this.deployWaitTime = 20;
+        this.invokeWaitTime = 5;
         this.name = name;
     }
+    /**
+     * Get the chain name.
+     * @returns The name of the chain.
+     */
     Chain.prototype.getName = function () {
         return this.name;
     };
+    /**
+     * Add a peer given an endpoint specification.
+     * @param endpoint The endpoint of the form: { url: "grpcs://host:port", tls: { .... } }
+     * @returns {Peer} Returns a new peer.
+     */
     Chain.prototype.addPeer = function (url, pem) {
         var peer = new Peer(url, this, pem);
         this.peers.push(peer);
         return peer;
     };
     ;
+    /**
+     * Get the peers for this chain.
+     */
     Chain.prototype.getPeers = function () {
         return this.peers;
     };
+    /**
+     * Get the member whose credentials are used to register and enroll other users, or undefined if not set.
+     * @param {Member} The member whose credentials are used to perform registration, or undefined if not set.
+     */
     Chain.prototype.getRegistrar = function () {
         return this.registrar;
     };
+    /**
+     * Set the member whose credentials are used to register and enroll other users.
+     * @param {Member} registrar The member whose credentials are used to perform registration.
+     */
     Chain.prototype.setRegistrar = function (registrar) {
         this.registrar = registrar;
     };
+    /**
+     * Set the member services URL
+     * @param {string} url Member services URL of the form: "grpc://host:port" or "grpcs://host:port"
+     */
     Chain.prototype.setMemberServicesUrl = function (url, pem) {
         this.setMemberServices(newMemberServices(url, pem));
     };
+    /**
+     * Get the member service associated this chain.
+     * @returns {MemberService} Return the current member service, or undefined if not set.
+     */
     Chain.prototype.getMemberServices = function () {
         return this.memberServices;
     };
     ;
+    /**
+     * Set the member service associated this chain.  This allows the default implementation of member service to be overridden.
+     */
     Chain.prototype.setMemberServices = function (memberServices) {
         this.memberServices = memberServices;
         if (memberServices instanceof MemberServicesImpl) {
@@ -111,33 +302,91 @@ var Chain = (function () {
         }
     };
     ;
+    /**
+     * Determine if security is enabled.
+     */
     Chain.prototype.isSecurityEnabled = function () {
         return this.memberServices !== undefined;
     };
+    /**
+     * Determine if pre-fetch mode is enabled to prefetch tcerts.
+     */
     Chain.prototype.isPreFetchMode = function () {
         return this.preFetchMode;
     };
+    /**
+     * Set prefetch mode to true or false.
+     */
     Chain.prototype.setPreFetchMode = function (preFetchMode) {
         this.preFetchMode = preFetchMode;
     };
+    /**
+     * Determine if dev mode is enabled.
+     */
     Chain.prototype.isDevMode = function () {
         return this.devMode;
     };
+    /**
+     * Set dev mode to true or false.
+     */
     Chain.prototype.setDevMode = function (devMode) {
         this.devMode = devMode;
     };
+    /**
+     * Get the deploy wait time in seconds.
+     */
+    Chain.prototype.getDeployWaitTime = function () {
+        return this.deployWaitTime;
+    };
+    /**
+     * Set the deploy wait time in seconds.
+     * @param secs
+     */
+    Chain.prototype.setDeployWaitTime = function (secs) {
+        this.deployWaitTime = secs;
+    };
+    /**
+     * Get the invoke wait time in seconds.
+     */
+    Chain.prototype.getInvokeWaitTime = function () {
+        return this.invokeWaitTime;
+    };
+    /**
+     * Set the invoke wait time in seconds.
+     * @param secs
+     */
+    Chain.prototype.setInvokeWaitTime = function (secs) {
+        this.invokeWaitTime = secs;
+    };
+    /**
+     * Get the key val store implementation (if any) that is currently associated with this chain.
+     * @returns {KeyValStore} Return the current KeyValStore associated with this chain, or undefined if not set.
+     */
     Chain.prototype.getKeyValStore = function () {
         return this.keyValStore;
     };
+    /**
+     * Set the key value store implementation.
+     */
     Chain.prototype.setKeyValStore = function (keyValStore) {
         this.keyValStore = keyValStore;
     };
+    /**
+     * Get the tcert batch size.
+     */
     Chain.prototype.getTCertBatchSize = function () {
         return this.tcertBatchSize;
     };
+    /**
+     * Set the tcert batch size.
+     */
     Chain.prototype.setTCertBatchSize = function (batchSize) {
         this.tcertBatchSize = batchSize;
     };
+    /**
+     * Get the user member named 'name'.
+     * @param cb Callback of form "function(err,Member)"
+     */
     Chain.prototype.getMember = function (name, cb) {
         var self = this;
         cb = cb || nullCB;
@@ -151,14 +400,23 @@ var Chain = (function () {
             cb(null, member);
         });
     };
+    /**
+     * Get a user.
+     * A user is a specific type of member.
+     * Another type of member is a peer.
+     */
     Chain.prototype.getUser = function (name, cb) {
         return this.getMember(name, cb);
     };
+    // Try to get the member from cache.
+    // If not found, create a new one, restore the state if found, and then store in cache.
     Chain.prototype.getMemberHelper = function (name, cb) {
         var self = this;
+        // Try to get the member state from the cache
         var member = self.members[name];
         if (member)
             return cb(null, member);
+        // Create the member and try to restore it's state from the key value store (if found).
         member = new Member(name, self);
         member.restoreState(function (err) {
             if (err)
@@ -166,6 +424,11 @@ var Chain = (function () {
             cb(null, member);
         });
     };
+    /**
+     * Register a user or other member type with the chain.
+     * @param registrationRequest Registration information.
+     * @param cb Callback with registration results
+     */
     Chain.prototype.register = function (registrationRequest, cb) {
         var self = this;
         self.getMember(registrationRequest.enrollmentID, function (err, member) {
@@ -174,6 +437,13 @@ var Chain = (function () {
             member.register(registrationRequest, cb);
         });
     };
+    /**
+     * Enroll a user or other identity which has already been registered.
+     * If the user has already been enrolled, this will still succeed.
+     * @param name The name of the user or other member to enroll.
+     * @param secret The secret of the user or other member to enroll.
+     * @param cb The callback to return the user or other member.
+     */
     Chain.prototype.enroll = function (name, secret, cb) {
         var self = this;
         self.getMember(name, function (err, member) {
@@ -186,6 +456,12 @@ var Chain = (function () {
             });
         });
     };
+    /**
+     * Register and enroll a user or other member type.
+     * This assumes that a registrar with sufficient privileges has been set.
+     * @param registrationRequest Registration information.
+     * @params
+     */
     Chain.prototype.registerAndEnroll = function (registrationRequest, cb) {
         var self = this;
         self.getMember(registrationRequest.enrollmentID, function (err, member) {
@@ -202,15 +478,20 @@ var Chain = (function () {
             });
         });
     };
+    /**
+     * Send a transaction to a peer.
+     * @param tx A transaction
+     * @param eventEmitter An event emitter
+     */
     Chain.prototype.sendTransaction = function (tx, eventEmitter) {
         var _this = this;
         if (this.peers.length === 0) {
-            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", this.getName())));
+            return eventEmitter.emit('error', new EventTransactionError(util.format("chain %s has no peers", this.getName())));
         }
         var peers = this.peers;
         var trySendTransaction = function (pidx) {
             if (pidx >= peers.length) {
-                eventEmitter.emit('error', "None of " + peers.length + " peers reponding");
+                eventEmitter.emit('error', new EventTransactionError("None of " + peers.length + " peers reponding"));
                 return;
             }
             var p = urlParser.parse(peers[pidx].getUrl());
@@ -234,13 +515,18 @@ var Chain = (function () {
     return Chain;
 }());
 exports.Chain = Chain;
+/**
+ * A member is an entity that transacts on a chain.
+ * Types of members include end users, peers, etc.
+ */
 var Member = (function () {
+    /**
+     * Constructor for a member.
+     * @param cfg {string | RegistrationRequest} The member name or registration request.
+     * @returns {Member} A member who is neither registered nor enrolled.
+     */
     function Member(cfg, chain) {
-        this.tcerts = [];
-        this.arrivalRate = new stats.Rate();
-        this.getTCertResponseTime = new stats.ResponseTime();
-        this.getTCertWaiters = [];
-        this.gettingTCerts = false;
+        this.tcertGetterMap = {};
         if (util.isString(cfg)) {
             this.name = cfg;
         }
@@ -255,40 +541,84 @@ var Member = (function () {
         this.memberServices = chain.getMemberServices();
         this.keyValStore = chain.getKeyValStore();
         this.keyValStoreName = toKeyValStoreName(this.name);
-        this.tcerts = [];
         this.tcertBatchSize = chain.getTCertBatchSize();
     }
+    /**
+     * Get the member name.
+     * @returns {string} The member name.
+     */
     Member.prototype.getName = function () {
         return this.name;
     };
+    /**
+     * Get the chain.
+     * @returns {Chain} The chain.
+     */
     Member.prototype.getChain = function () {
         return this.chain;
     };
     ;
+    /**
+     * Get the member services.
+     * @returns {MemberServices} The member services.
+     */
+    Member.prototype.getMemberServices = function () {
+        return this.memberServices;
+    };
+    ;
+    /**
+     * Get the roles.
+     * @returns {string[]} The roles.
+     */
     Member.prototype.getRoles = function () {
         return this.roles;
     };
     ;
+    /**
+     * Set the roles.
+     * @param roles {string[]} The roles.
+     */
     Member.prototype.setRoles = function (roles) {
         this.roles = roles;
     };
     ;
+    /**
+     * Get the account.
+     * @returns {string} The account.
+     */
     Member.prototype.getAccount = function () {
         return this.account;
     };
     ;
+    /**
+     * Set the account.
+     * @param account The account.
+     */
     Member.prototype.setAccount = function (account) {
         this.account = account;
     };
     ;
+    /**
+     * Get the affiliation.
+     * @returns {string} The affiliation.
+     */
     Member.prototype.getAffiliation = function () {
         return this.affiliation;
     };
     ;
+    /**
+     * Set the affiliation.
+     * @param affiliation The affiliation.
+     */
     Member.prototype.setAffiliation = function (affiliation) {
         this.affiliation = affiliation;
     };
     ;
+    /**
+     * Get the transaction certificate (tcert) batch size, which is the number of tcerts retrieved
+     * from member services each time (i.e. in a single batch).
+     * @returns The tcert batch size.
+     */
     Member.prototype.getTCertBatchSize = function () {
         if (this.tcertBatchSize === undefined) {
             return this.chain.getTCertBatchSize();
@@ -297,19 +627,39 @@ var Member = (function () {
             return this.tcertBatchSize;
         }
     };
+    /**
+     * Set the transaction certificate (tcert) batch size.
+     * @param batchSize
+     */
     Member.prototype.setTCertBatchSize = function (batchSize) {
         this.tcertBatchSize = batchSize;
     };
+    /**
+     * Get the enrollment info.
+     * @returns {Enrollment} The enrollment.
+     */
     Member.prototype.getEnrollment = function () {
         return this.enrollment;
     };
     ;
+    /**
+     * Determine if this name has been registered.
+     * @returns {boolean} True if registered; otherwise, false.
+     */
     Member.prototype.isRegistered = function () {
         return this.enrollmentSecret !== undefined;
     };
+    /**
+     * Determine if this name has been enrolled.
+     * @returns {boolean} True if enrolled; otherwise, false.
+     */
     Member.prototype.isEnrolled = function () {
         return this.enrollment !== undefined;
     };
+    /**
+     * Register the member.
+     * @param cb Callback of the form: {function(err,enrollmentSecret)}
+     */
     Member.prototype.register = function (registrationRequest, cb) {
         var self = this;
         cb = cb || nullCB;
@@ -333,6 +683,11 @@ var Member = (function () {
             });
         });
     };
+    /**
+     * Enroll the member and return the enrollment results.
+     * @param enrollmentSecret The password or enrollment secret as returned by register.
+     * @param cb Callback to report an error if it occurs
+     */
     Member.prototype.enroll = function (enrollmentSecret, cb) {
         var self = this;
         cb = cb || nullCB;
@@ -348,10 +703,14 @@ var Member = (function () {
             if (err)
                 return cb(err);
             self.enrollment = enrollment;
+            // Generate queryStateKey
             self.enrollment.queryStateKey = self.chain.cryptoPrimitives.generateNonce();
+            // Save state
             self.saveState(function (err) {
                 if (err)
                     return cb(err);
+                // Unmarshall chain key
+                // TODO: during restore, unmarshall enrollment.chainKey
                 debug("[memberServices.enroll] Unmarshalling chainKey");
                 var ecdsaChainKey = self.chain.cryptoPrimitives.ecdsaPEMToPublicKey(self.enrollment.chainKey);
                 self.enrollment.enrollChainKey = ecdsaChainKey;
@@ -359,6 +718,10 @@ var Member = (function () {
             });
         });
     };
+    /**
+     * Perform both registration and enrollment.
+     * @param cb Callback of the form: {function(err,{key,cert,chainKey})}
+     */
     Member.prototype.registerAndEnroll = function (registrationRequest, cb) {
         var self = this;
         cb = cb || nullCB;
@@ -377,107 +740,102 @@ var Member = (function () {
             });
         });
     };
+    /**
+     * Issue a deploy request on behalf of this member.
+     * @param deployRequest {Object}
+     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     */
     Member.prototype.deploy = function (deployRequest) {
-        console.log("ENTER Member.deploy");
+        debug("Member.deploy");
         var tx = this.newTransactionContext();
         tx.deploy(deployRequest);
         return tx;
     };
+    /**
+     * Issue a invoke request on behalf of this member.
+     * @param invokeRequest {Object}
+     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     */
     Member.prototype.invoke = function (invokeRequest) {
         var tx = this.newTransactionContext();
         tx.invoke(invokeRequest);
         return tx;
     };
+    /**
+     * Issue a query request on behalf of this member.
+     * @param queryRequest {Object}
+     * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
+     */
     Member.prototype.query = function (queryRequest) {
         var tx = this.newTransactionContext();
         tx.query(queryRequest);
         return tx;
     };
+    /**
+     * Create a transaction context with which to issue build, deploy, invoke, or query transactions.
+     * Only call this if you want to use the same tcert for multiple transactions.
+     * @param {Object} tcert A transaction certificate from member services.  This is optional.
+     * @returns A transaction context.
+     */
     Member.prototype.newTransactionContext = function (tcert) {
         return new TransactionContext(this, tcert);
     };
-    Member.prototype.getUserCert = function (cb) {
-        this.getNextTCert(cb);
+    /**
+     * Get a user certificate.
+     * @param attrs The names of attributes to include in the user certificate.
+     * @param cb A GetTCertCallback
+     */
+    Member.prototype.getUserCert = function (attrs, cb) {
+        this.getNextTCert(attrs, cb);
     };
-    Member.prototype.getNextTCert = function (cb) {
+    /**
+   * Get the next available transaction certificate with the appropriate attributes.
+   * @param cb
+   */
+    Member.prototype.getNextTCert = function (attrs, cb) {
         var self = this;
         if (!self.isEnrolled()) {
             return cb(Error(util.format("user '%s' is not enrolled", self.getName())));
         }
-        self.arrivalRate.tick();
-        var tcert = self.tcerts.length > 0 ? self.tcerts.shift() : undefined;
-        if (tcert) {
-            return cb(null, tcert);
+        var key = getAttrsKey(attrs);
+        debug("Member.getNextTCert: key=%s", key);
+        var tcertGetter = self.tcertGetterMap[key];
+        if (!tcertGetter) {
+            debug("Member.getNextTCert: key=%s, creating new getter", key);
+            tcertGetter = new TCertGetter(self, attrs, key);
+            self.tcertGetterMap[key] = tcertGetter;
         }
-        else {
-            self.getTCertWaiters.push(cb);
-        }
-        if (self.shouldGetTCerts()) {
-            self.getTCerts();
-        }
+        return tcertGetter.getNextTCert(cb);
     };
-    Member.prototype.shouldGetTCerts = function () {
-        var self = this;
-        if (self.gettingTCerts) {
-            debug("shouldGetTCerts: no, already getting tcerts");
-            return false;
-        }
-        if (self.tcerts.length == 0) {
-            debug("shouldGetTCerts: yes, we have no tcerts");
-            return true;
-        }
-        if (!self.chain.isPreFetchMode()) {
-            debug("shouldGetTCerts: no, prefetch disabled");
-            return false;
-        }
-        var arrivalRate = self.arrivalRate.getValue();
-        var responseTime = self.getTCertResponseTime.getValue() + 1000;
-        var tcertThreshold = arrivalRate * responseTime;
-        var tcertCount = self.tcerts.length;
-        var result = tcertCount <= tcertThreshold;
-        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s", result, tcertThreshold, tcertCount, arrivalRate, responseTime));
-        return result;
-    };
-    Member.prototype.getTCerts = function () {
-        var self = this;
-        var req = {
-            name: self.getName(),
-            enrollment: self.enrollment,
-            num: self.getTCertBatchSize()
-        };
-        self.getTCertResponseTime.start();
-        self.memberServices.getTCertBatch(req, function (err, tcerts) {
-            if (err) {
-                self.getTCertResponseTime.cancel();
-                while (self.getTCertWaiters.length > 0) {
-                    self.getTCertWaiters.shift()(err);
-                }
-                return;
-            }
-            self.getTCertResponseTime.stop();
-            while (tcerts.length > 0) {
-                self.tcerts.push(tcerts.shift());
-            }
-            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
-                self.getTCertWaiters.shift()(null, self.tcerts.shift());
-            }
-        });
-    };
+    /**
+     * Save the state of this member to the key value store.
+     * @param cb Callback of the form: {function(err}
+     */
     Member.prototype.saveState = function (cb) {
         var self = this;
         self.keyValStore.setValue(self.keyValStoreName, self.toString(), cb);
     };
+    /**
+     * Restore the state of this member from the key value store (if found).  If not found, do nothing.
+     * @param cb Callback of the form: function(err}
+     */
     Member.prototype.restoreState = function (cb) {
         var self = this;
         self.keyValStore.getValue(self.keyValStoreName, function (err, memberStr) {
             if (err)
                 return cb(err);
+            // debug("restoreState: name=%s, memberStr=%s", self.getName(), memberStr);
             if (memberStr) {
+                // The member was found in the key value store, so restore the state.
                 self.fromString(memberStr);
             }
             cb(null);
         });
     };
+    /**
+     * Get the current state of this member as a string
+     * @return {string} The state of this member as a string
+     */
     Member.prototype.fromString = function (str) {
         var state = JSON.parse(str);
         if (state.name !== this.getName())
@@ -489,6 +847,10 @@ var Member = (function () {
         this.enrollmentSecret = state.enrollmentSecret;
         this.enrollment = state.enrollment;
     };
+    /**
+     * Save the current state of this member as a string
+     * @return {string} The state of this member as a string
+     */
     Member.prototype.toString = function () {
         var self = this;
         var state = {
@@ -504,6 +866,10 @@ var Member = (function () {
     return Member;
 }());
 exports.Member = Member;
+/**
+ * A transaction context emits events 'submitted', 'complete', and 'error'.
+ * Each transaction context uses exactly one tcert.
+ */
 var TransactionContext = (function (_super) {
     __extends(TransactionContext, _super);
     function TransactionContext(member, tcert) {
@@ -514,94 +880,148 @@ var TransactionContext = (function (_super) {
         this.tcert = tcert;
         this.nonce = this.chain.cryptoPrimitives.generateNonce();
     }
+    /**
+     * Get the member with which this transaction context is associated.
+     * @returns The member
+     */
     TransactionContext.prototype.getMember = function () {
         return this.member;
     };
+    /**
+     * Get the chain with which this transaction context is associated.
+     * @returns The chain
+     */
     TransactionContext.prototype.getChain = function () {
         return this.chain;
     };
     ;
+    /**
+     * Get the member services, or undefined if security is not enabled.
+     * @returns The member services
+     */
     TransactionContext.prototype.getMemberServices = function () {
         return this.memberServices;
     };
     ;
+    /**
+     * Issue a deploy transaction.
+     * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
+   */
     TransactionContext.prototype.deploy = function (deployRequest) {
-        console.log("TransactionContext.deploy");
-        console.log("Received deploy request: %j", deployRequest);
+        debug("TransactionContext.deploy");
+        debug("Received deploy request: %j", deployRequest);
         var self = this;
+        // Get a TCert to use in the deployment transaction
         self.getMyTCert(function (err) {
             if (err) {
-                console.log('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
+                debug('Failed getting a new TCert [%s]', err);
+                self.emit('error', new EventTransactionError(err));
                 return self;
             }
-            console.log("Got a TCert successfully, continue...");
+            debug("Got a TCert successfully, continue...");
             self.newBuildOrDeployTransaction(deployRequest, false, function (err, deployTx) {
                 if (err) {
-                    console.log("Error in newBuildOrDeployTransaction [%s]", err);
-                    self.emit('error', err);
+                    debug("Error in newBuildOrDeployTransaction [%s]", err);
+                    self.emit('error', new EventTransactionError(err));
                     return self;
                 }
-                console.log("Calling TransactionContext.execute");
+                debug("Calling TransactionContext.execute");
                 return self.execute(deployTx);
             });
         });
         return self;
     };
+    /**
+     * Issue an invoke transaction.
+     * @param invokeRequest {Object} An invoke request of the form: XXX
+     */
     TransactionContext.prototype.invoke = function (invokeRequest) {
         var self = this;
+        debug("Member.invoke: req=%j", invokeRequest);
+        self.setAttrs(invokeRequest.attrs);
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
+                self.emit('error', new EventTransactionError(err));
                 return self;
             }
             return self.execute(self.newInvokeOrQueryTransaction(invokeRequest, true));
         });
         return self;
     };
+    /**
+     * Issue an query transaction.
+     * @param queryRequest {Object} A query request of the form: XXX
+     */
     TransactionContext.prototype.query = function (queryRequest) {
         var self = this;
+        debug("Member.query: req=%j", queryRequest);
+        self.setAttrs(queryRequest.attrs);
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
+                self.emit('error', new EventTransactionError(err));
                 return self;
             }
             return self.execute(self.newInvokeOrQueryTransaction(queryRequest, false));
         });
         return self;
     };
+    /**
+     * Get the attribute names associated
+     */
+    TransactionContext.prototype.getAttrs = function () {
+        return this.attrs;
+    };
+    /**
+     * Set the attributes for this transaction context.
+     */
+    TransactionContext.prototype.setAttrs = function (attrs) {
+        this.attrs = attrs;
+    };
+    /**
+     * Execute a transaction
+     * @param tx {Transaction} The transaction.
+     */
     TransactionContext.prototype.execute = function (tx) {
         debug('Executing transaction [%j]', tx);
         var self = this;
+        // Get the TCert
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                return self.emit('error', err);
+                return self.emit('error', new EventTransactionError(err));
             }
             if (tcert) {
-                tx.setNonce(self.nonce);
+                // Set nonce
+                tx.pb.setNonce(self.nonce);
+                // Process confidentiality
                 debug('Process Confidentiality...');
                 self.processConfidentiality(tx);
                 debug('Sign transaction...');
-                tx.setCert(tcert.publicKey);
-                var txBytes = tx.toBuffer();
+                // Add the tcert
+                tx.pb.setCert(tcert.publicKey);
+                // sign the transaction bytes
+                var txBytes = tx.pb.toBuffer();
                 var derSignature = self.chain.cryptoPrimitives.ecdsaSign(tcert.privateKey.getPrivate('hex'), txBytes).toDER();
-                tx.setSignature(new Buffer(derSignature));
+                // debug('signature: ', derSignature);
+                tx.pb.setSignature(new Buffer(derSignature));
                 debug('Send transaction...');
-                debug('Confidentiality: ', tx.getConfidentialityLevel());
-                if (tx.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
-                    tx.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
+                debug('Confidentiality: ', tx.pb.getConfidentialityLevel());
+                if (tx.pb.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
+                    tx.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
+                    // Need to send a different event emitter so we can catch the response
+                    // and perform decryption before sending the real complete response
+                    // to the caller
                     var emitter = new events.EventEmitter();
-                    emitter.on("complete", function (results) {
-                        debug("Encrypted: [%j]", results);
-                        var res = self.decryptResult(results);
-                        debug("Decrypted: [%j]", res);
-                        self.emit("complete", res);
+                    emitter.on("complete", function (event) {
+                        debug("Encrypted: [%j]", event);
+                        event.result = self.decryptResult(event.result);
+                        debug("Decrypted: [%j]", event);
+                        self.emit("complete", event);
                     });
-                    emitter.on("error", function (results) {
-                        self.emit("error", results);
+                    emitter.on("error", function (event) {
+                        self.emit("error", event);
                     });
                     self.getChain().sendTransaction(tx, emitter);
                 }
@@ -611,7 +1031,7 @@ var TransactionContext = (function (_super) {
             }
             else {
                 debug('Missing TCert...');
-                return self.emit('error', 'Missing TCert.');
+                return self.emit('error', new EventTransactionError('Missing TCert.'));
             }
         });
         return self;
@@ -623,7 +1043,7 @@ var TransactionContext = (function (_super) {
             return cb(null, self.tcert);
         }
         debug('[TransactionContext] No TCert cached. Retrieving one.');
-        this.member.getNextTCert(function (err, tcert) {
+        this.member.getNextTCert(self.attrs, function (err, tcert) {
             if (err)
                 return cb(err);
             self.tcert = tcert;
@@ -631,28 +1051,39 @@ var TransactionContext = (function (_super) {
         });
     };
     TransactionContext.prototype.processConfidentiality = function (transaction) {
-        if (transaction.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
+        // is confidentiality required?
+        if (transaction.pb.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
+            // No confidentiality is required
             return;
         }
         debug('Process Confidentiality ...');
         var self = this;
-        transaction.setConfidentialityProtocolVersion('1.2');
+        // Set confidentiality level and protocol version
+        transaction.pb.setConfidentialityProtocolVersion('1.2');
+        // Generate transaction key. Common to all type of transactions
         var txKey = self.chain.cryptoPrimitives.eciesKeyGen();
         debug('txkey [%j]', txKey.pubKeyObj.pubKeyHex);
         debug('txKey.prvKeyObj %j', txKey.prvKeyObj.toString());
         var privBytes = self.chain.cryptoPrimitives.ecdsaPrivateKeyToASN1(txKey.prvKeyObj.prvKeyHex);
         debug('privBytes %s', privBytes.toString());
+        // Generate stateKey. Transaction type dependent step.
         var stateKey;
-        if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
+        if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
+            // The request is for a deploy
             stateKey = new Buffer(self.chain.cryptoPrimitives.aesKeyGen());
         }
-        else if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE) {
+        else if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE) {
+            // The request is for an execute
+            // Empty state key
             stateKey = new Buffer([]);
         }
         else {
+            // The request is for a query
             debug('Generate state key...');
             stateKey = new Buffer(self.chain.cryptoPrimitives.hmacAESTruncated(self.member.getEnrollment().queryStateKey, [CONFIDENTIALITY_1_2_STATE_KD_C6].concat(self.nonce)));
         }
+        // Prepare ciphertexts
+        // Encrypts message to validators using self.enrollChainKey
         var chainCodeValidatorMessage1_2 = new asn1Builder.Ber.Writer();
         chainCodeValidatorMessage1_2.startSequence();
         chainCodeValidatorMessage1_2.writeBuffer(privBytes, 4);
@@ -669,15 +1100,20 @@ var TransactionContext = (function (_super) {
         debug('Using chain key [%j]', self.member.getEnrollment().chainKey);
         var ecdsaChainKey = self.chain.cryptoPrimitives.ecdsaPEMToPublicKey(self.member.getEnrollment().chainKey);
         var encMsgToValidators = self.chain.cryptoPrimitives.eciesEncryptECDSA(ecdsaChainKey, chainCodeValidatorMessage1_2.buffer);
-        transaction.setToValidators(encMsgToValidators);
-        var encryptedChaincodeID = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.getChaincodeID().buffer);
-        transaction.setChaincodeID(encryptedChaincodeID);
-        var encryptedPayload = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.getPayload().buffer);
-        transaction.setPayload(encryptedPayload);
-        if (transaction.getMetadata() != null && transaction.getMetadata().buffer != null) {
-            debug('Metadata [%j]', transaction.getMetadata().buffer);
-            var encryptedMetadata = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.getMetadata().buffer);
-            transaction.setMetadata(encryptedMetadata);
+        transaction.pb.setToValidators(encMsgToValidators);
+        // Encrypts chaincodeID using txKey
+        // debug('CHAINCODE ID %j', transaction.chaincodeID);
+        var encryptedChaincodeID = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.pb.getChaincodeID().buffer);
+        transaction.pb.setChaincodeID(encryptedChaincodeID);
+        // Encrypts payload using txKey
+        // debug('PAYLOAD ID %j', transaction.payload);
+        var encryptedPayload = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.pb.getPayload().buffer);
+        transaction.pb.setPayload(encryptedPayload);
+        // Encrypt metadata using txKey
+        if (transaction.pb.getMetadata() != null && transaction.pb.getMetadata().buffer != null) {
+            debug('Metadata [%j]', transaction.pb.getMetadata().buffer);
+            var encryptedMetadata = self.chain.cryptoPrimitives.eciesEncrypt(txKey.pubKeyObj, transaction.pb.getMetadata().buffer);
+            transaction.pb.setMetadata(encryptedMetadata);
         }
     };
     TransactionContext.prototype.decryptResult = function (ct) {
@@ -685,74 +1121,200 @@ var TransactionContext = (function (_super) {
         debug('Decrypt Result [%s]', ct.toString('hex'));
         return this.chain.cryptoPrimitives.aes256GCMDecrypt(key, ct);
     };
+    /**
+     * Create a deploy transaction.
+     * @param request {Object} A BuildRequest or DeployRequest
+     */
     TransactionContext.prototype.newBuildOrDeployTransaction = function (request, isBuildRequest, cb) {
-        console.log("newBuildOrDeployTransaction");
+        debug("newBuildOrDeployTransaction");
         var self = this;
-        var goPath = process.env.GOPATH;
-        console.log("$GOPATH: " + goPath);
+        // Determine if deployment is for dev mode or net mode
+        if (self.chain.isDevMode()) {
+            // Deployment in developent mode. Build a dev mode transaction.
+            this.newDevModeTransaction(request, isBuildRequest, function (err, tx) {
+                return cb(null, tx);
+            });
+        }
+        else {
+            // Deployment in network mode. Build a net mode transaction.
+            this.newNetModeTransaction(request, isBuildRequest, function (err, tx) {
+                return cb(null, tx);
+            });
+        }
+    }; // end newBuildOrDeployTransaction
+    /**
+     * Create a development mode deploy transaction.
+     * @param request {Object} A development mode BuildRequest or DeployRequest
+     */
+    TransactionContext.prototype.newDevModeTransaction = function (request, isBuildRequest, cb) {
+        debug("newDevModeTransaction");
+        var self = this;
+        var tx = new _fabricProto.Transaction();
+        if (isBuildRequest) {
+            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+        }
+        else {
+            tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+        }
+        // Set the chaincodeID
+        var chaincodeID = new _chaincodeProto.ChaincodeID();
+        chaincodeID.setName(request.chaincodeID);
+        debug("newDevModeTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
+        tx.setChaincodeID(chaincodeID.toBuffer());
+        // Construct the ChaincodeSpec
+        var chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+        // Set Type -- GOLANG is the only chaincode language supported at this time
+        chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+        // Set chaincodeID
+        chaincodeSpec.setChaincodeID(chaincodeID);
+        // Set ctorMsg
+        var chaincodeInput = new _chaincodeProto.ChaincodeInput();
+        chaincodeInput.setFunction(request.fcn);
+        chaincodeInput.setArgs(request.args);
+        chaincodeSpec.setCtorMsg(chaincodeInput);
+        // Construct the ChaincodeDeploymentSpec (i.e. the payload)
+        var chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
+        chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+        tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+        // Set the transaction UUID
+        tx.setUuid(request.chaincodeID);
+        // Set the transaction timestamp
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
+        // Set confidentiality level
+        if (request.confidential) {
+            debug("Set confidentiality level to CONFIDENTIAL");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
+        }
+        else {
+            debug("Set confidentiality level to PUBLIC");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
+        }
+        // Set request metadata
+        if (request.metadata) {
+            tx.setMetadata(request.metadata);
+        }
+        // Set the user certificate data
+        if (request.userCert) {
+            // cert based
+            var certRaw = new Buffer(self.tcert.publicKey);
+            // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+            var nonceRaw = new Buffer(self.nonce);
+            var bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+            // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+            this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+            // debug('========== Binding [%s]', this.binding.toString('hex'));
+            var ctor = chaincodeSpec.getCtorMsg().toBuffer();
+            // debug('========== Ctor [%s]', ctor.toString('hex'));
+            var txmsg = Buffer.concat([ctor, this.binding]);
+            // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
+            var mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+            var sigma = new Buffer(mdsig.toDER());
+            // debug('========== Sigma [%s]', sigma.toString('hex'));
+            tx.setMetadata(sigma);
+        }
+        tx = new Transaction(tx, request.chaincodeID);
+        return cb(null, tx);
+    };
+    /**
+     * Create a network mode deploy transaction.
+     * @param request {Object} A network mode BuildRequest or DeployRequest
+     */
+    TransactionContext.prototype.newNetModeTransaction = function (request, isBuildRequest, cb) {
+        debug("newNetModeTransaction");
+        var self = this;
+        // Determine the user's $GOPATH
+        var goPath = process.env['GOPATH'];
+        debug("$GOPATH: " + goPath);
+        // Compose the path to the chaincode project directory
         var projDir = goPath + "/src/" + request.chaincodePath;
-        console.log("projDir: " + projDir);
+        debug("projDir: " + projDir);
+        // Compute the hash of the chaincode deployment parameters
         var hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
+        // Compute the hash of the project directory contents
         hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
-        console.log("hash: " + hash);
+        debug("hash: " + hash);
+        // Compose the Dockerfile commands
         var dockerFileContents = "from hyperledger/fabric-baseimage" + "\n" +
             "COPY . $GOPATH/src/build-chaincode/" + "\n" +
             "WORKDIR $GOPATH" + "\n\n" +
             "RUN go install build-chaincode && cp src/build-chaincode/vendor/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/build-chaincode $GOPATH/bin/%s";
+        // Substitute the hashStrHash for the image name
         dockerFileContents = util.format(dockerFileContents, hash);
+        // Create a Docker file with dockerFileContents
         var dockerFilePath = projDir + "/Dockerfile";
         fs.writeFile(dockerFilePath, dockerFileContents, function (err) {
             if (err) {
-                console.log(util.format("Error writing file [%s]: %s", dockerFilePath, err));
+                debug(util.format("Error writing file [%s]: %s", dockerFilePath, err));
                 return cb(Error(util.format("Error writing file [%s]: %s", dockerFilePath, err)));
             }
-            console.log("Created Dockerfile at [%s]", dockerFilePath);
+            debug("Created Dockerfile at [%s]", dockerFilePath);
+            // Create the .tar.gz file of the chaincode package
             var targzFilePath = "/tmp/deployment-package.tar.gz";
-            var tarball = new targz({}, {
-                fromBase: true
-            });
-            tarball.compress(projDir, targzFilePath, function (err) {
+            // Create the compressed archive
+            sdk_util.GenerateTarGz(projDir, targzFilePath, function (err) {
                 if (err) {
-                    console.log(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
+                    debug(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
                     return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
                 }
-                console.log(util.format("Created deployment archive at [%s]", targzFilePath));
+                debug(util.format("Created deployment archive at [%s]", targzFilePath));
+                //
+                // Initialize a transaction structure
+                //
                 var tx = new _fabricProto.Transaction();
+                //
+                // Set the transaction type
+                //
                 if (isBuildRequest) {
                     tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
                 }
                 else {
                     tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
                 }
+                //
+                // Set the chaincodeID
+                //
                 var chaincodeID = new _chaincodeProto.ChaincodeID();
                 chaincodeID.setName(hash);
-                console.log("chaincodeID: " + JSON.stringify(chaincodeID));
+                debug("chaincodeID: " + JSON.stringify(chaincodeID));
                 tx.setChaincodeID(chaincodeID.toBuffer());
+                //
+                // Set the payload
+                //
+                // Construct the ChaincodeSpec
                 var chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+                // Set Type -- GOLANG is the only chaincode language supported at this time
                 chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+                // Set chaincodeID
                 chaincodeSpec.setChaincodeID(chaincodeID);
+                // Set ctorMsg
                 var chaincodeInput = new _chaincodeProto.ChaincodeInput();
                 chaincodeInput.setFunction(request.fcn);
                 chaincodeInput.setArgs(request.args);
                 chaincodeSpec.setCtorMsg(chaincodeInput);
-                console.log("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+                debug("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+                // Construct the ChaincodeDeploymentSpec and set it as the Transaction payload
                 var chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
                 chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+                // Read in the .tar.zg and set it as the CodePackage in ChaincodeDeploymentSpec
                 fs.readFile(targzFilePath, function (err, data) {
                     if (err) {
-                        console.log(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
+                        debug(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
                         return cb(Error(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err)));
                     }
-                    console.log(util.format("Read in deployment archive from [%s]", targzFilePath));
+                    debug(util.format("Read in deployment archive from [%s]", targzFilePath));
                     chaincodeDeploymentSpec.setCodePackage(data);
                     tx.setPayload(chaincodeDeploymentSpec.toBuffer());
-                    if (self.chain.isDevMode()) {
-                        tx.setUuid(request.chaincodeID);
-                    }
-                    else {
-                        tx.setUuid(sdk_util.GenerateUUID());
-                    }
+                    //
+                    // Set the transaction UUID
+                    //
+                    tx.setUuid(sdk_util.GenerateUUID());
+                    //
+                    // Set the transaction timestamp
+                    //
                     tx.setTimestamp(sdk_util.GenerateTimestamp());
+                    //
+                    // Set confidentiality level
+                    //
                     if (request.confidential) {
                         debug("Set confidentiality level to CONFIDENTIAL");
                         tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
@@ -761,41 +1323,67 @@ var TransactionContext = (function (_super) {
                         debug("Set confidentiality level to PUBLIC");
                         tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
                     }
+                    //
+                    // Set request metadata
+                    //
                     if (request.metadata) {
                         tx.setMetadata(request.metadata);
                     }
+                    //
+                    // Set the user certificate data
+                    //
                     if (request.userCert) {
+                        // cert based
                         var certRaw = new Buffer(self.tcert.publicKey);
+                        // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
                         var nonceRaw = new Buffer(self.nonce);
                         var bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+                        // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
                         this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+                        // debug('========== Binding [%s]', this.binding.toString('hex'));
                         var ctor = chaincodeSpec.getCtorMsg().toBuffer();
+                        // debug('========== Ctor [%s]', ctor.toString('hex'));
                         var txmsg = Buffer.concat([ctor, this.binding]);
+                        // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
                         var mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
                         var sigma = new Buffer(mdsig.toDER());
+                        // debug('========== Sigma [%s]', sigma.toString('hex'));
                         tx.setMetadata(sigma);
                     }
+                    //
+                    // Clean up temporary files
+                    //
+                    // Remove the temporary .tar.gz with the deployment contents and the Dockerfile
                     fs.unlink(targzFilePath, function (err) {
                         if (err) {
-                            console.log(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
+                            debug(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
                             return cb(Error(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err)));
                         }
-                        console.log("Temporary archive deleted successfully ---> " + targzFilePath);
+                        debug("Temporary archive deleted successfully ---> " + targzFilePath);
                         fs.unlink(dockerFilePath, function (err) {
                             if (err) {
-                                console.log(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
+                                debug(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
                                 return cb(Error(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err)));
                             }
-                            console.log("File deleted successfully ---> " + dockerFilePath);
+                            debug("File deleted successfully ---> " + dockerFilePath);
+                            //
+                            // Return the deploy transaction structure
+                            //
+                            tx = new Transaction(tx, hash);
                             return cb(null, tx);
-                        });
-                    });
-                });
-            });
-        });
+                        }); // end delete Dockerfile
+                    }); // end delete .tar.gz
+                }); // end reading .tar.zg and composing transaction
+            }); // end writing .tar.gz
+        }); // end writing Dockerfile
     };
+    /**
+     * Create an invoke or query transaction.
+     * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
+     */
     TransactionContext.prototype.newInvokeOrQueryTransaction = function (request, isInvokeRequest) {
         var self = this;
+        // Create a deploy transaction
         var tx = new _fabricProto.Transaction();
         if (isInvokeRequest) {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_INVOKE);
@@ -803,22 +1391,31 @@ var TransactionContext = (function (_super) {
         else {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_QUERY);
         }
+        // Set the chaincodeID
         var chaincodeID = new _chaincodeProto.ChaincodeID();
         chaincodeID.setName(request.chaincodeID);
         debug("newInvokeOrQueryTransaction: request=%j, chaincodeID=%s", request, JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
+        // Construct the ChaincodeSpec
         var chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+        // Set Type -- GOLANG is the only chaincode language supported at this time
         chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+        // Set chaincodeID
         chaincodeSpec.setChaincodeID(chaincodeID);
+        // Set ctorMsg
         var chaincodeInput = new _chaincodeProto.ChaincodeInput();
         chaincodeInput.setFunction(request.fcn);
         chaincodeInput.setArgs(request.args);
         chaincodeSpec.setCtorMsg(chaincodeInput);
+        // Construct the ChaincodeInvocationSpec (i.e. the payload)
         var chaincodeInvocationSpec = new _chaincodeProto.ChaincodeInvocationSpec();
         chaincodeInvocationSpec.setChaincodeSpec(chaincodeSpec);
         tx.setPayload(chaincodeInvocationSpec.toBuffer());
-        tx.setUuid(generateUUID());
-        tx.setTimestamp(generateTimestamp());
+        // Set the transaction UUID
+        tx.setUuid(sdk_util.GenerateUUID());
+        // Set the transaction timestamp
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
+        // Set confidentiality level
         if (request.confidential) {
             debug('Set confidentiality on');
             tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
@@ -831,71 +1428,228 @@ var TransactionContext = (function (_super) {
             tx.setMetadata(request.metadata);
         }
         if (request.userCert) {
+            // cert based
             var certRaw = new Buffer(self.tcert.publicKey);
+            // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
             var nonceRaw = new Buffer(self.nonce);
             var bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+            // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
             this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+            // debug('========== Binding [%s]', this.binding.toString('hex'));
             var ctor = chaincodeSpec.getCtorMsg().toBuffer();
+            // debug('========== Ctor [%s]', ctor.toString('hex'));
             var txmsg = Buffer.concat([ctor, this.binding]);
+            // debug('========== Pyaload||binding [%s]', txmsg.toString('hex'));
             var mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
             var sigma = new Buffer(mdsig.toDER());
+            // debug('========== Sigma [%s]', sigma.toString('hex'));
             tx.setMetadata(sigma);
         }
+        tx = new Transaction(tx, request.chaincodeID);
         return tx;
     };
     return TransactionContext;
 }(events.EventEmitter));
-exports.TransactionContext = TransactionContext;
+exports.TransactionContext = TransactionContext; // end TransactionContext
+// A class to get TCerts.
+// There is one class per set of attributes requested by each member.
+var TCertGetter = (function () {
+    /**
+    * Constructor for a member.
+    * @param cfg {string | RegistrationRequest} The member name or registration request.
+    * @returns {Member} A member who is neither registered nor enrolled.
+    */
+    function TCertGetter(member, attrs, key) {
+        this.tcerts = [];
+        this.arrivalRate = new stats.Rate();
+        this.getTCertResponseTime = new stats.ResponseTime();
+        this.getTCertWaiters = [];
+        this.gettingTCerts = false;
+        this.member = member;
+        this.attrs = attrs;
+        this.key = key;
+        this.chain = member.getChain();
+        this.memberServices = member.getMemberServices();
+        this.tcerts = [];
+    }
+    /**
+    * Get the chain.
+    * @returns {Chain} The chain.
+    */
+    TCertGetter.prototype.getChain = function () {
+        return this.chain;
+    };
+    ;
+    TCertGetter.prototype.getUserCert = function (cb) {
+        this.getNextTCert(cb);
+    };
+    /**
+    * Get the next available transaction certificate.
+    * @param cb
+    */
+    TCertGetter.prototype.getNextTCert = function (cb) {
+        var self = this;
+        self.arrivalRate.tick();
+        var tcert = self.tcerts.length > 0 ? self.tcerts.shift() : undefined;
+        if (tcert) {
+            return cb(null, tcert);
+        }
+        else {
+            if (!cb)
+                throw Error("null callback");
+            self.getTCertWaiters.push(cb);
+        }
+        if (self.shouldGetTCerts()) {
+            self.getTCerts();
+        }
+    };
+    // Determine if we should issue a request to get more tcerts now.
+    TCertGetter.prototype.shouldGetTCerts = function () {
+        var self = this;
+        // Do nothing if we are already getting more tcerts
+        if (self.gettingTCerts) {
+            debug("shouldGetTCerts: no, already getting tcerts");
+            return false;
+        }
+        // If there are none, then definitely get more
+        if (self.tcerts.length == 0) {
+            debug("shouldGetTCerts: yes, we have no tcerts");
+            return true;
+        }
+        // If we aren't in prefetch mode, return false;
+        if (!self.chain.isPreFetchMode()) {
+            debug("shouldGetTCerts: no, prefetch disabled");
+            return false;
+        }
+        // Otherwise, see if we should prefetch based on the arrival rate
+        // (i.e. the rate at which tcerts are requested) and the response
+        // time.
+        // "arrivalRate" is in req/ms and "responseTime" in ms,
+        // so "tcertCountThreshold" is number of tcerts at which we should
+        // request the next batch of tcerts so we don't have to wait on the
+        // transaction path.  Note that we add 1 sec to the average response
+        // time to add a little buffer time so we don't have to wait.
+        var arrivalRate = self.arrivalRate.getValue();
+        var responseTime = self.getTCertResponseTime.getValue() + 1000;
+        var tcertThreshold = arrivalRate * responseTime;
+        var tcertCount = self.tcerts.length;
+        var result = tcertCount <= tcertThreshold;
+        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s", result, tcertThreshold, tcertCount, arrivalRate, responseTime));
+        return result;
+    };
+    // Call member services to get more tcerts
+    TCertGetter.prototype.getTCerts = function () {
+        var self = this;
+        var req = {
+            name: self.member.getName(),
+            enrollment: self.member.getEnrollment(),
+            num: self.member.getTCertBatchSize(),
+            attrs: self.attrs
+        };
+        self.getTCertResponseTime.start();
+        self.memberServices.getTCertBatch(req, function (err, tcerts) {
+            if (err) {
+                self.getTCertResponseTime.cancel();
+                // Error all waiters
+                while (self.getTCertWaiters.length > 0) {
+                    self.getTCertWaiters.shift()(err);
+                }
+                return;
+            }
+            self.getTCertResponseTime.stop();
+            // Add to member's tcert list
+            while (tcerts.length > 0) {
+                self.tcerts.push(tcerts.shift());
+            }
+            // Allow waiters to proceed
+            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
+                var waiter = self.getTCertWaiters.shift();
+                waiter(null, self.tcerts.shift());
+            }
+        });
+    };
+    return TCertGetter;
+}()); // end TCertGetter
+/**
+ * The Peer class represents a peer to which HLC sends deploy, invoke, or query requests.
+ */
 var Peer = (function () {
+    /**
+     * Constructor for a peer given the endpoint config for the peer.
+     * @param {string} url The URL of
+     * @param {Chain} The chain of which this peer is a member.
+     * @returns {Peer} The new peer.
+     */
     function Peer(url, chain, pem) {
+        /**
+         * Send a transaction to this peer.
+         * @param tx A transaction
+         * @param eventEmitter The event emitter
+         */
         this.sendTransaction = function (tx, eventEmitter) {
             var self = this;
-            debug("peer.sendTransaction: sending %j", tx);
-            self.peerClient.processTransaction(tx, function (err, response) {
+            debug("peer.sendTransaction");
+            // Send the transaction to the peer node via grpc
+            // The rpc specification on the peer side is:
+            //     rpc ProcessTransaction(Transaction) returns (Response) {}
+            self.peerClient.processTransaction(tx.pb, function (err, response) {
                 if (err) {
                     debug("peer.sendTransaction: error=%j", err);
-                    return eventEmitter.emit('error', err);
+                    return eventEmitter.emit('error', new EventTransactionError(err));
                 }
-                console.log("peer.sendTransaction: received %j", response);
-                var txType = tx.getType();
+                debug("peer.sendTransaction: received %j", response);
+                // Check transaction type here, as invoke is an asynchronous call,
+                // whereas a deploy and a query are synchonous calls. As such,
+                // invoke will emit 'submitted' and 'error', while a deploy/query
+                // will emit 'complete' and 'error'.
+                var txType = tx.pb.getType();
                 switch (txType) {
                     case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY:
                         if (response.status === "SUCCESS") {
+                            // Deploy transaction has been completed
                             if (!response.msg || response.msg === "") {
-                                eventEmitter.emit('error', 'the deploy response is missing the transaction UUID');
+                                eventEmitter.emit("error", new EventTransactionError("the deploy response is missing the transaction UUID"));
                             }
                             else {
-                                eventEmitter.emit('complete', response.msg);
+                                var event_1 = new EventDeploySubmitted(response.msg.toString(), tx.chaincodeID);
+                                debug("EventDeploySubmitted event: %j", event_1);
+                                eventEmitter.emit("submitted", event_1);
+                                self.waitForDeployComplete(eventEmitter, event_1);
                             }
                         }
                         else {
-                            eventEmitter.emit('error', response.msg);
+                            // Deploy completed with status "FAILURE" or "UNDEFINED"
+                            eventEmitter.emit("error", new EventTransactionError(response));
                         }
                         break;
                     case _fabricProto.Transaction.Type.CHAINCODE_INVOKE:
                         if (response.status === "SUCCESS") {
+                            // Invoke transaction has been submitted
                             if (!response.msg || response.msg === "") {
-                                eventEmitter.emit('error', 'the invoke response is missing the transaction UUID');
+                                eventEmitter.emit("error", new EventTransactionError("the invoke response is missing the transaction UUID"));
                             }
                             else {
-                                eventEmitter.emit('submitted', response.msg);
-                                self.waitToComplete(eventEmitter);
+                                eventEmitter.emit("submitted", new EventInvokeSubmitted(response.msg.toString()));
+                                self.waitForInvokeComplete(eventEmitter);
                             }
                         }
                         else {
-                            eventEmitter.emit('error', response.msg);
+                            // Invoke completed with status "FAILURE" or "UNDEFINED"
+                            eventEmitter.emit("error", new EventTransactionError(response));
                         }
                         break;
                     case _fabricProto.Transaction.Type.CHAINCODE_QUERY:
                         if (response.status === "SUCCESS") {
-                            eventEmitter.emit('complete', response.msg);
+                            // Query transaction has been completed
+                            eventEmitter.emit("complete", new EventQueryComplete(response.msg));
                         }
                         else {
-                            eventEmitter.emit('error', response.msg);
+                            // Query completed with status "FAILURE" or "UNDEFINED"
+                            eventEmitter.emit("error", new EventTransactionError(response));
                         }
                         break;
                     default:
-                        eventEmitter.emit('error', new Error("processTransaction for this transaction type is not yet implemented!"));
+                        eventEmitter.emit("error", new EventTransactionError("processTransaction for this transaction type is not yet implemented!"));
                 }
             });
         };
@@ -904,26 +1658,58 @@ var Peer = (function () {
         this.ep = new Endpoint(url, pem);
         this.peerClient = new _fabricProto.Peer(this.ep.addr, this.ep.creds);
     }
+    /**
+     * Get the chain of which this peer is a member.
+     * @returns {Chain} The chain of which this peer is a member.
+     */
     Peer.prototype.getChain = function () {
         return this.chain;
     };
+    /**
+     * Get the URL of the peer.
+     * @returns {string} Get the URL associated with the peer.
+     */
     Peer.prototype.getUrl = function () {
         return this.url;
     };
-    Peer.prototype.waitToComplete = function (eventEmitter) {
-        debug("waiting 5 seconds before emitting complete event");
-        var emitComplete = function () {
-            debug("emitting completion event");
-            eventEmitter.emit('complete');
-        };
-        setTimeout(emitComplete, 5000);
+    /**
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
+     */
+    Peer.prototype.waitForDeployComplete = function (eventEmitter, submitted) {
+        var waitTime = this.chain.getDeployWaitTime();
+        debug("waiting %d seconds before emitting deploy complete event", waitTime);
+        setTimeout(function () {
+            var event = new EventDeployComplete(submitted.uuid, submitted.chaincodeID, "TODO: get actual results; waited " + waitTime + " seconds and assumed deploy was successful");
+            eventEmitter.emit("complete", event);
+        }, waitTime * 1000);
     };
+    /**
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
+     */
+    Peer.prototype.waitForInvokeComplete = function (eventEmitter) {
+        var waitTime = this.chain.getInvokeWaitTime();
+        debug("waiting %d seconds before emitting invoke complete event", waitTime);
+        setTimeout(function () {
+            eventEmitter.emit("complete", new EventInvokeComplete("waited " + waitTime + " seconds and assumed invoke was successful"));
+        }, waitTime * 1000);
+    };
+    /**
+     * Remove the peer from the chain.
+     */
     Peer.prototype.remove = function () {
         throw Error("TODO: implement");
     };
     return Peer;
 }());
-exports.Peer = Peer;
+exports.Peer = Peer; // end Peer
+/**
+ * An endpoint currently takes only URL (currently).
+ * @param url
+ */
 var Endpoint = (function () {
     function Endpoint(url, pem) {
         var purl = parseUrl(url);
@@ -942,7 +1728,15 @@ var Endpoint = (function () {
     }
     return Endpoint;
 }());
+/**
+ * MemberServicesImpl is the default implementation of a member services client.
+ */
 var MemberServicesImpl = (function () {
+    /**
+     * MemberServicesImpl constructor
+     * @param config The config information required by this member services implementation.
+     * @returns {MemberServices} A MemberServices object.
+     */
     function MemberServicesImpl(url, pem) {
         var ep = new Endpoint(url, pem);
         var options = {
@@ -955,21 +1749,43 @@ var MemberServicesImpl = (function () {
         this.tlscapClient = new _caProto.TLSCAP(ep.addr, ep.creds, options);
         this.cryptoPrimitives = new crypto.Crypto(DEFAULT_HASH_ALGORITHM, DEFAULT_SECURITY_LEVEL);
     }
+    /**
+     * Get the security level
+     * @returns The security level
+     */
     MemberServicesImpl.prototype.getSecurityLevel = function () {
         return this.cryptoPrimitives.getSecurityLevel();
     };
+    /**
+     * Set the security level
+     * @params securityLevel The security level
+     */
     MemberServicesImpl.prototype.setSecurityLevel = function (securityLevel) {
         this.cryptoPrimitives.setSecurityLevel(securityLevel);
     };
+    /**
+     * Get the hash algorithm
+     * @returns {string} The hash algorithm
+     */
     MemberServicesImpl.prototype.getHashAlgorithm = function () {
         return this.cryptoPrimitives.getHashAlgorithm();
     };
+    /**
+     * Set the hash algorithm
+     * @params hashAlgorithm The hash algorithm ('SHA2' or 'SHA3')
+     */
     MemberServicesImpl.prototype.setHashAlgorithm = function (hashAlgorithm) {
         this.cryptoPrimitives.setHashAlgorithm(hashAlgorithm);
     };
     MemberServicesImpl.prototype.getCrypto = function () {
         return this.cryptoPrimitives;
     };
+    /**
+     * Register the member and return an enrollment secret.
+     * @param req Registration request with the following fields: name, role
+     * @param registrar The identity of the registrar (i.e. who is performing the registration)
+     * @param cb Callback of the form: {function(err,enrollmentSecret)}
+     */
     MemberServicesImpl.prototype.register = function (req, registrar, cb) {
         var self = this;
         debug("MemberServicesImpl.register: req=%j", req);
@@ -982,6 +1798,7 @@ var MemberServicesImpl = (function () {
         protoReq.setRole(rolesToMask(req.roles));
         protoReq.setAccount(req.account);
         protoReq.setAffiliation(req.affiliation);
+        // Create registrar info
         var protoRegistrar = new _caProto.Registrar();
         protoRegistrar.setId({ id: registrar.getName() });
         if (req.registrar) {
@@ -993,6 +1810,7 @@ var MemberServicesImpl = (function () {
             }
         }
         protoReq.setRegistrar(protoRegistrar);
+        // Sign the registration request
         var buf = protoReq.toBuffer();
         var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(registrar.getEnrollment().key, 'hex');
         var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
@@ -1001,12 +1819,18 @@ var MemberServicesImpl = (function () {
             r: new Buffer(sig.r.toString()),
             s: new Buffer(sig.s.toString())
         }));
+        // Send the registration request
         self.ecaaClient.registerUser(protoReq, function (err, token) {
             debug("register %j: err=%j, token=%s", protoReq, err, token);
             if (cb)
                 return cb(err, token ? token.tok.toString() : null);
         });
     };
+    /**
+     * Enroll the member and return an opaque member object
+     * @param req Enrollment request with the following fields: name, enrollmentSecret
+     * @param cb Callback of the form: {function(err,{key,cert,chainKey})}
+     */
     MemberServicesImpl.prototype.enroll = function (req, cb) {
         var self = this;
         cb = cb || nullCB;
@@ -1016,23 +1840,29 @@ var MemberServicesImpl = (function () {
         if (!req.enrollmentSecret)
             return cb(Error("req.enrollmentSecret is not set"));
         debug("[MemberServicesImpl.enroll] Generating keys...");
+        // generate ECDSA keys: signing and encryption keys
+        // 1) signing key
         var signingKeyPair = self.cryptoPrimitives.ecdsaKeyGen();
         var spki = new asn1.x509.SubjectPublicKeyInfo(signingKeyPair.pubKeyObj);
+        // 2) encryption key
         var encryptionKeyPair = self.cryptoPrimitives.ecdsaKeyGen();
         var spki2 = new asn1.x509.SubjectPublicKeyInfo(encryptionKeyPair.pubKeyObj);
         debug("[MemberServicesImpl.enroll] Generating keys...done!");
+        // create the proto message
         var eCertCreateRequest = new _caProto.ECertCreateReq();
-        var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
+        var timestamp = sdk_util.GenerateTimestamp();
         eCertCreateRequest.setTs(timestamp);
         eCertCreateRequest.setId({ id: req.enrollmentID });
         eCertCreateRequest.setTok({ tok: new Buffer(req.enrollmentSecret) });
         debug("[MemberServicesImpl.enroll] Generating request! %j", spki.getASN1Object().getEncodedHex());
+        // public signing key (ecdsa)
         var signPubKey = new _caProto.PublicKey({
             type: _caProto.CryptoType.ECDSA,
             key: new Buffer(spki.getASN1Object().getEncodedHex(), 'hex')
         });
         eCertCreateRequest.setSign(signPubKey);
         debug("[MemberServicesImpl.enroll] Adding signing key!");
+        // public encryption key (ecdsa)
         var encPubKey = new _caProto.PublicKey({
             type: _caProto.CryptoType.ECDSA,
             key: new Buffer(spki2.getASN1Object().getEncodedHex(), 'hex')
@@ -1047,10 +1877,14 @@ var MemberServicesImpl = (function () {
             }
             var cipherText = eCertCreateResp.tok.tok;
             var decryptedTokBytes = self.cryptoPrimitives.eciesDecrypt(encryptionKeyPair.prvKeyObj, cipherText);
+            //debug(decryptedTokBytes);
+            // debug(decryptedTokBytes.toString());
+            // debug('decryptedTokBytes [%s]', decryptedTokBytes.toString());
             eCertCreateRequest.setTok({ tok: decryptedTokBytes });
             eCertCreateRequest.setSig(null);
             var buf = eCertCreateRequest.toBuffer();
             var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(signingKeyPair.prvKeyObj.prvKeyHex, 'hex');
+            //debug(new Buffer(sha3_384(buf),'hex'));
             var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
             eCertCreateRequest.setSig(new _caProto.Signature({
                 type: _caProto.CryptoType.ECDSA,
@@ -1066,19 +1900,38 @@ var MemberServicesImpl = (function () {
                     cert: eCertCreateResp.certs.sign.toString('hex'),
                     chainKey: eCertCreateResp.pkchain.toString('hex')
                 };
+                // debug('cert:\n\n',enrollment.cert)
                 cb(null, enrollment);
             });
         });
-    };
+    }; // end enroll
+    /**
+     * Get an array of transaction certificates (tcerts).
+     * @param {Object} req Request of the form: {name,enrollment,num} where
+     * 'name' is the member name,
+     * 'enrollment' is what was returned by enroll, and
+     * 'num' is the number of transaction contexts to obtain.
+     * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
+     */
     MemberServicesImpl.prototype.getTCertBatch = function (req, cb) {
         var self = this;
         cb = cb || nullCB;
-        var timestamp = new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
+        var timestamp = sdk_util.GenerateTimestamp();
+        // create the proto
         var tCertCreateSetReq = new _caProto.TCertCreateSetReq();
         tCertCreateSetReq.setTs(timestamp);
         tCertCreateSetReq.setId({ id: req.name });
         tCertCreateSetReq.setNum(req.num);
+        if (req.attrs) {
+            var attrs = [];
+            for (var i = 0; i < req.attrs.length; i++) {
+                attrs.push({ attributeName: req.attrs[i] });
+            }
+            tCertCreateSetReq.setAttributes(attrs);
+        }
+        // serialize proto
         var buf = tCertCreateSetReq.toBuffer();
+        // sign the transaction using enrollment key
         var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(req.enrollment.key, 'hex');
         var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
         tCertCreateSetReq.setSig(new _caProto.Signature({
@@ -1086,14 +1939,22 @@ var MemberServicesImpl = (function () {
             r: new Buffer(sig.r.toString()),
             s: new Buffer(sig.s.toString())
         }));
+        // send the request
         self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, resp) {
             if (err)
                 return cb(err);
+            // debug('tCertCreateSetResp:\n', resp);
             cb(null, self.processTCertBatch(req, resp));
         });
     };
+    /**
+     * Process a batch of tcerts after having retrieved them from the TCA.
+     */
     MemberServicesImpl.prototype.processTCertBatch = function (req, resp) {
         var self = this;
+        //
+        // Derive secret keys for TCerts
+        //
         var enrollKey = req.enrollment.key;
         var tCertOwnerKDFKey = resp.certs.key;
         var tCerts = resp.certs.certs;
@@ -1104,6 +1965,7 @@ var MemberServicesImpl = (function () {
         var tCertOwnerEncryptKey = self.cryptoPrimitives.hmac(tCertOwnerKDFKey, byte1).slice(0, 32);
         var expansionKey = self.cryptoPrimitives.hmac(tCertOwnerKDFKey, byte2);
         var tCertBatch = [];
+        // Loop through certs and extract private keys
         for (var i = 0; i < tCerts.length; i++) {
             var tCert = tCerts[i];
             var x509Certificate = void 0;
@@ -1114,9 +1976,15 @@ var MemberServicesImpl = (function () {
                 debug('Warning: problem parsing certificate bytes; retrying ... ', ex);
                 continue;
             }
+            // debug("HERE2: got x509 cert");
+            // extract the encrypted bytes from extension attribute
             var tCertIndexCT = x509Certificate.criticalExtension(crypto.TCertEncTCertIndex);
+            // debug('tCertIndexCT: ',JSON.stringify(tCertIndexCT));
             var tCertIndex = self.cryptoPrimitives.aesCBCPKCS7Decrypt(tCertOwnerEncryptKey, tCertIndexCT);
+            // debug('tCertIndex: ',JSON.stringify(tCertIndex));
             var expansionValue = self.cryptoPrimitives.hmac(expansionKey, tCertIndex);
+            // debug('expansionValue: ',expansionValue);
+            // compute the private key
             var one = new BN(1);
             var k = new BN(expansionValue);
             var n = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').ec.curve.n.sub(one);
@@ -1124,6 +1992,7 @@ var MemberServicesImpl = (function () {
             var D = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPrivate().add(k);
             var pubHex = self.cryptoPrimitives.ecdsaKeyFromPrivate(enrollKey, 'hex').getPublic('hex');
             D = D.mod(self.cryptoPrimitives.ecdsaKeyFromPublic(pubHex, 'hex').ec.curve.n);
+            // Put private and public key in returned tcert
             var tcert = new TCert(tCert.cert, self.cryptoPrimitives.ecdsaKeyFromPrivate(D, 'hex'));
             tCertBatch.push(tcert);
         }
@@ -1131,14 +2000,23 @@ var MemberServicesImpl = (function () {
             throw Error('Failed fetching TCertBatch. No valid TCert received.');
         }
         return tCertBatch;
-    };
+    }; // end processTCertBatch
     return MemberServicesImpl;
-}());
+}()); // end MemberServicesImpl
 function newMemberServices(url, pem) {
     return new MemberServicesImpl(url, pem);
 }
+/**
+ * A local file-based key value store.
+ * This implements the KeyValStore interface.
+ */
 var FileKeyValStore = (function () {
     function FileKeyValStore(dir) {
+        /**
+         * Set the value associated with name.
+         * @param name
+         * @param cb function(err)
+         */
         this.setValue = function (name, value, cb) {
             var path = this.dir + '/' + name;
             fs.writeFile(path, value, cb);
@@ -1148,6 +2026,11 @@ var FileKeyValStore = (function () {
             fs.mkdirSync(dir);
         }
     }
+    /**
+     * Get the value associated with name.
+     * @param name
+     * @param cb function(err,value)
+     */
     FileKeyValStore.prototype.getValue = function (name, cb) {
         var path = this.dir + '/' + name;
         fs.readFile(path, 'utf8', function (err, data) {
@@ -1160,28 +2043,28 @@ var FileKeyValStore = (function () {
         });
     };
     return FileKeyValStore;
-}());
-function generateUUID() {
-    return uuid.v4();
-}
-;
-function generateTimestamp() {
-    return new _timeStampProto({ seconds: Date.now() / 1000, nanos: 0 });
-}
+}()); // end FileKeyValStore
 function toKeyValStoreName(name) {
     return "member." + name;
 }
-function bluemixInit() {
-    var vcap = process.env['VCAP_SERVICES'];
-    if (!vcap)
-        return false;
-    return true;
+// Return a unique string value for the list of attributes.
+function getAttrsKey(attrs) {
+    if (!attrs)
+        return "null";
+    var key = "[]";
+    for (var i = 0; i < attrs.length; i++) {
+        key += "," + attrs[i];
+    }
+    return key;
 }
+// A null callback to use when the user doesn't pass one in
 function nullCB() {
 }
+// Determine if an object is a string
 function isString(obj) {
     return (typeof obj === 'string' || obj instanceof String);
 }
+// Determine if 'obj' is an object (not an array, string, or other type)
 function isObject(obj) {
     return (!!obj) && (obj.constructor === Object);
 }
@@ -1189,6 +2072,7 @@ function isFunction(fcn) {
     return (typeof fcn === 'function');
 }
 function parseUrl(url) {
+    // TODO: find ambient definition for url
     var purl = urlParser.parse(url, true);
     var protocol = purl.protocol;
     if (endsWith(protocol, ":")) {
@@ -1196,6 +2080,7 @@ function parseUrl(url) {
     }
     return purl;
 }
+// Convert a list of member type names to the role mask currently used by the peer
 function rolesToMask(roles) {
     var mask = 0;
     if (roles) {
@@ -1203,27 +2088,32 @@ function rolesToMask(roles) {
             switch (role) {
                 case 'client':
                     mask |= 1;
-                    break;
+                    break; // Client mask
                 case 'peer':
                     mask |= 2;
-                    break;
+                    break; // Peer mask
                 case 'validator':
                     mask |= 4;
-                    break;
+                    break; // Validator mask
                 case 'auditor':
                     mask |= 8;
-                    break;
+                    break; // Auditor mask
             }
         }
     }
     if (mask === 0)
-        mask = 1;
+        mask = 1; // Client
     return mask;
 }
 function endsWith(str, suffix) {
     return str.length >= suffix.length && str.substr(str.length - suffix.length) === suffix;
 }
 ;
+/**
+ * Create a new chain.  If it already exists, throws an Error.
+ * @param name {string} Name of the chain.  It can be any name and has value only for the client.
+ * @returns
+ */
 function newChain(name) {
     var chain = _chains[name];
     if (chain)
@@ -1233,6 +2123,12 @@ function newChain(name) {
     return chain;
 }
 exports.newChain = newChain;
+/**
+ * Get a chain.  If it doesn't yet exist and 'create' is true, create it.
+ * @param {string} chainName The name of the chain to get or create.
+ * @param {boolean} create If the chain doesn't already exist, specifies whether to create it.
+ * @return {Chain} Returns the chain, or null if it doesn't exist and create is false.
+ */
 function getChain(chainName, create) {
     var chain = _chains[chainName];
     if (!chain && create) {
@@ -1241,6 +2137,9 @@ function getChain(chainName, create) {
     return chain;
 }
 exports.getChain = getChain;
+/**
+ * Create an instance of a FileKeyValStore.
+ */
 function newFileKeyValStore(dir) {
     return new FileKeyValStore(dir);
 }
