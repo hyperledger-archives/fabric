@@ -1,7 +1,14 @@
 import subprocess
 import os
+import glob
 
 from steps.bdd_test_util import cli_call
+
+from steps.coverage import saveCoverageFiles, createCoverageAggregate 
+
+def coverageEnabled(context):
+    return context.config.userdata.get("coverage", "false") == "true"
+
 
 def getDockerComposeFileArgsFromYamlFile(compose_yaml):
     parts = compose_yaml.split()
@@ -41,7 +48,13 @@ def after_scenario(context, scenario):
             context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["unpause"], expect_success=True)
             context.compose_output, context.compose_error, context.compose_returncode = \
-                cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["kill"], expect_success=True)
+                cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["stop"], expect_success=True)
+
+            if coverageEnabled(context):
+                #Save the coverage files for this scenario before removing containers
+                containerNames = [containerData.containerName for  containerData in context.compose_containers]
+                saveCoverageFiles("coverage", scenario.name.replace(" ", "_"), containerNames, "cov")            
+
             context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["rm","-f"], expect_success=True)
             # now remove any other containers (chaincodes)
@@ -60,10 +73,7 @@ def before_all(context):
 
 # stop any running peer that could get in the way before starting the tests
 def after_all(context):
-        # print("Here!!!!!!")
-        # print("")
-        # os._exit(0)
-        #cli_call(context, ["../peer/peer", "node", "stop"], expect_success=False)
-        print("context.failed = {0}".format(context.failed))
-        pass
-
+    print("context.failed = {0}".format(context.failed))
+    
+    if coverageEnabled(context):
+        createCoverageAggregate()

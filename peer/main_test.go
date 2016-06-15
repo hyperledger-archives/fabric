@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
 Copyright IBM Corp. 2016 All Rights Reserved.
 
@@ -16,10 +17,28 @@ limitations under the License.
 
 package main
 
+// This file is mandatory as otherwise the filebeat.test binary is not generated correctly.
+
 import (
+	"flag"
 	"testing"
 )
 
-func TestMain(t *testing.T) {
-	t.Skip("No needs to test main since it is covered by other tests")
+var systemTest *bool
+
+func init() {
+	systemTest = flag.Bool("systemTest", false, "Set to true when running system tests")
+	// err := flag.Set("test.coverprofile", "coverage.cov")
+	// if err != nil {
+	// 	panic("Could not set flag")
+	// }
+}
+
+// Test started when the test binary is started. Only calls main.
+func TestSystem(t *testing.T) {
+	//test.coverprofile=coverage.cov
+	// if *systemTest {
+	// 	main()
+	// }
+	main()
 }
