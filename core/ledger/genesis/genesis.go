@@ -80,21 +80,21 @@ func MakeGenesis() error {
 				chaincode := chaincodes[name]
 				chaincodeMap, chaincodeMapOK := chaincode.(map[interface{}]interface{})
 				if !chaincodeMapOK {
-					genesisLogger.Error("Invalid chaincode defined in genesis configuration:", chaincode)
+					genesisLogger.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincode)
 					makeGenesisError = fmt.Errorf("Invalid chaincode defined in genesis configuration: %s", chaincode)
 					return
 				}
 
 				path, pathOK := chaincodeMap["path"].(string)
 				if !pathOK {
-					genesisLogger.Error("Invalid chaincode URL defined in genesis configuration:", chaincodeMap["path"])
+					genesisLogger.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeMap["path"])
 					makeGenesisError = fmt.Errorf("Invalid chaincode URL defined in genesis configuration: %s", chaincodeMap["path"])
 					return
 				}
 
 				chaincodeType, chaincodeTypeOK := chaincodeMap["type"].(string)
 				if !chaincodeTypeOK {
-					genesisLogger.Error("Invalid chaincode type defined in genesis configuration:", chaincodeMap["type"])
+					genesisLogger.Errorf("Invalid chaincode type defined in genesis configuration: %s", chaincodeMap["type"])
 					makeGenesisError = fmt.Errorf("Invalid chaincode type defined in genesis configuration: %s", chaincodeMap["type"])
 					return
 				}
@@ -109,7 +109,7 @@ func MakeGenesis() error {
 
 				constructorMap, constructorMapOK := chaincodeMap["constructor"].(map[interface{}]interface{})
 				if !constructorMapOK {
-					genesisLogger.Error("Invalid chaincode constructor defined in genesis configuration:", chaincodeMap["constructor"])
+					genesisLogger.Errorf("Invalid chaincode constructor defined in genesis configuration: %s", chaincodeMap["constructor"])
 					makeGenesisError = fmt.Errorf("Invalid chaincode constructor defined in genesis configuration: %s", chaincodeMap["constructor"])
 					return
 				}
@@ -122,7 +122,7 @@ func MakeGenesis() error {
 
 					_, ctorArgsOK := constructorMap["args"]
 					if !ctorArgsOK {
-						genesisLogger.Error("Invalid chaincode constructor args defined in genesis configuration:", constructorMap["args"])
+						genesisLogger.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
 						makeGenesisError = fmt.Errorf("Invalid chaincode constructor args defined in genesis configuration: %s", constructorMap["args"])
 						return
 					}
@@ -140,7 +140,7 @@ func MakeGenesis() error {
 
 				transaction, _, deployErr := DeployLocal(context.Background(), &spec, genesisBlockExists)
 				if deployErr != nil {
-					genesisLogger.Error("Error deploying chaincode for genesis block.", deployErr)
+					genesisLogger.Errorf("Error deploying chaincode for genesis block: %s", deployErr)
 					makeGenesisError = deployErr
 					return
 				}
@@ -161,14 +161,14 @@ func BuildLocal(context context.Context, spec *protos.ChaincodeSpec) (*protos.Ch
 	/*****  We will need this only when we support non-go SYSTEM chaincode ****
 	if getMode() != chaincode.DevModeUserRunsChaincode {
 		if err := core.CheckSpec(spec); err != nil {
-			genesisLogger.Debug("check spec failed: %s", err)
+			genesisLogger.Debugf("check spec failed: %s", err)
 			return nil, err
 		}
 		// Build the spec
 		var err error
 		codePackageBytes, err = container.GetChaincodePackageBytes(spec)
 		if err != nil {
-			genesisLogger.Error(fmt.Sprintf("Error getting VM: %s", err))
+			genesisLogger.Errorf("Error getting VM: %s", err)
 			return nil, err
 		}
 	}
@@ -183,7 +183,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 	chaincodeDeploymentSpec, err := BuildLocal(ctx, spec)
 
 	if err != nil {
-		genesisLogger.Error(fmt.Sprintf("Error deploying chaincode spec: %v\n\n error: %s", spec, err))
+		genesisLogger.Errorf("Error deploying chaincode spec: %v\n\n error: %s", spec, err)
 		return nil, nil, err
 	}
 
@@ -195,7 +195,7 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 		}
 		transaction, err = ledger.GetTransactionByUUID(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
 		if err != nil {
-			genesisLogger.Warning(fmt.Sprintf("cannot get deployment transaction for %s - %s", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name, err))
+			genesisLogger.Warningf("cannot get deployment transaction for %s - %s", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name, err)
 			transaction = nil
 		} else {
 			genesisLogger.Debugf("deployment transaction for %s exists", chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
@@ -215,3 +215,4 @@ func DeployLocal(ctx context.Context, spec *protos.ChaincodeSpec, gbexists bool)
 	result, _, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	return transaction, result, err
 }
+
