@@ -45,8 +45,9 @@ mkdir -p doc
 rm -rf doc/*
 
 typedoc -m amd \
-	--name 'Hyperledger OpenBlockChain' \
-	--out doc \
-	typedoc-special.d.ts \
-	src/crypto.ts \
-	src/hlc.ts
+--name 'Node.js Hyperledger Fabric SDK' \
+--includeDeclarations \
+--excludeExternals \
+--excludeNotExported \
+--out doc \
+src/hlc.ts typedoc-special.d.ts

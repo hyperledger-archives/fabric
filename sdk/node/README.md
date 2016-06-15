@@ -299,8 +299,10 @@ The following is a high-level description of the HLC objects (classes and interf
 ## Future Work
 The following is a list of known remaining work to be done.
 
-* Publish **hlc** to the npm registry or publish a link into the hyperledger github.  Until then, you may use the following in your node program: `var hlc = require("YOUR-FABRIC-DIRECTORY/sdk/node");`
+* The reference documentation needs to be made simpler to follow as there are currently some internal classes and interfaces that are being exposed.
 
-* Implement events appropriately, both custom and non-custom.  The 'complete' event for `deploy` and `invoke` is currently implemented by simply waiting 5 seconds.  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller.
+* We are investigating how to make deployment of a chaincode simpler by not requiring you to set up a specific directory structure with dependencies.
+
+* Implement events appropriately, both custom and non-custom.  The 'complete' event for `deploy` and `invoke` is currently implemented by simply waiting a set number of seconds (5 for invoke, 20 for deploy).  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller. This has not yet been implemented.
 
 * Support SHA2.  HLC currently supports SHA3.
