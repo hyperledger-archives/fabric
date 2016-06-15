@@ -66,7 +66,7 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 	txHandler := &eCertTransactionHandlerImpl{}
 	err := txHandler.init(handler.client)
 	if err != nil {
-		handler.client.error("Failed getting transaction handler [%s]", err)
+		handler.client.Errorf("Failed getting transaction handler [%s]", err)
 
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 	nonce, err := client.createTransactionNonce()
 	if err != nil {
-		client.error("Failed initiliazing transaction handler [%s]", err)
+		client.Errorf("Failed initiliazing transaction handler [%s]", err)
 
 		return err
 	}

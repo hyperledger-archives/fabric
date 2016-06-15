@@ -395,11 +395,6 @@ func serve(args []string) error {
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 
-		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
-		// membersrvc from calling validity system chaincode -- though no harm otherwise
-		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-		viper.Set("validator.validity-period.verification", "false")
 	}
 
 	if err := peer.CacheConfiguration(); err != nil {

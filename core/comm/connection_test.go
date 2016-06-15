@@ -13,7 +13,6 @@ import (
 func TestConnection_Correct(t *testing.T) {
 	config.SetupTestConfig("./../../peer")
 	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-	viper.Set("peer.validator.validity-period.verification", "false")
 	var tmpConn *grpc.ClientConn
 	var err error
 	if TLSEnabled() {
@@ -30,7 +29,6 @@ func TestConnection_Correct(t *testing.T) {
 func TestConnection_WrongAddress(t *testing.T) {
 	config.SetupTestConfig("./../../peer")
 	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-	viper.Set("peer.validator.validity-period.verification", "false")
 	viper.Set("peer.address", "0.0.0.0:30304")
 	var tmpConn *grpc.ClientConn
 	var err error
