@@ -43,6 +43,8 @@ var testChaincodePath = "github.com/asset_management/";
 // chaincode name that will be referenced in development mode.
 var testChaincodeName = "mycc2";
 
+// testChaincodeID will store the chaincode ID value after deployment.
+var testChaincodeID;
 
 //
 //  Create and configure a test chain
@@ -153,10 +155,6 @@ test("Alice deploys chaincode", function (t) {
 
     // Construct the deploy request
     var deployRequest = {
-      // Path (under $GOPATH) required for deploy in network mode
-      chaincodePath: testChaincodePath,
-      // Name required for deploy in development mode
-      chaincodeID: testChaincodeName,
       // Function to trigger
       fcn: "init",
       // Arguments to the initializing function
@@ -167,6 +165,14 @@ test("Alice deploys chaincode", function (t) {
       metadata: alicesCert.encode()
     };
 
+    if (mode === 'dev') {
+        // Name required for deploy in development mode
+        deployRequest.chaincodeName = testChaincodeName;
+    } else {
+        // Path (under $GOPATH) required for deploy in network mode
+        deployRequest.chaincodePath = testChaincodePath;
+    }
+
     // Trigger the deploy transaction
     var deployTx = alice.deploy(deployRequest);
 
@@ -174,9 +180,9 @@ test("Alice deploys chaincode", function (t) {
     deployTx.on('complete', function(results) {
       // Deploy request completed successfully
       console.log(util.format("deploy results: %j", results));
-      // Set the chaincode name (hash returned) for subsequent tests
-      testChaincodeName = results.chaincodeID;
-      console.log("testChaincodeName:" + testChaincodeName);
+      // Set the testChaincodeID for subsequent tests
+      testChaincodeID = results.chaincodeID;
+      console.log("testChaincodeID:" + testChaincodeID);
       t.pass(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
     });
     deployTx.on('error', function(err) {
@@ -189,11 +195,11 @@ test("Alice deploys chaincode", function (t) {
 test("Alice assign ownership", function (t) {
     t.plan(1);
 
-    console.log("Chaincode ID: %s", testChaincodeName);
+    console.log("Chaincode ID: %s", testChaincodeID);
 
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "assign",
         // Parameters for the invoke function
@@ -221,7 +227,7 @@ test("Bob transfers ownership to Charlie", function (t) {
 
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "transfer",
         // Parameters for the invoke function
@@ -247,11 +253,11 @@ test("Bob transfers ownership to Charlie", function (t) {
 test("Alice queries chaincode", function (t) {
     t.plan(1);
 
-    console.log("Alice queries chaincode: " + testChaincodeName);
+    console.log("Alice queries chaincode: " + testChaincodeID);
 
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve

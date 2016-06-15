@@ -330,8 +330,10 @@ export interface TransactionRequest {
  * Deploy request.
  */
 export interface DeployRequest extends TransactionRequest {
-    // The local path containing the chaincode to deploy.
+    // The local path containing the chaincode to deploy in network mode.
     chaincodePath:string;
+    // The name identifier for the chaincode to deploy in development mode.
+    chaincodeName:string;
 }
 
 /**
@@ -1464,7 +1466,7 @@ export class TransactionContext extends events.EventEmitter {
 
         // Set the chaincodeID
         let chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.chaincodeID);
+        chaincodeID.setName(request.chaincodeName);
         debug("newDevModeTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
 
@@ -1486,7 +1488,7 @@ export class TransactionContext extends events.EventEmitter {
         tx.setPayload(chaincodeDeploymentSpec.toBuffer());
 
         // Set the transaction UUID
-        tx.setUuid(request.chaincodeID);
+        tx.setUuid(request.chaincodeName);
 
         // Set the transaction timestamp
         tx.setTimestamp(sdk_util.GenerateTimestamp());
@@ -1525,7 +1527,7 @@ export class TransactionContext extends events.EventEmitter {
             tx.setMetadata(sigma);
         }
 
-        tx = new Transaction(tx, request.chaincodeID);
+        tx = new Transaction(tx, request.chaincodeName);
 
         return cb(null, tx);
     }

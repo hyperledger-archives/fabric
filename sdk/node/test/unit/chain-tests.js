@@ -100,6 +100,9 @@ var testChaincodePath = "github.com/chaincode_example02/";
 // chaincode name that will be referenced in development mode.
 var testChaincodeName = "mycc1";
 
+// testChaincodeID will store the chaincode ID value after deployment.
+var testChaincodeID;
+
 // Initializing values for chaincode parameters
 var initA = "100";
 var initB = "200";
@@ -245,15 +248,19 @@ test('Deploy a chaincode by enrolled user', function(t) {
 
   // Construct the deploy request
   var deployRequest = {
-    // Path (under $GOPATH) required for deploy in network mode
-    chaincodePath: testChaincodePath,
-    // Name required for deploy in development mode
-    chaincodeID: testChaincodeName,
     // Function to trigger
     fcn: "init",
     // Arguments to the initializing function
     args: ["a", initA, "b", initB]
   };
+
+  if (mode === 'dev') {
+      // Name required for deploy in development mode
+      deployRequest.chaincodeName = testChaincodeName;
+  } else {
+      // Path (under $GOPATH) required for deploy in network mode
+      deployRequest.chaincodePath = testChaincodePath;
+  }
 
   // Trigger the deploy transaction
   var deployTx = test_user_Member1.deploy(deployRequest);
@@ -262,9 +269,9 @@ test('Deploy a chaincode by enrolled user', function(t) {
   deployTx.on('complete', function(results) {
     // Deploy request completed successfully
     console.log(util.format("deploy results: %j",results));
-    // Set the chaincode name (hash returned) for subsequent tests
-    testChaincodeName = results.chaincodeID;
-    console.log("testChaincodeName:" + testChaincodeName);
+    // Set the testChaincodeID for subsequent tests
+    testChaincodeID = results.chaincodeID;
+    console.log("testChaincodeID:" + testChaincodeID);
     t.pass(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
   });
   deployTx.on('error', function(err) {
@@ -285,7 +292,7 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -319,7 +326,7 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -353,7 +360,7 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "query",
         // Existing state variable to retrieve
@@ -386,7 +393,7 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     // Construct the query request
     var queryRequest = {
         // Name (hash) required for query
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "BOGUS",
         // Existing state variable to retrieve
@@ -418,7 +425,7 @@ test('Invoke a chaincode by enrolled user', function (t) {
     // Construct the invoke request
     var invokeRequest = {
         // Name (hash) required for invoke
-        chaincodeID: testChaincodeName,
+        chaincodeID: testChaincodeID,
         // Function to trigger
         fcn: "invoke",
         // Parameters for the invoke function
