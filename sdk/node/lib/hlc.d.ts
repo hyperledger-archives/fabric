@@ -53,17 +53,10 @@ export interface MemberServices {
     enroll(req: EnrollmentRequest, cb: EnrollCallback): void;
     /**
      * Get an array of transaction certificates (tcerts).
-     * @param {Object} req Request of the form: {name,enrollment,num} where
-     * 'name' is the member name,
-     * 'enrollment' is what was returned by enroll, and
-     * 'num' is the number of transaction contexts to obtain.
-     * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
+     * @param req A GetTCertBatchRequest
+     * @param cb A GetTCertBatchCallback
      */
-    getTCertBatch(req: {
-        name: string;
-        enrollment: Enrollment;
-        num: number;
-    }, cb: GetTCertBatchCallback): void;
+    getTCertBatch(req: GetTCertBatchRequest, cb: GetTCertBatchCallback): void;
 }
 /**
  * A registration request is information required to register a user, peer, or other
@@ -92,15 +85,48 @@ export interface RegisterCallback {
 export interface EnrollCallback {
     (err: Error, enrollment?: Enrollment): void;
 }
+export interface DeployTransactionCallback {
+    (err: Error, deployTx?: Transaction): void;
+}
 export interface Enrollment {
     key: Buffer;
     cert: string;
     chainKey: string;
 }
-export interface GetTCertBatchRequest {
+export declare class GetTCertBatchRequest {
     name: string;
     enrollment: Enrollment;
     num: number;
+    attrs: string[];
+    constructor(name: string, enrollment: Enrollment, num: number, attrs: string[]);
+}
+export declare class EventDeploySubmitted {
+    uuid: string;
+    chaincodeID: string;
+    constructor(uuid: string, chaincodeID: string);
+}
+export declare class EventDeployComplete {
+    uuid: string;
+    chaincodeID: string;
+    result: any;
+    constructor(uuid: string, chaincodeID: string, result?: any);
+}
+export declare class EventInvokeSubmitted {
+    uuid: string;
+    constructor(uuid: string);
+}
+export declare class EventInvokeComplete {
+    result: any;
+    constructor(result?: any);
+}
+export declare class EventQueryComplete {
+    result: any;
+    constructor(result?: any);
+}
+export declare class EventTransactionError {
+    error: any;
+    msg: string;
+    constructor(error: any);
 }
 export interface SubmittedTransactionResponse {
     uuid: string;
@@ -159,6 +185,7 @@ export interface TransactionRequest {
  * Deploy request.
  */
 export interface DeployRequest extends TransactionRequest {
+    chaincodePath: string;
 }
 /**
  * Invoke or query request.
@@ -179,7 +206,7 @@ export interface InvokeRequest extends InvokeOrQueryRequest {
 /**
  * A transaction.
  */
-export interface Transaction {
+export interface TransactionProtobuf {
     getType(): string;
     setCert(cert: Buffer): void;
     setSignature(sig: Buffer): void;
@@ -201,6 +228,11 @@ export interface Transaction {
     };
     setPayload(buffer: Buffer): void;
     toBuffer(): Buffer;
+}
+export declare class Transaction {
+    pb: TransactionProtobuf;
+    chaincodeID: string;
+    constructor(pb: TransactionProtobuf, chaincodeID: string);
 }
 /**
  * Common error callback.
@@ -228,6 +260,8 @@ export declare class Chain {
     private keyValStore;
     private devMode;
     private preFetchMode;
+    private deployWaitTime;
+    private invokeWaitTime;
     cryptoPrimitives: crypto.Crypto;
     constructor(name: string);
     /**
@@ -289,6 +323,24 @@ export declare class Chain {
      * Set dev mode to true or false.
      */
     setDevMode(devMode: boolean): void;
+    /**
+     * Get the deploy wait time in seconds.
+     */
+    getDeployWaitTime(): number;
+    /**
+     * Set the deploy wait time in seconds.
+     * @param secs
+     */
+    setDeployWaitTime(secs: number): void;
+    /**
+     * Get the invoke wait time in seconds.
+     */
+    getInvokeWaitTime(): number;
+    /**
+     * Set the invoke wait time in seconds.
+     * @param secs
+     */
+    setInvokeWaitTime(secs: number): void;
     /**
      * Get the key val store implementation (if any) that is currently associated with this chain.
      * @returns {KeyValStore} Return the current KeyValStore associated with this chain, or undefined if not set.
@@ -361,12 +413,8 @@ export declare class Member {
     private memberServices;
     private keyValStore;
     private keyValStoreName;
-    private tcerts;
+    private tcertGetterMap;
     private tcertBatchSize;
-    private arrivalRate;
-    private getTCertResponseTime;
-    private getTCertWaiters;
-    private gettingTCerts;
     /**
      * Constructor for a member.
      * @param cfg {string | RegistrationRequest} The member name or registration request.
@@ -383,6 +431,11 @@ export declare class Member {
      * @returns {Chain} The chain.
      */
     getChain(): Chain;
+    /**
+     * Get the member services.
+     * @returns {MemberServices} The member services.
+     */
+    getMemberServices(): MemberServices;
     /**
      * Get the roles.
      * @returns {string[]} The roles.
@@ -480,14 +533,17 @@ export declare class Member {
      * @returns A transaction context.
      */
     newTransactionContext(tcert?: TCert): TransactionContext;
-    getUserCert(cb: GetTCertCallback): void;
     /**
-     * Get the next available transaction certificate.
-     * @param cb
+     * Get a user certificate.
+     * @param attrs The names of attributes to include in the user certificate.
+     * @param cb A GetTCertCallback
      */
-    getNextTCert(cb: GetTCertCallback): void;
-    private shouldGetTCerts();
-    private getTCerts();
+    getUserCert(attrs: string[], cb: GetTCertCallback): void;
+    /**
+   * Get the next available transaction certificate with the appropriate attributes.
+   * @param cb
+   */
+    getNextTCert(attrs: string[], cb: GetTCertCallback): void;
     /**
      * Save the state of this member to the key value store.
      * @param cb Callback of the form: {function(err}
@@ -520,6 +576,7 @@ export declare class TransactionContext extends events.EventEmitter {
     private nonce;
     private binding;
     private tcert;
+    private attrs;
     constructor(member: Member, tcert: TCert);
     /**
      * Get the member with which this transaction context is associated.
@@ -552,6 +609,14 @@ export declare class TransactionContext extends events.EventEmitter {
      */
     query(queryRequest: QueryRequest): TransactionContext;
     /**
+     * Get the attribute names associated
+     */
+    getAttrs(): string[];
+    /**
+     * Set the attributes for this transaction context.
+     */
+    setAttrs(attrs: string[]): void;
+    /**
      * Execute a transaction
      * @param tx {Transaction} The transaction.
      */
@@ -563,7 +628,17 @@ export declare class TransactionContext extends events.EventEmitter {
      * Create a deploy transaction.
      * @param request {Object} A BuildRequest or DeployRequest
      */
-    private newBuildOrDeployTransaction(request, isBuildRequest);
+    private newBuildOrDeployTransaction(request, isBuildRequest, cb);
+    /**
+     * Create a development mode deploy transaction.
+     * @param request {Object} A development mode BuildRequest or DeployRequest
+     */
+    private newDevModeTransaction(request, isBuildRequest, cb);
+    /**
+     * Create a network mode deploy transaction.
+     * @param request {Object} A network mode BuildRequest or DeployRequest
+     */
+    private newNetModeTransaction(request, isBuildRequest, cb);
     /**
      * Create an invoke or query transaction.
      * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
@@ -602,11 +677,17 @@ export declare class Peer {
      */
     sendTransaction: (tx: Transaction, eventEmitter: events.EventEmitter) => void;
     /**
-     * For now, just wait 5 seconds and then fire the complete event.
-     * This is a temporary hack until event notification is implemented.
-     * TODO: implement this appropriately.
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
      */
-    private waitToComplete(eventEmitter);
+    private waitForDeployComplete(eventEmitter, submitted);
+    /**
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
+     */
+    private waitForInvokeComplete(eventEmitter);
     /**
      * Remove the peer from the chain.
      */

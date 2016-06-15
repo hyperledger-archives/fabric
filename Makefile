@@ -31,7 +31,8 @@
 #   - peer-image[-clean] - ensures the peer-image is available[/cleaned] (for behave, etc)
 #   - membersrvc-image[-clean] - ensures the membersrvc-image is available[/cleaned] (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
-#   - node-sdk - builds the node.js client-sdk
+#   - node-sdk - builds the node.js client sdk
+#   - node-sdk-unit-tests - runs the node.js client sdk unit tests
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
@@ -72,7 +73,7 @@ peer-image: build/image/peer/.dummy
 membersrvc: build/bin/membersrvc
 membersrvc-image: build/image/membersrvc/.dummy
 
-unit-test: peer-image gotools
+unit-test: peer-image membersrvc-image gotools node-sdk-unit-tests
 	@./scripts/goUnitTests.sh
 
 .PHONY: images
@@ -197,10 +198,15 @@ images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 node-sdk:
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && sudo apt-get install -y npm && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
 
+.PHONY: node-sdk-unit-tests
+node-sdk-unit-tests: peer-image membersrvc-image node-sdk
+	@./sdk/node/bin/run-unit-tests.sh
+
+node-sdk:
 .PHONY: clean
 clean: images-clean
 	-@rm -rf build ||:
