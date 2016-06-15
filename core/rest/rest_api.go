@@ -292,14 +292,16 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
 
+	encoder := json.NewEncoder(rw)
+
 	// If the user is already logged in, return OK. Otherwise return error.
 	if _, err := os.Stat(localStore + "loginToken_" + enrollmentID); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", enrollmentID)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is already logged in.", enrollmentID)})
 		restLogger.Infof("User '%s' is already logged in.\n", enrollmentID)
 	} else {
 		rw.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(rw, "{\"Error\": \"User %s must log in.\"}", enrollmentID)
+		encoder.Encode(restResult{Error: fmt.Sprintf("User %s must log in.", enrollmentID)})
 		restLogger.Infof("User '%s' must log in.\n", enrollmentID)
 	}
 

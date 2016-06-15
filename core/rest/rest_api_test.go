@@ -192,3 +192,24 @@ func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
 		t.Errorf("Expected a proper error when retrieive transaction with bad UUID")
 	}
 }
+
+func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPGet(t, httpServer.URL+"/registrar/NON-EXISTING-USER")
+	res := parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+
+	body = performHTTPGet(t, httpServer.URL+"/registrar/BAD-\"-CHARS")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+
+}
