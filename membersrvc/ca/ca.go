@@ -36,6 +36,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	_ "github.com/mattn/go-sqlite3" // TODO: justify this blank import or remove
+	"github.com/spf13/viper"
 )
 
 // CA is the base certificate authority.
@@ -160,13 +161,13 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 // GetOrganization returns the spec's Organization field/value
 //
 func (spec *CertificateSpec) GetOrganization() string {
-	return GetConfigString("pki.ca.subject.organization")
+	return viper.GetString("pki.ca.subject.organization")
 }
 
 // GetCountry returns the spec's Country field/value
 //
 func (spec *CertificateSpec) GetCountry() string {
-	return GetConfigString("pki.ca.subject.country")
+	return viper.GetString("pki.ca.subject.country")
 }
 
 // GetSubjectKeyID returns the spec's subject KeyID
@@ -187,6 +188,7 @@ func (spec *CertificateSpec) GetExtensions() *[]pkix.Extension {
 	return spec.ext
 }
 
+// TableInitializer is a function type for table initialization
 type TableInitializer func(*sql.DB) error
 
 func initializeCommonTables(db *sql.DB) error {
@@ -205,7 +207,7 @@ func initializeCommonTables(db *sql.DB) error {
 // NewCA sets up a new CA.
 func NewCA(name string, initTables TableInitializer) *CA {
 	ca := new(CA)
-	ca.path = GetConfigString("server.rootpath") + "/" + GetConfigString("server.cadir")
+	ca.path = viper.GetString("server.rootpath") + "/" + viper.GetString("server.cadir")
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")

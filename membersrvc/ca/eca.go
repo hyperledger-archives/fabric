@@ -453,7 +453,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	}
 
 	// Register the user
-	registrarId := in.Registrar.Id.Id
+	registrarID := in.Registrar.Id.Id
 	in.Registrar.Id = nil
 	registrar := pb.RegisterUserReq{Registrar: in.Registrar}
 	json, err := json.Marshal(registrar)
@@ -462,7 +462,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	}
 	jsonStr := string(json)
 	Trace.Println("gRPC ECAA:RegisterUser: json=" + jsonStr)
-	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarId, jsonStr)
+	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarID, jsonStr)
 
 	// Return the one-time password
 	return &pb.Token{[]byte(tok)}, err
