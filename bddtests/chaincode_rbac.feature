@@ -80,8 +80,8 @@ Feature: Role Based Access Control (RBAC)
       # TODO:  Must manage TCert expiration for all parties involved.
 
     Examples: Consensus Options
-        |          ComposeFile                   |   WaitTime   |
-        |   docker-compose-4-consensus-batch.yml |      60      |
+        |          ComposeFile                   |   WaitTime    |
+        |   docker-compose-4-consensus-batch.yml |      120      |
 
 
   #@doNotDecompose
