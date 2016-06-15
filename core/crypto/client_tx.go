@@ -248,7 +248,7 @@ func (client *clientImpl) newChaincodeExecuteUsingTCert(chaincodeInvocation *obc
 	// 2. Sign rawTx and check signature
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.Errorf("Failed creating signature [% x]: [%s].", err.Error())
+		client.Errorf("Failed creating signature [% x]: [%s].", rawSignature, err.Error())
 		return nil, err
 	}
 
@@ -285,7 +285,7 @@ func (client *clientImpl) newChaincodeQueryUsingTCert(chaincodeInvocation *obc.C
 	// 2. Sign rawTx and check signature
 	rawSignature, err := tCert.Sign(rawTx)
 	if err != nil {
-		client.Errorf("Failed creating signature [% x]: [%s].", err.Error())
+		client.Errorf("Failed creating signature [% x]: [%s].", rawSignature, err.Error())
 		return nil, err
 	}
 

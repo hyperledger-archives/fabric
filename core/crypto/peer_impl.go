@@ -20,11 +20,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
-	"sync"
 )
 
 type peerImpl struct {
@@ -64,7 +65,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 1. Unmarshal cert
 		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			peer.Errorf("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed unmarshalling cert [%s].", err.Error())
 			return tx, err
 		}
 
@@ -75,7 +76,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s].", err.Error())
 			return tx, err
 		}
 		tx.Signature = signature
@@ -83,7 +84,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 2. Verify signature
 		ok, err := peer.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s].", err.Error())
 			return tx, err
 		}
 

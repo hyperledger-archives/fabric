@@ -524,11 +524,11 @@ func (p *PeerImpl) chatWithSomePeers(peers []string) {
 		// Skip ourselves
 		if pe, err := GetPeerEndpoint(); err == nil {
 			if rootNode == pe.Address {
-				peerLogger.Debug(fmt.Sprintf("Skipping my own address(%v)", rootNode))
+				peerLogger.Debugf(fmt.Sprintf("Skipping my own address(%v)", rootNode))
 				continue
 			}
 		} else {
-			peerLogger.Error("Failed obtaining peer endpoint, %v", err)
+			peerLogger.Errorf("Failed obtaining peer endpoint, %v", err)
 			return
 		}
 

@@ -131,7 +131,7 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
 	if validator.isInitialized {
-		validator.Errorf("Registering...done! Initialization already performed", enrollID)
+		validator.Errorf("Initialization already performed. %s", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}

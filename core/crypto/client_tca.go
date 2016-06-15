@@ -26,12 +26,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"golang.org/x/net/context"
 	"google/protobuf"
 	"math/big"
 	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"golang.org/x/net/context"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -425,7 +426,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		// Handle Critical Extenstion TCertEncTCertIndex
 		tCertIndexCT, err := primitives.GetCriticalExtension(x509Cert, primitives.TCertEncTCertIndex)
 		if err != nil {
-			client.Errorf("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", err)
+			client.Errorf("Failed getting extension TCERT_ENC_TCERTINDEX [% x]: [%s].", primitives.TCertEncTCertIndex, err)
 
 			continue
 		}
@@ -585,7 +586,7 @@ func (client *clientImpl) callTCACreateCertificateSet(num int, attributes []stri
 
 	rawReq, err := proto.Marshal(req)
 	if err != nil {
-		client.Errorf("Failed marshaling request [%s] [%s].", err.Error())
+		client.Errorf("Failed marshaling request [%s].", err.Error())
 		return nil, nil, err
 	}
 

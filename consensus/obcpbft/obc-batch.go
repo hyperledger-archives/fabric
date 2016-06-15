@@ -25,9 +25,10 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	google_protobuf "google/protobuf"
 )
 
 type obcBatch struct {
@@ -299,14 +300,14 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if ocMsg.Type != pb.Message_CONSENSUS {
-		logger.Error("Unexpected message type: %s", ocMsg.Type)
+		logger.Errorf("Unexpected message type: %s", ocMsg.Type)
 		return nil
 	}
 
 	batchMsg := &BatchMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, batchMsg)
 	if err != nil {
-		logger.Error("Error unmarshaling message: %s", err)
+		logger.Errorf("Error unmarshaling message: %s", err)
 		return nil
 	}
 
@@ -324,7 +325,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		msg := &Message{}
 		err = proto.Unmarshal(pbftMsg, msg)
 		if err != nil {
-			logger.Error("Error unpacking payload from message: %s", err)
+			logger.Errorf("Error unpacking payload from message: %s", err)
 			return nil
 		}
 		return pbftMessageEvent{
@@ -333,7 +334,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		}
 	}
 
-	logger.Error("Unknown request: %+v", batchMsg)
+	logger.Errorf("Unknown request: %+v", batchMsg)
 
 	return nil
 }
