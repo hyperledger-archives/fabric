@@ -87,12 +87,14 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.manager.Start()
 	op.externalEventReceiver.manager = op.manager
 
-	op.batchSize = config.GetInt("general.batchSize")
+	op.batchSize = config.GetInt("general.batchsize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}
+	logger.Infof("PBFT Batch size = %d", op.batchSize)
+	logger.Infof("PBFT Batch timeout = %v", op.batchTimeout)
 
 	op.incomingChan = make(chan *batchMessage)
 
