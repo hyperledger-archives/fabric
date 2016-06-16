@@ -226,7 +226,6 @@ message TCertCreateSetReq {
 
 message TCertAttribute {
 	string attributeName = 1;
-	string attributeValue = 2;
 }
 
 message TCertCreateSetResp {
@@ -325,13 +324,6 @@ message CertPair {
 	bytes enc = 2; // encryption certificate, DER / ASN.1 encoded
 }
 
-// TCertAttributeHash this entity includes attributeName and the hash of the attribute value. Is used within the attribute certificate authority request ACAAttrReq, ACA uses
-// this entity to check if the value sent by the client is the same or not that the attribute stored in the authority. Hash value is sent to avoid send the attribute value.
-message TCertAttributeHash {
-	string attributeName = 1;
-	bytes  attributeValueHash = 2;
-}
-
 //ACAAttrReq is sent to request an ACert (attributes certificate) to the Attribute Certificate Authority (ACA).
 message ACAAttrReq {
 	// Request time
@@ -341,7 +333,7 @@ message ACAAttrReq {
 	// Enrollment certificate
 	Cert eCert = 3;
 	// Collection of requested attributes including the attribute name and its respective value hash.
-	repeated TCertAttributeHash attributes = 4; // array with the pairs key/value-hash of each attribute.
+	repeated TCertAttribute attributes = 4; // array with the pairs key/value-hash of each attribute.
 	// The request is signed by the TCA.
 	Signature signature = 5;
 }

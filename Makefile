@@ -31,7 +31,8 @@
 #   - peer-image[-clean] - ensures the peer-image is available[/cleaned] (for behave, etc)
 #   - membersrvc-image[-clean] - ensures the membersrvc-image is available[/cleaned] (for behave, etc)
 #   - protos - generate all protobuf artifacts based on .proto files
-#   - node-sdk - builds the node.js client-sdk
+#   - node-sdk - builds the node.js client sdk
+#   - node-sdk-unit-tests - runs the node.js client sdk unit tests
 #   - clean - cleans the build area
 #   - dist-clean - superset of 'clean' that also removes persistent state
 
@@ -201,6 +202,11 @@ node-sdk:
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
 
+.PHONY: node-sdk-unit-tests
+node-sdk-unit-tests: node-sdk
+	@./sdk/node/bin/run-unit-tests.sh
+
+node-sdk:
 .PHONY: clean
 clean: images-clean
 	-@rm -rf build ||:
