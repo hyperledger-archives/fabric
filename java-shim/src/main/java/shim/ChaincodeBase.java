@@ -10,7 +10,11 @@ import org.apache.commons.cli.Options;
 
 import com.google.protobuf.ByteString;
 
-import helper.SimpleLogger;
+import example.SimpleSample;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
@@ -25,7 +29,7 @@ import protos.ChaincodeSupportGrpc.ChaincodeSupportStub;
 
 public abstract class ChaincodeBase {
 
-	private static final SimpleLogger logger = SimpleLogger.get();
+	 private static Log logger = LogFactory.getLog(ChaincodeBase.class);
 
 	public abstract String run(ChaincodeStub stub, String function, String[] args);
 	public abstract String query(ChaincodeStub stub, String function, String[] args);
@@ -120,7 +124,7 @@ public abstract class ChaincodeBase {
 
 						@Override
 						public void onError(Throwable e) {
-							logger.error("Unable to connect to peer server: %s", e.getMessage());
+							logger.error("Unable to connect to peer server: "+ e.getMessage());
 							System.exit(-1);
 						}
 
@@ -158,8 +162,7 @@ public abstract class ChaincodeBase {
 				ChaincodeMessage message = nsInfo.message;
 				handler.handleMessage(message);
 				if (nsInfo.sendToCC) {
-					logger.debug("[%s]Send state message %s",
-							Handler.shortUUID(message.getUuid()), message.getType());
+					logger.debug("["+Handler.shortUUID(message.getUuid())+"]Send state message "+ message.getType());
 					handler.serialSend(message);
 				}
 			} catch (Exception e) {
