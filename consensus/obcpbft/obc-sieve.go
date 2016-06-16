@@ -22,10 +22,11 @@ import (
 	"reflect"
 	"time"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
-	google_protobuf "google/protobuf"
 
 	"github.com/spf13/viper"
 )

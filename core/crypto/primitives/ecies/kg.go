@@ -18,9 +18,10 @@ package ecies
 
 import (
 	"crypto/elliptic"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"io"
 	"fmt"
+	"io"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type keyGeneratorParameterImpl struct {

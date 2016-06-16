@@ -1,9 +1,10 @@
 package ca
 
 import (
+	"time"
+
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"google.golang.org/grpc"
-	"time"
 
 	"github.com/spf13/viper"
 )
