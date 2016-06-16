@@ -628,7 +628,7 @@ func (instance *pbftCore) sendPrePrepare(req *Request, digest string) {
 	for _, cert := range instance.certStore { // check for other PRE-PREPARE for same digest, but different seqNo
 		if p := cert.prePrepare; p != nil {
 			if p.View == instance.view && p.SequenceNumber != n && p.RequestDigest == digest && digest != "" {
-				logger.Info("Other pre-prepare found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
+				logger.Infof("Other pre-prepare found with same digest but different seqNo: %d instead of %d", p.SequenceNumber, n)
 				return
 			}
 		}

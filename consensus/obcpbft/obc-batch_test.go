@@ -17,7 +17,6 @@ limitations under the License.
 package obcpbft
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -48,7 +47,7 @@ func TestNetworkBatch(t *testing.T) {
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
 	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
-		t.Fatalf("External request was not processed by backup: %v", err)
+		t.Errorf("External request was not processed by backup: %v", err)
 	}
 	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	if err != nil {
@@ -56,9 +55,11 @@ func TestNetworkBatch(t *testing.T) {
 	}
 
 	net.process()
+	net.process()
 
 	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 0 {
-		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, l)
+		t.Errorf("%d messages expected in primary's batchStore, found %v", 0,
+			net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore)
 	}
 
 	for _, ep := range net.endpoints {
@@ -101,17 +102,18 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 	bs := [3]*obcBatch{}
 	for i := range bs {
 		omni := &omniProto{
-			BroadcastImpl: func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error { return nil },
+			UnicastImpl: func(ocMsg *pb.Message, peer *pb.PeerID) error { return nil },
 		}
-		bs[i] = newObcBatch(1, loadConfig(), omni)
+		bs[i] = newObcBatch(uint64(i), loadConfig(), omni)
 		defer bs[i].Close()
 
 		// Have vp1 only deliver messages
 		if i == 1 {
-			omni.BroadcastImpl = func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error {
-				fmt.Println("ASDF: sending to others")
-				bs[0].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
-				bs[2].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
+			omni.UnicastImpl = func(ocMsg *pb.Message, peer *pb.PeerID) error {
+				dest, _ := getValidatorID(peer)
+				if dest == 0 || dest == 2 {
+					bs[dest].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
+				}
 				return nil
 			}
 		}
@@ -122,12 +124,18 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
+	for _, b := range bs {
+		b.manager.Queue() <- nil
+		b.broadcaster.Wait()
+		b.manager.Queue() <- nil
+	}
+
 	for i, b := range bs {
 		b.manager.Queue() <- nil
 		count := len(b.outstandingReqs)
 		if i == 0 {
 			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store")
+				t.Errorf("Batch primary should not have the request in its store: %v", b.outstandingReqs)
 			}
 		} else {
 			if count != 1 {
@@ -150,7 +158,11 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		b.manager.Inject(committedEvent{})
 	}
 
-	omni.BroadcastImpl = func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error {
+	omni.UnicastImpl = func(ocMsg *pb.Message, dest *pb.PeerID) error {
+		if dest.Name != "vp1" {
+			return nil
+		}
+
 		batchMsg := &BatchMessage{}
 		err := proto.Unmarshal(ocMsg.Payload, batchMsg)
 
@@ -164,6 +176,8 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error unpacking payload from message: %s", err)
 		}
+
+		logger.Debug("unicast: %v", msg)
 
 		prePrepare := msg.GetPrePrepare()
 
@@ -187,6 +201,8 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	b.manager.Queue() <- committedEvent{}
 	b.manager.Queue() <- nil
 
+	b.broadcaster.Wait()
+
 	if len(b.outstandingReqs) != 0 {
 		t.Fatalf("All requests should have been resubmitted")
 	}
@@ -194,9 +210,9 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 
 func TestViewChangeOnPrimarySilence(t *testing.T) {
 	b := newObcBatch(1, loadConfig(), &omniProto{
-		BroadcastImpl: func(ocMsg *pb.Message, peerType pb.PeerEndpoint_Type) error { return nil },
-		SignImpl:      func(msg []byte) ([]byte, error) { return msg, nil },
-		VerifyImpl:    func(peerID *pb.PeerID, signature []byte, message []byte) error { return nil },
+		UnicastImpl: func(ocMsg *pb.Message, peer *pb.PeerID) error { return nil },
+		SignImpl:    func(msg []byte) ([]byte, error) { return msg, nil },
+		VerifyImpl:  func(peerID *pb.PeerID, signature []byte, message []byte) error { return nil },
 	})
 	b.pbft.requestTimeout = 50 * time.Millisecond
 	defer b.Close()

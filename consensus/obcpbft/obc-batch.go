@@ -25,15 +25,17 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	google_protobuf "google/protobuf"
 )
 
 type obcBatch struct {
 	obcGeneric
 	externalEventReceiver
-	pbft *pbftCore
+	pbft        *pbftCore
+	broadcaster *broadcaster
 
 	batchSize        int
 	batchStore       []*Request
@@ -86,13 +88,16 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.pbft = newPbftCore(id, config, op, etf)
 	op.manager.Start()
 	op.externalEventReceiver.manager = op.manager
+	op.broadcaster = newBroadcaster(id, op.pbft.N, op.pbft.f, stack)
 
-	op.batchSize = config.GetInt("general.batchSize")
+	op.batchSize = config.GetInt("general.batchsize")
 	op.batchStore = nil
 	op.batchTimeout, err = time.ParseDuration(config.GetString("general.timeout.batch"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse batch timeout: %s", err))
 	}
+	logger.Infof("PBFT Batch size = %d", op.batchSize)
+	logger.Infof("PBFT Batch timeout = %v", op.batchTimeout)
 
 	op.incomingChan = make(chan *batchMessage)
 
@@ -121,7 +126,7 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
 	} else {
-		logger.Debug("Replica %d add request %v to its oustanding store", op.pbft.id, req)
+		logger.Debugf("Replica %d add request %v to its outstanding store", op.pbft.id, req)
 		op.outstandingReqs[req] = struct{}{}
 		op.startTimerIfOutstandingRequests()
 	}
@@ -135,7 +140,7 @@ func (op *obcBatch) broadcastMsg(msg *BatchMessage) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	op.stack.Broadcast(ocMsg, pb.PeerEndpoint_UNDEFINED)
+	op.broadcaster.Broadcast(ocMsg)
 }
 
 // send a message to a specific replica
@@ -145,12 +150,7 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 		Type:    pb.Message_CONSENSUS,
 		Payload: msgPayload,
 	}
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-
-	}
-	op.stack.Unicast(ocMsg, receiverHandle)
+	op.broadcaster.Unicast(ocMsg, receiverID)
 }
 
 // =============================================================================
@@ -159,16 +159,12 @@ func (op *obcBatch) unicastMsg(msg *BatchMessage, receiverID uint64) {
 
 // multicast a message to all replicas
 func (op *obcBatch) broadcast(msgPayload []byte) {
-	op.stack.Broadcast(op.wrapMessage(msgPayload), pb.PeerEndpoint_UNDEFINED)
+	op.broadcaster.Broadcast(op.wrapMessage(msgPayload))
 }
 
 // send a message to a specific replica
 func (op *obcBatch) unicast(msgPayload []byte, receiverID uint64) (err error) {
-	receiverHandle, err := getValidatorHandle(receiverID)
-	if err != nil {
-		return
-	}
-	return op.stack.Unicast(op.wrapMessage(msgPayload), receiverHandle)
+	return op.broadcaster.Unicast(op.wrapMessage(msgPayload), receiverID)
 }
 
 func (op *obcBatch) sign(msg []byte) ([]byte, error) {
@@ -299,14 +295,14 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if ocMsg.Type != pb.Message_CONSENSUS {
-		logger.Error("Unexpected message type: %s", ocMsg.Type)
+		logger.Errorf("Unexpected message type: %s", ocMsg.Type)
 		return nil
 	}
 
 	batchMsg := &BatchMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, batchMsg)
 	if err != nil {
-		logger.Error("Error unmarshaling message: %s", err)
+		logger.Errorf("Error unmarshaling message: %s", err)
 		return nil
 	}
 
