@@ -87,7 +87,8 @@ gotools: $(GOTOOLS_BIN)
 
 linter: gotools
 	@echo "LINT: Running code checks.."
-	@echo "LINT: No errors found"
+	@echo "Running go vet"
+	go vet ./... 2>&1 | grep -v '^vendor\/' | grep -v '^exit\ status\ 1'
 
 # Special override for protoc-gen-go since we want to use the version vendored with the project
 gotool.protoc-gen-go:
