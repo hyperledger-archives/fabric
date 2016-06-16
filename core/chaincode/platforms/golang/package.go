@@ -60,6 +60,10 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	//let the executable's name be chaincode ID's name
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
+	if viper.GetBool("peer.tls.enabled") {
+		newRunLine = fmt.Sprintf("%s\nCOPY src/certs/cert.pem %s", newRunLine, viper.GetString("peer.tls.cert.file"))
+		newRunLine = fmt.Sprintf("%s\nCOPY src/certs/key.pem %s", newRunLine, viper.GetString("peer.tls.key.file"))
+	}
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))
