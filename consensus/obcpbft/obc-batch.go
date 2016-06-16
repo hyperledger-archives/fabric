@@ -129,11 +129,11 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	leader := op.pbft.primary(op.pbft.view)
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
-	} else {
-		logger.Debugf("Replica %d add request %v to its outstanding store", op.pbft.id, req)
-		op.outstandingReqs[req] = struct{}{}
-		op.startTimerIfOutstandingRequests()
 	}
+
+	logger.Debugf("Replica %d add request %v to its outstanding store", op.pbft.id, req)
+	op.outstandingReqs[req] = struct{}{}
+	op.startTimerIfOutstandingRequests()
 
 	return nil
 }
