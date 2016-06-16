@@ -510,7 +510,7 @@ func (stub *ChaincodeStub) GetRow(tableName string, key []Column) (Row, error) {
 
 	var row Row
 
-	keyString, err := buildKeyString(tableName, key)
+	keyString, err := stub.buildKeyString(tableName, key)
 	if err != nil {
 		return row, err
 	}
@@ -537,7 +537,7 @@ func (stub *ChaincodeStub) GetRow(tableName string, key []Column) (Row, error) {
 // for C and D as their key.
 func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, error) {
 
-	keyString, err := buildKeyString(tableName, key)
+	keyString, err := stub.buildKeyString(tableName, key)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +596,7 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 // DeleteRow deletes the row for the given key from the specified table.
 func (stub *ChaincodeStub) DeleteRow(tableName string, key []Column) error {
 
-	keyString, err := buildKeyString(tableName, key)
+	keyString, err := stub.buildKeyString(tableName, key)
 	if err != nil {
 		return err
 	}
@@ -687,7 +687,7 @@ func getTableNameKey(name string) (string, error) {
 	return strconv.Itoa(len(name)) + name, nil
 }
 
-func buildKeyString(tableName string, keys []Column) (string, error) {
+func (stub *ChaincodeStub) buildKeyString(tableName string, keys []Column) (string, error) {
 
 	var keyBuffer bytes.Buffer
 
@@ -697,10 +697,18 @@ func buildKeyString(tableName string, keys []Column) (string, error) {
 	}
 
 	keyBuffer.WriteString(tableNameKey)
+	table, err := stub.getTable(tableName)
+	if err != nil {
+		return "", err
+	}
 
-	for _, key := range keys {
+	for i, key := range keys {
 
 		var keyString string
+		if ! table.ColumnDefinitions[i].Key {
+			// Only use columns that are marked as being a key
+			continue
+		}
 		switch key.Value.(type) {
 		case *Column_String_:
 			keyString = key.GetString_()
@@ -774,7 +782,7 @@ func getKeyAndVerifyRow(table Table, row Row) ([]Column, error) {
 }
 
 func (stub *ChaincodeStub) isRowPrsent(tableName string, key []Column) (bool, error) {
-	keyString, err := buildKeyString(tableName, key)
+	keyString, err := stub.buildKeyString(tableName, key)
 	if err != nil {
 		return false, err
 	}
@@ -819,7 +827,7 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 		return false, fmt.Errorf("Error marshalling row: %s", err)
 	}
 
-	keyString, err := buildKeyString(tableName, key)
+	keyString, err := stub.buildKeyString(tableName, key)
 	if err != nil {
 		return false, err
 	}
@@ -832,7 +840,7 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 }
 
 // ------------- ChaincodeEvent API ----------------------
-// SetEvent saves the event to be sent when a transaction is made part of a block 
+// SetEvent saves the event to be sent when a transaction is made part of a block
 func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
 	stub.chaincodeEvent = &pb.ChaincodeEvent{ EventName: name, Payload: payload }
 	return nil
