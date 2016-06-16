@@ -225,7 +225,7 @@ func (eca *ECA) startECAA(srv *grpc.Server) {
 func (ecap *ECAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
 	Trace.Println("gRPC ECAP:ReadCACertificate")
 
-	return &pb.Cert{ecap.eca.raw}, nil
+	return &pb.Cert{Cert: ecap.eca.raw}, nil
 }
 
 func (ecap *ECAP) fetchAttributes(cert *pb.Cert) error {
@@ -298,7 +298,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		return nil, err
 	}
 
-	fetchResult := pb.FetchAttrsResult{pb.FetchAttrsResult_SUCCESS, ""}
+	fetchResult := pb.FetchAttrsResult{Status: pb.FetchAttrsResult_SUCCESS, Msg: ""}
 	switch {
 	case state == 0:
 		// initial request, create encryption challenge
@@ -388,9 +388,9 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		if role == int(pb.Role_CLIENT) {
 			//Only client have to fetch attributes.
 			if viper.GetBool("aca.enabled") {
-				err = ecap.fetchAttributes(&pb.Cert{sraw})
+				err = ecap.fetchAttributes(&pb.Cert{Cert: sraw})
 				if err != nil {
-					fetchResult = pb.FetchAttrsResult{pb.FetchAttrsResult_FAILURE, err.Error()}
+					fetchResult = pb.FetchAttrsResult{Status: pb.FetchAttrsResult_FAILURE, Msg: err.Error()}
 
 				}
 			}
@@ -420,7 +420,7 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 		err = rows.Err()
 	}
 
-	return &pb.CertPair{certs[0], certs[1]}, err
+	return &pb.CertPair{Sign: certs[0], Enc: certs[1]}, err
 }
 
 // ReadCertificateByHash reads a single enrollment certificate by hash from the ECA.
@@ -429,7 +429,7 @@ func (ecap *ECAP) ReadCertificateByHash(ctx context.Context, hash *pb.Hash) (*pb
 	Trace.Println("gRPC ECAP:ReadCertificateByHash")
 
 	raw, err := ecap.eca.readCertificateByHash(hash.Hash)
-	return &pb.Cert{raw}, err
+	return &pb.Cert{Cert: raw}, err
 }
 
 // RevokeCertificatePair revokes a certificate pair from the ECA.  Not yet implemented.
@@ -465,7 +465,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarID, jsonStr)
 
 	// Return the one-time password
-	return &pb.Token{[]byte(tok)}, err
+	return &pb.Token{Tok: []byte(tok)}, err
 
 }
 
@@ -562,12 +562,12 @@ func (ecaa *ECAA) ReadUserSet(ctx context.Context, in *pb.ReadUserSetReq) (*pb.U
 			var role int
 
 			err = rows.Scan(&id, &role)
-			users = append(users, &pb.User{&pb.Identity{Id: id}, pb.Role(role)})
+			users = append(users, &pb.User{Id: &pb.Identity{Id: id}, Role: pb.Role(role)})
 		}
 		err = rows.Err()
 	}
 
-	return &pb.UserSet{users}, err
+	return &pb.UserSet{Users: users}, err
 }
 
 // RevokeCertificate revokes a certificate from the ECA.  Not yet implemented.

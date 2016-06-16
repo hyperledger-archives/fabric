@@ -155,7 +155,7 @@ func NewCoordinatorImpl(stack PartialStack) Coordinator {
 
 	if nil != err {
 		logger.Debug("Error resolving our own PeerID, this shouldn't happen")
-		sts.id = &protos.PeerID{"ERROR_RESOLVING_ID"}
+		sts.id = &protos.PeerID{Name: "ERROR_RESOLVING_ID"}
 	}
 
 	sts.id = ep.ID
@@ -849,7 +849,7 @@ func (sts *coordinatorImpl) syncStateSnapshot(minBlockNumber uint64, peerIDs []*
 				sts.stack.ApplyStateDelta(piece, umDelta)
 				currentStateBlock = piece.BlockNumber
 				if err := sts.stack.CommitStateDelta(piece); nil != err {
-					return fmt.Errorf("%v could not commit state delta from %v after %d deltas: %s", sts.id, counter, peerID, err)
+					return fmt.Errorf("%v could not commit state delta from %v after %d deltas: %s", sts.id, peerID, counter, err)
 				}
 				counter++
 			case <-timer.C:
