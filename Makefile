@@ -198,7 +198,7 @@ images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 node-sdk:
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
 
