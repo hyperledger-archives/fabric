@@ -61,7 +61,7 @@ func (instance *pbftCore) restorePQSet(key string) []*ViewChange_PQ {
 	val := &PQset{}
 	err = proto.Unmarshal(raw, val)
 	if err != nil {
-		logger.Errorf("Replica %d could not unmarshal %s - local state is damaged: %s", instance.id, err)
+		logger.Errorf("Replica %d could not unmarshal %s - local state is damaged: %s", instance.id, key, err)
 		return nil
 	}
 	return val.GetSet()

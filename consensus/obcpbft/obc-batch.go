@@ -320,7 +320,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		msg := &Message{}
 		err = proto.Unmarshal(pbftMsg, msg)
 		if err != nil {
-			logger.Error("Error unpacking payload from message: %s", err)
+			logger.Errorf("Error unpacking payload from message: %s", err)
 			return nil
 		}
 		return pbftMessageEvent{
@@ -329,7 +329,7 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 		}
 	}
 
-	logger.Error("Unknown request: %+v", batchMsg)
+	logger.Errorf("Unknown request: %+v", batchMsg)
 
 	return nil
 }

@@ -463,6 +463,6 @@ func TestPublishCRL(t *testing.T) {
 
 	_, err := ecaa.PublishCRL(context.Background(), &pb.ECertCRLReq{})
 	if err.Error() != "ECAA:PublishCRL method not (yet) implemented" {
-		t.Error("Expected error was not returned: [%s]", err.Error())
+		t.Errorf("Expected error was not returned: [%s]", err.Error())
 	}
 }
