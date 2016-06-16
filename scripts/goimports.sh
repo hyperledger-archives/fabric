@@ -10,7 +10,7 @@ do
 	if [[ $OUTPUT ]]; then
 		echo "The following files contain goimports errors"
 		echo $OUTPUT
-		echo "goimports must be run for these files"
+		echo "The goimports command must be run for these files"
 		exit 1
 	fi
 done
