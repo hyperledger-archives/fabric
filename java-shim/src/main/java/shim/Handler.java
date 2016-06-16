@@ -52,7 +52,8 @@ import fsm.FSM;
 import fsm.exceptions.CancelledException;
 import fsm.exceptions.NoTransitionException;
 import helper.Channel;
-import helper.SimpleLogger;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import io.grpc.stub.StreamObserver;
 import protos.Chaincode.ChaincodeID;
 import protos.Chaincode.ChaincodeInput;
@@ -63,7 +64,7 @@ import protos.Chaincode.PutStateInfo;
 
 public class Handler {
 
-	private static final SimpleLogger logger = SimpleLogger.get();
+	private static Log logger = LogFactory.getLog(Handler.class);
 	
 	private StreamObserver<ChaincodeMessage> chatStream;
 	private ChaincodeBase chaincode;
@@ -401,7 +402,7 @@ public class Handler {
 				}
 
 				// Send COMPLETED message to chaincode support
-				logger.debug("[%s]Query completed. Sending %s", shortUUID(message), QUERY_COMPLETED);
+				logger.debug("["+shortUUID(message)+"]Query completed. Sending "+ QUERY_COMPLETED);
 				serialSendMessage = ChaincodeMessage.newBuilder()
 						.setType(QUERY_COMPLETED)
 						.setPayload(response)
@@ -546,8 +547,7 @@ public class Handler {
 
 	public void handlePutState(String key, ByteString value, String uuid) {
 		// Check if this is a transaction
-		logger.debug("[%s]Inside putstate (\"%s\":\"%s\"), isTransaction = %b",
-				shortUUID(uuid), key, value, isTransaction(uuid));
+		logger.debug("["+shortUUID(uuid)+"]Inside putstate (\""+key+"\":\""+value+"\"), isTransaction = "+isTransaction(uuid));
 
 		if (!isTransaction(uuid)) {
 			throw new IllegalStateException("Cannot put state in query context");
@@ -797,7 +797,7 @@ public class Handler {
 			try {
 				serialSend(message);
 			} catch (Exception e) {
-				logger.error("[%s]Error sending %s: %s", shortUUID(message), INVOKE_CHAINCODE, e.getMessage());
+				logger.error("["+shortUUID(message)+"]Error sending "+INVOKE_CHAINCODE+": "+e.getMessage());
 				throw e;
 			}
 
@@ -926,10 +926,10 @@ public class Handler {
 			fsm.raiseEvent(message.getType().toString(), message);
 		} catch (NoTransitionException e) {
 			if (e.error != null) throw e;
-			logger.debug("[%s]Ignoring NoTransitionError", shortUUID(message));
+			logger.debug("["+shortUUID(message)+"]Ignoring NoTransitionError");
 		} catch (CancelledException e) {
 			if (e.error != null) throw e;
-			logger.debug("[%s]Ignoring CanceledError", shortUUID(message));
+			logger.debug("["+shortUUID(message)+"]Ignoring CanceledError");
 		}
 	}
 	
