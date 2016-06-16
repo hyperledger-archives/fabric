@@ -74,7 +74,7 @@ func (hd *HashLedgerDirectory) GetLedgerByPeerID(peerID *protos.PeerID) (peer.Bl
 
 func (hd *HashLedgerDirectory) GetPeers() (*protos.PeersMessage, error) {
 	_, network, err := hd.GetNetworkInfo()
-	return &protos.PeersMessage{network}, err
+	return &protos.PeersMessage{Peers: network}, err
 }
 
 func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
@@ -501,7 +501,7 @@ func (mock *MockLedger) ApplyStateDelta(id interface{}, delta *statemgmt.StateDe
 
 	d, r := binary.Uvarint(SimpleStateDeltaToBytes(delta))
 	if r <= 0 {
-		return fmt.Errorf("State delta could not be applied, was not a uint64, %x", delta)
+		return fmt.Errorf("State delta could not be applied, was not a uint64, %x", d)
 	}
 	if !delta.RollBackwards {
 		mock.state += d

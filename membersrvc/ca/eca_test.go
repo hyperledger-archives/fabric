@@ -367,7 +367,7 @@ func TestReadUserSet(t *testing.T) {
 		t.Errorf("Failed to read user set: [%s]", err.Error())
 	}
 
-	t.Logf("number of users: [%s]", len(resp.Users))
+	t.Logf("number of users: [%d]", len(resp.Users))
 
 }
 
