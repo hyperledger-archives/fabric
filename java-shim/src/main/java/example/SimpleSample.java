@@ -2,6 +2,8 @@ package example;
 
 import shim.ChaincodeBase;
 import shim.ChaincodeStub;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * <h1>Classic "transfer" sample chaincode</h1>
@@ -10,16 +12,20 @@ import shim.ChaincodeStub;
  *
  */
 public class SimpleSample extends ChaincodeBase {
+	 private static Log log = LogFactory.getLog(SimpleSample.class);
 
 	@Override
 	public String run(ChaincodeStub stub, String function, String[] args) {
+		log.info("In run, function:"+function);
+		
 		switch (function) {
 		case "init":
 			init(stub, function, args);
 			break;
 		case "transfer":
-			transfer(stub, args);
-			break;			
+			String re = transfer(stub, args);	
+			System.out.println(re);
+			return re;					
 		case "put":
 			for (int i = 0; i < args.length; i += 2)
 				stub.putState(args[i], args[i + 1]);
@@ -36,19 +42,22 @@ public class SimpleSample extends ChaincodeBase {
 	}
 
 	private String  transfer(ChaincodeStub stub, String[] args) {
+		System.out.println("in transfer");
 		if(args.length!=3){
+			System.out.println("Incorrect number of arguments:"+args.length);
 			return "{\"Error\":\"Incorrect number of arguments. Expecting 3: from, to, amount\"}";
 		}
 		String fromName =args[0];
 		String fromAm=stub.getState(fromName);
 		String toName =args[1];
 		String toAm=stub.getState(toName);
-		String am =stub.getState(args[2]);
+		String am =args[2];
 		int valFrom=0;
 		if (fromAm!=null&&!fromAm.isEmpty()){			
 			try{
 				valFrom = Integer.parseInt(fromAm);
 			}catch(NumberFormatException e ){
+				System.out.println("{\"Error\":\"Expecting integer value for asset holding of "+fromName+" \"}"+e);		
 				return "{\"Error\":\"Expecting integer value for asset holding of "+fromName+" \"}";		
 			}		
 		}else{
@@ -60,6 +69,7 @@ public class SimpleSample extends ChaincodeBase {
 			try{
 				valTo = Integer.parseInt(toAm);
 			}catch(NumberFormatException e ){
+				e.printStackTrace();
 				return "{\"Error\":\"Expecting integer value for asset holding of "+toName+" \"}";		
 			}		
 		}else{
@@ -70,14 +80,19 @@ public class SimpleSample extends ChaincodeBase {
 		try{
 			valA = Integer.parseInt(am);
 		}catch(NumberFormatException e ){
+			e.printStackTrace();
 			return "{\"Error\":\"Expecting integer value for ammount \"}";		
 		}		
 		if(valA>valFrom)
 			return "{\"Error\":\"Insuficient asset holding value for requested transfer ammount \"}";		
 		valFrom = valFrom-valA;
 		valTo = valTo+valA;
+		System.out.println("Transfer "+fromName+">"+toName+" am='"+am+"' new values='"+valFrom+"','"+ valTo+"'");
 		stub.putState(fromName,""+ valFrom);
 		stub.putState(toName, ""+valTo);		
+
+		System.out.println("Transfer complete");
+
 		return null;
 		
 	}
