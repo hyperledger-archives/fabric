@@ -456,7 +456,7 @@ func (sts *coordinatorImpl) syncBlockchainToCheckpoint(blockSyncReq *blockSyncRe
 		_, _, err := sts.syncBlocks(blockSyncReq.blockNumber, blockSyncReq.reportOnBlock, blockSyncReq.firstBlockHash, blockSyncReq.peerIDs)
 
 		if nil != blockSyncReq.replyChan {
-			logger.Debugf("%v replying to blockSyncReq on reply channel with : %s", sts.id, err)
+			logger.Errorf("%v replying to blockSyncReq on reply channel with : %s", sts.id, err)
 			blockSyncReq.replyChan <- err
 		}
 	}

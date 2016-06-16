@@ -55,7 +55,7 @@ func (instance *pbftCore) persistPQSet(key string, set []*ViewChange_PQ) {
 func (instance *pbftCore) restorePQSet(key string) []*ViewChange_PQ {
 	raw, err := instance.consumer.ReadState(key)
 	if err != nil {
-		logger.Debugf("Replica %d could not restore state %s: %s", instance.id, key, err)
+		logger.Errorf("Replica %d could not restore state %s: %s", instance.id, key, err)
 		return nil
 	}
 	val := &PQset{}

@@ -79,7 +79,7 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 				return
 			}
 			if indexer.indexerState.hasError() {
-				indexLogger.Debugf("Not indexing block number [%d]. Because of previous error: %s.",
+				indexLogger.Errorf("Not indexing block number [%d]. Because of previous error: %s.",
 					blockWrapper.blockNumber, indexer.indexerState.getError())
 				continue
 			}
@@ -254,7 +254,7 @@ func (indexerState *blockchainIndexerState) isZerothBlockIndexed() bool {
 }
 
 func (indexerState *blockchainIndexerState) waitForLastCommittedBlock() error {
-	indexLogger.Debugf("waitForLastCommittedBlock() indexerState.err = %#v", indexerState.err)
+	indexLogger.Errorf("waitForLastCommittedBlock() indexerState.err = %#v", indexerState.err)
 	chain := indexerState.indexer.blockchain
 	indexerState.lock.Lock()
 	defer indexerState.lock.Unlock()
@@ -288,7 +288,7 @@ func (indexerState *blockchainIndexerState) setError(err error) {
 	indexerState.lock.Lock()
 	defer indexerState.lock.Unlock()
 	indexerState.err = err
-	indexLogger.Debugf("setError() indexerState.err = %#v", indexerState.err)
+	indexLogger.Errorf("setError() indexerState.err = %#v", indexerState.err)
 	indexerState.newBlockIndexed.Broadcast()
 }
 

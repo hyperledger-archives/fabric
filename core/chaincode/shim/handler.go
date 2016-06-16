@@ -211,7 +211,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Errorf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
 			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -231,7 +231,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Errorf("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
 			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
@@ -278,7 +278,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Errorf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
 			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -325,7 +325,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		if unmarshalErr != nil {
 			payload := []byte(unmarshalErr.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
+			chaincodeLogger.Errorf("[%s]Incorrect payload format. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -345,7 +345,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Query execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
+			chaincodeLogger.Errorf("[%s]Query execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}
@@ -426,7 +426,7 @@ func (handler *Handler) afterError(e *fsm.Event) {
 	 * 2. The chaincode has initiated a request (get/put/del state) to the validator and is expecting a response on the responseChannel; If ERROR is received from validator, this needs to be notified on the responseChannel.
 	 */
 	if err := handler.sendChannel(msg); err == nil {
-		chaincodeLogger.Debugf("[%s]Error received from validator %s, communicated(state:%s)", shortuuid(msg.Uuid), msg.Type, handler.FSM.Current())
+		chaincodeLogger.Errorf("[%s]Error received from validator %s, communicated(state:%s)", shortuuid(msg.Uuid), msg.Type, handler.FSM.Current())
 	}
 }
 
@@ -894,7 +894,7 @@ func filterError(errFromFSMEvent error) error {
 				return canceledErr
 				//t.Error("expected only 'NoTransitionError'")
 			}
-			chaincodeLogger.Debugf("Ignoring CanceledError: %s", canceledErr)
+			chaincodeLogger.Errorf("Ignoring CanceledError: %s", canceledErr)
 		}
 	}
 	return nil

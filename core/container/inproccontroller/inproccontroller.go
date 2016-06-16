@@ -111,7 +111,7 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 			err = fmt.Errorf("chaincode-support ended with err: %s", err)
 			inprocLogger.Errorf("%s", err)
 		}
-		inprocLogger.Debugf("chaincode ended with for  %s with err: %s", id, err)
+		inprocLogger.Errorf("chaincode ended with for  %s with err: %s", id, err)
 	}()
 
 	go func() {
@@ -123,7 +123,7 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 			err = fmt.Errorf("chaincode ended with err: %s", err)
 			inprocLogger.Errorf("%s", err)
 		}
-		inprocLogger.Debugf("chaincode-support ended with for  %s with err: %s", id, err)
+		inprocLogger.Errorf("chaincode-support ended with for  %s with err: %s", id, err)
 	}()
 
 	select {
