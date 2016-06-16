@@ -21,7 +21,7 @@ main() {
    stopPeer
    stopMemberServices
 
-   } | tee $LOGDIR/log 2>&1
+   } 2>&1 | tee $LOGDIR/log
 }
 
 # initialization & cleanup
