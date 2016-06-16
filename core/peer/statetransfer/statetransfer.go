@@ -546,26 +546,27 @@ func (sts *coordinatorImpl) verifyAndRecoverBlockchain() bool {
 		targetBlock = lowBlock - sts.blockVerifyChunkSize
 	}
 
-	badBlockNumber, err := sts.stack.VerifyBlockchain(lowBlock, targetBlock)
+	lastGoodBlockNumber, err := sts.stack.VerifyBlockchain(lowBlock, targetBlock)
 
-	if nil == err {
-		logger.Debugf("%v validated chain from %d to %d", sts.id, lowBlock, targetBlock)
+	logger.Debugf("%v verified chain from %d to %d, with target of %d", sts.id, lowBlock, lastGoodBlockNumber, targetBlock)
 
-		sts.validBlockRanges[0].lowBlock = targetBlock
-
-		block, err := sts.stack.GetBlockByNumber(targetBlock)
-		if nil != err {
-			logger.Warningf("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
-			return false
-		}
-
-		sts.validBlockRanges[0].lowNextHash = block.PreviousBlockHash
+	if err != nil {
+		logger.Criticalf("%v had something go wrong while validating the blockchain, not sure if we will recover: %s", sts.id)
 		return false
 	}
 
-	_, _, err = sts.syncBlocks(badBlockNumber-1, targetBlock, lowNextHash, nil)
+	lastGoodBlock, err := sts.stack.GetBlockByNumber(lastGoodBlockNumber)
+	if nil != err {
+		logger.Errorf("%v could not retrieve block %d which it believed to be valid: %s", sts.id, lowBlock-1, err)
+		return false
+	}
 
-	// valid block range accounting now in syncBlocks
+	sts.validBlockRanges[0].lowBlock = lastGoodBlockNumber
+	sts.validBlockRanges[0].lowNextHash = lastGoodBlock.PreviousBlockHash
+
+	if targetBlock < lastGoodBlockNumber {
+		sts.syncBlocks(lastGoodBlockNumber-1, targetBlock, lastGoodBlock.PreviousBlockHash, nil)
+	}
 
 	return false
 }
@@ -576,6 +577,7 @@ func (sts *coordinatorImpl) blockThread() {
 	for {
 
 		select {
+
 		case blockSyncReq := <-sts.blockSyncReq:
 			sts.syncBlockchainToCheckpoint(blockSyncReq)
 		case <-sts.threadExit:

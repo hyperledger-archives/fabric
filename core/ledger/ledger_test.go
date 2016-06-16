@@ -375,7 +375,7 @@ func TestVerifyChain(t *testing.T) {
 
 	// Verify the chain
 	for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
-		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), lowBlock)
 	}
 	for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
 		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
@@ -388,23 +388,19 @@ func TestVerifyChain(t *testing.T) {
 		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)
 		ledger.PutRawBlock(badBlock, i)
 		for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
-			if i >= lowBlock {
-				expected := uint64(i + 1)
-				if i == ledger.GetBlockchainSize()-1 {
-					expected--
-				}
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), expected)
+			if i == ledger.GetBlockchainSize()-1 {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(i))
+			} else if i >= lowBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(i+1))
 			} else {
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), lowBlock)
 			}
 		}
-		for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
-			if i <= highBlock {
-				expected := uint64(i + 1)
-				if i == highBlock {
-					expected--
-				}
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), expected)
+		for highBlock := ledger.GetBlockchainSize() - 1; highBlock != ^uint64(0); highBlock-- {
+			if i == highBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(i))
+			} else if i < highBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(i+1))
 			} else {
 				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
 			}
@@ -415,8 +411,6 @@ func TestVerifyChain(t *testing.T) {
 	// Test edge cases
 	_, err := ledger.VerifyChain(2, 10)
 	testutil.AssertError(t, err, "Expected error as high block is less than low block")
-	_, err = ledger.VerifyChain(2, 2)
-	testutil.AssertError(t, err, "Expected error as high block is equal to low block")
 	_, err = ledger.VerifyChain(0, 100)
 	testutil.AssertError(t, err, "Expected error as high block is out of bounds")
 }
