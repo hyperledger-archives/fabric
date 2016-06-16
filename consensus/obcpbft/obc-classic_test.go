@@ -25,13 +25,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-func (op *obcClassic) getPBFTCore() *pbftCore {
-	return op.legacyGenericShim.pbft.pbftCore
-}
-
 func obcClassicHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
 	// It's not entirely obvious why the compiler likes the parent function, but not newObcClassic directly
-	return newObcClassic(id, config, stack)
+	config.Set("general.batchsize", 1)
+	return newObcBatch(id, config, stack)
 }
 
 func TestClassicNetwork(t *testing.T) {
@@ -46,7 +43,7 @@ func TestClassicNetwork(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		ce := ep.(*consumerEndpoint)
-		block, err := ce.consumer.(*obcClassic).stack.GetBlock(1)
+		block, err := ce.consumer.(*obcBatch).stack.GetBlock(1)
 		if nil != err {
 			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
 		}
@@ -60,8 +57,8 @@ func TestClassicNetwork(t *testing.T) {
 func TestClassicStateTransfer(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcClassicHelper, func(ce *consumerEndpoint) {
-		ce.consumer.(*obcClassic).pbft.K = 2
-		ce.consumer.(*obcClassic).pbft.L = 4
+		ce.consumer.(*obcBatch).pbft.K = 2
+		ce.consumer.(*obcBatch).pbft.L = 4
 	})
 	defer net.stop()
 	// net.debug = true
@@ -89,7 +86,7 @@ func TestClassicStateTransfer(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		ce := ep.(*consumerEndpoint)
-		obc := ce.consumer.(*obcClassic)
+		obc := ce.consumer.(*obcBatch)
 		_, err := obc.stack.GetBlock(9)
 		if nil != err {
 			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
@@ -103,9 +100,9 @@ func TestClassicStateTransfer(t *testing.T) {
 func TestClassicBackToBackStateTransfer(t *testing.T) {
 	validatorCount := 4
 	net := makeConsumerNetwork(validatorCount, obcClassicHelper, func(ce *consumerEndpoint) {
-		ce.consumer.(*obcClassic).pbft.K = 2
-		ce.consumer.(*obcClassic).pbft.L = 4
-		ce.consumer.(*obcClassic).pbft.requestTimeout = time.Hour // We do not want any view changes
+		ce.consumer.(*obcBatch).pbft.K = 2
+		ce.consumer.(*obcBatch).pbft.L = 4
+		ce.consumer.(*obcBatch).pbft.requestTimeout = time.Hour // We do not want any view changes
 	})
 	defer net.stop()
 	// net.debug = true
@@ -136,7 +133,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 
 	for _, ep := range net.endpoints {
 		ce := ep.(*consumerEndpoint)
-		obc := ce.consumer.(*obcClassic)
+		obc := ce.consumer.(*obcBatch)
 		_, err := obc.stack.GetBlock(21)
 		if nil != err {
 			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
