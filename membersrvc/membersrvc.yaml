@@ -18,9 +18,9 @@ server:
         # TLS certificate and key file paths
         tls:
             cert:
-                file: "/var/hyperledger/production/.membersrvc/tlsca.cert"
+#                file: "/var/hyperledger/production/.membersrvc/tlsca.cert"
             key:
-                file: "/var/hyperledger/production/.membersrvc/tlsca.priv"
+#                file: "/var/hyperledger/production/.membersrvc/tlsca.priv"
 
 security:
     # Can be 256 or 384
