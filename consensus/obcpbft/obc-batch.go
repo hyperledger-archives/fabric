@@ -123,7 +123,7 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
 	} else {
-		logger.Debug("Replica %d add request %v to its oustanding store", op.pbft.id, req)
+		logger.Debugf("Replica %d add request %v to its outstanding store", op.pbft.id, req)
 		op.outstandingReqs[req] = struct{}{}
 		op.startTimerIfOutstandingRequests()
 	}
@@ -301,14 +301,14 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if ocMsg.Type != pb.Message_CONSENSUS {
-		logger.Error("Unexpected message type: %s", ocMsg.Type)
+		logger.Errorf("Unexpected message type: %s", ocMsg.Type)
 		return nil
 	}
 
 	batchMsg := &BatchMessage{}
 	err := proto.Unmarshal(ocMsg.Payload, batchMsg)
 	if err != nil {
-		logger.Error("Error unmarshaling message: %s", err)
+		logger.Errorf("Error unmarshaling message: %s", err)
 		return nil
 	}
 
