@@ -20,10 +20,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"testing"
 	"os"
 	"reflect"
+	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type TestParameters struct {
@@ -41,13 +42,12 @@ var testParametersSet = []*TestParameters{
 	&TestParameters{"SHA2", 256},
 	&TestParameters{"SHA2", 384}}
 
-
 func TestMain(m *testing.M) {
 	for _, params := range testParametersSet {
 		err := primitives.SetSecurityLevel(params.hashFamily, params.securityLevel)
 		if err == nil {
 			m.Run()
-		}  else {
+		} else {
 			panic(fmt.Errorf("Failed initiliazing crypto layer at [%s]", params.String()))
 		}
 	}
@@ -123,7 +123,7 @@ func TestSPINewPublicKeyFromECDSAKey(t *testing.T) {
 func TestSPINewAsymmetricCipherFrom(t *testing.T) {
 	spi := NewSPI()
 
-	key, err := spi.NewDefaultPrivateKey(nil);
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
@@ -148,13 +148,13 @@ func TestSPINewAsymmetricCipherFrom(t *testing.T) {
 func TestSPIEncryption(t *testing.T) {
 	spi := NewSPI()
 
-	key, err := spi.NewDefaultPrivateKey(nil);
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
 
 	// Encrypt
-	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey());
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey())
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
@@ -165,7 +165,7 @@ func TestSPIEncryption(t *testing.T) {
 	}
 
 	// Decrypt
-	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(key);
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(key)
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}
@@ -181,13 +181,13 @@ func TestSPIEncryption(t *testing.T) {
 func TestSPIStressEncryption(t *testing.T) {
 	spi := NewSPI()
 
-	key, err := spi.NewDefaultPrivateKey(nil);
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
 
 	// Encrypt
-	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey());
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key.GetPublicKey())
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
@@ -201,13 +201,13 @@ func TestSPIStressEncryption(t *testing.T) {
 func TestSPIStressDecryption(t *testing.T) {
 	spi := NewSPI()
 
-	key, err := spi.NewDefaultPrivateKey(nil);
+	key, err := spi.NewDefaultPrivateKey(nil)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
 
 	// Decrypt
-	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key);
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(key)
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}
@@ -216,7 +216,7 @@ func TestSPIStressDecryption(t *testing.T) {
 		t.Fatalf("Decrypting nil should fail")
 	}
 
-	_, err = aCipher.Process([]byte{0,1,2,3})
+	_, err = aCipher.Process([]byte{0, 1, 2, 3})
 	if err == nil {
 		t.Fatalf("Decrypting invalid ciphertxt should fail")
 	}
@@ -226,7 +226,7 @@ func TestSPIStressDecryption(t *testing.T) {
 func TestPrivateKeySerialization(t *testing.T) {
 	spi := NewSPI()
 
-	aKey, err := spi.NewDefaultPrivateKey(rand.Reader);
+	aKey, err := spi.NewDefaultPrivateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
@@ -242,7 +242,7 @@ func TestPrivateKeySerialization(t *testing.T) {
 	}
 
 	// Encrypt
-	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(aKey.GetPublicKey());
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(aKey.GetPublicKey())
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
@@ -253,7 +253,7 @@ func TestPrivateKeySerialization(t *testing.T) {
 	}
 
 	// Decrypt
-	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(recoveredKey);
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(recoveredKey)
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}
@@ -269,7 +269,7 @@ func TestPrivateKeySerialization(t *testing.T) {
 func TestPublicKeySerialization(t *testing.T) {
 	spi := NewSPI()
 
-	aKey, err := spi.NewDefaultPrivateKey(rand.Reader);
+	aKey, err := spi.NewDefaultPrivateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed generating key [%s]", err)
 	}
@@ -285,7 +285,7 @@ func TestPublicKeySerialization(t *testing.T) {
 	}
 
 	// Encrypt
-	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(pk);
+	aCipher, err := spi.NewAsymmetricCipherFromPublicKey(pk)
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from public key [%s]", err)
 	}
@@ -296,7 +296,7 @@ func TestPublicKeySerialization(t *testing.T) {
 	}
 
 	// Decrypt
-	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(aKey);
+	aCipher, err = spi.NewAsymmetricCipherFromPublicKey(aKey)
 	if err != nil {
 		t.Fatalf("Failed creating AsymCipher from private key [%s]", err)
 	}

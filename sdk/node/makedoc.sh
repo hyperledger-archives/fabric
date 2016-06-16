@@ -45,8 +45,14 @@ mkdir -p doc
 rm -rf doc/*
 
 typedoc -m amd \
-	--name 'Hyperledger OpenBlockChain' \
-	--out doc \
-	typedoc-special.d.ts \
-	src/crypto.ts \
-	src/hlc.ts
+--name 'Node.js Hyperledger Fabric SDK' \
+--includeDeclarations \
+--excludeExternals \
+--excludeNotExported \
+--out doc \
+src/hlc.ts typedoc-special.d.ts
+
+# Typedoc generates links to working GIT repo which is fixed
+# below to use an official release URI.
+DOCURI="https://github.com/hyperledger/fabric/tree/master/sdk/node/"
+find doc -name '*.html' -exec sed -i 's!href="http.*sdk/node/!href="'$DOCURI'!' {} \;

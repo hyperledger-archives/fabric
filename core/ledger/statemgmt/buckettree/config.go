@@ -47,7 +47,7 @@ type config struct {
 }
 
 func initConfig(configs map[string]interface{}) {
-	logger.Info("configs passed during initialization = %#v", configs)
+	logger.Infof("configs passed during initialization = %#v", configs)
 
 	numBuckets, ok := configs[ConfigNumBuckets].(int)
 	if !ok {
@@ -64,7 +64,7 @@ func initConfig(configs map[string]interface{}) {
 		hashFunction = fnvHash
 	}
 	conf = newConfig(numBuckets, maxGroupingAtEachLevel, hashFunction)
-	logger.Info("Initializing bucket tree state implemetation with configurations %+v", conf)
+	logger.Infof("Initializing bucket tree state implemetation with configurations %+v", conf)
 }
 
 func newConfig(numBuckets int, maxGroupingAtEachLevel int, hashFunc hashFunc) *config {
@@ -115,7 +115,7 @@ func (config *config) getNumBucketsAtLowestLevel() int {
 }
 
 func (config *config) computeParentBucketNumber(bucketNumber int) int {
-	logger.Debug("Computing parent bucket number for bucketNumber [%d]", bucketNumber)
+	logger.Debugf("Computing parent bucket number for bucketNumber [%d]", bucketNumber)
 	parentBucketNumber := bucketNumber / config.getMaxGroupingAtEachLevel()
 	if bucketNumber%config.getMaxGroupingAtEachLevel() != 0 {
 		parentBucketNumber++

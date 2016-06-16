@@ -25,8 +25,6 @@ import (
 var loadConfigOnce sync.Once
 
 var genesis map[string]interface{}
-var mode string
-var deploySystemChaincodeEnabled bool
 
 func initConfigs() {
 	loadConfigOnce.Do(func() { loadConfigs() })
@@ -35,29 +33,10 @@ func initConfigs() {
 func loadConfigs() {
 	genesisLogger.Info("Loading configurations...")
 	genesis = viper.GetStringMap("ledger.blockchain.genesisBlock")
-	mode = viper.GetString("chaincode.chaincoderunmode")
-	genesisLogger.Info("Configurations loaded: genesis=%s, mode=[%s], deploySystemChaincodeEnabled=[%t]",
-		genesis, mode, deploySystemChaincodeEnabled)
-	if viper.IsSet("ledger.blockchain.deploy-system-chaincode") {
-		// If the deployment of system chaincode is enabled in the configuration file return the configured value
-		deploySystemChaincodeEnabled = viper.GetBool("ledger.blockchain.deploy-system-chaincode")
-	} else {
-		// Deployment of system chaincode is enabled by default if no configuration was specified.
-		deploySystemChaincodeEnabled = true
-	}
+	genesisLogger.Info("Configurations loaded: genesis=%s", genesis)
 }
 
 func getGenesis() map[string]interface{} {
 	initConfigs()
 	return genesis
-}
-
-func getMode() string {
-	initConfigs()
-	return mode
-}
-
-func isDeploySystemChaincodeEnabled() bool {
-	initConfigs()
-	return deploySystemChaincodeEnabled
 }

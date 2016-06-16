@@ -27,6 +27,10 @@ package obcpbft
 import (
 	"fmt"
 
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+
+	pb "github.com/hyperledger/fabric/protos"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
@@ -43,65 +47,94 @@ type legacyGenericShim struct {
 
 type legacyPbftShim struct {
 	*pbftCore
+	closed   chan struct{}
 	consumer legacyInnerStack
-	manager  eventManager // Used to give the pbft core work
+	manager  events.Manager // Used to give the pbft core work
 }
 
 func (shim *legacyGenericShim) init(id uint64, config *viper.Viper, consumer legacyInnerStack) {
 	shim.pbft = &legacyPbftShim{
-		manager:  newEventManagerImpl(),
+		closed:   make(chan struct{}),
+		manager:  events.NewManagerImpl(),
 		consumer: consumer,
 	}
-	shim.pbft.pbftCore = newPbftCore(id, config, consumer, newEventTimerFactoryImpl(shim.pbft.manager))
-	shim.pbft.manager.setReceiver(shim.pbft)
+	shim.pbft.pbftCore = newPbftCore(id, config, consumer, events.NewTimerFactoryImpl(shim.pbft.manager))
+	shim.pbft.manager.SetReceiver(shim.pbft)
 	logger.Debug("Replica %d Consumer is %p", shim.pbft.id, shim.pbft.consumer)
-	shim.pbft.manager.start()
+	shim.pbft.manager.Start()
 	logger.Debug("Replica %d legacyGenericShim now initialized: %v", id, shim)
+}
+
+// Executed is called whenever Execute completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) Executed(tag interface{}) {
+	// Never called
+}
+
+// Committed is called whenever Commit completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) Committed(tag interface{}, target *pb.BlockchainInfo) {
+	// Never called
+}
+
+// RolledBack is called whenever a Rollback completes, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) RolledBack(tag interface{}) {
+	// Never called
+}
+
+// StatedUpdates is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied, no-op for now as the legacy code uses the legacy API
+func (shim *legacyGenericShim) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	id, _ := proto.Marshal(target)
+	chkpt := tag.(*checkpointMessage)
+
+	shim.pbft.stateUpdated(chkpt.seqNo, id)
 }
 
 // Close releases the resources created by newLegacyGenericShim
 func (shim *legacyGenericShim) Close() {
-	shim.pbft.manager.halt()
+	select {
+	case <-shim.pbft.closed:
+	default:
+		close(shim.pbft.closed)
+	}
+	shim.pbft.manager.Halt()
 	shim.pbft.pbftCore.close()
 }
 
 // TODO, temporary measure until mock network gets more sophisticated
-func (shim *legacyGenericShim) getManager() eventManager {
+func (shim *legacyGenericShim) getManager() events.Manager {
 	return shim.pbft.manager
 }
 
-// processEvent intercepts the events bound for PBFT to implement the legacy innerStack methods
-func (instance *legacyPbftShim) processEvent(e interface{}) interface{} {
+// ProcessEvent intercepts the events bound for PBFT to implement the legacy innerStack methods
+func (instance *legacyPbftShim) ProcessEvent(e events.Event) events.Event {
 	switch e.(type) {
 	case viewChangedEvent:
-		logger.Debug("ASDF Replica %d Consumer is %p", instance.id, instance.consumer)
 		instance.consumer.viewChange(instance.view)
 	default:
-		return instance.pbftCore.processEvent(e)
+		return instance.pbftCore.ProcessEvent(e)
 	}
 	return nil
 }
 
 // execDone is an event telling us that the last execution has completed
 func (instance *legacyPbftShim) execDone() {
-	instance.manager.queue() <- execDoneEvent{}
+	instance.manager.Queue() <- execDoneEvent{}
 }
 
 // stateUpdated is an event telling us that the application fast-forwarded its state
 func (instance *legacyPbftShim) stateUpdated(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that it has caught up via state transfer", instance.id)
-	instance.manager.queue() <- stateUpdatedEvent{
-		seqNo: seqNo,
-		id:    id,
+	logger.Debugf("Replica %d queueing message that it has caught up via state transfer", instance.id)
+	info := &pb.BlockchainInfo{}
+	err := proto.Unmarshal(id, info)
+	if err != nil {
+		logger.Errorf("Error unmarshaling: %s", err)
+		return
 	}
-}
-
-// stateUpdating is an event telling us that the application is fast-forwarding its state
-func (instance *legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
-	logger.Debug("Replica %d queueing message that state transfer has been initiated", instance.id)
-	instance.manager.queue() <- stateUpdatingEvent{
-		seqNo: seqNo,
-		id:    id,
+	instance.manager.Queue() <- stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: seqNo,
+			id:    id,
+		},
+		target: info,
 	}
 }
 
@@ -109,7 +142,7 @@ func (instance *legacyPbftShim) stateUpdating(seqNo uint64, id []byte) {
 func (instance *legacyPbftShim) request(msgPayload []byte, senderID uint64) error {
 	msg := &Message{&Message_Request{&Request{Payload: msgPayload,
 		ReplicaId: senderID}}}
-	instance.manager.queue() <- pbftMessageEvent{
+	instance.manager.Queue() <- pbftMessageEvent{
 		sender: senderID,
 		msg:    msg,
 	}
@@ -124,7 +157,7 @@ func (instance *legacyPbftShim) receive(msgPayload []byte, senderID uint64) erro
 		return fmt.Errorf("Error unpacking payload from message: %s", err)
 	}
 
-	instance.manager.queue() <- pbftMessageEvent{
+	instance.manager.Queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -134,7 +167,7 @@ func (instance *legacyPbftShim) receive(msgPayload []byte, senderID uint64) erro
 
 // TODO, this should not return an error
 func (instance *legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err error) {
-	instance.manager.queue() <- pbftMessageEvent{
+	instance.manager.Queue() <- pbftMessageEvent{
 		msg:    msg,
 		sender: senderID,
 	}
@@ -144,5 +177,5 @@ func (instance *legacyPbftShim) recvMsgSync(msg *Message, senderID uint64) (err 
 // Allows the caller to inject work onto the main thread
 // This is useful when the caller wants to safely manipulate PBFT state
 func (instance *legacyPbftShim) inject(work func()) {
-	instance.manager.queue() <- workEvent(work)
+	instance.manager.Queue() <- workEvent(work)
 }

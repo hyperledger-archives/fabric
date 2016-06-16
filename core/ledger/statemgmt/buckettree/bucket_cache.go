@@ -46,7 +46,7 @@ func newBucketCache(maxSizeMBs int) *bucketCache {
 	if maxSizeMBs <= 0 {
 		isEnabled = false
 	} else {
-		logger.Info("Constructing bucket-cache with max bucket cache size = [%d] MBs", maxSizeMBs)
+		logger.Infof("Constructing bucket-cache with max bucket cache size = [%d] MBs", maxSizeMBs)
 	}
 	return &bucketCache{c: make(map[bucketKey]*bucketNode), maxSize: uint64(maxSizeMBs * 1024 * 1024), isEnabled: isEnabled}
 }
@@ -83,7 +83,7 @@ func (cache *bucketCache) loadAllBucketNodesFromDB() {
 		itr.Value().Free()
 		count++
 	}
-	logger.Info("Loaded buckets data in cache. Total buckets in DB = [%d]. Total cache size:=%d", count, cache.size)
+	logger.Infof("Loaded buckets data in cache. Total buckets in DB = [%d]. Total cache size:=%d", count, cache.size)
 }
 
 func (cache *bucketCache) putWithoutLock(key bucketKey, node *bucketNode) {

@@ -64,7 +64,7 @@ func (ep *testEndpoint) getID() uint64 {
 }
 
 func (ep *testEndpoint) getHandle() *pb.PeerID {
-	return &pb.PeerID{fmt.Sprintf("vp%d", ep.id)}
+	return &pb.PeerID{Name: fmt.Sprintf("vp%d", ep.id)}
 }
 
 func (ep *testEndpoint) GetNetworkInfo() (self *pb.PeerEndpoint, network []*pb.PeerEndpoint, err error) {

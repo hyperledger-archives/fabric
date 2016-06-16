@@ -46,6 +46,8 @@ const (
 	ErrorTypeOutOfBounds = ErrorType("OutOfBounds")
 	//ErrorTypeResourceNotFound used to indicate if a resource is not found
 	ErrorTypeResourceNotFound = ErrorType("ResourceNotFound")
+	//ErrorTypeBlockNotFound used to indicate if a block is not found when looked up by it's hash
+	ErrorTypeBlockNotFound = ErrorType("ErrorTypeBlockNotFound")
 )
 
 //Error can be used for throwing an error from ledger code.
@@ -89,12 +91,13 @@ var once sync.Once
 // GetLedger - gives a reference to a 'singleton' ledger
 func GetLedger() (*Ledger, error) {
 	once.Do(func() {
-		ledger, ledgerError = newLedger()
+		ledger, ledgerError = GetNewLedger()
 	})
 	return ledger, ledgerError
 }
 
-func newLedger() (*Ledger, error) {
+// GetNewLedger - gives a reference to a new ledger TODO need better approach
+func GetNewLedger() (*Ledger, error) {
 	blockchain, err := newBlockchain()
 	if err != nil {
 		return nil, err
@@ -183,7 +186,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 // RollbackTxBatch - Descards all the state changes that may have taken place during the execution of
 // current transaction-batch
 func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
-	ledgerLogger.Debug("RollbackTxBatch for id = [%s]", id)
+	ledgerLogger.Debugf("RollbackTxBatch for id = [%s]", id)
 	err := ledger.checkValidIDCommitORRollback(id)
 	if err != nil {
 		return err
@@ -466,13 +469,13 @@ func sendProducerBlockEvent(block *protos.Block) {
 			deploymentSpec := &protos.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {
-				ledgerLogger.Error(fmt.Sprintf("Error unmarshalling deployment transaction for block event: %s", err))
+				ledgerLogger.Errorf("Error unmarshalling deployment transaction for block event: %s", err)
 				continue
 			}
 			deploymentSpec.CodePackage = nil
 			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
 			if err != nil {
-				ledgerLogger.Error(fmt.Sprintf("Error marshalling deployment transaction for block event: %s", err))
+				ledgerLogger.Errorf("Error marshalling deployment transaction for block event: %s", err)
 				continue
 			}
 			transaction.Payload = deploymentSpecBytes
@@ -480,4 +483,20 @@ func sendProducerBlockEvent(block *protos.Block) {
 	}
 
 	producer.Send(producer.CreateBlockEvent(block))
+
+	//when we send block event, send chaincode events as well
+	sendChaincodeEvents(block)
+}
+
+//send chaincode events created by transactions in the block
+func sendChaincodeEvents(block *protos.Block) {
+	nonHashData := block.GetNonHashData()
+	if nonHashData != nil {
+		trs := nonHashData.GetTransactionResults()
+		for _,tr := range trs {
+			if tr.ChaincodeEvent != nil {
+				producer.Send(producer.CreateChaincodeEvent(tr.ChaincodeEvent))
+			}
+		}
+	}
 }

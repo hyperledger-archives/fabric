@@ -30,8 +30,7 @@ make peer
 
 To see what commands are available, simply execute the following commands:
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer
+$ peer
 ```
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](../../peer/main.go) and the build creates the `peer` executable).
@@ -169,6 +168,23 @@ cd $GOPATH/src/github.com/hyperledger/fabric
 make peer unit-test behave
 ```
 
+
+### Building on OSX
+First, install Docker, as described [here](https://docs.docker.com/engine/installation/mac/).
+The database by default writes to /var/hyperledger. You can override this in the `core.yaml` configuration file, under `peer.fileSystemPath`.
+
+```
+brew install go rocksdb snappy gnu-tar     # For RocksDB version 4.1, you can compile your own, as described earlier
+
+# You will need the following two for every shell you want to use
+eval $(docker-machine env)
+export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
+
+cd $GOPATH/src/github.com/hyperledger/fabric
+make peer
+```
+
+
 ## Code contributions <a name="contrib"></a>
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.
 
@@ -189,7 +205,7 @@ Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](h
 
 There is a **core.yaml** file that contains the configuration for the peer process. Many of the configuration settings can be overridden on the command line by setting ENV variables that match the configuration setting, but by prefixing with *'CORE_'*. For example, logging level manipulation through the environment is shown below:
 
-    CORE_PEER_LOGGING_LEVEL=CRITICAL ./peer
+    CORE_PEER_LOGGING_LEVEL=CRITICAL peer
 
 ## Logging <a name="logging"></a>
 

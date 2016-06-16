@@ -39,12 +39,28 @@ import (
 
 var logger = logging.MustGetLogger("golang/hash")
 
+//core hash computation factored out for testing
+func computeHash(contents []byte, hash []byte) []byte {
+	newSlice := make([]byte, len(hash)+len(contents))
+
+	//copy the contents
+	copy(newSlice[0:len(contents)], contents[:])
+
+	//add the previous hash
+	copy(newSlice[len(contents):], hash[:])
+
+	//compute new hash
+	hash = util.ComputeCryptoHash(newSlice)
+
+	return hash
+}
+
 //hashFilesInDir computes h=hash(h,file bytes) for each file in a directory
 //Directory entries are traversed recursively. In the end a single
 //hash value is returned for the entire directory structure
 func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]byte, error) {
 	currentDir := filepath.Join(rootDir, dir)
-	logger.Debug("hashFiles %s", currentDir)
+	logger.Debugf("hashFiles %s", currentDir)
 	//ReadDir returns sorted list of files in dir
 	fis, err := ioutil.ReadDir(currentDir)
 	if err != nil {
@@ -67,10 +83,8 @@ func hashFilesInDir(rootDir string, dir string, hash []byte, tw *tar.Writer) ([]
 			return hash, err
 		}
 
-		newSlice := make([]byte, len(hash)+len(buf))
-		copy(newSlice[len(buf):], hash[:])
-		//hash = md5.Sum(newSlice)
-		hash = util.ComputeCryptoHash(newSlice)
+		//get the new hash from file contents
+		hash = computeHash(buf, hash)
 
 		if tw != nil {
 			is := bytes.NewReader(buf)
@@ -103,7 +117,7 @@ func isCodeExist(tmppath string) error {
 func getCodeFromHTTP(path string) (codegopath string, err error) {
 	codegopath = ""
 	err = nil
-	logger.Debug("getCodeFromHTTP %s", path)
+	logger.Debugf("getCodeFromHTTP %s", path)
 
 	// The following could be done with os.Getenv("GOPATH") but we need to change it later so this prepares for that next step
 	env := os.Environ()
@@ -149,7 +163,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 	env[gopathenvIndex] = "GOPATH=" + codegopath + string(os.PathListSeparator) + origgopath
 
 	// Use a 'go get' command to pull the chaincode from the given repo
-	logger.Debug("go get %s", path)
+	logger.Debugf("go get %s", path)
 	cmd := exec.Command("go", "get", path)
 	cmd.Env = env
 	var out bytes.Buffer
@@ -183,7 +197,7 @@ func getCodeFromHTTP(path string) (codegopath string, err error) {
 }
 
 func getCodeFromFS(path string) (codegopath string, err error) {
-	logger.Debug("getCodeFromFS %s", path)
+	logger.Debugf("getCodeFromFS %s", path)
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		err = fmt.Errorf("GOPATH not defined")

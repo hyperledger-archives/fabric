@@ -17,6 +17,7 @@ limitations under the License.
 package obcpbft
 
 import (
+	"encoding/base64"
 	"fmt"
 	gp "google/protobuf"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
 
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -86,7 +88,7 @@ func TestMaliciousPrePrepare(t *testing.T) {
 		Request:        request2,
 		ReplicaId:      0,
 	}}
-	sendEvent(instance, pbftMsg)
+	events.SendEvent(instance, pbftMsg)
 }
 
 func TestWrongReplicaID(t *testing.T) {
@@ -134,7 +136,7 @@ func TestIncompletePayload(t *testing.T) {
 		mock.broadcastImpl = func(msgPayload []byte) {
 			t.Errorf(errMsg, args...)
 		}
-		sendEvent(instance, pbftMessageEvent{msg: msg, sender: broadcaster})
+		events.SendEvent(instance, pbftMessageEvent{msg: msg, sender: broadcaster})
 	}
 
 	checkMsg(&Message{}, "Expected to reject empty message")
@@ -147,7 +149,7 @@ func TestNetwork(t *testing.T) {
 	net := makePBFTNetwork(validatorCount, nil)
 
 	msg := createPbftRequestWithChainTx(1, uint64(generateBroadcaster(validatorCount)))
-	net.pbftEndpoints[0].manager.queue() <- msg
+	net.pbftEndpoints[0].manager.Queue() <- msg
 
 	err := net.process()
 	if err != nil {
@@ -197,7 +199,7 @@ func TestCheckpoint(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.Queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 
 		net.process()
 	}
@@ -272,7 +274,7 @@ func TestLostPrePrepare(t *testing.T) {
 		ReplicaId: uint64(generateBroadcaster(validatorCount)),
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- (req)
+	net.pbftEndpoints[0].manager.Queue() <- (req)
 
 	// clear all messages sent by primary
 	msg := <-net.msgs
@@ -285,7 +287,7 @@ func TestLostPrePrepare(t *testing.T) {
 
 	// deliver pre-prepare to subset of replicas
 	for _, pep := range net.pbftEndpoints[1 : len(net.pbftEndpoints)-1] {
-		pep.manager.queue() <- prePrep.GetPrePrepare()
+		pep.manager.Queue() <- prePrep.GetPrePrepare()
 	}
 
 	err = net.process()
@@ -330,15 +332,15 @@ func TestInconsistentPrePrepare(t *testing.T) {
 		return preprep
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- makePP(1).Request
+	net.pbftEndpoints[0].manager.Queue() <- makePP(1).Request
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	net.pbftEndpoints[1].manager.queue() <- makePP(1)
-	net.pbftEndpoints[2].manager.queue() <- makePP(2)
-	net.pbftEndpoints[3].manager.queue() <- makePP(3)
+	net.pbftEndpoints[1].manager.Queue() <- makePP(1)
+	net.pbftEndpoints[2].manager.Queue() <- makePP(2)
+	net.pbftEndpoints[3].manager.Queue() <- makePP(3)
 
 	net.process()
 
@@ -489,7 +491,7 @@ func TestViewChange(t *testing.T) {
 			t.Fatalf("Failed to marshal TX block: %s", err)
 		}
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
-		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.Queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)
 		}
@@ -554,15 +556,15 @@ func TestInconsistentDataViewChange(t *testing.T) {
 		return preprep
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- makePP(0).Request
+	net.pbftEndpoints[0].manager.Queue() <- makePP(0).Request
 
 	// clear all messages sent by primary
 	net.clearMessages()
 
 	// replace with fake messages
-	net.pbftEndpoints[1].manager.queue() <- makePP(1)
-	net.pbftEndpoints[2].manager.queue() <- makePP(1)
-	net.pbftEndpoints[3].manager.queue() <- makePP(0)
+	net.pbftEndpoints[1].manager.Queue() <- makePP(1)
+	net.pbftEndpoints[2].manager.Queue() <- makePP(1)
+	net.pbftEndpoints[3].manager.Queue() <- makePP(0)
 
 	err := net.process()
 	if err != nil {
@@ -614,14 +616,14 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	// Have primary advance the sequence number past a checkpoint for replicas 0,1,2
 	for i := int64(1); i <= 3; i++ {
-		net.pbftEndpoints[0].manager.queue() <- makePP(i).Request
+		net.pbftEndpoints[0].manager.Queue() <- makePP(i).Request
 
 		// clear all messages sent by primary
 		net.clearMessages()
 
-		net.pbftEndpoints[0].manager.queue() <- makePP(i)
-		net.pbftEndpoints[1].manager.queue() <- makePP(i)
-		net.pbftEndpoints[2].manager.queue() <- makePP(i)
+		net.pbftEndpoints[0].manager.Queue() <- makePP(i)
+		net.pbftEndpoints[1].manager.Queue() <- makePP(i)
+		net.pbftEndpoints[2].manager.Queue() <- makePP(i)
 
 		err = net.process()
 		if err != nil {
@@ -642,7 +644,7 @@ func TestViewChangeWithStateTransfer(t *testing.T) {
 
 	fmt.Println("Done with stage 3")
 
-	net.pbftEndpoints[1].manager.queue() <- makePP(5).Request
+	net.pbftEndpoints[1].manager.Queue() <- makePP(5).Request
 	err = net.process()
 	if err != nil {
 		t.Fatalf("Processing failed: %s", err)
@@ -683,7 +685,7 @@ func TestNewViewTimeout(t *testing.T) {
 
 	// This will eventually trigger 1's request timeout
 	// We check that one single timed out replica will not keep trying to change views by itself
-	net.pbftEndpoints[1].manager.queue() <- req
+	net.pbftEndpoints[1].manager.Queue() <- req
 	fmt.Println("Debug: Sleeping 1")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 1")
@@ -694,7 +696,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// However, 2 does not know about the missing request, and therefore the request will not be
 	// pre-prepared and finally executed.
 	replica1Disabled = true
-	net.pbftEndpoints[3].manager.queue() <- req
+	net.pbftEndpoints[3].manager.Queue() <- req
 	fmt.Println("Debug: Sleeping 2")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 2")
@@ -702,7 +704,7 @@ func TestNewViewTimeout(t *testing.T) {
 	// So far, we are in view 2, and replica 1 and 3 (who got the request) in view change to view 3.
 	// Submitting the request to 0 will eventually trigger its view-change timeout, which will make
 	// all replicas move to view 3 and finally process the request.
-	net.pbftEndpoints[0].manager.queue() <- req
+	net.pbftEndpoints[0].manager.Queue() <- req
 	fmt.Println("Debug: Sleeping 3")
 	time.Sleep(5 * millisUntilTimeout * time.Millisecond)
 	fmt.Println("Debug: Waking 3")
@@ -736,7 +738,7 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	broadcaster := uint64(generateBroadcaster(validatorCount))
 
 	req := createPbftRequestWithChainTx(1, broadcaster)
-	net.pbftEndpoints[0].manager.queue() <- req
+	net.pbftEndpoints[0].manager.Queue() <- req
 	time.Sleep(5 * millisUntilTimeout)
 	// Now we all have executed seqNo 100.  After triggering a
 	// view change, the new primary should pick up right after
@@ -747,7 +749,7 @@ func TestViewChangeUpdateSeqNo(t *testing.T) {
 	time.Sleep(5 * millisUntilTimeout)
 
 	req = createPbftRequestWithChainTx(2, broadcaster)
-	net.pbftEndpoints[1].manager.queue() <- req
+	net.pbftEndpoints[1].manager.Queue() <- req
 	time.Sleep(5 * millisUntilTimeout)
 
 	net.stop()
@@ -780,13 +782,68 @@ func TestSendQueueThrottling(t *testing.T) {
 	defer instance.close()
 
 	for j := 0; j < 4; j++ {
-		sendEvent(instance, &Request{
+		events.SendEvent(instance, &Request{
 			Timestamp: &gp.Timestamp{Seconds: int64(j), Nanos: 0},
 			Payload:   []byte(fmt.Sprintf("%d", j)),
 		})
 	}
 
 	expected := 2
+	if prePreparesSent != expected {
+		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
+	}
+}
+
+// Test for issue #1091
+// Once the primary ran out of sequence numbers, it would queue requests into a map, and resubmit them in arbitrary order
+// This is incorrect, they need to be resubmitted in the order of their timestamps
+func TestSendQueueOrdering(t *testing.T) {
+	prePreparesSent := 0
+
+	mock := &omniProto{}
+	instance := newPbftCore(0, loadConfig(), mock, &inertTimerFactory{})
+	instance.f = 1
+	instance.K = 2
+	instance.L = 100
+	lastTime := &gp.Timestamp{Seconds: 0, Nanos: 0}
+
+	instance.consumer = &omniProto{
+		validateImpl: func(p []byte) error { return nil },
+		broadcastImpl: func(p []byte) {
+			msg := &Message{}
+			err := proto.Unmarshal(p, msg)
+			if err != nil {
+				t.Fatalf("Error unmarshaling payload")
+				return
+			}
+			prePrep := msg.GetPrePrepare()
+			if prePrep == nil {
+				// not a preprepare, ignoring
+				return
+			}
+			req := prePrep.Request
+			if lastTime.Seconds > req.Timestamp.Seconds {
+				t.Fatalf("Did not arrive in order, got %d after %d", req.Timestamp.Seconds, lastTime.Seconds)
+			}
+			lastTime = req.Timestamp
+
+			// As each pre-prepare is sent, delete it from the outstanding requests, like it executed
+			delete(instance.outstandingReqs, prePrep.RequestDigest)
+			prePreparesSent++
+		},
+	}
+	defer instance.close()
+
+	for j := 1; j <= 100; j++ {
+		events.SendEvent(instance, &Request{
+			Timestamp: &gp.Timestamp{Seconds: int64(j), Nanos: 0},
+			Payload:   []byte(fmt.Sprintf("%d", j)),
+		})
+	}
+
+	instance.moveWatermarks(50)
+
+	expected := 100
 	if prePreparesSent != expected {
 		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
 	}
@@ -801,7 +858,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	instance.L = 4
 	defer instance.close()
 
-	sendEvent(instance, &Checkpoint{
+	events.SendEvent(instance, &Checkpoint{
 		SequenceNumber: 6,
 		ReplicaId:      0,
 	})
@@ -811,7 +868,7 @@ func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	// This causes the list of high checkpoints to grow to be f+1
 	// even though there are not f+1 checkpoints witnessed outside our range
 	// historically, this caused an index out of bounds error
-	sendEvent(instance, &Checkpoint{
+	events.SendEvent(instance, &Checkpoint{
 		SequenceNumber: 10,
 		ReplicaId:      3,
 	})
@@ -826,7 +883,7 @@ func TestWitnessFallBehindMissingPrePrepare(t *testing.T) {
 	instance.L = 4
 	defer instance.close()
 
-	sendEvent(instance, &Commit{
+	events.SendEvent(instance, &Commit{
 		SequenceNumber: 2,
 		ReplicaId:      0,
 	})
@@ -855,7 +912,7 @@ func TestFallBehind(t *testing.T) {
 
 		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
 
-		net.pbftEndpoints[0].manager.queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+		net.pbftEndpoints[0].manager.Queue() <- pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
 
 		if skipThree {
 			// Send the request for consensus to everone but replica 3
@@ -926,7 +983,7 @@ func TestPbftF0(t *testing.T) {
 
 	pep0 := net.pbftEndpoints[0]
 
-	pep0.manager.queue() <- req
+	pep0.manager.Queue() <- req
 
 	err := net.process()
 	if err != nil {
@@ -960,7 +1017,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 		},
 	}
 	instance, manager := createRunningPbftWithManager(1, loadConfig(), mock)
-	defer manager.halt()
+	defer manager.Halt()
 	instance.f = 1
 	instance.K = 2
 	instance.L = 4
@@ -978,7 +1035,7 @@ func TestRequestTimerDuringViewChange(t *testing.T) {
 		ReplicaId: 1, // Not the primary
 	}
 
-	manager.queue() <- req
+	manager.Queue() <- req
 
 	time.Sleep(100 * time.Millisecond)
 }
@@ -1007,21 +1064,21 @@ func TestReplicaCrash1(t *testing.T) {
 		}
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- mkreq(1)
+	net.pbftEndpoints[0].manager.Queue() <- mkreq(1)
 	net.process()
 
 	for id := 0; id < 2; id++ {
 		pe := net.pbftEndpoints[id]
-		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc, newEventTimerFactoryImpl(pe.manager))
-		pe.manager.setReceiver(pe.pbft)
+		pe.pbft = newPbftCore(uint64(id), loadConfig(), pe.sc, events.NewTimerFactoryImpl(pe.manager))
+		pe.manager.SetReceiver(pe.pbft)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.K = 2
 		pe.pbft.L = 2 * pe.pbft.K
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- mkreq(2)
-	net.pbftEndpoints[0].manager.queue() <- (mkreq(3))
+	net.pbftEndpoints[0].manager.Queue() <- mkreq(2)
+	net.pbftEndpoints[0].manager.Queue() <- (mkreq(3))
 	net.process()
 
 	for _, pep := range net.pbftEndpoints {
@@ -1063,7 +1120,7 @@ func TestReplicaCrash2(t *testing.T) {
 		// filter commits to all but 1
 		commit := pm.GetCommit()
 		if filterMsg && dst != -1 && dst != 1 && commit != nil && commit.View < 2 {
-			logger.Info("filtering commit message from %d to %d", src, dst)
+			logger.Infof("filtering commit message from %d to %d", src, dst)
 			return nil
 		}
 		return msg
@@ -1081,15 +1138,15 @@ func TestReplicaCrash2(t *testing.T) {
 		}
 	}
 
-	net.pbftEndpoints[0].manager.queue() <- (mkreq(1))
+	net.pbftEndpoints[0].manager.Queue() <- (mkreq(1))
 	net.process()
 
 	logger.Info("stopping filtering")
 	filterMsg = false
 	primary := net.pbftEndpoints[0].pbft.primary(net.pbftEndpoints[0].pbft.view)
-	net.pbftEndpoints[primary].manager.queue() <- (mkreq(2))
-	net.pbftEndpoints[primary].manager.queue() <- (mkreq(3))
-	net.pbftEndpoints[primary].manager.queue() <- (mkreq(4))
+	net.pbftEndpoints[primary].manager.Queue() <- (mkreq(2))
+	net.pbftEndpoints[primary].manager.Queue() <- (mkreq(3))
+	net.pbftEndpoints[primary].manager.Queue() <- (mkreq(4))
 	go net.processContinually()
 	time.Sleep(5 * time.Second)
 
@@ -1143,7 +1200,7 @@ func TestReplicaCrash3(t *testing.T) {
 	}
 
 	for i := int64(1); i <= 8; i++ {
-		net.pbftEndpoints[0].manager.queue() <- (mkreq(i))
+		net.pbftEndpoints[0].manager.Queue() <- (mkreq(i))
 	}
 	net.process() // vp0,1,2 should have a stable checkpoint for seqNo 8
 
@@ -1153,8 +1210,8 @@ func TestReplicaCrash3(t *testing.T) {
 		config := loadConfig()
 		config.Set("general.K", "2")
 		pe.pbft.close()
-		pe.pbft = newPbftCore(uint64(id), config, pe.sc, newEventTimerFactoryImpl(pe.manager))
-		pe.manager.setReceiver(pe.pbft)
+		pe.pbft = newPbftCore(uint64(id), config, pe.sc, events.NewTimerFactoryImpl(pe.manager))
+		pe.manager.SetReceiver(pe.pbft)
 		pe.pbft.N = 4
 		pe.pbft.f = (4 - 1) / 3
 		pe.pbft.requestTimeout = 200 * time.Millisecond
@@ -1165,7 +1222,7 @@ func TestReplicaCrash3(t *testing.T) {
 
 	// Because vp2 is 'offline', and vp3 is still at the genesis block, the network needs to make a view change
 
-	net.pbftEndpoints[0].manager.queue() <- (mkreq(9))
+	net.pbftEndpoints[0].manager.Queue() <- (mkreq(9))
 	net.process()
 
 	// Now vp0,1,3 should be in sync with 9 executions in view 1, and vp2 should be at 8 executions in view 0
@@ -1232,7 +1289,7 @@ func TestReplicaPersistQSet(t *testing.T) {
 		Payload:   []byte("foo"),
 		ReplicaId: uint64(0),
 	}
-	sendEvent(p, &PrePrepare{
+	events.SendEvent(p, &PrePrepare{
 		View:           0,
 		SequenceNumber: 1,
 		RequestDigest:  hashReq(req),
@@ -1285,7 +1342,7 @@ func TestNetworkNullRequests(t *testing.T) {
 	defer net.stop()
 
 	msg := createPbftRequestWithChainTx(1, 0)
-	net.pbftEndpoints[0].manager.queue() <- msg
+	net.pbftEndpoints[0].manager.Queue() <- msg
 
 	go net.processContinually()
 	time.Sleep(3 * time.Second)
@@ -1314,7 +1371,7 @@ func TestNetworkNullRequestMissing(t *testing.T) {
 	net.pbftEndpoints[0].pbft.nullRequestTimeout = 0
 
 	msg := createPbftRequestWithChainTx(1, 0)
-	net.pbftEndpoints[0].manager.queue() <- msg
+	net.pbftEndpoints[0].manager.Queue() <- msg
 
 	go net.processContinually()
 	time.Sleep(3 * time.Second) // Bumped from 2 to 3 seconds because of sporadic CI failures
@@ -1345,7 +1402,7 @@ func TestNetworkPeriodicViewChange(t *testing.T) {
 	for n := 1; n < 6; n++ {
 		msg := createPbftRequestWithChainTx(int64(n), 0)
 		for _, pe := range net.pbftEndpoints {
-			pe.manager.queue() <- msg
+			pe.manager.Queue() <- msg
 		}
 		net.process()
 	}
@@ -1354,6 +1411,7 @@ func TestNetworkPeriodicViewChange(t *testing.T) {
 		if pep.sc.executions != 5 {
 			t.Errorf("Instance %d executed incorrect number of transactions: %d", pep.id, pep.sc.executions)
 		}
+		// We should be in view 2, 2 exec, VC, 2 exec, VC, exec
 		if pep.pbft.view != 2 {
 			t.Errorf("Instance %d: expected view=2", pep.id)
 		}
@@ -1376,7 +1434,7 @@ func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
 	for n := 1; n < 3; n++ {
 		msg := createPbftRequestWithChainTx(int64(n), 0)
 		for _, pe := range net.pbftEndpoints {
-			pe.manager.queue() <- msg
+			pe.manager.Queue() <- msg
 		}
 		net.process()
 	}
@@ -1388,5 +1446,196 @@ func TestNetworkPeriodicViewChangeMissing(t *testing.T) {
 		if pep.pbft.view != 1 {
 			t.Errorf("Instance %d: expected view=1", pep.id)
 		}
+	}
+}
+
+func TestViewWithOldSeqNos(t *testing.T) {
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		//viewChangeImpl: func(v uint64) {},
+		//skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+		//skipped = true
+		//},
+		//invalidateStateImpl: func() {},
+		broadcastImpl: func(b []byte) {},
+		signImpl:      func(b []byte) ([]byte, error) { return b, nil },
+		verifyImpl:    func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.activeView = false
+	instance.view = 1
+
+	vset := make([]*ViewChange, 3)
+
+	cset := []*ViewChange_C{
+		{
+			SequenceNumber: 0,
+			Id:             base64.StdEncoding.EncodeToString([]byte("Zero")),
+		},
+	}
+
+	qset := []*ViewChange_PQ{
+		{
+			SequenceNumber: 9,
+			Digest:         "nine",
+			View:           0,
+		},
+		{
+			SequenceNumber: 2,
+			Digest:         "two",
+			View:           0,
+		},
+	}
+
+	for i := 0; i < 3; i++ {
+		// Replica 0 sent checkpoints for 100
+		vset[i] = &ViewChange{
+			H:    0,
+			Cset: cset,
+			Qset: qset,
+			Pset: qset,
+		}
+	}
+
+	xset := instance.assignSequenceNumbers(vset, 0)
+
+	instance.lastExec = 10
+	instance.moveWatermarks(instance.lastExec)
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      xset,
+		ReplicaId: 1,
+	}
+
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	for idx, val := range instance.certStore {
+		if idx.n < instance.h {
+			t.Errorf("Found %+v=%+v in certStore who's seqNo < %d", idx, val, instance.h)
+		}
+	}
+}
+
+func TestViewChangeDuringExecution(t *testing.T) {
+	skipped := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		viewChangeImpl: func(v uint64) {},
+		skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+			skipped = true
+		},
+		invalidateStateImpl: func() {},
+		broadcastImpl:       func(b []byte) {},
+		signImpl:            func(b []byte) ([]byte, error) { return b, nil },
+		verifyImpl:          func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.activeView = false
+	instance.view = 1
+	instance.lastExec = 1
+	nextExec := uint64(2)
+	instance.currentExec = &nextExec
+
+	vset := make([]*ViewChange, 3)
+
+	cset := []*ViewChange_C{
+		{
+			SequenceNumber: 100,
+			Id:             base64.StdEncoding.EncodeToString([]byte("onehundred")),
+		},
+	}
+
+	// Replica 0 sent checkpoints for 100
+	vset[0] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	// Replica 1 sent checkpoints for 10
+	vset[1] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	// Replica 2 sent checkpoints for 10
+	vset[2] = &ViewChange{
+		H:    90,
+		Cset: cset,
+	}
+
+	xset := make(map[uint64]string)
+	xset[101] = ""
+
+	instance.newViewStore[1] = &NewView{
+		View:      1,
+		Vset:      vset,
+		Xset:      xset,
+		ReplicaId: 1,
+	}
+
+	if _, ok := instance.processNewView().(viewChangedEvent); !ok {
+		t.Fatalf("Failed to successfully process new view")
+	}
+
+	if skipped {
+		t.Fatalf("Expected state transfer not to be kicked off until execution completes")
+	}
+
+	events.SendEvent(instance, execDoneEvent{})
+
+	if !skipped {
+		t.Fatalf("Expected state transfer to be kicked off once execution completed")
+	}
+}
+
+func TestStateTransferredToOldPoint(t *testing.T) {
+	skipped := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		skipToImpl: func(s uint64, id []byte, replicas []uint64) {
+			skipped = true
+		},
+		invalidateStateImpl: func() {},
+	}, &inertTimerFactory{})
+	instance.moveWatermarks(90)
+	instance.updateHighStateTarget(&stateUpdateTarget{
+		checkpointMessage: checkpointMessage{
+			seqNo: 100,
+			id:    []byte("onehundred"),
+		},
+	})
+
+	events.SendEvent(instance, stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: 10,
+		},
+	})
+
+	if !skipped {
+		t.Fatalf("Expected state transfer to be kicked off once execution completed")
+	}
+}
+
+func TestStateNetworkMovesOnDuringSlowStateTransfer(t *testing.T) {
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		skipToImpl:          func(s uint64, id []byte, replicas []uint64) {},
+		invalidateStateImpl: func() {},
+		//broadcastImpl:       func(b []byte) {},
+		//signImpl:            func(b []byte) ([]byte, error) { return b, nil },
+		//verifyImpl:          func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.skipInProgress = true
+
+	seqNo := uint64(20)
+
+	for i := uint64(0); i < 3; i++ {
+		events.SendEvent(instance, &Checkpoint{
+			SequenceNumber: seqNo,
+			ReplicaId:      i,
+			Id:             base64.StdEncoding.EncodeToString([]byte("twenty")),
+		})
+	}
+
+	if instance.h != seqNo {
+		t.Fatalf("Expected watermark movement to %d because of state transfer, but low watermark is %d", seqNo, instance.h)
 	}
 }

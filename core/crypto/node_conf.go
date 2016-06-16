@@ -20,7 +20,6 @@ import (
 	"errors"
 	"path/filepath"
 
-	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
 )
 
@@ -34,7 +33,7 @@ func (node *nodeImpl) initConfiguration(name string) (err error) {
 		return
 	}
 
-	node.debug("Data will be stored at [%s]", node.conf.configurationPath)
+	node.Debugf("Data will be stored at [%s]", node.conf.configurationPath)
 
 	return
 }
@@ -56,14 +55,14 @@ type configuration struct {
 	tcaPAddressProperty       string
 	tlscaPAddressProperty     string
 
-	securityLevel int
-	hashAlgorithm string
+	securityLevel                  int
+	hashAlgorithm                  string
+	confidentialityProtocolVersion string
 
 	tlsServerName string
 
-	multiThreading  bool
-	tCertBatchSize  int
-	tCertAttributes []*membersrvc.TCertAttribute
+	multiThreading bool
+	tCertBatchSize int
 }
 
 func (conf *configuration) init() error {
@@ -121,6 +120,14 @@ func (conf *configuration) init() error {
 		}
 	}
 
+	conf.confidentialityProtocolVersion = "1.2"
+	if viper.IsSet("security.confidentialityProtocolVersion") {
+		ovveride := viper.GetString("security.confidentialityProtocolVersion")
+		if ovveride != "" {
+			conf.confidentialityProtocolVersion = ovveride
+		}
+	}
+
 	// Set TLS host override
 	conf.tlsServerName = "tlsca"
 	if viper.IsSet("peer.pki.tls.serverhostoverride") {
@@ -143,15 +150,6 @@ func (conf *configuration) init() error {
 	conf.multiThreading = false
 	if viper.IsSet("security.multithreading.enabled") {
 		conf.multiThreading = viper.GetBool("security.multithreading.enabled")
-	}
-
-	// Set attributes
-	conf.tCertAttributes = []*membersrvc.TCertAttribute{}
-	if viper.IsSet("security.tcert.attributes") {
-		attributes := viper.GetStringMapString("security.tcert.attributes")
-		for key, value := range attributes {
-			conf.tCertAttributes = append(conf.tCertAttributes, &membersrvc.TCertAttribute{key, value})
-		}
 	}
 
 	return nil
@@ -293,6 +291,6 @@ func (conf *configuration) getTCertBatchSize() int {
 	return conf.tCertBatchSize
 }
 
-func (conf *configuration) getTCertAttributes() []*membersrvc.TCertAttribute {
-	return conf.tCertAttributes
+func (conf *configuration) GetConfidentialityProtocolVersion() string {
+	return conf.confidentialityProtocolVersion
 }

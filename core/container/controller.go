@@ -31,8 +31,9 @@ import (
 //abstract virtual image for supporting arbitrary virual machines
 type vm interface {
 	Deploy(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
-	Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error
+	Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error
 	Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, dontkill bool, dontremove bool) error
+	Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, noprune bool) error
 	GetVMName(ccID ccintf.CCID) (string, error)
 }
 
@@ -92,12 +93,12 @@ func (vmc *VMController) lockContainer(id string) {
 		vmcontroller.containerLocks[id] = refLck
 	} else {
 		refLck.refCount++
-		vmLogger.Debug("refcount %d (%s)", refLck.refCount, id)
+		vmLogger.Debugf("refcount %d (%s)", refLck.refCount, id)
 	}
 	vmcontroller.Unlock()
-	vmLogger.Debug("waiting for container(%s) lock", id)
+	vmLogger.Debugf("waiting for container(%s) lock", id)
 	refLck.lock.Lock()
-	vmLogger.Debug("got container (%s) lock", id)
+	vmLogger.Debugf("got container (%s) lock", id)
 }
 
 func (vmc *VMController) unlockContainer(id string) {
@@ -108,11 +109,11 @@ func (vmc *VMController) unlockContainer(id string) {
 		}
 		refLck.lock.Unlock()
 		if refLck.refCount--; refLck.refCount == 0 {
-			vmLogger.Debug("container lock deleted(%s)", id)
+			vmLogger.Debugf("container lock deleted(%s)", id)
 			delete(vmcontroller.containerLocks, id)
 		}
 	} else {
-		vmLogger.Debug("no lock to unlock(%s)!!", id)
+		vmLogger.Debugf("no lock to unlock(%s)!!", id)
 	}
 	vmcontroller.Unlock()
 }
@@ -162,6 +163,7 @@ func (bp CreateImageReq) getCCID() ccintf.CCID {
 //StartImageReq - properties for starting a container.
 type StartImageReq struct {
 	ccintf.CCID
+	Reader       io.Reader
 	Args         []string
 	Env          []string
 	AttachStdin  bool
@@ -171,7 +173,7 @@ type StartImageReq struct {
 func (si StartImageReq) do(ctxt context.Context, v vm) VMCResp {
 	var resp VMCResp
 
-	if err := v.Start(ctxt, si.CCID, si.Args, si.Env, si.AttachStdin, si.AttachStdout); err != nil {
+	if err := v.Start(ctxt, si.CCID, si.Args, si.Env, si.AttachStdin, si.AttachStdout, si.Reader); err != nil {
 		resp = VMCResp{Err: err}
 	} else {
 		resp = VMCResp{}
@@ -208,6 +210,30 @@ func (si StopImageReq) do(ctxt context.Context, v vm) VMCResp {
 
 func (si StopImageReq) getCCID() ccintf.CCID {
 	return si.CCID
+}
+
+//DestroyImageReq - properties for stopping a container.
+type DestroyImageReq struct {
+	ccintf.CCID
+	Timeout uint
+	Force   bool
+	NoPrune bool
+}
+
+func (di DestroyImageReq) do(ctxt context.Context, v vm) VMCResp {
+	var resp VMCResp
+
+	if err := v.Destroy(ctxt, di.CCID, di.Force, di.NoPrune); err != nil {
+		resp = VMCResp{Err: err}
+	} else {
+		resp = VMCResp{}
+	}
+
+	return resp
+}
+
+func (di DestroyImageReq) getCCID() ccintf.CCID {
+	return di.CCID
 }
 
 //VMCProcess should be used as follows

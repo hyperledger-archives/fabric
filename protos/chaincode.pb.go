@@ -199,6 +199,7 @@ type ChaincodeSpec struct {
 	SecureContext        string               `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
 	ConfidentialityLevel ConfidentialityLevel `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
 	Metadata             []byte               `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Attributes           []string             `protobuf:"bytes,8,rep,name=attributes" json:"attributes,omitempty"`
 }
 
 func (m *ChaincodeSpec) Reset()         { *m = ChaincodeSpec{} }
@@ -294,6 +295,10 @@ type ChaincodeMessage struct {
 	Payload         []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid            string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	SecurityContext *ChaincodeSecurityContext  `protobuf:"bytes,5,opt,name=securityContext" json:"securityContext,omitempty"`
+	// event emmited by chaincode. Used only with Init or Invoke.
+	// This event is then stored (currently)
+	// with Block.NonHashData.TransactionResult
+	ChaincodeEvent *ChaincodeEvent `protobuf:"bytes,6,opt,name=chaincodeEvent" json:"chaincodeEvent,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
@@ -310,6 +315,13 @@ func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
 func (m *ChaincodeMessage) GetSecurityContext() *ChaincodeSecurityContext {
 	if m != nil {
 		return m.SecurityContext
+	}
+	return nil
+}
+
+func (m *ChaincodeMessage) GetChaincodeEvent() *ChaincodeEvent {
+	if m != nil {
+		return m.ChaincodeEvent
 	}
 	return nil
 }

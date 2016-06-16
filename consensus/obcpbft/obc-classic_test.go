@@ -128,19 +128,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 	// will have already moved on and be past to seqNo 13, outside of Replica 3's watermarks, but
 	// Replica 3 will execute through seqNo 12
 	filterMsg = false
-	for n := 2; n <= 13; n++ {
-		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
-	}
-
-	net.process()
-
-	_, err := net.endpoints[3].(*consumerEndpoint).consumer.(*obcClassic).stack.GetBlock(13)
-	if nil == err {
-		t.Errorf("Replica 3 should not be caught up yet")
-	}
-
-	// Replica 3 has a stable checkpoint at seqNo 12, it will detect it is behind at seqNo 18, then skip to seqNo 20, and execute request 21
-	for n := 14; n <= 21; n++ {
+	for n := 2; n <= 21; n++ {
 		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
 	}
 

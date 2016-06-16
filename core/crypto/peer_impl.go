@@ -20,11 +20,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
-	"sync"
 )
 
 type peerImpl struct {
@@ -57,14 +58,14 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 	}
 
 	//	peer.debug("Pre validating [%s].", tx.String())
-	peer.debug("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
+	peer.Debugf("Tx confdential level [%s].", tx.ConfidentialityLevel.String())
 
 	if tx.Cert != nil && tx.Signature != nil {
 		// Verify the transaction
 		// 1. Unmarshal cert
 		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			peer.error("TransactionPreExecution: failed unmarshalling cert [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed unmarshalling cert [%s].", err.Error())
 			return tx, err
 		}
 
@@ -75,7 +76,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
 		if err != nil {
-			peer.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s].", err.Error())
 			return tx, err
 		}
 		tx.Signature = signature
@@ -83,7 +84,7 @@ func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transa
 		// 2. Verify signature
 		ok, err := peer.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
-			peer.error("TransactionPreExecution: failed marshaling tx [%s] [%s].", err.Error())
+			peer.Errorf("TransactionPreExecution: failed marshaling tx [%s].", err.Error())
 			return tx, err
 		}
 
@@ -133,7 +134,7 @@ func (peer *peerImpl) Verify(vkID, signature, message []byte) error {
 
 	cert, err := peer.getEnrollmentCert(vkID)
 	if err != nil {
-		peer.error("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
+		peer.Errorf("Failed getting enrollment cert for [% x]: [%s]", vkID, err)
 
 		return err
 	}
@@ -142,13 +143,13 @@ func (peer *peerImpl) Verify(vkID, signature, message []byte) error {
 
 	ok, err := peer.verify(vk, message, signature)
 	if err != nil {
-		peer.error("Failed verifying signature for [% x]: [%s]", vkID, err)
+		peer.Errorf("Failed verifying signature for [% x]: [%s]", vkID, err)
 
 		return err
 	}
 
 	if !ok {
-		peer.error("Failed invalid signature for [% x]", vkID)
+		peer.Errorf("Failed invalid signature for [% x]", vkID)
 
 		return utils.ErrInvalidSignature
 	}
@@ -168,14 +169,14 @@ func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error)
 
 func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	if peer.isInitialized {
-		peer.error("Registering [%s]...done! Initialization already performed", enrollID)
+		peer.Errorf("Registering [%s]...done! Initialization already performed", enrollID)
 
 		return utils.ErrAlreadyInitialized
 	}
 
 	// Register node
 	if err := peer.nodeImpl.register(eType, name, pwd, enrollID, enrollPWD); err != nil {
-		log.Error("Failed registering [%s]: [%s]", enrollID, err)
+		peer.Errorf("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
 
@@ -193,18 +194,18 @@ func (peer *peerImpl) init(eType NodeType, id string, pwd []byte) error {
 	}
 
 	// Initialize keystore
-	peer.debug("Init keystore...")
+	peer.Debug("Init keystore...")
 	err := peer.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			peer.error("Keystore already initialized.")
+			peer.Error("Keystore already initialized.")
 		} else {
-			peer.error("Failed initiliazing keystore [%s].", err)
+			peer.Errorf("Failed initiliazing keystore [%s].", err)
 
 			return err
 		}
 	}
-	peer.debug("Init keystore...done.")
+	peer.Debug("Init keystore...done.")
 
 	// initialized
 	peer.isInitialized = true

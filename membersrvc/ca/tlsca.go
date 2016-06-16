@@ -19,6 +19,7 @@ package ca
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"database/sql"
 	"errors"
 	"math/big"
 
@@ -48,10 +49,14 @@ type TLSCAA struct {
 	tlsca *TLSCA
 }
 
+func initializeTLSCATables(db *sql.DB) error {
+	return initializeCommonTables(db)
+}
+
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca"), eca}
+	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca}
 
 	return tlsca
 }
@@ -78,7 +83,7 @@ func (tlsca *TLSCA) startTLSCAA(srv *grpc.Server) {
 func (tlscap *TLSCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCACertificate")
 
-	return &pb.Cert{tlscap.tlsca.raw}, nil
+	return &pb.Cert{Cert: tlscap.tlsca.raw}, nil
 }
 
 // CreateCertificate requests the creation of a new enrollment certificate by the TLSCA.
@@ -124,12 +129,12 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, in *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
-	raw, err := tlscap.tlsca.readCertificate(in.Id.Id, x509.KeyUsageKeyAgreement)
+	raw, err := tlscap.tlsca.readCertificateByKeyUsage(in.Id.Id, x509.KeyUsageKeyAgreement)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.Cert{raw}, nil
+	return &pb.Cert{Cert: raw}, nil
 }
 
 // RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.

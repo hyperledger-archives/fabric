@@ -43,7 +43,7 @@ func (hd *HashLedgerDirectory) GetLedgerByPeerID(peerID *protos.PeerID) (consens
 
 func (hd *HashLedgerDirectory) GetPeers() (*protos.PeersMessage, error) {
 	_, network, err := hd.GetNetworkInfo()
-	return &protos.PeersMessage{network}, err
+	return &protos.PeersMessage{Peers: network}, err
 }
 
 func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
@@ -122,6 +122,37 @@ func (mock *MockLedger) BeginTxBatch(id interface{}) error {
 	mock.curBatch = nil
 	mock.curResults = nil
 	return nil
+}
+
+func (mock *MockLedger) Execute(tag interface{}, txs []*protos.Transaction) {
+	go func() {
+		if mock.txID == nil {
+			mock.BeginTxBatch(mock)
+		}
+
+		_, err := mock.ExecTxs(mock, txs)
+		if err != nil {
+			panic(err)
+		}
+		mock.ce.consumer.Executed(tag)
+	}()
+}
+
+func (mock *MockLedger) Commit(tag interface{}, meta []byte) {
+	go func() {
+		_, err := mock.CommitTxBatch(mock, meta)
+		if err != nil {
+			panic(err)
+		}
+		mock.ce.consumer.Committed(tag, mock.GetBlockchainInfo())
+	}()
+}
+
+func (mock *MockLedger) Rollback(tag interface{}) {
+	go func() {
+		mock.RollbackTxBatch(mock)
+		mock.ce.consumer.RolledBack(tag)
+	}()
 }
 
 func (mock *MockLedger) ExecTxs(id interface{}, txs []*protos.Transaction) ([]byte, error) {
@@ -242,16 +273,25 @@ func (mock *MockLedger) HashBlock(block *protos.Block) ([]byte, error) {
 	return block.GetHash()
 }
 
+func (mock *MockLedger) GetBlockchainInfo() *protos.BlockchainInfo {
+	b, _ := mock.GetBlock(mock.blockHeight - 1)
+	return mock.getBlockInfo(mock.blockHeight, b)
+}
+
 func (mock *MockLedger) GetBlockchainInfoBlob() []byte {
 	b, _ := mock.GetBlock(mock.blockHeight - 1)
 	return mock.getBlockInfoBlob(mock.blockHeight, b)
 }
 
 func (mock *MockLedger) getBlockInfoBlob(height uint64, block *protos.Block) []byte {
+	h, _ := proto.Marshal(mock.getBlockInfo(height, block))
+	return h
+}
+
+func (mock *MockLedger) getBlockInfo(height uint64, block *protos.Block) *protos.BlockchainInfo {
 	info := &protos.BlockchainInfo{Height: height}
 	info.CurrentBlockHash, _ = mock.HashBlock(block)
-	h, _ := proto.Marshal(info)
-	return h
+	return info
 }
 
 func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, error) {
@@ -262,7 +302,7 @@ func (mock *MockLedger) GetBlockHeadMetadata() ([]byte, error) {
 	return b.ConsensusMetadata, nil
 }
 
-func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*protos.PeerID) {
+func (mock *MockLedger) simulateStateTransfer(info *protos.BlockchainInfo, peers []*protos.PeerID) {
 	var remoteLedger consensus.ReadOnlyLedger
 	if len(peers) > 0 {
 		var ok bool
@@ -273,9 +313,7 @@ func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*p
 	} else {
 		panic("TODO, support state transfer from nil peers")
 	}
-	info := &protos.BlockchainInfo{}
-	proto.Unmarshal(id, info)
-	fmt.Printf("TEST LEDGER skipping to %+v, %+v", meta, info)
+	fmt.Printf("TEST LEDGER skipping to %+v", info)
 	p := 0
 	if mock.blockHeight >= info.Height {
 		panic(fmt.Sprintf("Asked to skip to a block (%d) which is lower than our current height of %d", info.Height, mock.blockHeight))
@@ -296,7 +334,6 @@ func (mock *MockLedger) simulateStateTransfer(meta []byte, id []byte, peers []*p
 			continue
 		}
 
-		block.ConsensusMetadata = meta
 		mock.blocks[n] = block
 	}
 	mock.blockHeight = info.Height

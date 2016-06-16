@@ -18,6 +18,7 @@ package crypto
 
 import (
 	obc "github.com/hyperledger/fabric/protos"
+	"github.com/op/go-logging"
 
 	"bytes"
 	"fmt"
@@ -30,11 +31,14 @@ import (
 
 	"crypto/rand"
 
+	"runtime"
+	"time"
+
+	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -51,6 +55,7 @@ var (
 	invoker  Client
 
 	server *grpc.Server
+	aca    *ca.ACA
 	eca    *ca.ECA
 	tca    *ca.TCA
 	tlsca  *ca.TLSCA
@@ -60,97 +65,188 @@ var (
 	queryTxCreators   []createTxFunc
 
 	ksPwd = []byte("This is a very very very long pw")
+
+	attrs = []string{"company", "position"}
 )
 
 func TestMain(m *testing.M) {
+	// Setup the test
 	setup()
 
-	// Init PKI
-	initPKI()
-	go startPKI()
-	defer cleanup()
+	//Define a map to store the scenarios properties
+	properties := make(map[string]interface{})
+	ret := 0
 
-	// Init clients
-	err := initClients()
-	if err != nil {
-		fmt.Printf("Failed initializing clients [%s]\n", err)
-		panic(fmt.Errorf("Failed initializing clients [%s].", err))
+	//First scenario with crypto_test.yaml
+	ret = runTestsOnScenario(m, properties, "Using crypto_test.yaml properties")
+	if ret != 0 {
+		os.Exit(ret)
 	}
 
-	// Init peer
-	err = initPeers()
-	if err != nil {
-		fmt.Printf("Failed initializing peers [%s]\n", err)
-		panic(fmt.Errorf("Failed initializing peers [%s].", err))
+	//properties["security.multithreading.enabled"] = "false"
+	//Third scenario using confidentialityProtocolVersion = 1.1
+	/*
+		properties["security.confidentialityProtocolVersion"] = "1.1"
+		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
+		if ret != 0 {
+			os.Exit(ret)
+		}
+	*/
+	//Fourth scenario with security level = 384
+	properties["security.hashAlgorithm"] = "SHA3"
+	properties["security.level"] = "384"
+	ret = runTestsOnScenario(m, properties, "Using SHA3-384")
+	if ret != 0 {
+		os.Exit(ret)
 	}
 
-	// Init validators
-	err = initValidators()
-	if err != nil {
-		fmt.Printf("Failed initializing validators [%s]\n", err)
-		panic(fmt.Errorf("Failed initializing validators [%s].", err))
+	//Fifth scenario with SHA2
+	properties["security.hashAlgorithm"] = "SHA2"
+	properties["security.level"] = "256"
+	ret = runTestsOnScenario(m, properties, "Using SHA2-256")
+	if ret != 0 {
+		os.Exit(ret)
 	}
 
-	viper.Set("pki.validity-period.update", "false")
-	viper.Set("validator.validity-period.verification", "false")
-
-	if err != nil {
-		fmt.Printf("Failed initializing ledger [%s]\n", err.Error())
-		panic(fmt.Errorf("Failed initializing ledger [%s].", err.Error()))
+	//Sixth scenario with SHA2
+	properties["security.hashAlgorithm"] = "SHA2"
+	properties["security.level"] = "384"
+	ret = runTestsOnScenario(m, properties, "Using SHA2-384")
+	if ret != 0 {
+		os.Exit(ret)
 	}
-
-	ret := m.Run()
-
-	cleanup()
 
 	os.Exit(ret)
 }
 
+//loadConfigScennario loads the properties in the viper and returns the current values.
+func loadConfigScenario(properties map[string]interface{}) map[string]interface{} {
+	currentValues := make(map[string]interface{})
+	for k, v := range properties {
+		currentValues[k] = viper.Get(k)
+		viper.Set(k, v)
+	}
+	return currentValues
+}
+
+func before() {
+	// Init PKI
+	initPKI()
+	go startPKI()
+}
+
+func after() {
+	cleanup()
+}
+
+func runTestsOnScenario(m *testing.M, properties map[string]interface{}, scenarioName string) int {
+	fmt.Printf("=== Start tests for scenario '%v' ===\n", scenarioName)
+	currentValues := make(map[string]interface{})
+	if len(properties) > 0 {
+		currentValues = loadConfigScenario(properties)
+	}
+	primitives.SetSecurityLevel(viper.GetString("security.hashAlgorithm"), viper.GetInt("security.level"))
+
+	before()
+	ret := m.Run()
+	after()
+
+	if len(properties) > 0 {
+		_ = loadConfigScenario(currentValues)
+	}
+	fmt.Printf("=== End tests for scenario '%v'  ===\n", scenarioName)
+	return ret
+}
+
 func TestParallelInitClose(t *testing.T) {
-	// TODO: complete this
-	conf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
-	RegisterClient(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	clientConf := utils.NodeConfiguration{Type: "client", Name: "userthread"}
+	peerConf := utils.NodeConfiguration{Type: "peer", Name: "peerthread"}
+	validatorConf := utils.NodeConfiguration{Type: "validator", Name: "validatorthread"}
+
+	if err := RegisterClient(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed registerting userthread.")
+	}
+
+	if err := RegisterPeer(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed registerting peerthread")
+	}
+
+	if err := RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed registerting validatorthread")
+	}
 
 	done := make(chan bool)
 
 	n := 10
+	var peer Peer
+	var validator Peer
+	var client Client
+
+	var err error
 	for i := 0; i < n; i++ {
 		go func() {
+			if err := RegisterPeer(peerConf.Name, nil, peerConf.GetEnrollmentID(), peerConf.GetEnrollmentPWD()); err != nil {
+				t.Logf("Failed registerting peerthread")
+			}
+			peer, err = InitPeer(peerConf.Name, nil)
+			if err != nil {
+				t.Logf("Failed peer initialization [%s]", err)
+			}
+
+			if err := RegisterValidator(validatorConf.Name, nil, validatorConf.GetEnrollmentID(), validatorConf.GetEnrollmentPWD()); err != nil {
+				t.Logf("Failed registerting validatorthread")
+			}
+			validator, err = InitValidator(validatorConf.Name, nil)
+			if err != nil {
+				t.Logf("Failed validator initialization [%s]", err)
+			}
+
+			if err := RegisterClient(clientConf.Name, nil, clientConf.GetEnrollmentID(), clientConf.GetEnrollmentPWD()); err != nil {
+				t.Logf("Failed registerting userthread.")
+			}
+			client, err = InitClient(clientConf.Name, nil)
+			if err != nil {
+				t.Logf("Failed client initialization [%s]", err)
+			}
+
 			for i := 0; i < 5; i++ {
-				client, err := InitClient(conf.Name, nil)
+				client, err := InitClient(clientConf.Name, nil)
 				if err != nil {
-					t.Log("Init failed")
+					t.Logf("Failed client initialization [%s]", err)
 				}
 
-				cis := &obc.ChaincodeInvocationSpec{
-					ChaincodeSpec: &obc.ChaincodeSpec{
-						Type:                 obc.ChaincodeSpec_GOLANG,
-						ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
-						CtorMsg:              nil,
-						ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
-					},
-				}
-				for i := 0; i < 20; i++ {
-					uuid := util.GenerateUUID()
-					client.NewChaincodeExecute(cis, uuid)
-				}
+				runtime.Gosched()
+				time.Sleep(500 * time.Millisecond)
 
 				err = CloseClient(client)
 				if err != nil {
-					t.Log("Close failed")
+					t.Logf("Failed client closing [%s]", err)
 				}
 			}
 			done <- true
-
 		}()
 	}
+
 	for i := 0; i < n; i++ {
 		log.Info("Waiting")
 		<-done
 		log.Info("+1")
 	}
-	log.Info("Test Finished!")
-	//
+
+	// Close Client, Peer and Validator n times
+	for i := 0; i < n; i++ {
+		if err := CloseClient(client); err != nil {
+			t.Fatalf("Client should be still closable. [%d][%d]", i, n)
+		}
+
+		if err := ClosePeer(peer); err != nil {
+			t.Fatalf("Peer should be still closable. [%d][%d]", i, n)
+		}
+
+		if err := CloseValidator(validator); err != nil {
+			t.Fatalf("Validator should be still closable. [%d][%d]", i, n)
+		}
+	}
 }
 
 func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
@@ -180,7 +276,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake peer
-	peer, err := InitPeer("", nil)
+	peer, err = InitPeer("", nil)
 	if err == nil || peer != nil {
 		t.Fatal("Init should fail")
 	}
@@ -190,7 +286,7 @@ func TestInitialization(t *testing.T) {
 	}
 
 	// Init fake validator
-	validator, err := InitValidator("", nil)
+	validator, err = InitValidator("", nil)
 	if err == nil || validator != nil {
 		t.Fatal("Init should fail")
 	}
@@ -201,6 +297,8 @@ func TestInitialization(t *testing.T) {
 }
 
 func TestClientDeployTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestClientDeployTransaction with [%d]\n", i)
 
@@ -223,6 +321,8 @@ func TestClientDeployTransaction(t *testing.T) {
 }
 
 func TestClientExecuteTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestClientExecuteTransaction with [%d]\n", i)
 
@@ -245,6 +345,8 @@ func TestClientExecuteTransaction(t *testing.T) {
 }
 
 func TestClientQueryTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestClientQueryTransaction with [%d]\n", i)
 
@@ -267,6 +369,8 @@ func TestClientQueryTransaction(t *testing.T) {
 }
 
 func TestClientMultiExecuteTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
 	for i := 0; i < 24; i++ {
 		_, tx, err := createConfidentialExecuteTransaction(t)
 
@@ -286,17 +390,59 @@ func TestClientMultiExecuteTransaction(t *testing.T) {
 	}
 }
 
+func TestClientGetNextTCerts(t *testing.T) {
+
+	// Some positive flow tests here
+	var nCerts int = 1
+	for i := 1; i < 3; i++ {
+		nCerts *= 10
+		fmt.Println(fmt.Sprintf("Calling GetNextTCerts(%d)", nCerts))
+		rvCerts, err := deployer.GetNextTCerts(nCerts)
+		if err != nil {
+			t.Fatalf("Could not receive %d TCerts", nCerts)
+		}
+		if len(rvCerts) != nCerts {
+			t.Fatalf("Expected exactly '%d' TCerts as a return from GetNextTCert(%d)", nCerts, nCerts)
+		}
+
+		for nPos, cert := range rvCerts {
+			if cert == nil {
+				t.Fatalf("Returned TCert (at position %d) cannot be nil", nPos)
+			}
+		}
+	}
+
+	// Some negative flow tests here
+	_, err := deployer.GetNextTCerts(0)
+	if err == nil {
+		t.Fatalf("Requesting 0 TCerts: expected an error when calling GetNextTCerts(0)")
+	}
+
+	_, err = deployer.GetNextTCerts(-1)
+	if err == nil {
+		t.Fatalf("Requesting -1 TCerts: expected an error when calling GetNextTCerts(-1)")
+	}
+
+}
+
+//TestClientGetAttributesFromTCert verifies that the value read from the TCert is the expected value "ACompany".
 func TestClientGetAttributesFromTCert(t *testing.T) {
-	tcert, err := deployer.GetNextTCert()
+	initNodes()
+	defer closeNodes()
+
+	tCerts, err := deployer.GetNextTCerts(1, attrs...)
 
 	if err != nil {
-		t.Fatalf("Failed getting tcert: [%s]", err)
+		t.Fatalf("Failed getting TCert by calling GetNextTCerts(1): [%s]", err)
 	}
-	if tcert == nil {
+	if tCerts == nil {
 		t.Fatalf("TCert should be different from nil")
 	}
+	if len(tCerts) != 1 {
+		t.Fatalf("Expected one TCert returned from GetNextTCerts(1)")
+	}
 
-	tcertDER := tcert.GetCertificate().Raw
+	tcertDER := tCerts[0].GetCertificate().Raw
 
 	if tcertDER == nil {
 		t.Fatalf("Cert should be different from nil")
@@ -305,20 +451,65 @@ func TestClientGetAttributesFromTCert(t *testing.T) {
 		t.Fatalf("Cert should have length > 0")
 	}
 
-	attributeBytes, err := deployer.ReadAttribute("company", tcertDER)
+	attributeBytes, err := attributes.GetValueForAttribute("company", tCerts[0].GetPreK0(), tCerts[0].GetCertificate())
 	if err != nil {
 		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
 	}
 
 	attributeValue := string(attributeBytes[:])
 
-	if attributeValue != "IBM" {
-		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "IBM", attributeValue)
+	if attributeValue != "ACompany" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
+	}
+}
+
+func TestClientGetAttributesFromTCertWithUnusedTCerts(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
+	_, _ = deployer.GetNextTCerts(1, attrs...)
+
+	after()  //Tear down the server.
+	before() //Start up again to use unsed TCerts
+
+	tcerts, err := deployer.GetNextTCerts(1, attrs...)
+
+	if err != nil {
+		t.Fatalf("Failed getting tcert: [%s]", err)
+	}
+	if tcerts == nil {
+		t.Fatalf("Returned TCerts slice should be different from nil")
+	}
+	if tcerts[0] == nil {
+		t.Fatalf("Returned TCerts slice's first entry should be different from nil")
+	}
+
+	tcertDER := tcerts[0].GetCertificate().Raw
+
+	if tcertDER == nil {
+		t.Fatalf("Cert should be different from nil")
+	}
+	if len(tcertDER) == 0 {
+		t.Fatalf("Cert should have length > 0")
+	}
+
+	attributeBytes, err := attributes.GetValueForAttribute("company", tcerts[0].GetPreK0(), tcerts[0].GetCertificate())
+	if err != nil {
+		t.Fatalf("Error retrieving attribute from TCert: [%s]", err)
+	}
+
+	attributeValue := string(attributeBytes[:])
+
+	if attributeValue != "ACompany" {
+		t.Fatalf("Wrong attribute retrieved from TCert. Expected [%s], Actual [%s]", "ACompany", attributeValue)
 	}
 }
 
 func TestClientGetTCertHandlerNext(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext()
+	initNodes()
+	defer closeNodes()
+
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -338,7 +529,10 @@ func TestClientGetTCertHandlerNext(t *testing.T) {
 }
 
 func TestClientGetTCertHandlerFromDER(t *testing.T) {
-	handler, err := deployer.GetTCertificateHandlerNext()
+	initNodes()
+	defer closeNodes()
+
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -364,7 +558,10 @@ func TestClientGetTCertHandlerFromDER(t *testing.T) {
 }
 
 func TestClientTCertHandlerSign(t *testing.T) {
-	handlerDeployer, err := deployer.GetTCertificateHandlerNext()
+	initNodes()
+	defer closeNodes()
+
+	handlerDeployer, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
 	}
@@ -425,6 +622,9 @@ func TestClientTCertHandlerSign(t *testing.T) {
 }
 
 func TestClientGetEnrollmentCertHandler(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	handler, err := deployer.GetEnrollmentCertificateHandler()
 
 	if err != nil {
@@ -445,6 +645,9 @@ func TestClientGetEnrollmentCertHandler(t *testing.T) {
 }
 
 func TestClientGetEnrollmentCertHandlerSign(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	handlerDeployer, err := deployer.GetEnrollmentCertificateHandler()
 	if err != nil {
 		t.Fatalf("Failed getting handler: [%s]", err)
@@ -478,6 +681,9 @@ func TestClientGetEnrollmentCertHandlerSign(t *testing.T) {
 }
 
 func TestPeerID(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	// Verify that any id modification doesn't change
 	id := peer.GetID()
 
@@ -497,6 +703,9 @@ func TestPeerID(t *testing.T) {
 }
 
 func TestPeerDeployTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestPeerDeployTransaction with [%d]\n", i)
 
@@ -520,10 +729,49 @@ func TestPeerDeployTransaction(t *testing.T) {
 		if res != nil {
 			t.Fatalf("Result must nil")
 		}
+
+		// Test no Cert
+		oldCert := tx.Cert
+		tx.Cert = nil
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. No Cert. %s", err)
+		}
+		tx.Cert = oldCert
+
+		// Test no Signature
+		oldSig := tx.Signature
+		tx.Signature = nil
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. No Signature. %s", err)
+		}
+		tx.Signature = oldSig
+
+		// Test Invalid Cert
+		oldCert = tx.Cert
+		tx.Cert = []byte{0, 1, 2, 3, 4}
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. Invalid Cert. %s", err)
+		}
+		tx.Cert = oldCert
+
+		// Test invalid Signature
+		oldSig = tx.Signature
+		tx.Signature = []byte{0, 1, 2, 3, 4}
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. Invalid Signature. %s", err)
+		}
+		tx.Signature = oldSig
 	}
 }
 
 func TestPeerExecuteTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestPeerExecuteTransaction with [%d]\n", i)
 
@@ -551,6 +799,9 @@ func TestPeerExecuteTransaction(t *testing.T) {
 }
 
 func TestPeerQueryTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestPeerQueryTransaction with [%d]\n", i)
 
@@ -578,6 +829,9 @@ func TestPeerQueryTransaction(t *testing.T) {
 }
 
 func TestPeerStateEncryptor(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	_, deployTx, err := createConfidentialDeployTransaction(t)
 	if err != nil {
 		t.Fatalf("Failed creating deploy transaction [%s].", err)
@@ -597,6 +851,9 @@ func TestPeerStateEncryptor(t *testing.T) {
 }
 
 func TestPeerSignVerify(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	msg := []byte("Hello World!!!")
 	signature, err := peer.Sign(msg)
 	if err != nil {
@@ -620,6 +877,9 @@ func TestPeerSignVerify(t *testing.T) {
 }
 
 func TestPeerVerify(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
 	if err != nil {
@@ -653,6 +913,9 @@ func TestPeerVerify(t *testing.T) {
 }
 
 func TestValidatorID(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	// Verify that any id modification doesn't change
 	id := validator.GetID()
 
@@ -672,6 +935,9 @@ func TestValidatorID(t *testing.T) {
 }
 
 func TestValidatorDeployTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range deployTxCreators {
 		t.Logf("TestValidatorDeployTransaction with [%d]\n", i)
 
@@ -696,6 +962,18 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			t.Fatalf("Result must be diffrent from nil")
 		}
 
+		// Test invalid ConfidentialityLevel
+		oldConfidentialityLevel := tx.ConfidentialityLevel
+		tx.ConfidentialityLevel = -1
+		_, err = validator.TransactionPreExecution(tx)
+		if err == nil {
+			t.Fatalf("TransactionPreExecution should fail. Invalid ConfidentialityLevel. %s", err)
+		}
+		if err != utils.ErrInvalidConfidentialityLevel {
+			t.Fatalf("TransactionPreExecution should with ErrInvalidConfidentialityLevel rather than [%s]", err)
+		}
+		tx.ConfidentialityLevel = oldConfidentialityLevel
+
 		if tx.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 			if reflect.DeepEqual(res, tx) {
 				t.Fatalf("Src and Dest Transaction should be different after PreExecution")
@@ -703,11 +981,68 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			if err := isEqual(otx, res); err != nil {
 				t.Fatalf("Decrypted transaction differs from the original: [%s]", err)
 			}
+
+			// Test no ToValidators
+			oldToValidators := tx.ToValidators
+			tx.ToValidators = nil
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. No ToValidators. %s", err)
+			}
+			tx.ToValidators = oldToValidators
+
+			// Test invalid ToValidators
+			oldToValidators = tx.ToValidators
+			tx.ToValidators = []byte{0, 1, 2, 3, 4}
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. Invalid ToValidators. %s", err)
+			}
+			tx.ToValidators = oldToValidators
+
+			// Test no Payload
+			oldPayload := tx.Payload
+			tx.Payload = nil
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. No Payload. %s", err)
+			}
+			tx.Payload = oldPayload
+
+			// Test invalid Payload
+			oldPayload = tx.Payload
+			tx.Payload = []byte{0, 1, 2, 3, 4}
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. Invalid Payload. %s", err)
+			}
+			tx.Payload = oldPayload
+
+			// Test no Payload
+			oldChaincodeID := tx.ChaincodeID
+			tx.ChaincodeID = nil
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. No ChaincodeID. %s", err)
+			}
+			tx.ChaincodeID = oldChaincodeID
+
+			// Test invalid Payload
+			oldChaincodeID = tx.ChaincodeID
+			tx.ChaincodeID = []byte{0, 1, 2, 3, 4}
+			_, err = validator.TransactionPreExecution(tx)
+			if err == nil {
+				t.Fatalf("TransactionPreExecution should fail. Invalid ChaincodeID. %s", err)
+			}
+			tx.ChaincodeID = oldChaincodeID
 		}
 	}
 }
 
 func TestValidatorExecuteTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range executeTxCreators {
 		t.Logf("TestValidatorExecuteTransaction with [%d]\n", i)
 
@@ -744,6 +1079,9 @@ func TestValidatorExecuteTransaction(t *testing.T) {
 }
 
 func TestValidatorQueryTransaction(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	for i, createTx := range queryTxCreators {
 		t.Logf("TestValidatorConfidentialQueryTransaction with [%d]\n", i)
 
@@ -767,25 +1105,25 @@ func TestValidatorQueryTransaction(t *testing.T) {
 		if queryTx.ConfidentialityLevel == obc.ConfidentialityLevel_CONFIDENTIAL {
 
 			// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-			if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+			if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 				t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 			}
 			if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 				t.Fatalf("Failed pre-executing deploty transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 			}
 			if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 				t.Fatalf("Failed pre-executing exec1 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+			if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 			}
 			if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
 				t.Fatalf("Failed pre-executing exec2 transaction [%s].", err)
 			}
-			if _, err := validator.TransactionPreValidation(queryTx); err != nil {
+			if _, err = validator.TransactionPreValidation(queryTx); err != nil {
 				t.Fatalf("Failed pre-validating query transaction [%s].", err)
 			}
 			if queryTx, err = validator.TransactionPreExecution(queryTx); err != nil {
@@ -833,6 +1171,12 @@ func TestValidatorQueryTransaction(t *testing.T) {
 			if !bytes.Equal(pt, aPt2) {
 				t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
 			}
+			// Reencrypt the state
+			aCt, err = seTwo.Encrypt(pt)
+			if err != nil {
+				t.Fatalf("Failed encrypting state [%s].", err)
+			}
+
 			// Try to decrypt nil. It should return nil with no error
 			out, err = seTwo.Decrypt(nil)
 			if err != nil {
@@ -844,11 +1188,18 @@ func TestValidatorQueryTransaction(t *testing.T) {
 
 			// queryTx
 			seThree, err := validator.GetStateEncryptor(deployTx, queryTx)
+			aPt2, err = seThree.Decrypt(aCt)
+			if err != nil {
+				t.Fatalf("Failed decrypting state [%s].", err)
+			}
+			if !bytes.Equal(pt, aPt2) {
+				t.Fatalf("Failed decrypting state [%s != %s]: %s", string(pt), string(aPt), err)
+			}
+
 			ctQ, err := seThree.Encrypt(aPt2)
 			if err != nil {
 				t.Fatalf("Failed encrypting query result [%s].", err)
 			}
-
 			aPt3, err := invoker.DecryptQueryResult(queryTx, ctQ)
 			if err != nil {
 				t.Fatalf("Failed decrypting query result [%s].", err)
@@ -861,6 +1212,9 @@ func TestValidatorQueryTransaction(t *testing.T) {
 }
 
 func TestValidatorStateEncryptor(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	_, deployTx, err := createConfidentialDeployTransaction(t)
 	if err != nil {
 		t.Fatalf("Failed creating deploy transaction [%s]", err)
@@ -875,19 +1229,19 @@ func TestValidatorStateEncryptor(t *testing.T) {
 	}
 
 	// Transactions must be PreExecuted by the validators before getting the StateEncryptor
-	if _, err := validator.TransactionPreValidation(deployTx); err != nil {
+	if _, err = validator.TransactionPreValidation(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
 	if deployTx, err = validator.TransactionPreExecution(deployTx); err != nil {
 		t.Fatalf("Failed pre-validating deploty transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxOne); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
 	if invokeTxOne, err = validator.TransactionPreExecution(invokeTxOne); err != nil {
 		t.Fatalf("Failed pre-validating exec1 transaction [%s].", err)
 	}
-	if _, err := validator.TransactionPreValidation(invokeTxTwo); err != nil {
+	if _, err = validator.TransactionPreValidation(invokeTxTwo); err != nil {
 		t.Fatalf("Failed pre-validating exec2 transaction [%s].", err)
 	}
 	if invokeTxTwo, err = validator.TransactionPreExecution(invokeTxTwo); err != nil {
@@ -944,6 +1298,9 @@ func TestValidatorStateEncryptor(t *testing.T) {
 }
 
 func TestValidatorSignVerify(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
 	if err != nil {
@@ -957,6 +1314,9 @@ func TestValidatorSignVerify(t *testing.T) {
 }
 
 func TestValidatorVerify(t *testing.T) {
+	initNodes()
+	defer closeNodes()
+
 	msg := []byte("Hello World!!!")
 	signature, err := validator.Sign(msg)
 	if err != nil {
@@ -990,6 +1350,9 @@ func TestValidatorVerify(t *testing.T) {
 }
 
 func BenchmarkTransactionCreation(b *testing.B) {
+	initNodes()
+	defer closeNodes()
+
 	b.StopTimer()
 	b.ResetTimer()
 	cis := &obc.ChaincodeInvocationSpec{
@@ -1000,17 +1363,20 @@ func BenchmarkTransactionCreation(b *testing.B) {
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
 		},
 	}
-	invoker.GetTCertificateHandlerNext()
+	invoker.GetTCertificateHandlerNext(attrs...)
 
 	for i := 0; i < b.N; i++ {
 		uuid := util.GenerateUUID()
 		b.StartTimer()
-		invoker.NewChaincodeExecute(cis, uuid)
+		invoker.NewChaincodeExecute(cis, uuid, attrs...)
 		b.StopTimer()
 	}
 }
 
 func BenchmarkTransactionValidation(b *testing.B) {
+	initNodes()
+	defer closeNodes()
+
 	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1065,11 +1431,11 @@ func setup() {
 	if err != nil {                    // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file [%s] \n", err))
 	}
+
 	// Set Default properties
 	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "obc-crypto-tests", "peers"))
 	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca"))
-	viper.Set("peer.pki.tls.rootcert.file", filepath.Join(os.TempDir(),
-		"obc-crypto-tests", "ca", "tlsca.cert"))
+	viper.Set("peer.pki.tls.rootcert.file", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca", "tlsca.cert"))
 
 	// Logging
 	var formatter = logging.MustStringFormatter(
@@ -1106,7 +1472,7 @@ func setup() {
 
 func initPKI() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
 	tlsca = ca.NewTLSCA(eca)
@@ -1134,13 +1500,53 @@ func startPKI() {
 	fmt.Printf("open socket...done\n")
 
 	server = grpc.NewServer(opts...)
-
+	aca.Start(server)
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
 
 	fmt.Printf("start serving...\n")
 	server.Serve(sockp)
+}
+
+func initNodes() {
+	// Init clients
+	err := initClients()
+	if err != nil {
+		fmt.Printf("Failed initializing clients [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing clients [%s].", err))
+	}
+
+	// Init peer
+	err = initPeers()
+	if err != nil {
+		fmt.Printf("Failed initializing peers [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing peers [%s].", err))
+	}
+
+	// Init validators
+	err = initValidators()
+	if err != nil {
+		fmt.Printf("Failed initializing validators [%s]\n", err)
+		panic(fmt.Errorf("Failed initializing validators [%s].", err))
+	}
+
+}
+
+func closeNodes() {
+	ok, errs := CloseAllClients()
+	if !ok {
+		for _, err := range errs {
+			log.Errorf("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllPeers()
+	if !ok {
+		for _, err := range errs {
+			log.Errorf("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllValidators()
 }
 
 func initClients() error {
@@ -1157,7 +1563,7 @@ func initClients() error {
 
 	// Invoker
 	invokerConf := utils.NodeConfiguration{Type: "client", Name: "user2"}
-	if err := RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
+	if err = RegisterClient(invokerConf.Name, ksPwd, invokerConf.GetEnrollmentID(), invokerConf.GetEnrollmentPWD()); err != nil {
 		return err
 	}
 	invoker, err = InitClient(invokerConf.Name, ksPwd)
@@ -1233,16 +1639,18 @@ func createConfidentialDeployTransaction(t *testing.T) (*obc.Transaction, *obc.T
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+			Metadata:             []byte("Hello World"),
 		},
 		EffectiveDate: nil,
 		CodePackage:   nil,
 	}
 
 	otx, err := obc.NewChaincodeDeployTransaction(cds, uuid)
+	otx.Metadata = cds.ChaincodeSpec.Metadata
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1255,14 +1663,16 @@ func createConfidentialExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+			Metadata:             []byte("Hello World"),
 		},
 	}
 
 	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_INVOKE)
+	otx.Metadata = cis.ChaincodeSpec.Metadata
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1275,14 +1685,16 @@ func createConfidentialQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Tr
 			ChaincodeID:          &obc.ChaincodeID{Path: "Contract001"},
 			CtorMsg:              nil,
 			ConfidentialityLevel: obc.ConfidentialityLevel_CONFIDENTIAL,
+			Metadata:             []byte("Hello World"),
 		},
 	}
 
 	otx, err := obc.NewChaincodeExecute(cis, uuid, obc.Transaction_CHAINCODE_QUERY)
+	otx.Metadata = cis.ChaincodeSpec.Metadata
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1304,7 +1716,7 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := deployer.GetTCertificateHandlerNext()
+	handler, err := deployer.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1312,11 +1724,20 @@ func createConfidentialTCertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
-	binding, _ := txHandler.GetBinding()
-	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
+	binding, err := txHandler.GetBinding()
+	if err != nil {
+		t.Fatal("Failed getting binding from transaction handler.")
+	}
+
+	txBinding, err := validator.GetTransactionBinding(tx)
+	if err != nil {
+		t.Fatal("Failed getting transaction binding.")
+	}
+
+	if !reflect.DeepEqual(binding, txBinding) {
 		t.Fatal("Binding is malformed!")
 	}
 
@@ -1349,7 +1770,8 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1357,7 +1779,7 @@ func createConfidentialTCertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1394,7 +1816,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	handler, err := invoker.GetTCertificateHandlerNext()
+	handler, err := invoker.GetTCertificateHandlerNext(attrs...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1402,7 +1824,7 @@ func createConfidentialTCertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1449,7 +1871,7 @@ func createConfidentialECertHDeployTransaction(t *testing.T) (*obc.Transaction, 
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := txHandler.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
@@ -1494,8 +1916,7 @@ func createConfidentialECertHExecuteTransaction(t *testing.T) (*obc.Transaction,
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeExecute(cis, uuid)
-
+	tx, err := txHandler.NewChaincodeExecute(cis, uuid, attrs...)
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
@@ -1539,8 +1960,7 @@ func createConfidentialECertHQueryTransaction(t *testing.T) (*obc.Transaction, *
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := txHandler.NewChaincodeQuery(cis, uuid)
-
+	tx, err := txHandler.NewChaincodeQuery(cis, uuid, attrs...)
 	// Check binding consistency
 	binding, _ := txHandler.GetBinding()
 	if !reflect.DeepEqual(binding, primitives.Hash(append(handler.GetCertificate(), tx.Nonce...))) {
@@ -1578,7 +1998,7 @@ func createPublicDeployTransaction(t *testing.T) (*obc.Transaction, *obc.Transac
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid)
+	tx, err := deployer.NewChaincodeDeployTransaction(cds, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1598,7 +2018,7 @@ func createPublicExecuteTransaction(t *testing.T) (*obc.Transaction, *obc.Transa
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeExecute(cis, uuid)
+	tx, err := invoker.NewChaincodeExecute(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1618,7 +2038,7 @@ func createPublicQueryTransaction(t *testing.T) (*obc.Transaction, *obc.Transact
 	if err != nil {
 		return nil, nil, err
 	}
-	tx, err := invoker.NewChaincodeQuery(cis, uuid)
+	tx, err := invoker.NewChaincodeQuery(cis, uuid, attrs...)
 	return otx, tx, err
 }
 
@@ -1640,15 +2060,31 @@ func isEqual(src, dst *obc.Transaction) error {
 
 func cleanup() {
 	fmt.Println("Cleanup...")
-	CloseAllClients()
-	CloseAllPeers()
-	CloseAllValidators()
+	ok, errs := CloseAllClients()
+	if !ok {
+		for _, err := range errs {
+			log.Errorf("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllPeers()
+	if !ok {
+		for _, err := range errs {
+			log.Errorf("Failed closing clients [%s]", err)
+		}
+	}
+	ok, errs = CloseAllValidators()
+	if !ok {
+		for _, err := range errs {
+			log.Errorf("Failed closing clients [%s]", err)
+		}
+	}
 	stopPKI()
 	removeFolders()
 	fmt.Println("Cleanup...done!")
 }
 
 func stopPKI() {
+	aca.Close()
 	eca.Close()
 	tca.Close()
 	tlsca.Close()

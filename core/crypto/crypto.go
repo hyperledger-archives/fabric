@@ -49,13 +49,13 @@ type Client interface {
 	Node
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode.
-	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributes ...string) (*obc.Transaction, error)
 
 	// NewChaincodeExecute is used to execute chaincode's functions.
-	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error)
 
 	// NewChaincodeQuery is used to query chaincode's functions.
-	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error)
 
 	// DecryptQueryResult is used to decrypt the result of a query transaction
 	DecryptQueryResult(queryTx *obc.Transaction, result []byte) ([]byte, error)
@@ -64,16 +64,13 @@ type Client interface {
 	GetEnrollmentCertificateHandler() (CertificateHandler, error)
 
 	// GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
-	GetTCertificateHandlerNext() (CertificateHandler, error)
+	GetTCertificateHandlerNext(attributes ...string) (CertificateHandler, error)
 
 	// GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
-	GetTCertificateHandlerFromDER(der []byte) (CertificateHandler, error)
+	GetTCertificateHandlerFromDER(tCertDER []byte) (CertificateHandler, error)
 
-	// ReadAttribute reads the attribute with name 'attributeName' from the der encoded x509.Certificate 'tcertder'.
-	ReadAttribute(attributeName string, tcertder []byte) ([]byte, error)
-
-	// GetNextTCert gets next available (not yet used) transaction certificate.
-	GetNextTCert() (tCert, error)
+	// GetNextTCert returns a slice of a requested number of (not yet used) transaction certificates
+	GetNextTCerts(nCerts int, attributes ...string) ([]tCert, error)
 }
 
 // Peer is an entity able to verify transactions
@@ -153,11 +150,11 @@ type TransactionHandler interface {
 	GetBinding() ([]byte, error)
 
 	// NewChaincodeDeployTransaction is used to deploy chaincode
-	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributeNames ...string) (*obc.Transaction, error)
 
 	// NewChaincodeExecute is used to execute chaincode's functions
-	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error)
 
 	// NewChaincodeQuery is used to query chaincode's functions
-	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error)
+	NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error)
 }

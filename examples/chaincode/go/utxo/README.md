@@ -24,14 +24,12 @@ Next, modify the `core.yaml` file in the Hyperledger Fabric project to point to 
 
 Start the peer using the following commands
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer peer
+peer node start
 ```
 
 In a second window, deploy the example UTXO chaincode
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-CORE_PEER_ADDRESS=localhost:30303 ./peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/utxo -c '{"Function":"init", "Args": []}'
+CORE_PEER_ADDRESS=localhost:30303 peer chaincode deploy -p github.com/hyperledger/fabric/examples/chaincode/go/utxo -c '{"Function":"init", "Args": []}'
 ```
 Wait about 30 seconds for the chaincode to be deployed. Output from the window where the peer is running will indicate that this is successful.
 
@@ -54,7 +52,7 @@ go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 
 Using the Docker image that we just built, start a peer within a container in `chaincodedev` mode.
 ```
-docker run -it -p 30303:30303 -p 31315:31315 hyperledger-peer peer peer --peer-chaincodedev
+docker run -it -p 30303:30303 -p 31315:31315 hyperledger/fabric-peer peer node start --peer-chaincodedev
 ```
 
 
@@ -72,8 +70,7 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 CORE_CHAINCODE_ID_NAME=utxo ./utxo
 
 In another window, deploy the chaincode
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer/
-./peer chaincode deploy -n utxo -c '{"Function":"init", "Args": []}'
+peer chaincode deploy -n utxo -c '{"Function":"init", "Args": []}'
 ```
 
 The chaincode is now deployed and ready to accept transactions.

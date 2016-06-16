@@ -90,15 +90,6 @@ peer:
     # networkId: test
     networkId: dev
 
-    Dockerfile:  |
-        from hyperledger/fabric-baseimage:latest
-        # Copy GOPATH src and install Peer
-        COPY src $GOPATH/src
-        RUN mkdir -p /var/hyperledger/db
-        WORKDIR $GOPATH/src/github.com/hyperledger/fabric/peer/
-        RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin
-
-
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:30303
     # The Address this Peer will bind to for providing services
@@ -160,11 +151,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification
-        # of the validity period in the validator
-        validity-period:
-            verification: false
-
+        
     # TLS Settings for p2p communications
     tls:
         enabled:  false
@@ -307,7 +294,7 @@ chaincode:
         # This is the basis for the CAR Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            FROM hyperledger/fabric-baseimage
+            FROM hyperledger/fabric-ccenv
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
@@ -340,21 +327,6 @@ ledger:
     # Define the genesis block
     genesisBlock:
 
-      # Deploy chaincodes into the genesis block
-      chaincodes:
-
-        #sample_syscc:
-        #  path: github.com/hyperledger/fabric/core/system_chaincode/sample_syscc
-        #  type: GOLANG
-        #  constructor:
-        #    args:
-        #      - greetings
-        #      - hello world
-
-    # Setting the deploy-system-chaincode property to false will prevent the
-    # deploying of system chaincode at genesis time.
-    deploy-system-chaincode: false
-
   state:
 
     # Control the number state deltas that are maintained. This takes additional
@@ -363,7 +335,7 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. 
+    # structures may offer different performance characteristics.
     # Options are 'buckettree', 'trie' and 'raw'.
     # ( Note:'raw' is experimental and incomplete. )
     # If not set, the default data structure is the 'buckettree'.
@@ -426,10 +398,16 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-      attributes:
-        company: IBM
-        position: "Software Engineer"
+    # Enable the release of keys needed to decrypt attributes from TCerts in
+    # the chaincode using the metadata field of the transaction (requires
+    # security to be enabled).
+    attributes:
+      enabled: false
+    multithreading:
+      enabled: false
 
+    # Confidentiality protocol version could be 1.1 or 1.2
+    confidentialityProtocolVersion: 1.2
 
 ################################################################################
 #

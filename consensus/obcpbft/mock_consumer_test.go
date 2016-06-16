@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -52,7 +52,7 @@ func (ce *consumerEndpoint) isBusy() bool {
 	}
 
 	select {
-	case ce.consumer.getManager().queue() <- nil:
+	case ce.consumer.getManager().Queue() <- nil:
 		ce.net.debugMsg("Reporting busy because pbft not idle\n")
 	default:
 		return true
@@ -78,19 +78,18 @@ const MaxStateTransferTime int = 200
 
 func (cs *completeStack) ValidateState()   {}
 func (cs *completeStack) InvalidateState() {}
+func (cs *completeStack) Start()           {}
+func (cs *completeStack) Halt()            {}
 
-func (cs *completeStack) SkipTo(tag uint64, id []byte, peers []*pb.PeerID) {
+func (cs *completeStack) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
 	select {
 	// This guarantees the first SkipTo call is the one that's queued, whereas a mutex can be raced for
 	case cs.skipTarget <- struct{}{}:
 		go func() {
-			cs.consumer.StateUpdating(tag, id)
 			// State transfer takes time, not simulating this hides bugs
 			time.Sleep(time.Duration((MaxStateTransferTime/2)+rand.Intn(MaxStateTransferTime/2)) * time.Millisecond)
-			meta := &Metadata{tag}
-			metaRaw, _ := proto.Marshal(meta)
-			cs.simulateStateTransfer(metaRaw, id, peers)
-			cs.consumer.StateUpdated(tag, id)
+			cs.simulateStateTransfer(target, peers)
+			cs.consumer.StateUpdated(tag, cs.GetBlockchainInfo())
 			<-cs.skipTarget // Basically like releasing a mutex
 		}()
 	default:
@@ -102,7 +101,7 @@ type pbftConsumer interface {
 	innerStack
 	consensus.Consenter
 	getPBFTCore() *pbftCore
-	getManager() eventManager // TODO, remove, this is a temporary measure
+	getManager() events.Manager // TODO, remove, this is a temporary measure
 	Close()
 	idleChannel() <-chan struct{}
 }
@@ -130,6 +129,7 @@ func makeConsumerNetwork(N int, makeConsumer func(id uint64, config *viper.Viper
 		}
 
 		ml := NewMockLedger(&twl)
+		ml.ce = ce
 		twl.mockLedgers[id] = ml
 
 		cs := &completeStack{

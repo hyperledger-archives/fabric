@@ -19,7 +19,6 @@ package peer
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -27,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/hyperledger/fabric/core/config"
-	"github.com/hyperledger/fabric/core/container"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -38,7 +36,6 @@ var peerClientConn *grpc.ClientConn
 func TestMain(m *testing.M) {
 	config.SetupTestConfig("./../../peer")
 	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-	viper.Set("peer.validator.validity-period.verification", "false")
 
 	tmpConn, err := NewPeerClientConnection()
 	if err != nil {
@@ -104,25 +101,6 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 		t.Fail()
 		return fmt.Errorf("Timeout expired while performChat")
 	}
-}
-
-func sendLargeMsg(t testing.TB) (*pb.Message, error) {
-	vm, err := container.NewVM()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error getting VM: %s", err)
-		return nil, err
-	}
-
-	inputbuf, err := vm.GetPeerPackageBytes()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error Getting Peer package bytes: %s", err)
-		return nil, err
-	}
-	payload, err := ioutil.ReadAll(inputbuf)
-	return &pb.Message{Type: pb.Message_DISC_NEWMSG, Payload: payload}, nil
-
 }
 
 func Benchmark_Chat(b *testing.B) {

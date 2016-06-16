@@ -1,0 +1,397 @@
+<!doctype html>
+<html class="default no-js">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Node.js Hyperledger Fabric SDK</title>
+	<meta name="description" content="">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="assets/css/main.css">
+	<script src="assets/js/modernizr.js"></script>
+</head>
+<body>
+<header>
+	<div class="tsd-page-toolbar">
+		<div class="container">
+			<div class="table-wrap">
+				<div class="table-cell" id="tsd-search" data-index="assets/js/search.js" data-base=".">
+					<div class="field">
+						<label for="tsd-search-field" class="tsd-widget search no-caption">Search</label>
+						<input id="tsd-search-field" type="text" />
+					</div>
+					<ul class="results">
+						<li class="state loading">Preparing search index...</li>
+						<li class="state failure">The search index is not available</li>
+					</ul>
+					<a href="index.html" class="title">Node.js Hyperledger Fabric SDK</a>
+				</div>
+				<div class="table-cell" id="tsd-widgets">
+					<div id="tsd-filter">
+						<a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+						<div class="tsd-filter-group">
+							<div class="tsd-select" id="tsd-filter-visibility">
+								<span class="tsd-select-label">All</span>
+								<ul class="tsd-select-list">
+									<li data-value="public">Public</li>
+									<li data-value="protected">Public/Protected</li>
+									<li data-value="private" class="selected">All</li>
+								</ul>
+							</div>
+							<input type="checkbox" id="tsd-filter-inherited" checked />
+							<label class="tsd-widget" for="tsd-filter-inherited">Inherited</label>
+							<input type="checkbox" id="tsd-filter-only-exported" />
+							<label class="tsd-widget" for="tsd-filter-only-exported">Only exported</label>
+						</div>
+					</div>
+					<a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="tsd-page-title">
+		<div class="container">
+			<ul class="tsd-breadcrumb">
+				<li>
+					<a href="globals.html">Globals</a>
+				</li>
+			</ul>
+			<h1> Node.js Hyperledger Fabric SDK</h1>
+		</div>
+	</div>
+</header>
+<div class="container container-main">
+	<div class="row">
+		<div class="col-8 col-content">
+			<div class="tsd-panel tsd-typography">
+				<p>#Hyperledger Client SDK for Node.js</p>
+				<p>The Hyperledger Client SDK (HLC) provides a powerful and easy to use API to interact with a Hyperledger blockchain.</p>
+				<p>The sections in this document are as follows:</p>
+				<ul>
+					<li><p>The <a href="#getting-started">Getting Started</a> section is intended to help you quickly get a feel for HLC, how to use it, and some of it&#39;s common capabilities.  This is demonstrated by example.</p>
+					</li>
+					<li><p>The <a href="#getting-set-up">Getting Set Up</a> section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.</p>
+					</li>
+					<li><p>The <a href="#going-deeper">Going Deeper</a> section discusses HLC&#39;s pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the reference documentation. The top-level class is <code>Chain</code>.</p>
+						<p> WARNING: To view the reference documentation correctly, you first need to <a href="#building-the-client-sdk">build the SDK</a> and then open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.</p>
+						<p> <code>file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html</code></p>
+						<p> <code>file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html</code></p>
+					</li>
+					<li><p>The <a href="#future-work">Future Work</a> section describes some upcoming work to be done.</p>
+					</li>
+				</ul>
+				<h2 id="getting-started">Getting Started</h2>
+				<p>This purpose of this section is to help you quickly get a feel for HLC and how you may use it.  It is not intended to demonstrate all of it&#39;s power, but to demonstrate common use cases by example.</p>
+				<h3 id="some-basic-terminology">Some basic terminology</h3>
+				<p>First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both <strong>registered</strong> and <strong>enrolled</strong>.</p>
+				<p>Think of <strong>registration</strong> as <em>issuing a user invitation</em> to join a blockchain.  It consists of adding a new user name (also called an <em>enrollment ID</em>) to the membership service configuration.  This can be done programatically with the <code>Member.register</code> method, or by adding the enrollment ID directly to the <a href="https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml">membersrvc.yaml</a> configuration file.</p>
+				<p>Think of <strong>enrollment</strong> as <em>accepting a user invitation</em> to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the <code>Member.enroll</code> method.</p>
+				<h3 id="learn-by-example">Learn by example</h3>
+				<p>The best way to quickly learn HLC is by example.</p>
+				<p>The following example demonstrates a typical web app.  The web app authenticates a user and then transacts on a blockchain on behalf of that user.</p>
+				<pre><code><span class="hljs-comment">/**
+ * This example shows how to do the following in a web app.
+ * 1) At initialization time, enroll the web app with the block chain.
+ *    The identity must have already been registered.
+ * 2) At run time, after a user has authenticated with the web app:
+ *    a) register and enroll an identity for the user;
+ *    b) use this identity to deploy, query, and invoke a chaincode.
+ */</span>
+
+<span class="hljs-comment">// To include the package from your hyperledger fabric directory:</span>
+<span class="hljs-comment">//    var hlc = require("myFabricDir/sdk/node");</span>
+<span class="hljs-comment">// To include the package from npm:</span>
+<span class="hljs-comment">//      var hlc = require('hlc');</span>
+<span class="hljs-keyword">var</span> hlc = <span class="hljs-built_in">require</span>(<span class="hljs-string">'hlc'</span>);
+
+<span class="hljs-comment">// Create a client chain.</span>
+<span class="hljs-comment">// The name can be anything as it is only used internally.</span>
+<span class="hljs-keyword">var</span> chain = hlc.newChain(<span class="hljs-string">"targetChain"</span>);
+
+<span class="hljs-comment">// Configure the KeyValStore which is used to store sensitive keys</span>
+<span class="hljs-comment">// as so it is important to secure this storage.</span>
+<span class="hljs-comment">// The FileKeyValStore is a simple file-based KeyValStore, but you</span>
+<span class="hljs-comment">// can easily implement your own to store whereever you want.</span>
+chain.setKeyValStore( hlc.newFileKeyValStore(<span class="hljs-string">'/tmp/keyValStore'</span>) );
+
+<span class="hljs-comment">// Set the URL for member services</span>
+chain.setMemberServicesUrl(<span class="hljs-string">"grpc://localhost:50051"</span>);
+
+<span class="hljs-comment">// Add a peer's URL</span>
+chain.addPeer(<span class="hljs-string">"grpc://localhost:30303"</span>);
+
+<span class="hljs-comment">// Enroll "WebAppAdmin" which is already registered because it is</span>
+<span class="hljs-comment">// listed in fabric/membersrvc/membersrvc.yaml with it's one time password.</span>
+<span class="hljs-comment">// If "WebAppAdmin" has already been registered, this will still succeed</span>
+<span class="hljs-comment">// because it stores the state in the KeyValStore</span>
+<span class="hljs-comment">// (i.e. in '/tmp/keyValStore' in this sample).</span>
+chain.enroll(<span class="hljs-string">"WebAppAdmin"</span>, <span class="hljs-string">"DJY27pEnl16d"</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err, webAppAdmin</span>) </span>{
+   <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"ERROR: failed to register %s: %s"</span>,err);
+   <span class="hljs-comment">// Successfully enrolled WebAppAdmin during initialization.</span>
+   <span class="hljs-comment">// Set this user as the chain's registrar which is authorized to register other users.</span>
+   chain.setRegistrar(webAppAdmin);
+   <span class="hljs-comment">// Now begin listening for web app requests</span>
+   listenForUserRequests();
+});
+
+<span class="hljs-comment">// Main web app function to listen for and handle requests</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">listenForUserRequests</span>(<span class="hljs-params"></span>) </span>{
+   <span class="hljs-keyword">for</span> (;;) {
+      <span class="hljs-comment">// WebApp-specific logic goes here to await the next request.</span>
+      <span class="hljs-comment">// ...</span>
+      <span class="hljs-comment">// Assume that we received a request from an authenticated user</span>
+      <span class="hljs-comment">// 'userName', and determined that we need to invoke the chaincode</span>
+      <span class="hljs-comment">// with 'chaincodeID' and function named 'fcn' with arguments 'args'.</span>
+      handleUserRequest(userName,chaincodeID,fcn,args);
+   }
+}
+
+<span class="hljs-comment">// Handle a user request</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">handleUserRequest</span>(<span class="hljs-params">userName, chaincodeID, fcn, args</span>) </span>{
+   <span class="hljs-comment">// Register and enroll this user.</span>
+   <span class="hljs-comment">// If this user has already been registered and/or enrolled, this will</span>
+   <span class="hljs-comment">// still succeed because the state is kept in the KeyValStore</span>
+   <span class="hljs-comment">// (i.e. in '/tmp/keyValStore' in this sample).</span>
+   <span class="hljs-keyword">var</span> registrationRequest = {
+        enrollmentID: userName,
+        <span class="hljs-comment">// Customize account &amp; affiliation</span>
+        account: <span class="hljs-string">"bank_a"</span>,
+        affiliation: <span class="hljs-string">"00001"</span>
+   };
+   chain.registerAndEnroll( registrationRequest, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err, user</span>) </span>{
+      <span class="hljs-keyword">if</span> (err) <span class="hljs-keyword">return</span> <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"ERROR: %s"</span>,err);
+      <span class="hljs-comment">// Issue an invoke request</span>
+      <span class="hljs-keyword">var</span> invokeRequest = {
+        <span class="hljs-comment">// Name (hash) required for invoke</span>
+        chaincodeID: chaincodeID,
+        <span class="hljs-comment">// Function to trigger</span>
+        fcn: fcn,
+        <span class="hljs-comment">// Parameters for the invoke function</span>
+        args: args
+     };
+     <span class="hljs-comment">// Invoke the request from the user object.</span>
+     <span class="hljs-keyword">var</span> tx = user.invoke(invokeRequest);
+     <span class="hljs-comment">// Listen for the 'submitted' event</span>
+     tx.on(<span class="hljs-string">'submitted'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">results</span>) </span>{
+        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"submitted invoke: %j"</span>,results);
+     });
+     <span class="hljs-comment">// Listen for the 'complete' event.</span>
+     tx.on(<span class="hljs-string">'complete'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">results</span>) </span>{
+        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"completed invoke: %j"</span>,results;
+     });
+     <span class="hljs-comment">// Listen for the 'error' event.</span>
+     tx.on(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span>(<span class="hljs-params">err</span>) </span>{
+        <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"error on invoke: %j"</span>,err);
+     });
+   });
+}
+</code></pre><h3 id="installing-hlc-from-npm">Installing hlc from npm</h3>
+				<p>To install <code>hlc</code> from npm simply execute the following command.</p>
+				<pre><code>npm <span class="hljs-operator"><span class="hljs-keyword">install</span> -<span class="hljs-keyword">g</span> hlc</span>
+</code></pre><h3 id="chaincode-deployment-directory-structure">Chaincode Deployment Directory structure</h3>
+				<p>To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. These instructions will demonstrate how to properly set up the directory structure to deploy <em>chaincode_example02</em> in network mode.</p>
+				<p>The chaincode project must be placed inside the <code>src</code> directory in your local <code>$GOPATH</code>. For example, the <code>chaincode_example02</code> project may be placed inside <code>$GOPATH/src/</code> as shown below.</p>
+				<pre><code><span class="hljs-variable">$GOPATH</span>/src/github.com/chaincode_example02/
+</code></pre><p>The chaincode project directory must contain project related code and also a <code>vendor</code> folder which contains the entire Hyperledger Fabric source tree. Currently, this is still a dependency to have the chaincode project deploy successfully. However, the entire fabric directory is not packaged into the deploy transaction when the payload is generated. The deployment process selects a specific set of files when creating the transaction payload. Correct project directory structure is shown below.</p>
+				<pre><code>ls -la <span class="hljs-variable">$GOPATH</span>/src/github.com/chaincode_example02/
+.
+..
+chaincode_example02.go
+vendor
+
+ls -la <span class="hljs-variable">$GOPATH</span>/src/github.com/chaincode_example02/vendor/github.com/hyperledger/
+.
+..
+fabric
+</code></pre><p>Once you have placed your chaincode project inside the <code>src</code> directory in your local <code>$GOPATH</code> together with the <code>vendor</code> directory containing the Hyperledger Fabric, you need to verify that the chaincode builds in this directory. To do so execute <code>go build</code>. This step verifies that all of the chaincode dependencies are present.</p>
+				<pre><code>cd <span class="hljs-variable">$GOPATH</span>/src/github.com/chaincode_example02/
+go build
+</code></pre><p>Once the chaincode is built, you need to verify that <a href="https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js">chain-tests.js</a> unit test file points to the appropriate chaincode project path. The default directory is set to <code>github.com/chaincode_example02/</code> as shown below.</p>
+				<pre><code>// Path <span class="hljs-keyword">to</span> the local directory containing the chaincode project under <span class="hljs-variable">$GOPATH</span>
+var testChaincodePath = <span class="hljs-string">"github.com/chaincode_example02/"</span>;
+</code></pre><p>Set the <code>DEPLOY_MODE</code> environment variable to <code>net</code> and run the chain-tests as follows:</p>
+				<pre><code>cd $GOPATH/src/github.com/hyperledger/fabric/sdk/<span class="hljs-keyword">node</span><span class="hljs-identifier">
+</span><span class="hljs-title">export</span> <span class="hljs-variable">DEPLOY_MODE=</span>'net'
+<span class="hljs-keyword">node</span><span class="hljs-identifier"> </span><span class="hljs-title">test</span>/unit/chain-tests.js | node_modules/.bin/tap-<span class="hljs-operator">spec</span>
+</code></pre><h3 id="enabling-tls">Enabling TLS</h3>
+				<p>If you wish to activate TLS connection with the member services the following actions are needed:</p>
+				<ul>
+					<li>Modify <code>$GOPATH/src/github.com/hyperledger/fabric/membersrvc/membersrvc.yaml</code> as follows:</li>
+				</ul>
+				<pre><code><span class="hljs-attribute">server</span>:
+     <span class="hljs-attribute">tls</span>:
+        <span class="hljs-attribute">certfile</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.cert"</span>
+        <span class="hljs-attribute">keyfile</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.priv"</span>
+</code></pre><p>This is needed to instruct the member services on which tls cert and key to use.  </p>
+				<ul>
+					<li>Modify <code>$GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml</code> as follows:</li>
+				</ul>
+				<pre><code><span class="hljs-attribute">peer</span>:
+    <span class="hljs-attribute">pki</span>:
+        <span class="hljs-attribute">tls</span>:
+            <span class="hljs-attribute">enabled</span>: true
+            <span class="hljs-attribute">rootcert</span>:
+                <span class="hljs-attribute">file</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.cert"</span>
+</code></pre><p>This is needed to allow the peer to connect to the member services using TLS, otherwise the connection will fail.</p>
+				<ul>
+					<li><p>Bootstrap your member services and the peer. This is needed in order to have the file <em>tlsca.cert</em> generated by the member services.</p>
+					</li>
+					<li><p>Copy <code>/var/hyperledger/production/.membersrvc/tlsca.cert</code> to <code>$GOPATH/src/github.com/hyperledger/fabric/sdk/node</code>.</p>
+					</li>
+				</ul>
+				<p><em>Note:</em> If you cleanup the folder <code>/var/hyperledger/production</code> then don&#39;t forget to copy again the <em>tlsca.cert</em> file as described above.</p>
+				<h2 id="getting-set-up">Getting Set Up</h2>
+				<h4 id="setting-up-the-testing-environment">Setting up the testing environment</h4>
+				<p>From your command line terminal, move to the <code>devenv</code> subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:</p>
+				<pre><code><span class="hljs-title">vagrant</span> ssh
+</code></pre><p>Build the <b>Certificate Authority (CA)</b> server with the commands below:</p>
+				<pre><code>cd <span class="hljs-variable">$GOPATH</span>/src/github.com/hyperledger/fabric/membersrvc
+go build
+</code></pre><p>Next, enable the security and privacy settings on the peer by setting <code>security.enabled</code> and <code>security.privacy</code> settings to <code>true</code> inside the <a href="https://github.com/hyperledger/fabric/blob/master/peer/core.yaml">core.yaml</a>. Then build the peer with the following steps.</p>
+				<p>Build the peer process with the commands below.</p>
+				<pre><code>cd <span class="hljs-variable">$GOPATH</span>/src/github.com/hyperledger/fabric/peer
+go build
+</code></pre><h3 id="running-the-sdk-unit-tests">Running the SDK unit tests</h3>
+				<p>HLC includes a set of unit tests implemented with the <a href="https://github.com/substack/tape">tape framework</a>. To run the unit tests, execute the following commands.</p>
+				<pre><code>cd <span class="hljs-variable">$GOPATH</span>/src/github.com/hyperledger/fabric
+make node-sdk-unit-tests
+</code></pre><p>The following are brief descriptions of each of the unit tests that are being run.</p>
+				<h4 id="registrar">registrar</h4>
+				<p>This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.</p>
+				<h4 id="chain-tests">chain-tests</h4>
+				<p>This test case exercises chaincode <em>chaincode_example02</em> when it has been deployed in both development mode and network mode.</p>
+				<h4 id="asset-mgmt">asset-mgmt</h4>
+				<p>This test case exercises the <em>asset_management</em> chaincode when it has been deployed in both development mode and network mode.</p>
+				<h4 id="asset-mgmt-with-roles">asset-mgmt-with-roles</h4>
+				<p>This test case exercises the <em>asset_management_with_roles</em> chaincode when it has been deployed in both development mode and network mode.</p>
+				<h4 id="troublingshooting">Troublingshooting</h4>
+				<p>If you see errors stating that the client has already been registered/enrolled, keep in mind that you can perform the enrollment process only once, as the enrollmentSecret is a one-time-use password. You will see these errors if you have performed a user registration/enrollment and subsequently deleted the crypto tokens stored on the client side. The next time you try to enroll, errors similar to the ones below will be seen.</p>
+				<pre><code>   Error: identity <span class="hljs-operator">or</span> <span class="hljs-keyword">token</span> <span class="hljs-built_in">do</span> <span class="hljs-operator">not</span> match
+</code></pre><pre><code>   Error: <span class="hljs-keyword">user</span> <span class="hljs-title">is</span> already registered
+</code></pre><p>To address this, remove any stored crypto material from the CA server by following the instructions <a href="https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#removing-temporary-files-when-security-is-enabled">here</a>. You will also need to remove any of the crypto tokens stored on the client side by deleting the KeyValStore directory. That directory is configurable and is set to <code>/tmp/keyValStore</code> within the unit tests.</p>
+				<h2 id="going-deeper">Going Deeper</h2>
+				<h4 id="pluggability">Pluggability</h4>
+				<p>HLC was designed to support two pluggable components:</p>
+				<ol>
+					<li><p>Pluggable key value store which is used to retrieve and store keys associated with a member.  The key value store is used to store sensitive private keys, so care must be taken to properly protect access.</p>
+					</li>
+					<li><p>Pluggable member service which is used to register and enroll members.  Member services enables hyperledger to be a permissioned blockchain, providing security services such as anonymity, unlinkability of transactions, and confidentiality</p>
+					</li>
+				</ol>
+				<h4 id="hlc-objects-and-reference-documentation">HLC objects and reference documentation</h4>
+				<p>HLC is written primarily in typescript and is object-oriented.  The source can be found in the <code>fabric/sdk/node/src</code> directory.</p>
+				<p>To go deeper, you can view the reference documentation in your browser by opening the <a href="doc/modules/_hlc_.html">reference documentation</a> and clicking on <strong>&quot;hlc&quot;</strong> on the right-hand side under <strong>&quot;Globals&quot;</strong>. This will work after you have built the SDK per the instruction <a href="#building-the-client-sdk">here</a>.</p>
+				<p>The following is a high-level description of the HLC objects (classes and interfaces) to help guide you through the object hierarchy.</p>
+				<ul>
+					<li><p>The main top-level class is <a href="doc/classes/_hlc_.chain.html">Chain</a>. It is the client&#39;s representation of a chain.  HLC allows you to interact with multiple chains and to share a single <a href="doc/interfaces/_hlc_.keyvalstore.html">KeyValStore</a> and <a href="doc/interfaces/_hlc_.memberservices.html">MemberServices</a> object with multiple Chain objects as needed.  For each chain, you add one or more <a href="doc/classes/_hlc_.peer.html">Peer</a> objects which represents the endpoint(s) to which HLC connects to transact on the chain.</p>
+					</li>
+					<li><p>The <a href="doc/interfaces/_hlc_.keyvalstore.html">KeyValStore</a> is a very simple interface which HLC uses to store and retrieve all persistent data.  This data includes private keys, so it is very important to keep this storage secure.  The default implementation is a simple file-based version found in the <a href="doc/classes/_hlc_.filekeyvalstore.html">FileKeyValStore</a> class.</p>
+					</li>
+					<li><p>The <a href="doc/interfaces/_hlc_.memberservices.html">MemberServices</a> interface is implemented by the <a href="doc/classes/_hlc_.memberservicesimpl.html">MemberServicesImpl</a> class and provides security and identity related features such as privacy, unlinkability, and confidentiality.  This implementation issues <em>ECerts</em> (enrollment certificates) and <em>TCerts</em> (transaction certificates).  ECerts are for enrollment identity and TCerts are for transactions.</p>
+					</li>
+					<li><p>The <a href="doc/classes/_hlc_.member.html">Member</a> class most often represents an end user who transacts on the chain, but it may also represent other types of members such as peers.  From the Member class, you can <em>register</em> and <em>enroll</em> members or users.  This interacts with the <a href="doc/interfaces/_hlc_.memberservices.html">MemberServices</a> object.  You can also deploy, query, and invoke chaincode directly, which interacts with the <a href="doc/classes/_hlc_.peer.html">Peer</a>.  The implementation for deploy, query and invoke simply creates a temporary <a href="doc/classes/_hlc_.transactioncontext.html">TransactionContext</a> object and delegates the work to it.</p>
+					</li>
+					<li><p>The <a href="doc/classes/_hlc_.transactioncontext.html">TransactionContext</a> class implements the bulk of the deploy, invoke, and query logic.  It interacts with MemberServices to get a TCert to perform these operations.  Note that there is a one-to-one relationship between TCert and TransactionContext; in other words, a single TransactionContext will always use the same TCert.  If you want to issue multiple transactions with the same TCert, then you can get a <a href="doc/classes/_hlc_.transactioncontext.html">TransactionContext</a> object from a <a href="doc/classes/_hlc_.member.html">Member</a> object directly and issue multiple deploy, invoke, or query operations on it.  Note however that if you do this, these transactions are linkable, which means someone could tell that they came from the same user, though not know which user.  For this reason, you will typically just call deploy, invoke, and query on the User or Member object.</p>
+					</li>
+				</ul>
+				<h2 id="future-work">Future Work</h2>
+				<p>The following is a list of known remaining work to be done.</p>
+				<ul>
+					<li><p>The reference documentation needs to be made simpler to follow as there are currently some internal classes and interfaces that are being exposed.</p>
+					</li>
+					<li><p>We are investigating how to make deployment of a chaincode simpler by not requiring you to set up a specific directory structure with dependencies.</p>
+					</li>
+					<li><p>Implement events appropriately, both custom and non-custom.  The &#39;complete&#39; event for <code>deploy</code> and <code>invoke</code> is currently implemented by simply waiting a set number of seconds (5 for invoke, 20 for deploy).  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller. This has not yet been implemented.</p>
+					</li>
+					<li><p>Support SHA2.  HLC currently supports SHA3.</p>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<div class="col-4 col-menu menu-sticky-wrap menu-highlight">
+			<nav class="tsd-navigation primary">
+				<ul>
+					<li class="globals  ">
+						<a href="globals.html"><em>Globals</em></a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="modules/_src_hlc_.html">"src/hlc"</a>
+					</li>
+					<li class=" tsd-kind-external-module">
+						<a href="modules/_typedoc_special_d_.html">"typedoc-<wbr>special.d"</a>
+					</li>
+				</ul>
+			</nav>
+			<nav class="tsd-navigation secondary menu-sticky">
+				<ul class="before-current">
+				</ul>
+			</nav>
+		</div>
+	</div>
+</div>
+<footer class="with-border-bottom">
+	<div class="container">
+		<h2>Legend</h2>
+		<div class="tsd-legend-group">
+			<ul class="tsd-legend">
+				<li class="tsd-kind-module"><span class="tsd-kind-icon">Module</span></li>
+				<li class="tsd-kind-object-literal"><span class="tsd-kind-icon">Object literal</span></li>
+				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
+				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-function tsd-has-type-parameter"><span class="tsd-kind-icon">Function with type parameter</span></li>
+				<li class="tsd-kind-index-signature"><span class="tsd-kind-icon">Index signature</span></li>
+				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-enum"><span class="tsd-kind-icon">Enumeration</span></li>
+				<li class="tsd-kind-enum-member"><span class="tsd-kind-icon">Enumeration member</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-enum"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-enum"><span class="tsd-kind-icon">Method</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-interface"><span class="tsd-kind-icon">Interface</span></li>
+				<li class="tsd-kind-interface tsd-has-type-parameter"><span class="tsd-kind-icon">Interface with type parameter</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-interface"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-interface"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-interface"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-index-signature tsd-parent-kind-interface"><span class="tsd-kind-icon">Index signature</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
+				<li class="tsd-kind-class tsd-has-type-parameter"><span class="tsd-kind-icon">Class with type parameter</span></li>
+				<li class="tsd-kind-constructor tsd-parent-kind-class"><span class="tsd-kind-icon">Constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class"><span class="tsd-kind-icon">Method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class"><span class="tsd-kind-icon">Accessor</span></li>
+				<li class="tsd-kind-index-signature tsd-parent-kind-class"><span class="tsd-kind-icon">Index signature</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-protected"><span class="tsd-kind-icon">Protected accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private property</span></li>
+				<li class="tsd-kind-method tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private method</span></li>
+				<li class="tsd-kind-accessor tsd-parent-kind-class tsd-is-private"><span class="tsd-kind-icon">Private accessor</span></li>
+			</ul>
+			<ul class="tsd-legend">
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static property</span></li>
+				<li class="tsd-kind-call-signature tsd-parent-kind-class tsd-is-static"><span class="tsd-kind-icon">Static method</span></li>
+			</ul>
+		</div>
+	</div>
+</footer>
+<div class="container tsd-generator">
+	<p>Generated using <a href="http://typedoc.io" target="_blank">TypeDoc</a></p>
+</div>
+<div class="overlay"></div>
+<script src="assets/js/main.js"></script>
+<script>if (location.protocol == 'file:') document.write('<script src="assets/js/search.js"><' + '/script>');</script>
+</body>
+</html>

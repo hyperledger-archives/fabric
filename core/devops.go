@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/platforms"
 	"github.com/hyperledger/fabric/core/container"
-	"github.com/hyperledger/fabric/core/crypto"
+	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
@@ -62,7 +62,7 @@ func (*Devops) Build(context context.Context, spec *pb.ChaincodeSpec) (*pb.Chain
 	mode := viper.GetString("chaincode.mode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		devopsLogger.Debug("Received build request for chaincode spec: %v", spec)
+		devopsLogger.Debugf("Received build request for chaincode spec: %v", spec)
 		if err := CheckSpec(spec); err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func (*Devops) getChaincodeBytes(context context.Context, spec *pb.ChaincodeSpec
 	mode := viper.GetString("chaincode.mode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		devopsLogger.Debug("Received build request for chaincode spec: %v", spec)
+		devopsLogger.Debugf("Received build request for chaincode spec: %v", spec)
 		var err error
 		if err = CheckSpec(spec); err != nil {
 			return nil, err
@@ -124,7 +124,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 
 	if peer.SecurityEnabled() {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Initializing secure devops using context %s", spec.SecureContext)
+			devopsLogger.Debugf("Initializing secure devops using context %s", spec.SecureContext)
 		}
 		sec, err = crypto.InitClient(spec.SecureContext, nil)
 		defer crypto.CloseClient(sec)
@@ -137,15 +137,15 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 		}
 
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating secure transaction %s", transID)
+			devopsLogger.Debugf("Creating secure transaction %s", transID)
 		}
-		tx, err = sec.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, transID)
+		tx, err = sec.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, transID, spec.Attributes...)
 		if nil != err {
 			return nil, err
 		}
 	} else {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating deployment transaction (%s)", transID)
+			devopsLogger.Debugf("Creating deployment transaction (%s)", transID)
 		}
 		tx, err = pb.NewChaincodeDeployTransaction(chaincodeDeploymentSpec, transID)
 		if err != nil {
@@ -154,7 +154,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	}
 
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
-		devopsLogger.Debug("Sending deploy transaction (%s) to validator", tx.Uuid)
+		devopsLogger.Debugf("Sending deploy transaction (%s) to validator", tx.Uuid)
 	}
 	resp := d.coord.ExecuteTransaction(tx)
 	if resp.Status == pb.Response_FAILURE {
@@ -164,7 +164,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	return chaincodeDeploymentSpec, err
 }
 
-func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, invoke bool) (*pb.Response, error) {
+func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec, attributes []string, invoke bool) (*pb.Response, error) {
 
 	if chaincodeInvocationSpec.ChaincodeSpec.ChaincodeID.Name == "" {
 		return nil, fmt.Errorf("name not given for invoke/query")
@@ -177,7 +177,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var sec crypto.Client
 	if peer.SecurityEnabled() {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
+			devopsLogger.Debugf("Initializing secure devops using context %s", chaincodeInvocationSpec.ChaincodeSpec.SecureContext)
 		}
 		sec, err = crypto.InitClient(chaincodeInvocationSpec.ChaincodeSpec.SecureContext, nil)
 		defer crypto.CloseClient(sec)
@@ -187,12 +187,13 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 			return nil, err
 		}
 	}
-	transaction, err = d.createExecTx(chaincodeInvocationSpec, uuid, invoke, sec)
+
+	transaction, err = d.createExecTx(chaincodeInvocationSpec, attributes, uuid, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
-		devopsLogger.Debug("Sending invocation transaction (%s) to validator", transaction.Uuid)
+		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Uuid)
 	}
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
@@ -200,7 +201,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		if !invoke && nil != sec && viper.GetBool("security.privacy") {
 			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
-				devopsLogger.Debug("Failed decrypting query transaction result %s", string(resp.Msg[:]))
+				devopsLogger.Debugf("Failed decrypting query transaction result %s", string(resp.Msg[:]))
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			}
 		}
@@ -208,24 +209,26 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	return resp, err
 }
 
-func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
+func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, attributes []string, uuid string, invokeTx bool, sec crypto.Client) (*pb.Transaction, error) {
 	var tx *pb.Transaction
 	var err error
+
+	//TODO What should we do with the attributes
 	if nil != sec {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating secure invocation transaction %s", uuid)
+			devopsLogger.Debugf("Creating secure invocation transaction %s", uuid)
 		}
 		if invokeTx {
-			tx, err = sec.NewChaincodeExecute(spec, uuid)
+			tx, err = sec.NewChaincodeExecute(spec, uuid, attributes...)
 		} else {
-			tx, err = sec.NewChaincodeQuery(spec, uuid)
+			tx, err = sec.NewChaincodeQuery(spec, uuid, attributes...)
 		}
 		if nil != err {
 			return nil, err
 		}
 	} else {
 		if devopsLogger.IsEnabledFor(logging.DEBUG) {
-			devopsLogger.Debug("Creating invocation transaction (%s)", uuid)
+			devopsLogger.Debugf("Creating invocation transaction (%s)", uuid)
 		}
 		var t pb.Transaction_Type
 		if invokeTx {
@@ -243,12 +246,12 @@ func (d *Devops) createExecTx(spec *pb.ChaincodeInvocationSpec, uuid string, inv
 
 // Invoke performs the supplied invocation on the specified chaincode through a transaction
 func (d *Devops) Invoke(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
-	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, true)
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, chaincodeInvocationSpec.ChaincodeSpec.Attributes, true)
 }
 
 // Query performs the supplied query on the specified chaincode through a transaction
 func (d *Devops) Query(ctx context.Context, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) (*pb.Response, error) {
-	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, false)
+	return d.invokeOrQuery(ctx, chaincodeInvocationSpec, chaincodeInvocationSpec.ChaincodeSpec.Attributes, false)
 }
 
 // CheckSpec to see if chaincode resides within current package capture for language.

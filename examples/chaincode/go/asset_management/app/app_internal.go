@@ -44,12 +44,12 @@ var (
 
 func initNVP() (err error) {
 	if err = initPeerClient(); err != nil {
-		appLogger.Debug("Failed deploying [%s]", err)
+		appLogger.Debugf("Failed deploying [%s]", err)
 		return
 
 	}
 	if err = initCryptoClients(); err != nil {
-		appLogger.Debug("Failed deploying [%s]", err)
+		appLogger.Debugf("Failed deploying [%s]", err)
 		return
 	}
 
@@ -162,10 +162,10 @@ func deployInternal(deployer crypto.Client, adminCert crypto.CertificateHandler)
 
 	resp, err = processTransaction(transaction)
 
-	appLogger.Debug("resp [%s]", resp.String())
+	appLogger.Debugf("resp [%s]", resp.String())
 
 	chaincodeName = cds.ChaincodeSpec.ChaincodeID.Name
-	appLogger.Debug("ChaincodeName [%s]", chaincodeName)
+	appLogger.Debugf("ChaincodeName [%s]", chaincodeName)
 
 	return
 }
@@ -301,7 +301,7 @@ func getChaincodeBytes(spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, err
 	mode := viper.GetString("chaincode.mode")
 	var codePackageBytes []byte
 	if mode != chaincode.DevModeUserRunsChaincode {
-		appLogger.Debug("Received build request for chaincode spec: %v", spec)
+		appLogger.Debugf("Received build request for chaincode spec: %v", spec)
 		var err error
 		if err = checkSpec(spec); err != nil {
 			return nil, err
@@ -310,7 +310,7 @@ func getChaincodeBytes(spec *pb.ChaincodeSpec) (*pb.ChaincodeDeploymentSpec, err
 		codePackageBytes, err = container.GetChaincodePackageBytes(spec)
 		if err != nil {
 			err = fmt.Errorf("Error getting chaincode package bytes: %s", err)
-			appLogger.Error(fmt.Sprintf("%s", err))
+			appLogger.Errorf("%s", err)
 			return nil, err
 		}
 	}

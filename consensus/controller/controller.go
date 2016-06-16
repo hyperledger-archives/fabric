@@ -39,7 +39,7 @@ func NewConsenter(stack consensus.Stack) consensus.Consenter {
 
 	plugin := strings.ToLower(viper.GetString("peer.validator.consensus.plugin"))
 	if plugin == "pbft" {
-		logger.Info("Creating consensus plugin %s", plugin)
+		logger.Infof("Creating consensus plugin %s", plugin)
 		return obcpbft.GetPlugin(stack)
 	}
 	logger.Info("Creating default consensus plugin (noops)")

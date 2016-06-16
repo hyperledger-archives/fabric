@@ -1,4 +1,3 @@
-
 import subprocess
 from steps.bdd_test_util import cli_call
 
@@ -37,6 +36,8 @@ def after_scenario(context, scenario):
 
             print("Decomposing with yaml '{0}' after scenario {1}, ".format(context.compose_yaml, scenario.name))
             context.compose_output, context.compose_error, context.compose_returncode = \
+                cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["unpause"], expect_success=True)
+            context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["kill"], expect_success=True)
             context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["rm","-f"], expect_success=True)
@@ -52,4 +53,4 @@ def after_scenario(context, scenario):
 
 # stop any running peer that could get in the way before starting the tests
 def before_all(context):
-        cli_call(context, ["../peer/peer", "node", "stop"], expect_success=False)
+        cli_call(context, ["../build/bin/peer", "node", "stop"], expect_success=False)

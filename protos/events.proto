@@ -16,26 +16,37 @@ limitations under the License.
 
 syntax = "proto3";
 
+import "chaincodeevent.proto";
 import "fabric.proto";
 
 package protos;
 
+
 //----Event objects----
 
-message Interest {
-    enum ResponseType {
-        //don't send events (used to cancel interest)
-        DONTSEND = 0;
-        //send protobuf objects
-        PROTOBUF = 1;
-        //marshall into JSON byte array
-        JSON = 2;
-    }
-    string eventType = 1;
-    ResponseType responseType = 2;
+enum EventType {
+        REGISTER = 0;
+        BLOCK = 1;
+	CHAINCODE = 2;
 }
 
+//ChaincodeReg is used for registering chaincode Interests
+//when EventType is CHAINCODE
+message ChaincodeReg {
+    string chaincodeID = 1;
+    string eventName = 2;
+}
 
+message Interest {
+    EventType eventType = 1;
+    //Ideally we should just have the following oneof for different
+    //Reg types and get rid of EventType. But this is an API change
+    //Additional Reg types may add messages specific to their type
+    //to the oneof.
+    oneof RegInfo {
+        ChaincodeReg chaincodeRegInfo = 2;
+    }
+}
 
 //---------- consumer events ---------
 //Register is sent by consumers for registering events
@@ -44,26 +55,19 @@ message Register {
     repeated Interest events = 1;
 }
 
-//---------- producer events ---------
-//Generic is used for encoding payload as JSON or raw bytes
-//string type - "generic"
-message Generic {
-    string eventType = 1;
-    bytes payload = 2;
-}
-
 //Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
 message Event {
     //TODO need timestamp
+
     oneof Event {
         //consumer events
         Register register = 1;
 
         //producer events
         Block block = 2;
-        Generic generic = 3;
+        ChaincodeEvent chaincodeEvent = 3;
     }
 }
 

@@ -107,7 +107,7 @@ func ReadAttributeHeader(tcert *x509.Certificate, headerKey []byte) (map[string]
 
 //ReadTCertAttributeByPosition read the attribute stored in the position "position" of the tcert.
 func ReadTCertAttributeByPosition(tcert *x509.Certificate, position int) ([]byte, error) {
-	if position < 0 {
+	if position <= 0 {
 		return nil, fmt.Errorf("Invalid attribute position. Received [%v]", position)
 	}
 
@@ -204,12 +204,12 @@ func GetValueForAttribute(attributeName string, preK0 []byte, cert *x509.Certifi
 
 func createAttributesHeaderEntry(preK0 []byte) *pb.AttributesMetadataEntry {
 	attKey := getAttributeKey(preK0, HeaderAttributeName)
-	return &pb.AttributesMetadataEntry{HeaderAttributeName, attKey}
+	return &pb.AttributesMetadataEntry{AttributeName: HeaderAttributeName, AttributeKey: attKey}
 }
 
 func createAttributesMetadataEntry(attributeName string, preK0 []byte) *pb.AttributesMetadataEntry {
 	attKey := getAttributeKey(preK0, attributeName)
-	return &pb.AttributesMetadataEntry{attributeName, attKey}
+	return &pb.AttributesMetadataEntry{AttributeName: attributeName, AttributeKey: attKey}
 }
 
 //CreateAttributesMetadataObjectFromCert creates an AttributesMetadata object from certificate "cert", metadata and the attributes keys.
@@ -226,7 +226,7 @@ func CreateAttributesMetadataObjectFromCert(cert *x509.Certificate, metadata []b
 	headerEntry := createAttributesHeaderEntry(preK0)
 	entries = append(entries, headerEntry)
 
-	return &pb.AttributesMetadata{metadata, entries}
+	return &pb.AttributesMetadata{Metadata: metadata, Entries: entries}
 }
 
 //CreateAttributesMetadataFromCert creates the AttributesMetadata from the original metadata and certificate "cert".
@@ -257,7 +257,7 @@ func GetAttributesMetadata(metadata []byte) (*pb.AttributesMetadata, error) {
 func BuildAttributesHeader(attributesHeader map[string]int) ([]byte, error) {
 	var header []byte
 	var headerString string
-	var positions map[int]bool = make(map[int]bool)
+	var positions = make(map[int]bool)
 
 	for k, v := range attributesHeader {
 		if positions[v] {

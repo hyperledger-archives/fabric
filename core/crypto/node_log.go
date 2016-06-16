@@ -16,18 +16,38 @@ limitations under the License.
 
 package crypto
 
-func (node *nodeImpl) info(format string, args ...interface{}) {
-	log.Info(node.conf.logPrefix+format, args...)
+func (node *nodeImpl) prependPrefix(args []interface{}) []interface{} {
+	return append([]interface{}{node.conf.logPrefix}, args...)
 }
 
-func (node *nodeImpl) debug(format string, args ...interface{}) {
-	log.Debug(node.conf.logPrefix+format, args...)
+func (node *nodeImpl) Infof(format string, args ...interface{}) {
+	log.Infof(node.conf.logPrefix+format, args...)
 }
 
-func (node *nodeImpl) error(format string, args ...interface{}) {
-	log.Error(node.conf.logPrefix+format, args...)
+func (node *nodeImpl) Info(args ...interface{}) {
+	log.Info(node.prependPrefix(args)...)
 }
 
-func (node *nodeImpl) warning(format string, args ...interface{}) {
-	log.Warning(node.conf.logPrefix+format, args...)
+func (node *nodeImpl) Debugf(format string, args ...interface{}) {
+	log.Debugf(node.conf.logPrefix+format, args...)
+}
+
+func (node *nodeImpl) Debug(args ...interface{}) {
+	log.Debug(node.prependPrefix(args)...)
+}
+
+func (node *nodeImpl) Errorf(format string, args ...interface{}) {
+	log.Errorf(node.conf.logPrefix+format, args...)
+}
+
+func (node *nodeImpl) Error(args ...interface{}) {
+	log.Error(node.prependPrefix(args)...)
+}
+
+func (node *nodeImpl) Warningf(format string, args ...interface{}) {
+	log.Warningf(node.conf.logPrefix+format, args...)
+}
+
+func (node *nodeImpl) Warning(args ...interface{}) {
+	log.Warning(node.prependPrefix(args)...)
 }

@@ -64,13 +64,13 @@ func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.Debugf("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	// client.enrollChainKey is an AES key represented as byte array
 	enrollChainKey := validator.enrollChainKey.([]byte)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.debug("Parsing Query transaction...")
+		validator.Debug("Parsing Query transaction...")
 
 		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
 		// of the chaincode
@@ -134,12 +134,12 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
 	}
 
-	validator.debug("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
+	validator.Debugf("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%s]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
 
 	deployStateKey, err := validator.getStateKeyFromTransaction(deployTx)
 
 	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.debug("Parsing Query transaction...")
+		validator.Debug("Parsing Query transaction...")
 
 		executeStateKey, err := validator.getStateKeyFromTransaction(executeTx)
 
@@ -184,20 +184,20 @@ func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Tr
 func (validator *validatorImpl) getStateKeyFromTransaction(tx *obc.Transaction) ([]byte, error) {
 	cipher, err := validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
-		validator.error("Failed init decryption engine [%s].", err.Error())
+		validator.Errorf("Failed init decryption engine [%s].", err.Error())
 		return nil, err
 	}
 
 	msgToValidatorsRaw, err := cipher.Process(tx.ToValidators)
 	if err != nil {
-		validator.error("Failed decrypting message to validators [% x]: [%s].", tx.ToValidators, err.Error())
+		validator.Errorf("Failed decrypting message to validators [% x]: [%s].", tx.ToValidators, err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.error("Failed unmarshalling message to validators [% x]: [%s].", msgToValidators, err.Error())
+		validator.Errorf("Failed unmarshalling message to validators [% x]: [%s].", msgToValidators, err.Error())
 		return nil, err
 	}
 
@@ -249,8 +249,8 @@ func (se *stateEncryptorImpl) Encrypt(msg []byte) ([]byte, error) {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, se.counter)
 
-	se.node.debug("Encrypting with counter [% x].", b)
-	//	se.log.Info("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
+	se.node.Debugf("Encrypting with counter [% x].", b)
+	//	se.log.Infof("Encrypting with txNonce  ", utils.EncodeBase64(se.txNonce))
 
 	nonce := primitives.HMACTruncated(se.nonceStateKey, b, se.nonceSize)
 
@@ -276,14 +276,14 @@ func (se *stateEncryptorImpl) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:primitives.NonceSize]
-	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
+	//	se.log.Infof("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
-	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
+	//	se.log.Infof("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ func (se *queryStateEncryptor) init(node *nodeImpl, queryKey, deployTxKey []byte
 	se.node = node
 	se.deployTxKey = deployTxKey
 
-	//	se.log.Info("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
+	//	se.log.Infof("QUERY Encrypting with key  ", utils.EncodeBase64(queryKey))
 
 	// Init aes
 	c, err := aes.NewCipher(queryKey)
@@ -339,7 +339,7 @@ func (se *queryStateEncryptor) init(node *nodeImpl, queryKey, deployTxKey []byte
 func (se *queryStateEncryptor) Encrypt(msg []byte) ([]byte, error) {
 	nonce, err := primitives.GetRandomBytes(se.nonceSize)
 	if err != nil {
-		se.node.error("Failed getting randomness [%s].", err.Error())
+		se.node.Errorf("Failed getting randomness [%s].", err.Error())
 		return nil, err
 	}
 
@@ -363,14 +363,14 @@ func (se *queryStateEncryptor) Decrypt(raw []byte) ([]byte, error) {
 
 	// raw consists of (txNonce, ct)
 	txNonce := raw[:primitives.NonceSize]
-	//	se.log.Info("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
+	//	se.log.Infof("Decrypting with txNonce  ", utils.EncodeBase64(txNonce))
 	ct := raw[primitives.NonceSize:]
 
 	nonce := make([]byte, se.nonceSize)
 	copy(nonce, ct)
 
 	key := primitives.HMACTruncated(se.deployTxKey, append([]byte{3}, txNonce...), primitives.AESKeyLength)
-	//	se.log.Info("Decrypting with key  ", utils.EncodeBase64(key))
+	//	se.log.Infof("Decrypting with key  ", utils.EncodeBase64(key))
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

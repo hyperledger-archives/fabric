@@ -28,12 +28,12 @@ import (
 )
 
 func (node *nodeImpl) initTLS() error {
-	node.debug("Initiliazing TLS...")
+	node.Debug("Initiliazing TLS...")
 
 	if node.conf.isTLSEnabled() {
 		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
 		if err != nil {
-			node.error("Failed loading TLSCA certificates chain [%s].", err.Error())
+			node.Errorf("Failed loading TLSCA certificates chain [%s].", err.Error())
 
 			return err
 		}
@@ -41,23 +41,23 @@ func (node *nodeImpl) initTLS() error {
 		node.tlsCertPool = x509.NewCertPool()
 		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
 		if !ok {
-			node.error("Failed appending TLSCA certificates chain.")
+			node.Error("Failed appending TLSCA certificates chain.")
 
 			return errors.New("Failed appending TLSCA certificates chain.")
 		}
-		node.debug("Initiliazing TLS...Done")
+		node.Debug("Initiliazing TLS...Done")
 	} else {
-		node.debug("Initiliazing TLS...Disabled!!!")
+		node.Debug("Initiliazing TLS...Disabled!!!")
 	}
 
 	return nil
 }
 
 func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.ClientConn, error) {
-	node.debug("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
+	node.Debugf("Dial to addr:[%s], with serverName:[%s]...", address, serverName)
 
 	if node.conf.isTLSEnabled() {
-		node.debug("TLS enabled...")
+		node.Debug("TLS enabled...")
 
 		config := tls.Config{
 			InsecureSkipVerify: false,
@@ -70,6 +70,6 @@ func (node *nodeImpl) getClientConn(address string, serverName string) (*grpc.Cl
 
 		return comm.NewClientConnectionWithAddress(address, false, true, credentials.NewTLS(&config))
 	}
-	node.debug("TLS disabled...")
+	node.Debug("TLS disabled...")
 	return comm.NewClientConnectionWithAddress(address, false, false, nil)
 }

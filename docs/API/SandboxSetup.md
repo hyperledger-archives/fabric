@@ -24,8 +24,7 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 To set up the local development environment with security enabled, you must first build and run the <b>Certificate Authority (CA)</b> server:
 
     cd $GOPATH/src/github.com/hyperledger/fabric
-    make membersrvc
-    (cd membersrvc; ./membersrvc)
+    make membersrvc && membersrvc
 
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the `eca.users` section of the configuration file. To register additional users with the CA for testing, modify the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional `enrollmentID` and `enrollmentPW` pairs. Note the integer that precedes the `enrollmentPW`. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
@@ -40,12 +39,11 @@ Build and run the peer process to enable security and privacy after setting `sec
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
-    cd ./peer
-    ./peer node start --peer-chaincodedev
+    peer node start --peer-chaincodedev
 
 Alternatively, enable security and privacy on the peer with environment variables:
 
-    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer node start --peer-chaincodedev
+    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer node start --peer-chaincodedev
 
 ###Vagrant Terminal 2 (chaincode)
 
@@ -85,7 +83,7 @@ From your command line terminal, move to the `devenv` subdirectory of your works
 Register the user though the CLI, substituting for `<username>` appropriately:
 
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
-    ./peer network login <username>
+    peer network login <username>
 
 The command will prompt for a password, which must match the `enrollmentPW` listed for the target user in the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the `enrollmentPW`, an error will result.
 
@@ -97,7 +95,7 @@ POST localhost:5000/registrar
 
 {
   "enrollId": "jim",
-  "enrollSecret": "NPKYL39uKbkj"
+  "enrollSecret": "6avZQLwcUe9b"
 }
 ```
 
@@ -113,8 +111,7 @@ POST localhost:5000/registrar
 
 First, send a chaincode deploy transaction, only once, to the validating peer. The CLI connects to the validating peer using the properties defined in the core.yaml file. **Note:** The deploy transaction typically requires a `path` parameter to locate, build, and deploy the chaincode. However, because these instructions are specific to local development mode and the chaincode is deployed manually, the `name` parameter is used instead.
 ```
-cd $GOPATH/src/github.com/hyperledger/fabric/peer
-./peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 ```
 
 Alternatively, you can run the chaincode deploy transaction through the REST API.
@@ -154,7 +151,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and the REST API payload to pass the `enrollmentID` of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the `enrollmentID` is passed with the `-u` parameter; in the REST API, the `enrollmentID` is passed with the `secureContext` element. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 
- 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
+ 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
 <b>REST Request:</b>
 ```
@@ -187,7 +184,7 @@ The deploy transaction initializes the chaincode by executing a target initializ
 
 Run the chaincode invoking transaction on the CLI as many times as desired. The `-n` argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-	./peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+	peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 Alternatively, run the chaincode invoking transaction through the REST API.
 
@@ -226,7 +223,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the `enrollmentID` of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the `enrollmentID` is passed with the `-u` parameter; in the REST API, the `enrollmentID` is passed with the `secureContext` element. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 
- 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+ 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
 <b> REST Request:</b>
 ```
@@ -259,7 +256,7 @@ The invoking transaction runs the specified chaincode function name "invoke" wit
 
 Run a query on the chaincode to retrieve the desired values. The `-n` argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
-    ./peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+    peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 The response should be similar to the following:
 
@@ -306,7 +303,7 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the `enrollmentID` of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the `enrollmentID` is passed with the `-u` parameter; in the REST API, the `enrollmentID` is passed with the `secureContext` element. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 
- 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true ./peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+ 	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
 
 <b>REST Request:</b>
 ```

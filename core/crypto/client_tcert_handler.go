@@ -62,7 +62,7 @@ func (handler *tCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 	txHandler := &tCertTransactionHandlerImpl{}
 	err := txHandler.init(handler)
 	if err != nil {
-		handler.client.error("Failed initiliazing transaction handler [%s]", err)
+		handler.client.Errorf("Failed initiliazing transaction handler [%s]", err)
 
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (handler *tCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 func (handler *tCertTransactionHandlerImpl) init(tCertHandler *tCertHandlerImpl) error {
 	nonce, err := tCertHandler.client.createTransactionNonce()
 	if err != nil {
-		tCertHandler.client.error("Failed initiliazing transaction handler [%s]", err)
+		tCertHandler.client.Errorf("Failed initiliazing transaction handler [%s]", err)
 
 		return err
 	}
@@ -96,16 +96,16 @@ func (handler *tCertTransactionHandlerImpl) GetBinding() ([]byte, error) {
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
-func (handler *tCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, handler.tCertHandler.tCert, handler.nonce)
+func (handler *tCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
+	return handler.tCertHandler.client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, attributeNames, handler.tCertHandler.tCert, handler.nonce)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
-func (handler *tCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert, handler.nonce)
+func (handler *tCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
+	return handler.tCertHandler.client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, attributeNames, handler.tCertHandler.tCert, handler.nonce)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
-func (handler *tCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
-	return handler.tCertHandler.client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, handler.tCertHandler.tCert, handler.nonce)
+func (handler *tCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
+	return handler.tCertHandler.client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, attributeNames, handler.tCertHandler.tCert, handler.nonce)
 }

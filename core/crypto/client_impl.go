@@ -17,6 +17,8 @@ limitations under the License.
 package crypto
 
 import (
+	"errors"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -37,74 +39,96 @@ type clientImpl struct {
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
-func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
+	tCerts, err := client.tCertPool.GetNextTCerts(1, attributes...)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.Errorf("Failed to obtain a (not yet used) TCert for Chaincode Deploy[%s].", err.Error())
 		return nil, err
+	}
+
+	if len(tCerts) != 1 {
+		client.Error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Deploy Transaction using TCert. Expected exactly one returned TCert.")
 	}
 
 	// Create Transaction
-	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, tCert, nil)
+	return client.newChaincodeDeployUsingTCert(chaincodeDeploymentSpec, uuid, attributes, tCerts[0].tCert, nil)
 }
 
-// GetNextTCert Gets next available (not yet used) transaction certificate.
-func (client *clientImpl) GetNextTCert() (tCert, error) {
+// GetNextTCerts Gets next available (not yet used) transaction certificate.
+func (client *clientImpl) GetNextTCerts(nCerts int, attributes ...string) (tCerts []tCert, err error) {
+	if nCerts < 1 {
+		return nil, errors.New("Number of requested TCerts has to be positive!")
+	}
+
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCert, err := client.tCertPool.GetNextTCert()
+	tBlocks, err := client.tCertPool.GetNextTCerts(nCerts, attributes...)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.Errorf("Failed getting [%d] (not yet used) Transaction Certificates (TCerts) [%s].", nCerts, err.Error())
 		return nil, err
 	}
-
-	return tCert, err
+	tCerts = make([]tCert, len(tBlocks))
+	for i, eachBlock := range tBlocks {
+		tCerts[i] = eachBlock.tCert
+	}
+	return tCerts, nil
 }
 
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
-func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	tBlocks, err := client.tCertPool.GetNextTCerts(1, attributes...)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.Errorf("Failed to obtain a (not yet used) TCert [%s].", err.Error())
 		return nil, err
 	}
 
+	if len(tBlocks) != 1 {
+		client.Error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Execution. Expected exactly one returned TCert.")
+	}
+
 	// Create Transaction
-	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	return client.newChaincodeExecuteUsingTCert(chaincodeInvocation, uuid, attributes, tBlocks[0].tCert, nil)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
-func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next available (not yet used) transaction certificate
-	tCertHandler, err := client.tCertPool.GetNextTCert()
+	tBlocks, err := client.tCertPool.GetNextTCerts(1, attributes...)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.Errorf("Failed to obtain a (not yet used) TCert [%s].", err.Error())
 		return nil, err
 	}
 
+	if len(tBlocks) != 1 {
+		client.Error("Failed to obtain a (not yet used) TCert.")
+		return nil, errors.New("Failed to obtain a TCert for Chaincode Invocation. Expected exactly one returned TCert.")
+	}
+
 	// Create Transaction
-	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, tCertHandler, nil)
+	return client.newChaincodeQueryUsingTCert(chaincodeInvocation, uuid, attributes, tBlocks[0].tCert, nil)
 }
 
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
@@ -118,7 +142,7 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 	handler := &eCertHandlerImpl{}
 	err := handler.init(client)
 	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
+		client.Errorf("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -126,24 +150,29 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 }
 
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
-func (client *clientImpl) GetTCertificateHandlerNext() (CertificateHandler, error) {
+func (client *clientImpl) GetTCertificateHandlerNext(attributes ...string) (CertificateHandler, error) {
 	// Verify that the client is initialized
 	if !client.isInitialized {
 		return nil, utils.ErrNotInitialized
 	}
 
 	// Get next TCert
-	tCert, err := client.tCertPool.GetNextTCert()
+	tBlocks, err := client.tCertPool.GetNextTCerts(1, attributes...)
 	if err != nil {
-		client.error("Failed getting next transaction certificate [%s].", err.Error())
+		client.Errorf("Failed to obtain a (not yet used) TCert for creating a CertificateHandler [%s].", err.Error())
 		return nil, err
+	}
+
+	if len(tBlocks) != 1 {
+		client.Error("Failed to obtain a TCert for creating a CertificateHandler.")
+		return nil, errors.New("Failed to obtain a TCert for creating a CertificateHandler")
 	}
 
 	// Return the handler
 	handler := &tCertHandlerImpl{}
-	err = handler.init(client, tCert)
+	err = handler.init(client, tBlocks[0].tCert)
 	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
+		client.Errorf("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -160,7 +189,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	// Validate the transaction certificate
 	tCert, err := client.getTCertFromExternalDER(tCertDER)
 	if err != nil {
-		client.warning("Failed validating transaction certificate [%s].", err)
+		client.Warningf("Failed validating transaction certificate [%s].", err)
 
 		return nil, err
 	}
@@ -169,7 +198,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 	handler := &tCertHandlerImpl{}
 	err = handler.init(client, tCert)
 	if err != nil {
-		client.error("Failed getting handler [%s].", err.Error())
+		client.Errorf("Failed getting handler [%s].", err.Error())
 		return nil, err
 	}
 
@@ -178,7 +207,7 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
 	if client.isInitialized {
-		client.error("Registering [%s]...done! Initialization already performed", id)
+		client.Errorf("Registering [%s]...done! Initialization already performed", id)
 
 		return
 	}
@@ -188,13 +217,13 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 		return
 	}
 
-	client.info("Register crypto engine...")
+	client.Info("Register crypto engine...")
 	err = client.registerCryptoEngine()
 	if err != nil {
-		log.Error("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
+		client.Errorf("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
 		return
 	}
-	client.info("Register crypto engine...done.")
+	client.Info("Register crypto engine...done.")
 
 	return
 }
@@ -210,23 +239,23 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 	}
 
 	// Initialize keystore
-	client.debug("Init keystore...")
+	client.Debug("Init keystore...")
 	err := client.initKeyStore()
 	if err != nil {
 		if err != utils.ErrKeyStoreAlreadyInitialized {
-			client.error("Keystore already initialized.")
+			client.Error("Keystore already initialized.")
 		} else {
-			client.error("Failed initiliazing keystore [%s].", err.Error())
+			client.Errorf("Failed initiliazing keystore [%s].", err.Error())
 
 			return err
 		}
 	}
-	client.debug("Init keystore...done.")
+	client.Debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = client.initCryptoEngine()
 	if err != nil {
-		client.error("Failed initiliazing crypto engine [%s].", err.Error())
+		client.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
 		return err
 	}
 
@@ -239,12 +268,12 @@ func (client *clientImpl) init(id string, pwd []byte) error {
 func (client *clientImpl) close() (err error) {
 	if client.tCertPool != nil {
 		if err = client.tCertPool.Stop(); err != nil {
-			client.debug("Failed closing TCertPool [%s]", err)
+			client.Debugf("Failed closing TCertPool [%s]", err)
 		}
 	}
 
 	if err = client.nodeImpl.close(); err != nil {
-		client.debug("Failed closing node [%s]", err)
+		client.Debugf("Failed closing node [%s]", err)
 	}
 	return
 }
