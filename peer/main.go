@@ -34,7 +34,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
