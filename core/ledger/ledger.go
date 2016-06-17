@@ -493,7 +493,7 @@ func sendChaincodeEvents(block *protos.Block) {
 	nonHashData := block.GetNonHashData()
 	if nonHashData != nil {
 		trs := nonHashData.GetTransactionResults()
-		for _,tr := range trs {
+		for _, tr := range trs {
 			if tr.ChaincodeEvent != nil {
 				producer.Send(producer.CreateChaincodeEvent(tr.ChaincodeEvent))
 			}
