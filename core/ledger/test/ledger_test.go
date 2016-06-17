@@ -807,7 +807,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 
-		// Block 1
+			// Block 1
 			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1B"))).To(BeNil())
@@ -820,7 +820,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 
-		// Block 2
+			// Block 2
 			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1C"))).To(BeNil())
@@ -903,9 +903,9 @@ var _ = Describe("Ledger", func() {
 				Expect(actual[k]).To(Equal(v))
 			}
 		}
-			///////// Test with an empty Ledger //////////
-			//////////////////////////////////////////////
-		It("does a bunch of stuff", func () {
+		///////// Test with an empty Ledger //////////
+		//////////////////////////////////////////////
+		It("does a bunch of stuff", func() {
 			itr, _ := ledgerPtr.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", false)
 			expected := map[string][]byte{}
 			AssertIteratorContains(itr, expected)
@@ -956,37 +956,37 @@ var _ = Describe("Ledger", func() {
 			//////////////////////////////////////////////////////////
 			// test range scan for chaincodeID4
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", true)
-			expected =	map[string][]byte {
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty start-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", true)
-			expected =	map[string][]byte {
-					"key1": []byte("value1"),
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key1": []byte("value1"),
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty end-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", true)
-			expected =	map[string][]byte {
-					"key1": []byte("value1"),
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-					"key6": []byte("value6"),
-					"key7": []byte("value7"),
+			expected = map[string][]byte{
+				"key1": []byte("value1"),
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+				"key6": []byte("value6"),
+				"key7": []byte("value7"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
@@ -995,10 +995,10 @@ var _ = Describe("Ledger", func() {
 			//////////////////////////////////////////////////////////
 			// test range scan for chaincodeID4
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", false)
-			expected =	map[string][]byte{
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
@@ -1006,25 +1006,25 @@ var _ = Describe("Ledger", func() {
 			// test with empty start-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", false)
 			expected = map[string][]byte{
-					"key1": []byte("value1"),
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-				}
+				"key1": []byte("value1"),
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty end-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", false)
 			expected = map[string][]byte{
-					"key1": []byte("value1"),
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-					"key6": []byte("value6"),
-					"key7": []byte("value7"),
-					"key8": []byte("value8_new"),
-				}
+				"key1": []byte("value1"),
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+				"key6": []byte("value6"),
+				"key7": []byte("value7"),
+				"key8": []byte("value8_new"),
+			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 		})

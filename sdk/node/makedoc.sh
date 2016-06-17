@@ -51,3 +51,8 @@ typedoc -m amd \
 --excludeNotExported \
 --out doc \
 src/hlc.ts typedoc-special.d.ts
+
+# Typedoc generates links to working GIT repo which is fixed
+# below to use an official release URI.
+DOCURI="https://github.com/hyperledger/fabric/tree/master/sdk/node/"
+find doc -name '*.html' -exec sed -i 's!href="http.*sdk/node/!href="'$DOCURI'!' {} \;

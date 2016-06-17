@@ -34,10 +34,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-var identity = "diego"
+var identity = "test_user0"
 
 func loadECert(identityID string) (*x509.Certificate, error) {
-	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert.dump")
+	ecertRaw, err := ioutil.ReadFile("./test_resources/ecert_" + identityID + ".dump")
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +69,8 @@ func TestFetchAttributes(t *testing.T) {
 }
 
 func TestFetchAttributes_MultipleInvocations(t *testing.T) {
-	expectedAttributesSize := 4
-	expectedCount := 4
+	expectedAttributesSize := 3
+	expectedCount := 3
 
 	resp, err := fetchAttributes()
 	if err != nil {
@@ -81,7 +81,7 @@ func TestFetchAttributes_MultipleInvocations(t *testing.T) {
 		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
 	}
 
-	attributesMap1, count, err := readAttributesFromDB("diego", "institution_a")
+	attributesMap1, count, err := readAttributesFromDB("test_user0", "bank_a")
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestFetchAttributes_MultipleInvocations(t *testing.T) {
 		t.Fatalf("Error executing test: %v", "Error fetching attributes.")
 	}
 
-	attributesMap2, count, err := readAttributesFromDB("diego", "institution_a")
+	attributesMap2, count, err := readAttributesFromDB("test_user0", "bank_a")
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestRequestAttributes_MissingSignature(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes without a signature should fail")
 	}
 }
@@ -445,7 +445,7 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 		t.Fatalf("Error executing test: %v", err)
 	}
 
-	if resp.Status != pb.ACAAttrResp_BAD_REQUEST {
+	if resp.Status < pb.ACAAttrResp_FAILURE_MINVAL || resp.Status > pb.ACAAttrResp_FAILURE_MAXVAL {
 		t.Fatalf("Requesting attributes with multiple values should fail")
 	}
 }

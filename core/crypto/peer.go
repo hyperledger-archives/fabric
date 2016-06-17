@@ -17,8 +17,9 @@ limitations under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"sync"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // Private types and variables

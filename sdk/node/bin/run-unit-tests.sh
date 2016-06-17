@@ -29,12 +29,28 @@ init() {
    # Initialize variables
    FABRIC=$GOPATH/src/github.com/hyperledger/fabric
    LOGDIR=/tmp/node-sdk-unit-test
-   MSEXE=$FABRIC/membersrvc/membersrvc
+   MSEXE=$FABRIC/build/bin/membersrvc
    MSLOGFILE=$LOGDIR/membersrvc.log
-   PEEREXE=$FABRIC/peer/peer
+   PEEREXE=$FABRIC/build/bin/peer
    PEERLOGFILE=$LOGDIR/peer.log
    UNITTEST=$FABRIC/sdk/node/test/unit
    EXAMPLES=$FABRIC/examples/chaincode/go
+
+   # If the executables don't exist where they belong, build them now in place
+   if [ ! -f $MSEXE ]; then
+      cd $FABRIC/membersrvc
+      go build
+      MSEXE=`pwd`/membersrvc
+   fi
+   if [ ! -f $PEEREXE ]; then
+      cd $FABRIC/peer
+      go build
+      PEEREXE=`pwd`/peer
+   fi
+
+   # Always run peer with security and privacy enabled
+   export CORE_SECURITY_ENABLED=true
+   export CORE_SECURITY_PRIVACY=true
 
    # Run the membersrvc with the Attribute Certificate Authority enabled
    export MEMBERSRVC_CA_ACA_ENABLED=true

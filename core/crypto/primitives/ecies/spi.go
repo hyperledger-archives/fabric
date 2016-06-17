@@ -20,9 +20,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"io"
 	"fmt"
+	"io"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func newKeyGeneratorParameter(r io.Reader, curve elliptic.Curve) (primitives.KeyGeneratorParameters, error) {
@@ -141,7 +142,7 @@ func newPrivateKey(r io.Reader, curve elliptic.Curve) (primitives.PrivateKey, er
 	if curve == nil {
 		curve = primitives.GetDefaultCurve()
 	}
- 	kg, err := newKeyGeneratorFromCurve(r, curve)
+	kg, err := newKeyGeneratorFromCurve(r, curve)
 	if err != nil {
 		return nil, err
 	}

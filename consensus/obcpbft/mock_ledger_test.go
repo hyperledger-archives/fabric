@@ -43,7 +43,7 @@ func (hd *HashLedgerDirectory) GetLedgerByPeerID(peerID *protos.PeerID) (consens
 
 func (hd *HashLedgerDirectory) GetPeers() (*protos.PeersMessage, error) {
 	_, network, err := hd.GetNetworkInfo()
-	return &protos.PeersMessage{network}, err
+	return &protos.PeersMessage{Peers: network}, err
 }
 
 func (hd *HashLedgerDirectory) GetPeerEndpoint() (*protos.PeerEndpoint, error) {
