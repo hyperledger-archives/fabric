@@ -79,7 +79,7 @@ type TransactionAccessor interface {
 	GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error)
 }
 
-// BlockchainModifier interface for applying changes to the block chain
+// BlockChainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
 	RollbackStateDelta(id interface{}) error
@@ -770,6 +770,7 @@ func (p *PeerImpl) signMessageMutating(msg *pb.Message) error {
 	return nil
 }
 
+// GetTransactionResultByUUID Return the TransactionResult for the specified transaction ID.
 func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error) {
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()

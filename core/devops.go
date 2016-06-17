@@ -306,12 +306,8 @@ func CheckSpec(spec *pb.ChaincodeSpec) error {
 	return platform.ValidateSpec(spec)
 }
 
-// Login establishes the security context with the Devops service
+// EXP_GetApplicationTCert retrieves an application TCert for the supplied user
 func (d *Devops) EXP_GetApplicationTCert(ctx context.Context, secret *pb.Secret) (*pb.Response, error) {
-	//if err := crypto.RegisterClient(secret.EnrollId, nil, secret.EnrollId, secret.EnrollSecret); nil != err {
-	//	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
-	//}
-	//return &pb.Response{Status: pb.Response_SUCCESS}, nil
 	var sec crypto.Client
 	var err error
 
@@ -333,12 +329,9 @@ func (d *Devops) EXP_GetApplicationTCert(ctx context.Context, secret *pb.Secret)
 		}
 		certDER := tcertHandler.GetCertificate()
 		return &pb.Response{Status: pb.Response_SUCCESS, Msg: certDER}, nil
-	} else {
-		devopsLogger.Warning("Security NOT enabled")
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
-
 	}
-
+	devopsLogger.Warning("Security NOT enabled")
+	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
 	// TODO: Handle timeout and expiration
 }
 
@@ -373,12 +366,9 @@ func (d *Devops) EXP_PrepareForTx(ctx context.Context, secret *pb.Secret) (*pb.R
 		// Now add to binding map
 		d.bindingMap.addBinding(binding, txHandler)
 		return &pb.Response{Status: pb.Response_SUCCESS, Msg: binding}, nil
-	} else {
-		devopsLogger.Warning("Security NOT enabled")
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
-
 	}
-
+	devopsLogger.Warning("Security NOT enabled")
+	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
 	// TODO: Handle timeout and expiration
 }
 
@@ -427,11 +417,9 @@ func (d *Devops) EXP_ProduceSigma(ctx context.Context, sigmaInput *pb.SigmaInput
 			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
 		}
 		return &pb.Response{Status: pb.Response_SUCCESS, Msg: sigmaOutputBytes}, nil
-	} else {
-		devopsLogger.Warning("Security NOT enabled")
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
-
 	}
+	devopsLogger.Warning("Security NOT enabled")
+	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
 
 }
 
@@ -458,23 +446,20 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 		//return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("NOT IMPLEMENTED")}, nil
 
 		//return &pb.Response{Status: pb.Response_SUCCESS, Msg: sigmaOutputBytes}, nil
-	} else {
-		devopsLogger.Warning("Security NOT enabled")
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
-
 	}
-
+	devopsLogger.Warning("Security NOT enabled")
+	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
 }
 
-// Request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
+// GetTransactionResult request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
 func (d *Devops) GetTransactionResult(ctx context.Context, txRequest *pb.TransactionRequest) (*pb.Response, error) {
 	txResult, err := d.coord.GetTransactionResultByUUID(txRequest.TransactionUuid)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s", err.Error()))}, nil
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result: %s", err.Error()))}, nil
 	}
 	txResultBytes, err := proto.Marshal(txResult)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s, could not marshal txResult: %s", err.Error()))}, nil
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s, could not marshal txResult: %s", txRequest.TransactionUuidh, err.Error()))}, nil
 	}
 	return &pb.Response{Status: pb.Response_SUCCESS, Msg: txResultBytes}, nil
 }
