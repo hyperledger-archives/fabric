@@ -32,7 +32,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
