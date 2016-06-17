@@ -29,3 +29,8 @@ func CreateBlockEvent(te *ehpb.Block) *ehpb.Event {
 func CreateChaincodeEvent(te *ehpb.ChaincodeEvent) *ehpb.Event {
 	return &ehpb.Event{Event: &ehpb.Event_ChaincodeEvent{ChaincodeEvent: te}}
 }
+
+//CreateRejectionEvent creates an Event from TxResults
+func CreateRejectionEvent(uuid string, errorMsg string) *ehpb.Event {
+	return &ehpb.Event{Event: &ehpb.Event_Rejection{Rejection: &ehpb.Rejection{Uuid: uuid, ErrorMsg: errorMsg}}}
+}

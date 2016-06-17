@@ -367,6 +367,27 @@ Feature: Network of Peers
 	    Then I should have received a transactionID
 	    Then I wait up to "25" seconds for transaction to be committed to all peers
 	    Then I check the transaction ID if it is "ca978112-ca1b-bdca-fac2-31b39a23dc4d"
+    
+    Scenario: chaincode example 01 single peer rejection message
+	    Given we compose "docker-compose-1-exp.yml"
+	    Given I start a listener
+	    Then I wait "5" seconds
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| a  |
+	    Then I should have received a transactionID
+	    Then I wait "10" seconds
+
+	Then I should get a rejection message in the listener after stopping it
 
 #    @doNotDecompose
 #    @wip

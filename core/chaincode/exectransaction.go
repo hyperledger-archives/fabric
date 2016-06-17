@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -149,6 +150,8 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 		_, ccevents[i], txerrs[i] = Execute(ctxt, chain, t)
 		if txerrs[i] == nil {
 			succeededTxs = append(succeededTxs, t)
+		} else {
+			sendTxRejectedEvent(xacts[i].Uuid, txerrs[i].Error())
 		}
 	}
 
@@ -209,4 +212,8 @@ func markTxFinish(ledger *ledger.Ledger, t *pb.Transaction, successful bool) {
 		return
 	}
 	ledger.TxFinished(t.Uuid, successful)
+}
+
+func sendTxRejectedEvent(uuid string, errorMsg string) {
+	producer.Send(producer.CreateRejectionEvent(uuid, errorMsg))
 }
