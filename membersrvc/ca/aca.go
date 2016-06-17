@@ -444,8 +444,19 @@ func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCod
 func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb.ACAAttrResp, error) {
 	Trace.Println("grpc ACAP:RequestAttributes")
 
-	if in.Ts == nil || in.Id == nil || in.ECert == nil || in.Signature == nil {
-		return acap.createRequestAttributeResponse(pb.ACAAttrResp_BAD_REQUEST, nil), nil
+	fail := pb.ACAAttrResp_FULL_SUCCESSFUL // else explicit which-param-failed error
+	if nil == in.Ts {
+		fail = pb.ACAAttrResp_FAIL_NIL_TS
+	} else if nil == in.Id {
+		fail = pb.ACAAttrResp_FAIL_NIL_ID
+	} else if nil == in.ECert {
+		fail = pb.ACAAttrResp_FAIL_NIL_ECERT
+	} else if nil == in.Signature {
+		fail = pb.ACAAttrResp_FAIL_NIL_SIGNATURE
+	}
+
+	if pb.ACAAttrResp_FULL_SUCCESSFUL != fail {
+		return acap.createRequestAttributeResponse(fail, nil), nil
 	}
 
 	if in.Attributes == nil {
