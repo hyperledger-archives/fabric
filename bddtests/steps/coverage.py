@@ -44,7 +44,7 @@ def saveCoverageFiles(folderName, rootName, containerNames, extension):
     	if exception.errno != errno.EEXIST:
     		raise
     for containerName in containerNames:
-        srcPath = "{0}:/opt/gopath/src/github.com/hyperledger/fabric/peer/coverage.cov".format(containerName)
+        srcPath = "{0}:/opt/gopath/src/github.com/hyperledger/fabric/coverage.cov".format(containerName)
         print("sourcepath = {0}".format(srcPath))
         destPath = os.path.join(folderName, "{0}-{1}.{2}".format(rootName, containerName, extension))
         output, error, returncode = \
