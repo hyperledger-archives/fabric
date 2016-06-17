@@ -208,7 +208,7 @@ peer:
         enabled:    true
 
         # number of workers that
-        # tast the peers for being
+        # test the peers for being
         # online [1..10]
         workers: 8
 
@@ -302,6 +302,13 @@ chaincode:
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
             FROM hyperledger/fabric-ccenv
+    java:
+        # This is the same bases image used for golang implementation
+        # TODO Consider moving java installation from common provision shell script to here
+        Dockerfile:  |
+            from hyperledger/fabric-baseimage
+            # TODO JAVA_HOME set here, consider using update-java-alternatives
+            ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
