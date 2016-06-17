@@ -196,6 +196,7 @@ type PeerImpl struct {
 	engine         Engine
 	isValidator    bool
 	discoverySvc   discovery.Discovery
+	reconnectOnce  sync.Once
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -512,8 +513,39 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 	return response
 }
 
+func (p *PeerImpl) ensureConnected() {
+	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
+	tickChan := time.NewTicker(touchPeriod).C
+	// See if rootNode(s) defined, if NOT, simply return
+	if len(p.discoverySvc.GetRootNodes()) == 1 {
+		if len(p.discoverySvc.GetRootNodes()[0]) == 0 {
+			peerLogger.Warning("Touch service stopping, no rootNode(s) defined")
+			return
+		}
+	}
+	peerLogger.Debug("Starting Peer reconnect service, with touchPeriod = %s", touchPeriod)
+	for {
+		// Simply loop and check if need to reconnect
+		<-tickChan
+		peersMsg, err := p.GetPeers()
+		if err != nil {
+			peerLogger.Error("Error in touch service: %s", err.Error())
+		}
+		if len(peersMsg.Peers) == 0 {
+			// No currently connected peers, going to try to chat with rootnode again if defined
+			peerLogger.Info("Touch service indicates no peers connected, attempting to chat with rootNode(s)")
+			p.chatWithSomePeers(p.discoverySvc.GetRootNodes())
+		}
+	}
+
+}
+
 // chatWithSomePeers initiates chat with 1 or all peers according to whether the node is a validator or not
 func (p *PeerImpl) chatWithSomePeers(peers []string) {
+	// Start the function to ensure we are connected
+	p.reconnectOnce.Do(func() {
+		go p.ensureConnected()
+	})
 
 	peerCountToChatWith := 1
 
