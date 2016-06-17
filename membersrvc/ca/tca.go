@@ -263,7 +263,7 @@ func (tcap *TCAP) selectValidAttributes(certRaw []byte) ([]*pb.ACAAttribute, err
 	}
 	currentTime := time.Now()
 	for _, extension := range cert.Extensions {
-		acaAtt := &pb.ACAAttribute{AttributeName: "", AttributeValue: nil, ValidFrom: &protobuf.Timestamp{Seconds: 0, Nanos: 0}, ValidTo: &protobuf.Timestamp{Seconds: 0, Nanos: 0}}
+		acaAtt := &pb.ACAAttribute{AttributeName: "", AttributeValue: nil, ValidFrom: &google_protobuf.Timestamp{Seconds: 0, Nanos: 0}, ValidTo: &google_protobuf.Timestamp{Seconds: 0, Nanos: 0}}
 
 		if IsAttributeOID(extension.Id) {
 			if err := proto.Unmarshal(extension.Value, acaAtt); err != nil {
