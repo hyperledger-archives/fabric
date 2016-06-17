@@ -459,7 +459,7 @@ func (d *Devops) GetTransactionResult(ctx context.Context, txRequest *pb.Transac
 	}
 	txResultBytes, err := proto.Marshal(txResult)
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s, could not marshal txResult: %s", txRequest.TransactionUuidh, err.Error()))}, nil
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s, could not marshal txResult: %s", txRequest.TransactionUuid, err.Error()))}, nil
 	}
 	return &pb.Response{Status: pb.Response_SUCCESS, Msg: txResultBytes}, nil
 }
