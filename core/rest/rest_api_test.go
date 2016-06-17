@@ -212,6 +212,13 @@ func TestServerOpenchainREST_API_GetBlockByNumber(t *testing.T) {
 	if res4.Error == "" {
 		t.Errorf("Expected an error when retrieving non-existing block, but got none")
 	}
+
+	// Illegal block number
+	body = performHTTPGet(t, httpServer.URL+"/chain/blocks/NOT_A_NUMBER")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when URL doesn't have a number, but got none")
+	}
 }
 
 func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {

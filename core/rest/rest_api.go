@@ -599,7 +599,7 @@ func (s *ServerOpenchainREST) GetBlockchainInfo(rw web.ResponseWriter, req *web.
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		encoder.Encode(restResult{Error: err.Error()})
 	} else {
 		// Success
 		rw.WriteHeader(http.StatusOK)
@@ -613,11 +613,13 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	// Parse out the Block id
 	blockNumber, err := strconv.ParseUint(req.PathParams["id"], 10, 64)
 
+	encoder := json.NewEncoder(rw)
+
 	// Check for proper Block id syntax
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Block id must be an integer (uint64).\"}")
+		encoder.Encode(restResult{Error: "Block id must be an integer (uint64)."})
 	} else {
 		// Retrieve Block from blockchain
 		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
@@ -631,11 +633,10 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 			default:
 				rw.WriteHeader(http.StatusInternalServerError)
 			}
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
 		} else {
 			// Success
 			rw.WriteHeader(http.StatusOK)
-			encoder := json.NewEncoder(rw)
 			encoder.Encode(block)
 		}
 	}
