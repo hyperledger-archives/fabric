@@ -250,6 +250,11 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 //get args and env given chaincodeID
 func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
 	envs = []string{"CORE_CHAINCODE_ID_NAME=" + cID.Name}
+	envs = append(envs, "CORE_PEER_TLS_CERT_FILE=" + viper.GetString("peer.tls.cert.file"))
+	envs = append(envs, "CORE_PEER_TLS_KEY_FILE=" + viper.GetString("peer.tls.key.file"))
+	if viper.GetBool("peer.tls.enabled") {
+		envs = append(envs, "CORE_PEER_TLS_ENABLED=true") 
+	}
 
 	//chaincode executable will be same as the name of the chaincode
 	args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
