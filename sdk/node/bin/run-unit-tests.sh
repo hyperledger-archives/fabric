@@ -36,6 +36,9 @@ init() {
    UNITTEST=$FABRIC/sdk/node/test/unit
    EXAMPLES=$FABRIC/examples/chaincode/go
 
+   # Run the membersrvc with the Attribute Certificate Authority enabled
+   export MEMBERSRVC_CA_ACA_ENABLED=true
+
    # Clean up if anything remaining from previous run
    stopMemberServices
    stopPeer
@@ -53,7 +56,7 @@ runTests() {
    runRegistrarTests
    runChainTests
    runAssetMgmtTests
-   #runAssetMgmtWithRolesTests
+   runAssetMgmtWithRolesTests
    echo "End running tests in network mode"
 }
 
@@ -165,7 +168,7 @@ runAssetMgmtTests() {
 
 runAssetMgmtWithRolesTests() {
    echo "BEGIN running asset management with roles tests ..."
-   preExample asset_management_with_roles
+   preExample asset_management_with_roles mycc3
    node $UNITTEST/asset-mgmt-with-roles.js
    postExample asset_management_with_roles
    echo "END running asset management with roles tests"

@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -74,6 +75,8 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 	// Set the role of the users that are allowed to assign assets
 	// The metadata will contain the role of the users that are allowed to assign assets
 	assignerRole, err := stub.GetCallerMetadata()
+	fmt.Printf("Assiger role is %v\n", string(assignerRole))
+
 	if err != nil {
 		return nil, fmt.Errorf("Failed getting metadata, [%v]", err)
 	}
@@ -88,21 +91,30 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 }
 
 func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+	fmt.Println("Assigning Asset...")
+
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
 	asset := args[0]
-	owner := []byte(args[1])
+	//owner := []byte(args[1])
+	owner, err := base64.StdEncoding.DecodeString(args[1])
+	if err != nil {
+		fmt.Printf("Error decoding [%v] \n", err)
+		return nil, errors.New("Failed decodinf owner")
+	}
 
 	// Recover the role that is allowed to make assignments
 	assignerRole, err := stub.GetState("assignerRole")
 	if err != nil {
+		fmt.Printf("Error getting role [%v] \n", err)
 		return nil, errors.New("Failed fetching assigner role")
 	}
 
 	callerRole, err := stub.ReadCertAttribute("role")
 	if err != nil {
+		fmt.Printf("Error reading attribute [%v] \n", err)
 		return nil, fmt.Errorf("Failed fetching caller role. Error was [%v]", err)
 	}
 
@@ -110,11 +122,13 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	assigner := string(assignerRole[:])
 
 	if caller != assigner {
+		fmt.Printf("Caller is not assigner - caller %v assigner %v\n", caller, assigner)
 		return nil, fmt.Errorf("The caller does not have the rights to invoke assign. Expected role [%v], caller role [%v]", assigner, caller)
 	}
 
 	account, err := attr.GetValueFrom("account", owner)
 	if err != nil {
+		fmt.Printf("Error reading account [%v] \n", err)
 		return nil, fmt.Errorf("Failed fetching recipient account. Error was [%v]", err)
 	}
 
@@ -128,6 +142,7 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	})
 
 	if !ok && err == nil {
+		fmt.Println("Error inserting row")
 		return nil, errors.New("Asset was already assigned.")
 	}
 
@@ -228,6 +243,8 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 	// Who is the owner of the asset?
 	asset := args[0]
 
+	fmt.Printf("ASSET: %v", string(asset))
+
 	var columns []shim.Column
 	col1 := shim.Column{Value: &shim.Column_String_{String_: asset}}
 	columns = append(columns, col1)
@@ -235,6 +252,11 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 	row, err := stub.GetRow("AssetsOwnership", columns)
 	if err != nil {
 		jsonResp := "{\"Error\":\"Failed retrieving asset " + asset + ". Error " + err.Error() + ". \"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	if len(row.Columns) == 0 {
+		jsonResp := "{\"Error\":\"Failed retrieving owner for " + asset + ". Error " + err.Error() + ". \"}"
 		return nil, errors.New(jsonResp)
 	}
 
