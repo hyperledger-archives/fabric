@@ -28,7 +28,7 @@ import (
 
 const (
 	// AESKeyLength is the default AES key length
-	AESKeyLength = 32
+	AESKeyLength = 32 // AES-256
 
 	// NonceSize is the default NonceSize
 	NonceSize = 24

@@ -25,13 +25,12 @@ import (
 	"testing"
 	"time"
 
-	protobuf "google/protobuf"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"golang.org/x/net/context"
+	"google/protobuf"
 )
 
 type User struct {
@@ -44,14 +43,10 @@ type User struct {
 }
 
 var (
-	ecaFiles  = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
-	testAdmin = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
-	testUser  = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	testUser2 = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	//testPeer        = User{enrollID: "testPeer", role: 2}
-	//testPeer2       = User{enrollID: "testPeer", role: 2}
-	//testValidator   = User{enrollID: "testValidator", role: 4}
-	//testValidator2  = User{enrollID: "testValidator", role: 4}
+	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
+	testAdmin   = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
+	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
 	testAuditor = User{enrollID: "testAuditor", role: 8}
 )
 
@@ -82,7 +77,7 @@ func enrollUser(user *User) error {
 	}
 
 	req := &pb.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:   &pb.Identity{Id: user.enrollID},
 		Tok:  &pb.Token{Tok: user.enrollPwd},
 		Sign: &pb.PublicKey{Type: pb.CryptoType_ECDSA, Key: signPub},
@@ -406,7 +401,7 @@ func TestCreateCertificatePairBadIdentity(t *testing.T) {
 	ecap := &ECAP{eca}
 
 	req := &pb.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:   &pb.Identity{Id: "badIdentity"},
 		Tok:  &pb.Token{Tok: testUser.enrollPwd},
 		Sign: &pb.PublicKey{Type: pb.CryptoType_ECDSA, Key: []byte{0}},
@@ -425,7 +420,7 @@ func TestCreateCertificatePairBadToken(t *testing.T) {
 	ecap := &ECAP{eca}
 
 	req := &pb.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:   &pb.Identity{Id: testUser.enrollID},
 		Tok:  &pb.Token{Tok: []byte("badPassword")},
 		Sign: &pb.PublicKey{Type: pb.CryptoType_ECDSA, Key: []byte{0}},
