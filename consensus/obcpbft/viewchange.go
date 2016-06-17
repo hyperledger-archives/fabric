@@ -468,10 +468,16 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 		if n <= instance.h {
 			continue
 		}
+
+		req, ok := instance.reqStore[d]
+		if !ok {
+			logger.Criticalf("Replica %d is missing request for assigned prepare after fetching, this indicates a serious bug", instance.id)
+		}
 		preprep := &PrePrepare{
 			View:           instance.view,
 			SequenceNumber: n,
 			RequestDigest:  d,
+			Request:        req,
 			ReplicaId:      instance.id,
 		}
 		cert := instance.getCert(instance.view, n)

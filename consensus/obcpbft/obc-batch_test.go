@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -83,7 +84,7 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 	b := newObcBatch(0, loadConfig(), &omniProto{})
 	defer b.Close()
 
-	b.outstandingReqs[&Request{}] = struct{}{}
+	b.reqStore.storeOutstanding(&Request{})
 
 	b.manager.Queue() <- stateUpdatedEvent{
 		chkpt: &checkpointMessage{
@@ -93,7 +94,7 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 
 	b.manager.Queue() <- nil
 
-	if len(b.outstandingReqs) != 0 {
+	if len(*(b.reqStore.outstandingRequests)) != 0 {
 		t.Fatalf("Should not have any requests outstanding after completing state transfer")
 	}
 }
@@ -132,10 +133,10 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 
 	for i, b := range bs {
 		b.manager.Queue() <- nil
-		count := len(b.outstandingReqs)
+		count := len(*(b.reqStore.outstandingRequests))
 		if i == 0 {
 			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store: %v", b.outstandingReqs)
+				t.Errorf("Batch primary should not have the request in its store: %v", b.reqStore.outstandingRequests)
 			}
 		} else {
 			if count != 1 {
@@ -148,9 +149,14 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 func TestOutstandingReqsResubmission(t *testing.T) {
 	omni := &omniProto{}
 	b := newObcBatch(0, loadConfig(), omni)
-	defer b.Close()
+	defer b.Close() // The broadcasting threads only cause problems here... but this test stalls without them
 
+	transactionsBroadcast := 0
 	omni.ExecuteImpl = func(tag interface{}, txs []*pb.Transaction) {
+		transactionsBroadcast += len(txs)
+		logger.Debugf("\nExecuting %d transactions (%v)\n", len(txs), txs)
+		nextExec := b.pbft.lastExec + 1
+		b.pbft.currentExec = &nextExec
 		b.manager.Inject(executedEvent{tag: tag})
 	}
 
@@ -159,65 +165,82 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	}
 
 	omni.UnicastImpl = func(ocMsg *pb.Message, dest *pb.PeerID) error {
-		if dest.Name != "vp1" {
-			return nil
-		}
-
-		batchMsg := &BatchMessage{}
-		err := proto.Unmarshal(ocMsg.Payload, batchMsg)
-
-		msgRaw := batchMsg.GetPbftMessage()
-		if msgRaw == nil {
-			t.Fatalf("Expected PBFT message only")
-		}
-
-		msg := &Message{}
-		err = proto.Unmarshal(msgRaw, msg)
-		if err != nil {
-			t.Fatalf("Error unpacking payload from message: %s", err)
-		}
-
-		logger.Debug("unicast: %v", msg)
-
-		prePrepare := msg.GetPrePrepare()
-
-		if err != nil {
-			t.Fatalf("Expected only a prePrepare")
-		}
-
-		// Shortcuts the whole 3 phase protocol, and executes whatever is in the prePrepare
-		b.execute(prePrepare.SequenceNumber, prePrepare.Request.Payload)
-
 		return nil
 	}
 
-	// Add two requests
-	b.outstandingReqs[createPbftRequestWithChainTx(1, 0)] = struct{}{}
-	b.outstandingReqs[createPbftRequestWithChainTx(2, 0)] = struct{}{}
-
-	seqNo := uint64(1)
-	b.pbft.currentExec = &seqNo
-
-	b.manager.Queue() <- committedEvent{}
-	b.manager.Queue() <- nil
-
-	b.broadcaster.Wait()
-
-	if len(b.outstandingReqs) != 0 {
-		t.Fatalf("All requests should have been resubmitted after exec")
+	reqs := make([]*Request, 8)
+	for i := 0; i < len(reqs); i++ {
+		reqs[i] = createPbftRequestWithChainTx(int64(i), 0)
 	}
 
-	// Add two more requests
-	b.outstandingReqs[createPbftRequestWithChainTx(3, 0)] = struct{}{}
-	b.outstandingReqs[createPbftRequestWithChainTx(4, 0)] = struct{}{}
+	// Add three requests, with a batch size of 2
+	b.reqStore.storeOutstanding(reqs[0])
+	b.reqStore.storeOutstanding(reqs[1])
+	b.reqStore.storeOutstanding(reqs[2])
+	b.reqStore.storeOutstanding(reqs[3])
 
-	b.pbft.currentExec = nil
+	executed := make(map[string]struct{})
+	execute := func() {
+		for d, req := range b.pbft.outstandingReqs {
+			if _, ok := executed[d]; ok {
+				continue
+			}
+			executed[d] = struct{}{}
+			b.execute(b.pbft.lastExec+1, req.Payload)
+		}
+	}
 
-	b.manager.Queue() <- viewChangedEvent{}
-	b.manager.Queue() <- nil
+	events.SendEvent(b, committedEvent{})
+	execute()
 
-	if len(b.outstandingReqs) != 0 {
-		t.Fatalf("All requests should have been resubmitted after view change")
+	if len(*(b.reqStore.outstandingRequests)) != 0 {
+		t.Fatalf("All requests should have been executed and deleted after exec")
+	}
+
+	// Simulate changing views, with a request in the qSet, and one outstanding which is not
+	wreq := reqs[4]
+
+	reqsPacked, err := proto.Marshal(&RequestBlock{[]*Request{wreq}})
+	if err != nil {
+		t.Fatalf("Unable to pack block for new batch request")
+	}
+
+	breq := &Request{Payload: reqsPacked}
+	prePrep := &PrePrepare{
+		View:           0,
+		SequenceNumber: b.pbft.lastExec + 1,
+		RequestDigest:  "foo",
+		Request:        breq,
+	}
+
+	b.pbft.certStore[msgID{v: prePrep.View, n: prePrep.SequenceNumber}] = &msgCert{prePrepare: prePrep}
+
+	// Add the request, which is already pre-prepared, to be outstanding, and one outstanding not pending, not prepared
+	b.reqStore.storeOutstanding(wreq) // req 6
+	b.reqStore.storeOutstanding(reqs[5])
+	b.reqStore.storeOutstanding(reqs[6])
+	b.reqStore.storeOutstanding(reqs[7])
+
+	events.SendEvent(b, viewChangedEvent{})
+	execute()
+
+	if b.reqStore.hasNonPending() {
+		t.Errorf("All requests should have been resubmitted after view change")
+	}
+
+	// We should have one request in batch which has not been sent yet
+	expected := 6
+	if transactionsBroadcast != expected {
+		t.Errorf("Expected %d transactions broadcast, got %d", expected, transactionsBroadcast)
+	}
+
+	events.SendEvent(b, batchTimerEvent{})
+	execute()
+
+	// If the already prepared request were to be resubmitted, we would get count 8 here
+	expected = 7
+	if transactionsBroadcast != expected {
+		t.Errorf("Expected %d transactions broadcast, got %d", expected, transactionsBroadcast)
 	}
 }
 
