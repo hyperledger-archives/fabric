@@ -296,17 +296,42 @@ func performBasicReadWrite(openchainDB *OpenchainDB, t *testing.T) {
 	writeBatch := gorocksdb.NewWriteBatch()
 	defer writeBatch.Destroy()
 	writeBatch.PutCF(openchainDB.BlockchainCF, []byte("dummyKey"), []byte("dummyValue"))
+	writeBatch.PutCF(openchainDB.StateCF, []byte("dummyKey1"), []byte("dummyValue1"))
+	writeBatch.PutCF(openchainDB.StateDeltaCF, []byte("dummyKey2"), []byte("dummyValue2"))
+	writeBatch.PutCF(openchainDB.IndexesCF, []byte("dummyKey3"), []byte("dummyValue3"))
 	err := openchainDB.DB.Write(opt, writeBatch)
 	if err != nil {
-		t.Fatal("Error while writing to db")
+		t.Fatalf("Error while writing to db: %s", err)
 	}
 	value, err := openchainDB.GetFromBlockchainCF([]byte("dummyKey"))
-
 	if err != nil {
 		t.Fatalf("read error = [%s]", err)
 	}
-
 	if !bytes.Equal(value, []byte("dummyValue")) {
-		t.Fatal("read error. Bytes not equal")
+		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue", value)
+	}
+
+	value, err = openchainDB.GetFromStateCF([]byte("dummyKey1"))
+	if err != nil {
+		t.Fatalf("read error = [%s]", err)
+	}
+	if !bytes.Equal(value, []byte("dummyValue1")) {
+		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue1", value)
+	}
+
+	value, err = openchainDB.GetFromStateDeltaCF([]byte("dummyKey2"))
+	if err != nil {
+		t.Fatalf("read error = [%s]", err)
+	}
+	if !bytes.Equal(value, []byte("dummyValue2")) {
+		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue2", value)
+	}
+
+	value, err = openchainDB.GetFromIndexesCF([]byte("dummyKey3"))
+	if err != nil {
+		t.Fatalf("read error = [%s]", err)
+	}
+	if !bytes.Equal(value, []byte("dummyValue3")) {
+		t.Fatalf("read error. Bytes not equal. Expected [%s], found [%s]", "dummyValue3", value)
 	}
 }

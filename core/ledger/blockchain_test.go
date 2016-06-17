@@ -26,7 +26,7 @@ import (
 )
 
 func TestBlockchain_InfoNoBlock(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blockchain := blockchainTestWrapper.blockchain
 	blockchainInfo, err := blockchain.getBlockchainInfo()
@@ -37,7 +37,7 @@ func TestBlockchain_InfoNoBlock(t *testing.T) {
 }
 
 func TestBlockchain_Info(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blocks, _, _ := blockchainTestWrapper.populateBlockChainWithSampleData()
 
