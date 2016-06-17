@@ -907,7 +907,7 @@ Feature: lanching 3 peers
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 |
 	    Then I should get a JSON response from peers with "OK" = "21"
-            | vp0  | vp1 | vp2 | 
+            | vp0  | vp1 | vp2 |
         When I unconditionally query chaincode "example2" function name "query" with value "a" on peers:
             | vp3  |
 	    Then I should get a JSON response from peers with "Error" = "Error: state may be inconsistent, cannot query"
@@ -964,6 +964,7 @@ Feature: lanching 3 peers
 
 #    @doNotDecompose
 #    @wip
+     @issue_1874
     Scenario: chaincode example02 with 4 peers, two stopped
         Given we compose "docker-compose-4-consensus-batch.yml"
 	    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
