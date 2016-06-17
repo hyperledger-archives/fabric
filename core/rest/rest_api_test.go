@@ -561,3 +561,13 @@ func TestServerOpenchainREST_API_Chaincode_Query(t *testing.T) {
 		t.Errorf("Expected 'get_owner_query_result' but got '%v'", res.Result.Message)
 	}
 }
+
+func TestServerOpenchainREST_API_NotFound(t *testing.T) {
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+	body := performHTTPGet(t, httpServer.URL+"/non-existing")
+	res := parseRESTResult(t, body)
+	if res.Error != "Openchain endpoint not found." {
+		t.Errorf("Expected an error when accessing non-existing endpoint, but got %#v", res.Error)
+	}
+}

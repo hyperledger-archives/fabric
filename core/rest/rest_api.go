@@ -1666,7 +1666,7 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 	rw.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(rw, "{\"Error\": \"Openchain endpoint not found.\"}")
+	json.NewEncoder(rw).Encode(restResult{Error: "Openchain endpoint not found."})
 }
 
 func buildOpenchainRESTRouter() *web.Router {
