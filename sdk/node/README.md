@@ -219,27 +219,10 @@ This is needed to allow the peer to connect to the member services using TLS, ot
 
 *Note:* If you cleanup the folder `/var/hyperledger/production` then don't forget to copy again the *tlsca.cert* file as described above.
 
-## Getting Set Up
+## Running the SDK unit tests
+HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The unit [test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
 
-#### Setting up the testing environment
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
-
-    vagrant ssh
-
-Build the <b>Certificate Authority (CA)</b> server with the commands below:
-
-    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
-    go build
-
-Next, enable the security and privacy settings on the peer by setting `security.enabled` and `security.privacy` settings to `true` inside the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). Then build the peer with the following steps.
-
-Build the peer process with the commands below.
-
-    cd $GOPATH/src/github.com/hyperledger/fabric/peer
-    go build
-
-### Running the SDK unit tests
-HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). To run the unit tests, execute the following commands.
+To run the unit tests, execute the following commands.
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make node-sdk-unit-tests
@@ -247,16 +230,16 @@ HLC includes a set of unit tests implemented with the [tape framework](https://g
 The following are brief descriptions of each of the unit tests that are being run.
 
 #### registrar
-This test case exercises registering users with member services.  It also tests registering a registrar which can then register other users.
+The [registrar.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/registrar.js) test case exercises registering users with member services. It also tests registering a designated registrar user which can then register additional users.
 
 #### chain-tests
-This test case exercises chaincode *chaincode_example02* when it has been deployed in both development mode and network mode.
+The [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) test case exercises the [chaincode_example02.go](https://github.com/hyperledger/fabric/tree/master/examples/chaincode/go/chaincode_example02) chaincode when it has been deployed in both development mode and network mode.
 
 #### asset-mgmt
-This test case exercises the *asset_management* chaincode when it has been deployed in both development mode and network mode.
+The [asset-mgmt.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/asset-mgmt.js) test case exercises the [asset_management.go](https://github.com/hyperledger/fabric/tree/master/examples/chaincode/go/asset_management) chaincode when it has been deployed in both development mode and network mode.
 
 #### asset-mgmt-with-roles
-This test case exercises the *asset_management_with_roles* chaincode when it has been deployed in both development mode and network mode.
+The [asset-mgmt-with-roles.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/asset-mgmt-with-roles.js) test case exercises the [asset_management_with_roles.go](https://github.com/hyperledger/fabric/tree/master/examples/chaincode/go/asset_management_with_roles) chaincode when it has been deployed in both development mode and network mode.
 
 #### Troublingshooting
 If you see errors stating that the client has already been registered/enrolled, keep in mind that you can perform the enrollment process only once, as the enrollmentSecret is a one-time-use password. You will see these errors if you have performed a user registration/enrollment and subsequently deleted the crypto tokens stored on the client side. The next time you try to enroll, errors similar to the ones below will be seen.
