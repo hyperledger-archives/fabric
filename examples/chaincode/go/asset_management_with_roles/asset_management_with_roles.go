@@ -98,7 +98,6 @@ func (t *AssetManagementChaincode) assign(stub *shim.ChaincodeStub, args []strin
 	}
 
 	asset := args[0]
-	//owner := []byte(args[1])
 	owner, err := base64.StdEncoding.DecodeString(args[1])
 	if err != nil {
 		fmt.Printf("Error decoding [%v] \n", err)
@@ -155,7 +154,12 @@ func (t *AssetManagementChaincode) transfer(stub *shim.ChaincodeStub, args []str
 	}
 
 	asset := args[0]
-	newOwner := []byte(args[1])
+
+	newOwner, err := base64.StdEncoding.DecodeString(args[1])
+	if err != nil {
+		fmt.Printf("Error decoding [%v] \n", err)
+		return nil, errors.New("Failed decoding owner")
+	}
 
 	// Verify the identity of the caller
 	// Only the owner can transfer one of his assets

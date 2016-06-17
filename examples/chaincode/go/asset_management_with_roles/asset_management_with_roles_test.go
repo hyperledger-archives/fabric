@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -216,7 +217,8 @@ func assignOwnership(assigner crypto.Client, asset string, newOwnerCert crypto.C
 		return err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
+	newOwner := base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())
+	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, newOwner}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
@@ -261,7 +263,8 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 		return err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
+	newOwner := base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())
+	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, newOwner}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
