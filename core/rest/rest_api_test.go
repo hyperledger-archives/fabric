@@ -17,12 +17,16 @@ limitations under the License.
 package rest
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/protos"
@@ -31,7 +35,7 @@ import (
 func performHTTPGet(t *testing.T, url string) []byte {
 	response, err := http.Get(url)
 	if err != nil {
-		t.Fatalf("Error attempt to access /chain: %v", err)
+		t.Fatalf("Error attempt to GET %s: %v", url, err)
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
@@ -39,6 +43,19 @@ func performHTTPGet(t *testing.T, url string) []byte {
 		t.Fatalf("Error reading HTTP resposne body: %v", err)
 	}
 	return body
+}
+
+func performHTTPPost(t *testing.T, url string, requestBody []byte) (*http.Response, []byte) {
+	response, err := http.Post(url, "application/json", bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("Error attempt to POST %s: %v", url, err)
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatalf("Error reading HTTP resposne body: %v", err)
+	}
+	return response, body
 }
 
 func parseRESTResult(t *testing.T, body []byte) restResult {
@@ -50,12 +67,61 @@ func parseRESTResult(t *testing.T, body []byte) restResult {
 	return res
 }
 
+func parseRPCResponse(t *testing.T, body []byte) rpcResponse {
+	var res rpcResponse
+	err := json.Unmarshal(body, &res)
+	if err != nil {
+		t.Fatalf("Invalid JSON RPC response: %v", err)
+	}
+	return res
+}
+
+type mockDevops struct {
+}
+
+func (d *mockDevops) Login(c context.Context, s *protos.Secret) (*protos.Response, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) Build(c context.Context, cs *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) Deploy(c context.Context, spec *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
+	if spec.ChaincodeID.Path == "non-existing" {
+		return nil, fmt.Errorf("Deploy failure on non-existing path")
+	}
+	spec.ChaincodeID.Name = "new_name_for_deployed_chaincode"
+	return &protos.ChaincodeDeploymentSpec{ChaincodeSpec: spec, CodePackage: []byte{}}, nil
+}
+
+func (d *mockDevops) Invoke(c context.Context, cis *protos.ChaincodeInvocationSpec) (*protos.Response, error) {
+	switch cis.ChaincodeSpec.CtorMsg.Function {
+	case "fail":
+		return nil, fmt.Errorf("Invoke failure")
+	case "change_owner":
+		return &protos.Response{Status: protos.Response_SUCCESS, Msg: []byte("change_owner_invoke_result")}, nil
+	}
+	return nil, fmt.Errorf("Unknown function invoked")
+}
+
+func (d *mockDevops) Query(c context.Context, cis *protos.ChaincodeInvocationSpec) (*protos.Response, error) {
+	switch cis.ChaincodeSpec.CtorMsg.Function {
+	case "fail":
+		return nil, fmt.Errorf("Query failure with special-\" chars")
+	case "get_owner":
+		return &protos.Response{Status: protos.Response_SUCCESS, Msg: []byte("get_owner_query_result")}, nil
+	}
+	return nil, fmt.Errorf("Unknown query function")
+}
+
 func initGlobalServerOpenchain(t *testing.T) {
 	var err error
 	serverOpenchain, err = NewOpenchainServerWithPeerInfo(new(peerInfo))
 	if err != nil {
 		t.Fatalf("Error creating OpenchainServer: %s", err)
 	}
+	serverDevops = new(mockDevops)
 }
 
 func TestServerOpenchainREST_API_GetBlockchainInfo(t *testing.T) {
@@ -232,5 +298,259 @@ func TestServerOpenchainREST_API_GetPeers(t *testing.T) {
 	}
 	if msg.Peers[0].ID.Name != "jdoe" {
 		t.Errorf("Expected a 'jdoe' peer but got '%s'", msg.Peers[0].ID.Name)
+	}
+}
+
+func TestServerOpenchainREST_API_Chaincode_InvalidRequests(t *testing.T) {
+	// Construct a ledger with 3 blocks.
+	ledger := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger, t)
+
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	// Test empty POST payload
+	httpResponse, body := performHTTPPost(t, httpServer.URL+"/chaincode", []byte{})
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res := parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidRequest.Code {
+		t.Errorf("Expected an error when sending empty payload, but got %#v", res.Error)
+	}
+
+	// Test invalid POST payload
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte("{,,,"))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != ParseError.Code {
+		t.Errorf("Expected an error when sending invalid JSON payload, but got %#v", res.Error)
+	}
+
+	// Test request without ID (=notification) results in no response
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0"}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	if len(body) != 0 {
+		t.Errorf("Expected an empty response body to notification, but got %#v", string(body))
+	}
+
+	// Test missing JSON RPC version
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"ID":123}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidRequest.Code {
+		t.Errorf("Expected an error when sending missing jsonrpc version, but got %#v", res.Error)
+	}
+
+	// Test illegal JSON RPC version
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"0.0","ID":123}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidRequest.Code {
+		t.Errorf("Expected an error when sending illegal jsonrpc version, but got %#v", res.Error)
+	}
+
+	// Test missing JSON RPC method
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidRequest.Code {
+		t.Errorf("Expected an error when sending missing jsonrpc method, but got %#v", res.Error)
+	}
+
+	// Test illegal JSON RPC method
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"non_existing"}`))
+	if httpResponse.StatusCode != http.StatusNotFound {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusNotFound, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != MethodNotFound.Code {
+		t.Errorf("Expected an error when sending illegal jsonrpc method, but got %#v", res.Error)
+	}
+
+}
+
+func TestServerOpenchainREST_API_Chaincode_Deploy(t *testing.T) {
+	// Construct a ledger with 3 blocks.
+	ledger := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger, t)
+
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	// Test deploy without params
+	httpResponse, body := performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"deploy"}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res := parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidParams.Code {
+		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
+	}
+
+	// Test deploy with invalid chaincode path
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"deploy","params":{"type":1,"chaincodeID":{"path":"non-existing"},"ctorMsg":{"function":"Init","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != ChaincodeDeployError.Code {
+		t.Errorf("Expected an error when sending non-existing chaincode path, but got %#v", res.Error)
+	}
+
+	// Test deploy with real chaincode path
+	requestBody := `{
+		"jsonrpc": "2.0",
+		"ID": 123,
+		"method": "deploy",
+		"params": {
+			"type": 1,
+			"chaincodeID": {
+				"path": "github.com/hyperledger/fabric/core/rest/test_chaincode"
+			},
+			"ctorMsg": {
+				"function": "Init",
+				"args": []
+			}
+		}
+	}`
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(requestBody))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error != nil {
+		t.Errorf("Expected success but got %#v", res.Error)
+	}
+	if res.Result.Status != "OK" {
+		t.Errorf("Expected OK but got %#v", res.Result.Status)
+	}
+	if res.Result.Message != "new_name_for_deployed_chaincode" {
+		t.Errorf("Expected 'new_name_for_deployed_chaincode' but got '%#v'", res.Result.Message)
+	}
+}
+
+func TestServerOpenchainREST_API_Chaincode_Invoke(t *testing.T) {
+	// Construct a ledger with 3 blocks.
+	ledger := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger, t)
+
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	// Test invoke without params
+	httpResponse, body := performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke"}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res := parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidParams.Code {
+		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
+	}
+
+	// Test invoke with "fail" function
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != ChaincodeInvokeError.Code {
+		t.Errorf("Expected an error when sending non-existing chaincode path, but got %#v", res.Error)
+	}
+
+	// Test invoke with "change_owner" function
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"change_owner","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error != nil {
+		t.Errorf("Expected success but got %#v", res.Error)
+	}
+	if res.Result.Status != "OK" {
+		t.Errorf("Expected OK but got %#v", res.Result.Status)
+	}
+	if res.Result.Message != "change_owner_invoke_result" {
+		t.Errorf("Expected 'change_owner_invoke_result' but got '%v'", res.Result.Message)
+	}
+}
+
+func TestServerOpenchainREST_API_Chaincode_Query(t *testing.T) {
+	// Construct a ledger with 3 blocks.
+	ledger := ledger.InitTestLedger(t)
+	buildTestLedger1(ledger, t)
+
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	// Test query without params
+	httpResponse, body := performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query"}`))
+	if httpResponse.StatusCode != http.StatusBadRequest {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusBadRequest, httpResponse.StatusCode)
+	}
+	res := parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidParams.Code {
+		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
+	}
+
+	// Test query with non-existing chaincode name
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"non-existing"},"ctorMsg":{"function":"Init","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != ChaincodeQueryError.Code {
+		t.Errorf("Expected an error when sending non-existing chaincode path, but got %#v", res.Error)
+	}
+
+	// Test query with fail function
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != ChaincodeQueryError.Code {
+		t.Errorf("Expected an error when chaincode query fails, but got %#v", res.Error)
+	}
+	if res.Error.Data != "Error when querying chaincode: Query failure with special-\" chars" {
+		t.Errorf("Expected an error message when chaincode query fails, but got %#v", res.Error.Data)
+	}
+
+	// Test query with get_owner function
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"get_owner","args":[]}}}`))
+	if httpResponse.StatusCode != http.StatusOK {
+		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+	}
+	res = parseRPCResponse(t, body)
+	if res.Error != nil {
+		t.Errorf("Expected success but got %#v", res.Error)
+	}
+	if res.Result.Status != "OK" {
+		t.Errorf("Expected OK but got %#v", res.Result.Status)
+	}
+	if res.Result.Message != "get_owner_query_result" {
+		t.Errorf("Expected 'get_owner_query_result' but got '%v'", res.Result.Message)
 	}
 }
