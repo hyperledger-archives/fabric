@@ -24,20 +24,22 @@ import (
 	"fmt"
 
 	"encoding/asn1"
+	"encoding/base64"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/op/go-logging"
 	"strings"
-	"encoding/base64"
-	"github.com/hyperledger/fabric/core/crypto"
 )
 
 var myLogger = logging.MustGetLogger("rbac_chaincode")
 
+// RBACMetadata metadata structure for RBAC information
 type RBACMetadata struct {
 	Cert  []byte
 	Sigma []byte
 }
 
+// RBACChaincode RBAC chaincode structure
 type RBACChaincode struct {
 }
 
@@ -46,7 +48,7 @@ func (t *RBACChaincode) Init(stub *shim.ChaincodeStub, function string, args []s
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
 
 	myLogger.Info("Init")
@@ -58,8 +60,8 @@ func (t *RBACChaincode) Init(stub *shim.ChaincodeStub, function string, args []s
 
 	// Create RBAC table
 	err := stub.CreateTable("RBAC", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{"ID", shim.ColumnDefinition_BYTES, true},
-		&shim.ColumnDefinition{"Roles", shim.ColumnDefinition_STRING, false},
+		&shim.ColumnDefinition{Name: "ID", Type: shim.ColumnDefinition_BYTES, Key: true},
+		&shim.ColumnDefinition{Name: "Roles", Type: shim.ColumnDefinition_STRING, Key: false},
 	})
 	if err != nil {
 		return nil, errors.New("Failed creating RBAC table.")
@@ -95,7 +97,7 @@ func (t *RBACChaincode) Init(stub *shim.ChaincodeStub, function string, args []s
 	return nil, nil
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke Run callback representing the invocation of a chaincode
 func (t *RBACChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	// Handle different functions
 	switch function {

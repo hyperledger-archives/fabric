@@ -155,7 +155,7 @@ func TestChaincode(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(wValue, rValue) {
-		t.Fatal("Read value is different from what written [%s]!=[%s]", string(wValue), string(rValue))
+		t.Fatal(fmt.Sprintf("Read value is different from what written [%s]!=[%s]", string(wValue), string(rValue)))
 	}
 
 	// Alice tries to read
@@ -427,7 +427,7 @@ func setup() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
 
 	hl := filepath.Join(os.TempDir(), "hyperledger")
