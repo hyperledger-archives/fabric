@@ -240,13 +240,16 @@ peer:
 
     # TLS Settings for p2p communications
     tls:
-        enabled:  false
+        enabled:  true
         cert:
             file: testdata/server1.pem
         key:
             file: testdata/server1.key
+
         # The server name use to verify the hostname returned by TLS handshake
-        serverhostoverride:
+        # The key cert was generated using
+        #       openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout testdata/server1.key -out testdata/server1.pem
+        serverhostoverride: dummy
 
     # PKI member services properties
     pki:
