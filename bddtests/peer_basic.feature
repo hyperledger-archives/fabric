@@ -1014,3 +1014,55 @@ Feature: lanching 3 peers
              | vp0  | vp1 | vp3 |
              Then I should get a JSON response from peers with "OK" = "0"
              | vp0  | vp1 | vp3 |
+#@doNotDecompose
+#    @wip
+@issue_1873
+       Scenario Outline: 4 peers and 1 membersrvc, consensus works if vp0 is stopped TTT3
+            Given we compose "<ComposeFile>"
+            And I use the following credentials for querying peers:
+               | peer |   username  |    secret    |
+               | vp0  |  test_user0 | MS9qrN8hFjlE |
+               | vp1  |  test_user1 | jGlNl6ImkuDo |
+               | vp2  |  test_user2 | zMflqOKezFiA |
+               | vp3  |  test_user3 | vWdLCE00vJy0 |
+            And I register with CA supplying username "test_user0" and secret "MS9qrN8hFjlE" on peers:
+               | vp0 |
+
+            When requesting "/chain" from "vp0"
+            Then I should get a JSON response with "height" = "1"
+
+            # Deploy
+            When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
+               | arg1 |  arg2 | arg3 | arg4 |
+               |  a   |  100  |  b   |  200 |
+            Then I should have received a chaincode name
+            Then I wait up to "<WaitTime>" seconds for transaction to be committed to peers:
+               | vp0  | vp1 | vp2 | vp3 |
+
+            When requesting "/chain" from "vp0"
+            Then I should get a JSON response with "height" = "2"
+
+            # STOP vp0
+            Given I stop peers:
+               | vp0  |
+            And I wait "5" seconds
+
+            And I register with CA supplying username "test_user1" and secret "jGlNl6ImkuDo" on peers:
+               | vp1 |
+
+            When I invoke chaincode "example2" function name "invoke" on "vp1" "5" times
+               |arg1|arg2|arg3|
+               | a  | b  | 1 |
+            Then I should have received a transactionID
+            #Then I wait up to "120" seconds for transaction to be committed to peers:
+            #      | vp0  | vp1 | vp2 | vp3 |
+            And I wait "120" seconds
+            When I query chaincode "example2" function name "query" with value "a" on peers:
+               | vp1 | vp2 | vp3 |
+            Then I should get a JSON response from peers with "OK" = "95"
+               | vp1 | vp2 | vp3 |
+            Examples: Consensus Options
+               |          ComposeFile                       |   WaitTime   |
+              #    |   docker-compose-4-consensus-classic.yml   |      60      |
+               |   docker-compose-4-consensus-batch.yml     |      60      |
+              #    |   docker-compose-4-consensus-sieve.yml     |      60

@@ -394,7 +394,10 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 // VerifyChain will verify the integrety of the blockchain. This is accomplished
 // by ensuring that the previous block hash stored in each block matches
 // the actual hash of the previous block in the chain. The return value is the
-// block number of the block that contains the non-matching previous block hash.
+// block number of lowest block in the range which can be verified as valid.
+// The first block is assumed to be valid, and an error is only returned if the
+// first block does not exist, or some other sort of irrecoverable ledger error
+// such as the first block failing to hash is encountered.
 // For example, if VerifyChain(0, 99) is called and prevous hash values stored
 // in blocks 8, 32, and 42 do not match the actual hashes of respective previous
 // block 42 would be the return value from this function.
@@ -406,36 +409,37 @@ func (ledger *Ledger) VerifyChain(highBlock, lowBlock uint64) (uint64, error) {
 	if highBlock >= ledger.GetBlockchainSize() {
 		return highBlock, ErrOutOfBounds
 	}
-	if highBlock <= lowBlock {
+	if highBlock < lowBlock {
 		return lowBlock, ErrOutOfBounds
 	}
 
+	currentBlock, err := ledger.GetBlockByNumber(highBlock)
+	if err != nil {
+		return highBlock, fmt.Errorf("Error fetching block %d.", highBlock)
+	}
+	if currentBlock == nil {
+		return highBlock, fmt.Errorf("Block %d is nil.", highBlock)
+	}
+
 	for i := highBlock; i > lowBlock; i-- {
-		currentBlock, err := ledger.GetBlockByNumber(i)
-		if err != nil {
-			return i, fmt.Errorf("Error fetching block %d.", i)
-		}
-		if currentBlock == nil {
-			return i, fmt.Errorf("Block %d is nil.", i)
-		}
 		previousBlock, err := ledger.GetBlockByNumber(i - 1)
 		if err != nil {
-			return i - 1, fmt.Errorf("Error fetching block %d.", i)
+			return i, nil
 		}
 		if previousBlock == nil {
-			return i - 1, fmt.Errorf("Block %d is nil.", i-1)
+			return i, nil
 		}
-
 		previousBlockHash, err := previousBlock.GetHash()
 		if err != nil {
-			return i - 1, fmt.Errorf("Error calculating block hash for block %d.", i-1)
+			return i, nil
 		}
 		if bytes.Compare(previousBlockHash, currentBlock.PreviousBlockHash) != 0 {
 			return i, nil
 		}
+		currentBlock = previousBlock
 	}
 
-	return 0, nil
+	return lowBlock, nil
 }
 
 func (ledger *Ledger) checkValidIDBegin() error {

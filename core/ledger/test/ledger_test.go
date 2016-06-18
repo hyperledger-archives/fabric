@@ -469,7 +469,7 @@ var _ = Describe("Ledger", func() {
 		It("verifies the blockchain", func() {
 			// Verify the chain
 			for lowBlock := uint64(0); lowBlock < ledgerPtr.GetBlockchainSize()-1; lowBlock++ {
-				Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(0)))
+				Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(lowBlock))
 			}
 			for highBlock := ledgerPtr.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
 				Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(0)))
@@ -483,23 +483,19 @@ var _ = Describe("Ledger", func() {
 				goodBlock, _ := ledgerPtr.GetBlockByNumber(i)
 				ledgerPtr.PutRawBlock(badBlock, i)
 				for lowBlock := uint64(0); lowBlock < ledgerPtr.GetBlockchainSize()-1; lowBlock++ {
-					if i >= lowBlock {
-						expected := uint64(i + 1)
-						if i == ledgerPtr.GetBlockchainSize()-1 {
-							expected--
-						}
-						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(expected))
+					if i == ledgerPtr.GetBlockchainSize()-1 {
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(i)))
+					} else if i >= lowBlock {
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(i + 1)))
 					} else {
-						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(0)))
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(lowBlock))
 					}
 				}
 				for highBlock := ledgerPtr.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
-					if i <= highBlock {
-						expected := uint64(i + 1)
-						if i == highBlock {
-							expected--
-						}
-						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(expected))
+					if i == highBlock {
+						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(i)))
+					} else if i < highBlock {
+						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(i + 1)))
 					} else {
 						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(0)))
 					}
@@ -510,8 +506,6 @@ var _ = Describe("Ledger", func() {
 		// Test edge cases
 		It("tests some edge cases", func() {
 			_, err := ledgerPtr.VerifyChain(2, 10)
-			Expect(err).To(Equal(ledger.ErrOutOfBounds))
-			_, err = ledgerPtr.VerifyChain(2, 2)
 			Expect(err).To(Equal(ledger.ErrOutOfBounds))
 			_, err = ledgerPtr.VerifyChain(0, 100)
 			Expect(err).To(Equal(ledger.ErrOutOfBounds))
