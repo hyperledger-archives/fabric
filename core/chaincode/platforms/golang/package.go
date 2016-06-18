@@ -60,6 +60,11 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	//let the executable's name be chaincode ID's name
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
+
+	//NOTE-this could have been abstracted away so we could use it for all platforms in a common manner
+	//However, it would still be docker specific. Hence any such abstraction has to be done in a manner that
+	//is not just language dependent but also container depenedent. So lets make this change per platform for now
+	//in the interest of avoiding over-engineering without proper abstraction
 	if viper.GetBool("peer.tls.enabled") {
 		newRunLine = fmt.Sprintf("%s\nCOPY src/certs/cert.pem %s", newRunLine, viper.GetString("peer.tls.cert.file"))
 		newRunLine = fmt.Sprintf("%s\nCOPY src/certs/key.pem %s", newRunLine, viper.GetString("peer.tls.key.file"))
