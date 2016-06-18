@@ -79,7 +79,7 @@ func (indexer *blockchainIndexerAsync) start(blockchain *blockchain) error {
 				return
 			}
 			if indexer.indexerState.hasError() {
-				indexLogger.Debugf("Not indexing block number [%d]. Because of previous error: %s.",
+				indexLogger.Errorf("Not indexing block number [%d]. Because of previous error: %s.",
 					blockWrapper.blockNumber, indexer.indexerState.getError())
 				continue
 			}

@@ -44,12 +44,12 @@ var (
 
 func initNVP() (err error) {
 	if err = initPeerClient(); err != nil {
-		appLogger.Debugf("Failed deploying [%s]", err)
+		appLogger.Errorf("Failed deploying [%s]", err)
 		return
 
 	}
 	if err = initCryptoClients(); err != nil {
-		appLogger.Debugf("Failed deploying [%s]", err)
+		appLogger.Errorf("Failed deploying [%s]", err)
 		return
 	}
 

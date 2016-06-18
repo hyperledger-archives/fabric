@@ -302,7 +302,7 @@ func (handler *Handler) processStream() error {
 			}
 			chaincodeLogger.Debugf("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
 			if in.Type.String() == pb.ChaincodeMessage_ERROR.String() {
-				chaincodeLogger.Debugf("Got error: %s", string(in.Payload))
+				chaincodeLogger.Errorf("Got error: %s", string(in.Payload))
 			}
 
 			// we can spin off another Recv again

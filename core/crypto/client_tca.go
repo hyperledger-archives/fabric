@@ -253,7 +253,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// DER to x509
 	x509Cert, err := primitives.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
-		client.Debugf("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
+		client.Errorf("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
 		return
 	}
@@ -418,7 +418,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		x509Cert, err := primitives.DERToX509Certificate(certDERs[i].Cert)
 		prek0 := certDERs[i].Prek0
 		if err != nil {
-			client.Debugf("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
+			client.Errorf("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
 			continue
 		}
