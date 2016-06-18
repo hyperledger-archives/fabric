@@ -165,7 +165,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	chrte2, ok := chaincodeSupport.chaincodeHasBeenLaunched(key)
 	if ok && chrte2.handler.registered == true {
-		chaincodeLogger.Errorf("duplicate registered handler(key:%s) return error", key)
+		chaincodeLogger.Debugf("duplicate registered handler(key:%s) return error", key)
 		// Duplicate, return error
 		return newDuplicateChaincodeHandlerError(chaincodehandler)
 	}
@@ -220,7 +220,7 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 	var ok bool
 	if chrte, ok = chaincodeSupport.chaincodeHasBeenLaunched(chaincode); !ok {
 		chaincodeSupport.runningChaincodes.Unlock()
-		chaincodeLogger.Errorf("handler not found for chaincode %s", chaincode)
+		chaincodeLogger.Debugf("handler not found for chaincode %s", chaincode)
 		return fmt.Errorf("handler not found for chaincode %s", chaincode)
 	}
 	chaincodeSupport.runningChaincodes.Unlock()
@@ -315,10 +315,10 @@ func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.
 		err = fmt.Errorf("Timeout expired while starting chaincode %s(networkid:%s,peerid:%s,tx:%s)", chaincode, chaincodeSupport.peerNetworkID, chaincodeSupport.peerID, uuid)
 	}
 	if err != nil {
-		chaincodeLogger.Errorf("stopping due to error while launching %s", err)
+		chaincodeLogger.Debugf("stopping due to error while launching %s", err)
 		errIgnore := chaincodeSupport.Stop(ctxt, cds)
 		if errIgnore != nil {
-			chaincodeLogger.Errorf("error on stop %s(%s)", errIgnore, err)
+			chaincodeLogger.Debugf("error on stop %s(%s)", errIgnore, err)
 		}
 	}
 	return alreadyRunning, err
@@ -395,7 +395,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 	if chrte, ok = chaincodeSupport.chaincodeHasBeenLaunched(chaincode); ok {
 		if !chrte.handler.registered {
 			chaincodeSupport.runningChaincodes.Unlock()
-			chaincodeLogger.Errorf("premature execution - chaincode (%s) is being launched", chaincode)
+			chaincodeLogger.Debugf("premature execution - chaincode (%s) is being launched", chaincode)
 			err = fmt.Errorf("premature execution - chaincode (%s) is being launched", chaincode)
 			return cID, cMsg, err
 		}
@@ -457,7 +457,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid, targz)
 		if err != nil {
-			chaincodeLogger.Errorf("launchAndWaitForRegister failed %s", err)
+			chaincodeLogger.Debugf("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
 		}
 	}
@@ -466,11 +466,11 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		//send init (if (f,args)) and wait for ready state
 		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t, depTx)
 		if err != nil {
-			chaincodeLogger.Errorf("sending init failed(%s)", err)
+			chaincodeLogger.Debugf("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
 			errIgnore := chaincodeSupport.Stop(context, cds)
 			if errIgnore != nil {
-				chaincodeLogger.Errorf("stop failed %s(%s)", errIgnore, err)
+				chaincodeLogger.Debugf("stop failed %s(%s)", errIgnore, err)
 			}
 		}
 		chaincodeLogger.Debug("sending init completed")
@@ -517,7 +517,7 @@ func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.
 	chaincodeSupport.runningChaincodes.Lock()
 	//if its in the map, there must be a connected stream...and we are trying to build the code ?!
 	if _, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode); ok {
-		chaincodeLogger.Errorf("deploy ?!! there's a chaincode with that name running: %s", chaincode)
+		chaincodeLogger.Debugf("deploy ?!! there's a chaincode with that name running: %s", chaincode)
 		chaincodeSupport.runningChaincodes.Unlock()
 		return cds, fmt.Errorf("deploy attempted but a chaincode with same name running %s", chaincode)
 	}
@@ -580,7 +580,7 @@ func (chaincodeSupport *ChaincodeSupport) Execute(ctxt context.Context, chaincod
 	chrte, ok := chaincodeSupport.chaincodeHasBeenLaunched(chaincode)
 	if !ok {
 		chaincodeSupport.runningChaincodes.Unlock()
-		chaincodeLogger.Errorf("cannot execute-chaincode is not running: %s", chaincode)
+		chaincodeLogger.Debugf("cannot execute-chaincode is not running: %s", chaincode)
 		return nil, fmt.Errorf("Cannot execute transaction or query for %s", chaincode)
 	}
 	chaincodeSupport.runningChaincodes.Unlock()

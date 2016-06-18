@@ -361,22 +361,22 @@ func ExportChanges(dir string, changes []Change) (Archive, error) {
 					ChangeTime: timestamp,
 				}
 				if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-					logrus.Errorf("Can't write whiteout header: %s", err)
+					logrus.Debugf("Can't write whiteout header: %s", err)
 				}
 			} else {
 				path := filepath.Join(dir, change.Path)
 				if err := ta.addTarFile(path, change.Path[1:]); err != nil {
-					logrus.Errorf("Can't add file %s to tar: %s", path, err)
+					logrus.Debugf("Can't add file %s to tar: %s", path, err)
 				}
 			}
 		}
 
 		// Make sure to check the error on Close.
 		if err := ta.TarWriter.Close(); err != nil {
-			logrus.Errorf("Can't close layer: %s", err)
+			logrus.Debugf("Can't close layer: %s", err)
 		}
 		if err := writer.Close(); err != nil {
-			logrus.Errorf("failed close Changes writer: %s", err)
+			logrus.Debugf("failed close Changes writer: %s", err)
 		}
 	}()
 	return reader, nil

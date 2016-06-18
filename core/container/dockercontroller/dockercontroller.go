@@ -110,7 +110,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 	imageID, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Errorf("start - cannot create client %s", err)
+		dockerLogger.Debugf("start - cannot create client %s", err)
 		return err
 	}
 
@@ -126,7 +126,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		//if image not found try to create image and retry
 		if err == docker.ErrNoSuchImage {
 			if reader != nil {
-				dockerLogger.Errorf("start-could not find image ...attempt to recreate image %s", err)
+				dockerLogger.Debugf("start-could not find image ...attempt to recreate image %s", err)
 				if err = vm.deployImage(client, ccid, args, env, attachstdin, attachstdout, reader); err != nil {
 					return err
 				}
@@ -161,7 +161,7 @@ func (vm *DockerVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 	id, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Errorf("start - cannot create client %s", err)
+		dockerLogger.Debugf("start - cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
@@ -174,14 +174,14 @@ func (vm *DockerVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id string, timeout uint, dontkill bool, dontremove bool) error {
 	err := client.StopContainer(id, timeout)
 	if err != nil {
-		dockerLogger.Errorf("Stop container %s(%s)", id, err)
+		dockerLogger.Debugf("Stop container %s(%s)", id, err)
 	} else {
 		dockerLogger.Debugf("Stopped container %s", id)
 	}
 	if !dontkill {
 		err = client.KillContainer(docker.KillContainerOptions{ID: id})
 		if err != nil {
-			dockerLogger.Errorf("Kill container %s (%s)", id, err)
+			dockerLogger.Debugf("Kill container %s (%s)", id, err)
 		} else {
 			dockerLogger.Debugf("Killed container %s", id)
 		}
@@ -189,7 +189,7 @@ func (vm *DockerVM) stopInternal(ctxt context.Context, client *docker.Client, id
 	if !dontremove {
 		err = client.RemoveContainer(docker.RemoveContainerOptions{ID: id, Force: true})
 		if err != nil {
-			dockerLogger.Errorf("Remove container %s (%s)", id, err)
+			dockerLogger.Debugf("Remove container %s (%s)", id, err)
 		} else {
 			dockerLogger.Debugf("Removed container %s", id)
 		}

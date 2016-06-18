@@ -86,7 +86,7 @@ func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan bool) {
 		err = b.comm.Unicast(msg, h)
 	}
 	if err != nil {
-		logger.Errorf("could not send to replica %d: %v", dest, err)
+		logger.Debugf("could not send to replica %d: %v", dest, err)
 		select {
 		case <-b.closedCh:
 			return

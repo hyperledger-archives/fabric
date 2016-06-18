@@ -97,7 +97,7 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 				break
 			}
 			if er != nil {
-				logrus.Errorf("Error reading header: %s", er)
+				logrus.Debugf("Error reading header: %s", er)
 				return 0, er
 			}
 		}
@@ -113,7 +113,7 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 			// Write on stderr
 			out = dsterr
 		default:
-			logrus.Errorf("Error selecting output fd: (%d)", buf[StdWriterFdIndex])
+			logrus.Debugf("Error selecting output fd: (%d)", buf[StdWriterFdIndex])
 			return 0, ErrInvalidStdHeader
 		}
 
@@ -136,13 +136,13 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 			nr += nr2
 			if er == io.EOF {
 				if nr < frameSize+StdWriterPrefixLen {
-					logrus.Errorf("Corrupted frame: %v", buf[StdWriterPrefixLen:nr])
+					logrus.Debugf("Corrupted frame: %v", buf[StdWriterPrefixLen:nr])
 					return written, nil
 				}
 				break
 			}
 			if er != nil {
-				logrus.Errorf("Error reading frame: %s", er)
+				logrus.Debugf("Error reading frame: %s", er)
 				return 0, er
 			}
 		}
@@ -150,12 +150,12 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 		// Write the retrieved frame (without header)
 		nw, ew = out.Write(buf[StdWriterPrefixLen : frameSize+StdWriterPrefixLen])
 		if ew != nil {
-			logrus.Errorf("Error writing frame: %s", ew)
+			logrus.Debugf("Error writing frame: %s", ew)
 			return 0, ew
 		}
 		// If the frame has not been fully written: error
 		if nw != frameSize {
-			logrus.Errorf("Error Short Write: (%d on %d)", nw, frameSize)
+			logrus.Debugf("Error Short Write: (%d on %d)", nw, frameSize)
 			return 0, io.ErrShortWrite
 		}
 		written += int64(nw)

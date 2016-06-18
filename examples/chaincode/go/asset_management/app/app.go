@@ -238,7 +238,7 @@ func main() {
 	// transactions to the fabric network.
 	// A 'core.yaml' file is assumed to be available in the working directory.
 	if err := initNVP(); err != nil {
-		appLogger.Errorf("Failed initiliazing NVP [%s]", err)
+		appLogger.Debugf("Failed initiliazing NVP [%s]", err)
 		os.Exit(-1)
 	}
 
@@ -247,7 +247,7 @@ func main() {
 
 	// Exercise the 'asset_management' chaincode
 	if err := testAssetManagementChaincode(); err != nil {
-		appLogger.Errorf("Failed testing asset management chaincode [%s]", err)
+		appLogger.Debugf("Failed testing asset management chaincode [%s]", err)
 		os.Exit(-2)
 	}
 }
