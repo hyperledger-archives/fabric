@@ -529,7 +529,7 @@ func (p *PeerImpl) ensureConnected() {
 		<-tickChan
 		peersMsg, err := p.GetPeers()
 		if err != nil {
-			peerLogger.Error("Error in touch service: %s", err.Error())
+			peerLogger.Errorf("Error in touch service: %s", err.Error())
 		}
 		if len(peersMsg.Peers) == 0 {
 			// No currently connected peers, going to try to chat with rootnode again if defined
