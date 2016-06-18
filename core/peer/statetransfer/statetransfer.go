@@ -551,7 +551,7 @@ func (sts *coordinatorImpl) verifyAndRecoverBlockchain() bool {
 	logger.Debugf("%v verified chain from %d to %d, with target of %d", sts.id, lowBlock, lastGoodBlockNumber, targetBlock)
 
 	if err != nil {
-		logger.Criticalf("%v had something go wrong while validating the blockchain, not sure if we will recover: %s", sts.id)
+		logger.Criticalf("%v had something go wrong while validating the blockchain, not sure if we will recover: %s", sts.id, err)
 		return false
 	}
 
