@@ -39,6 +39,7 @@
 PROJECT_NAME=hyperledger/fabric
 PKGNAME = github.com/$(PROJECT_NAME)
 CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
+UID = $(shell id -u)
 
 EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
@@ -63,7 +64,7 @@ go.fqp.gomega := github.com/onsi/gomega
 
 all: peer membersrvc checks
 
-checks: unit-test behave linter
+checks: linter unit-test behave
 
 .PHONY: peer
 peer: build/bin/peer
@@ -88,7 +89,17 @@ gotools: $(GOTOOLS_BIN)
 
 linter: gotools
 	@echo "LINT: Running code checks.."
-	@echo "LINT: No errors found"
+	@echo "Running go vet"
+	go vet ./consensus/...
+	go vet ./core/...
+	go vet ./discovery/...
+	go vet ./events/...
+	go vet ./examples/...
+	go vet ./membersrvc/...
+	go vet ./peer/...
+	go vet ./protos/...
+	@echo "Running goimports"
+	@./scripts/goimports.sh
 
 # Special override for protoc-gen-go since we want to use the version vendored with the project
 gotool.protoc-gen-go:
@@ -114,6 +125,7 @@ $(GOPATH)/bin/%:
 	@echo "Building $@"
 	@mkdir -p $(@D)
 	@docker run -i \
+		--user=$(UID) \
 		-v $(abspath vendor/github.com/golang/protobuf):/opt/gopath/src/github.com/golang/protobuf \
 		-v $(abspath $(@D)):/opt/gopath/bin \
 		hyperledger/fabric-baseimage go install github.com/golang/protobuf/protoc-gen-go
@@ -129,6 +141,7 @@ build/docker/bin/%: build/image/src/.dummy $(PROJECT_FILES)
 	@echo "Building $@"
 	@mkdir -p build/docker/bin build/docker/pkg
 	@docker run -i \
+		--user=$(UID) \
 		-v $(abspath build/docker/bin):/opt/gopath/bin \
 		-v $(abspath build/docker/pkg):/opt/gopath/pkg \
 		hyperledger/fabric-src go install github.com/hyperledger/fabric/$(TARGET)
@@ -198,7 +211,7 @@ images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 node-sdk:
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	cd ./sdk/node && sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	cd ./sdk/node && tsc
 	cd ./sdk/node && ./makedoc.sh
 

@@ -32,7 +32,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
@@ -127,12 +127,12 @@ func requestTLSCertificate(t *testing.T) {
 	timestamp := google_protobuf.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())}
 
 	req := &membersrvc.TLSCertCreateReq{
-		&timestamp,
-		&membersrvc.Identity{Id: id + "-" + uuid},
-		&membersrvc.PublicKey{
+		Ts: &timestamp,
+		Id: &membersrvc.Identity{Id: id + "-" + uuid},
+		Pub: &membersrvc.PublicKey{
 			Type: membersrvc.CryptoType_ECDSA,
 			Key:  pubraw,
-		}, nil}
+		}, Sig: nil}
 
 	rawreq, _ := proto.Marshal(req)
 	r, s, err := ecdsa.Sign(rand.Reader, priv, primitives.Hash(rawreq))
@@ -144,7 +144,7 @@ func requestTLSCertificate(t *testing.T) {
 
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
-	req.Sig = &membersrvc.Signature{membersrvc.CryptoType_ECDSA, R, S}
+	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err := tlscaP.CreateCertificate(context.Background(), req)
 	if err != nil {

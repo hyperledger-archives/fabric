@@ -51,7 +51,7 @@ func (m *mockComm) GetNetworkInfo() (*pb.PeerEndpoint, []*pb.PeerEndpoint, error
 func (m *mockComm) GetNetworkHandles() (*pb.PeerID, []*pb.PeerID, error) {
 	var h []*pb.PeerID
 	for n := uint64(0); n < m.n; n++ {
-		h = append(h, &pb.PeerID{fmt.Sprintf("vp%d", n)})
+		h = append(h, &pb.PeerID{Name: fmt.Sprintf("vp%d", n)})
 	}
 	return h[m.self], h, nil
 }
@@ -84,7 +84,7 @@ func TestBroadcast(t *testing.T) {
 	}
 
 	if sentCount < 2 {
-		t.Error("broadcast did not send to all peers: %v", sent)
+		t.Errorf("broadcast did not send to all peers: %v", sent)
 	}
 }
 
@@ -183,6 +183,6 @@ func TestBroadcastUnicast(t *testing.T) {
 	}
 
 	if sentCount != 1 {
-		t.Error("broadcast did not send to dest peer: %v", sent)
+		t.Errorf("broadcast did not send to dest peer: %v", sent)
 	}
 }

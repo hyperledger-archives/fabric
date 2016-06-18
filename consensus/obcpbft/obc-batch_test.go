@@ -112,14 +112,14 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 			omni.UnicastImpl = func(ocMsg *pb.Message, peer *pb.PeerID) error {
 				dest, _ := getValidatorID(peer)
 				if dest == 0 || dest == 2 {
-					bs[dest].RecvMsg(ocMsg, &pb.PeerID{"vp1"})
+					bs[dest].RecvMsg(ocMsg, &pb.PeerID{Name: "vp1"})
 				}
 				return nil
 			}
 		}
 	}
 
-	err := bs[1].RecvMsg(createOcMsgWithChainTx(1), &pb.PeerID{"vp1"})
+	err := bs[1].RecvMsg(createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp1"})
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestViewChangeOnPrimarySilence(t *testing.T) {
 	defer b.Close()
 
 	// Send a request, which will be ignored, triggering view change
-	b.manager.Queue() <- batchMessageEvent{createOcMsgWithChainTx(1), &pb.PeerID{"vp0"}}
+	b.manager.Queue() <- batchMessageEvent{createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp0"}}
 	time.Sleep(time.Second)
 	b.manager.Queue() <- nil
 

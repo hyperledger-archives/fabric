@@ -208,7 +208,7 @@ peer:
         enabled:    true
 
         # number of workers that
-        # test the peers for being
+        # tast the peers for being
         # online [1..10]
         workers: 8
 
@@ -252,7 +252,16 @@ vm:
                 file: /path/to/ca.pem
             key:
                 file: /path/to/server-key.pem
-
+        # Parameters of docker container creating. For docker can created by custom parameters
+        # If you have your own ipam & dns-server for cluster you can use them to create container efficient.
+        # NetworkMode Sets the networking mode for the container. Supported standard values are: `host`(default),`bridge`,`ipvlan`,`none`
+        # dns A list of DNS servers for the container to use.
+        # note: not support customize for `Privileged` 
+        hostConfig:
+            NetworkMode: host
+            Dns:
+               # - 192.168.0.1
+            
 ###############################################################################
 #
 #    Chaincode section

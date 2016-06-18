@@ -38,6 +38,7 @@ before_script:
  - cd $HOME/gopath/src/github.com/$USER_NAME/$REPO_NAME/scripts && chmod +x foldercopy.sh && ./foldercopy.sh $TR_PULL_REQUEST $USER_NAME $REPO_NAME
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
  - cd /$HOME/gopath/src/github.com/hyperledger/fabric
+ - make linter
  - make unit-test
 
 script:
@@ -46,7 +47,6 @@ script:
  - cd $HOME/gopath/src/github.com/hyperledger/fabric
  - sed -i -e 's/172.17.0.1:2375\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
  - make behave BEHAVE_OPTS="-D logs=Y -o testsummary.log"
- - make linter
 
 after_failure:
 

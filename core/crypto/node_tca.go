@@ -20,6 +20,7 @@ import (
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"errors"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

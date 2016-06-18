@@ -18,9 +18,10 @@ package crypto
 
 import (
 	"errors"
-	"github.com/spf13/viper"
 	"strconv"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/ledger"

@@ -25,17 +25,19 @@ To work on something, whether a new feature or a bugfix:
   ```
   git clone https://github.com/yourid/fabric.git
   ```
+
   3. Add the upstream repository as a remote
   ```
   git remote add upstream https://github.com/hyperledger/fabric.git
   ```
-  4. Create a branch
 
+  4. Create a branch
   Create a descriptively-named branch off of your cloned fork ([more detail here](https://help.github.com/articles/syncing-a-fork/))
   ```
   cd fabric
   git checkout -b issue-nnnn
   ```
+
   5. Commit your code
 
   Commit to that branch locally, and regularly push your work to the same branch on the server.

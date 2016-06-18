@@ -34,7 +34,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -247,11 +247,11 @@ func main() {
 
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
-	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
-	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
-	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
+	viper.BindPFlag("peer.tls.enabled", flags.Lookup("peer-tls-enabled"))
+	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
+	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
+	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
+	viper.BindPFlag("peer.discovery.enabled", flags.Lookup("peer-discovery-enabled"))
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)

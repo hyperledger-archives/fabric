@@ -18,6 +18,7 @@ package protos
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/util"
 )
