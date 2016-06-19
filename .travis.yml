@@ -39,7 +39,7 @@ before_script:
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
  - cd /$HOME/gopath/src/github.com/hyperledger/fabric
  - make linter
- - make unit-test
+ - scripts/coverage --coveralls
 
 script:
 
