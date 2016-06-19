@@ -104,11 +104,6 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		if err != nil {
 			return fmt.Errorf("Error writing cert file to package: %s", err)
 		}
-
-		err = WriteFileToPackage(viper.GetString("peer.tls.key.file"), "src/certs/key.pem", tw)
-		if err != nil {
-			return fmt.Errorf("Error writing key file to package: %s", err)
-		}
 	}
 
 	// Write the tar file out

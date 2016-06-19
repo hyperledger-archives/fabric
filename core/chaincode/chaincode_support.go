@@ -266,7 +266,6 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (ar
 	if chaincodeSupport.peerTLS {
 		envs = append(envs, "CORE_PEER_TLS_ENABLED=true")
 		envs = append(envs, "CORE_PEER_TLS_CERT_FILE="+chaincodeSupport.peerTLSCertFile)
-		envs = append(envs, "CORE_PEER_TLS_KEY_FILE="+chaincodeSupport.peerTLSKeyFile)
 		if chaincodeSupport.peerTLSSvrHostOrd != "" {
 			envs = append(envs, "CORE_PEER_TLS_SERVERHOSTOVERRIDE="+chaincodeSupport.peerTLSSvrHostOrd)
 		}
