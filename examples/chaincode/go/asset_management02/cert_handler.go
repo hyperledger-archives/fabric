@@ -29,9 +29,11 @@ const (
 	contactInfo = "contactInfo"
 )
 
+//CertHandler provides APIs used to perform operations on incoming TCerts
 type CertHandler struct {
 }
 
+// NewCertHandler create a new reference to CertHandler
 func NewCertHandler() *CertHandler {
 	return &CertHandler{}
 }
@@ -66,7 +68,7 @@ func (t *CertHandler) getContactInfo(cert []byte) (string, error) {
 // attributeNames: attribute names inside TCert that stores the entity's account IDs
 func (t *CertHandler) getAccountIDsFromAttribute(cert []byte, attributeNames []string) ([]string, error) {
 	if cert == nil || attributeNames == nil {
-		return nil, errors.New("cert or accountIds list is empty")
+		return nil, errors.New("cert or accountIDs list is empty")
 	}
 
 	//decleare return object (slice of account IDs)
@@ -77,13 +79,13 @@ func (t *CertHandler) getAccountIDsFromAttribute(cert []byte, attributeNames []s
 	for _, attributeName := range attributeNames {
 		myLogger.Debugf("get value from attribute = v%", attributeName)
 		//get the attribute value from the corresbonding attribute name
-		accountId, err := attr.GetValueFrom(attributeName, cert)
+		accountID, err := attr.GetValueFrom(attributeName, cert)
 		if err != nil {
 			myLogger.Errorf("system error %v", err)
 			return nil, errors.New("unable to find user contact information")
 		}
 
-		acctIds = append(acctIds, string(accountId))
+		acctIds = append(acctIds, string(accountID))
 	}
 
 	myLogger.Debugf("ids = %v", acctIds)

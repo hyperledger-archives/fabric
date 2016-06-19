@@ -168,13 +168,13 @@ func TestAssigningAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	aliceAccountId1, err := attr.GetValueFrom("account1", aliceCert1.GetCertificate())
-	aliceAccountId2, err := attr.GetValueFrom("account2", aliceCert2.GetCertificate())
-	aliceAccountId3, err := attr.GetValueFrom("account3", aliceCert3.GetCertificate())
-	bobAccountId1, err := attr.GetValueFrom("account1", bobCert1.GetCertificate())
+	aliceAccountID1, err := attr.GetValueFrom("account1", aliceCert1.GetCertificate())
+	aliceAccountID2, err := attr.GetValueFrom("account2", aliceCert2.GetCertificate())
+	aliceAccountID3, err := attr.GetValueFrom("account3", aliceCert3.GetCertificate())
+	bobAccountID1, err := attr.GetValueFrom("account1", bobCert1.GetCertificate())
 
 	// Check if balances are assigned correctly
-	alice1BalanceRaw, err := getBalance(string(aliceAccountId1))
+	alice1BalanceRaw, err := getBalance(string(aliceAccountID1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestAssigningAssets(t *testing.T) {
 		t.Fatal("retreived balance does not equal to 100")
 	}
 
-	alice2BalanceRaw, err := getBalance(string(aliceAccountId2))
+	alice2BalanceRaw, err := getBalance(string(aliceAccountID2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestAssigningAssets(t *testing.T) {
 		t.Fatal("retreived balance does not equal to 200")
 	}
 
-	alice3BalanceRaw, err := getBalance(string(aliceAccountId3))
+	alice3BalanceRaw, err := getBalance(string(aliceAccountID3))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestAssigningAssets(t *testing.T) {
 		t.Fatal("retreived balance does not equal to 300")
 	}
 
-	bob1BalanceRaw, err := getBalance(string(bobAccountId1))
+	bob1BalanceRaw, err := getBalance(string(bobAccountID1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ func TestAssigningAssets(t *testing.T) {
 	}
 
 	//check if contact info is correctly saved into the chaincode state ledger
-	aliceContactInfo, err := getOwnerContactInformation(string(aliceAccountId1))
+	aliceContactInfo, err := getOwnerContactInformation(string(aliceAccountID1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestAssigningAssets(t *testing.T) {
 		t.Fatal("retreived contact info does not equal to alice@gmail.com")
 	}
 
-	bobContactInfo, err := getOwnerContactInformation(string(bobAccountId1))
+	bobContactInfo, err := getOwnerContactInformation(string(bobAccountID1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,14 +265,14 @@ func TestAssetTransfer(t *testing.T) {
 	***********************/
 
 	// check that 200 assets have been transfered to Bob; first step is to collect account Ids
-	aliceAccountId1, err := attr.GetValueFrom("account1", aliceCert.GetCertificate())
-	aliceAccountId2, err := attr.GetValueFrom("account2", aliceCert.GetCertificate())
-	aliceAccountId3, err := attr.GetValueFrom("account3", aliceCert.GetCertificate())
-	bobAccountId2, err := attr.GetValueFrom("account2", bobCert.GetCertificate())
+	aliceAccountID1, err := attr.GetValueFrom("account1", aliceCert.GetCertificate())
+	aliceAccountID2, err := attr.GetValueFrom("account2", aliceCert.GetCertificate())
+	aliceAccountID3, err := attr.GetValueFrom("account3", aliceCert.GetCertificate())
+	bobAccountID2, err := attr.GetValueFrom("account2", bobCert.GetCertificate())
 
 	//account1 of alice shouldn't have any balance left, and the account should have been
 	//deleted from the asset depository
-	alice1BalanceRaw, err := getBalance(string(aliceAccountId1))
+	alice1BalanceRaw, err := getBalance(string(aliceAccountID1))
 	fmt.Println("alice balance", alice1BalanceRaw)
 
 	if alice1BalanceRaw != nil {
@@ -281,7 +281,7 @@ func TestAssetTransfer(t *testing.T) {
 	fmt.Println("alice balance", alice1BalanceRaw)
 
 	// account2 of alice should still have 100 left on its balance
-	alice2BalanceRaw, err := getBalance(string(aliceAccountId2))
+	alice2BalanceRaw, err := getBalance(string(aliceAccountID2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestAssetTransfer(t *testing.T) {
 	}
 
 	// account3 of alice should still have 300 left on its balance
-	alice3BalanceRaw, err := getBalance(string(aliceAccountId3))
+	alice3BalanceRaw, err := getBalance(string(aliceAccountID3))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestAssetTransfer(t *testing.T) {
 	}
 
 	// account2 of bob should now have 200 on its balance
-	bobBalanceRaw, err := getBalance(string(bobAccountId2))
+	bobBalanceRaw, err := getBalance(string(bobAccountID2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,16 +443,16 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 
 }
 
-func getOwnerContactInformation(accountId string) ([]byte, error) {
-	return Query("getOwnerContactInformation", accountId)
+func getOwnerContactInformation(accountID string) ([]byte, error) {
+	return Query("getOwnerContactInformation", accountID)
 }
 
-func getBalance(accountId string) ([]byte, error) {
-	return Query("getBalance", accountId)
+func getBalance(accountID string) ([]byte, error) {
+	return Query("getBalance", accountID)
 }
 
-func Query(function, accountId string) ([]byte, error) {
-	chaincodeInput := &pb.ChaincodeInput{Function: function, Args: []string{accountId}}
+func Query(function, accountID string) ([]byte, error) {
+	chaincodeInput := &pb.ChaincodeInput{Function: function, Args: []string{accountID}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{

@@ -31,10 +31,11 @@ var myLogger = logging.MustGetLogger("asset_mgm")
 var certHandler = NewCertHandler()
 var despositoryHandler = NewDepositoryHandler()
 
+//AssetManagementChaincode APIs exposed to chaincode callers
 type AssetManagementChaincode struct {
 }
 
-// Assigns assets to a given account ID, only entities with the "issuer" are allowed to call this function
+// assignOwnership assigns assets to a given account ID, only entities with the "issuer" are allowed to call this function
 // Note: this issuer can only allocate balance to one account ID at a time
 // args[0]: investor's TCert
 // args[1]: attribute name inside the investor's TCert that contains investor's account ID
@@ -64,7 +65,7 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 	}
 
 	//retrieve account IDs from investor's TCert
-	accountIds, err := certHandler.getAccountIDsFromAttribute(owner, []string{accountAttribute})
+	accountIDs, err := certHandler.getAccountIDsFromAttribute(owner, []string{accountAttribute})
 	if err != nil {
 		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("Unable to retrieve account Ids from user certificate " + args[1])
@@ -79,10 +80,10 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 	}
 
 	//call DeposistoryHandler.assign function to put the "amount" and "contact info" under this account ID
-	return nil, despositoryHandler.assign(stub, accountIds[0], contactInfo, amount)
+	return nil, despositoryHandler.assign(stub, accountIDs[0], contactInfo, amount)
 }
 
-// Moves x number of assets from account A to account B
+// transferOwnership moves x number of assets from account A to account B
 // args[0]: Investor TCert that has account IDs which will their balances deducted
 // args[1]: attribute names inside TCert (arg[0]) that countain the account IDs
 // args[2]: Investor TCert that has account IDs which will have their balances increased
@@ -123,7 +124,7 @@ func (t *AssetManagementChaincode) transferOwnership(stub *shim.ChaincodeStub, a
 	// retrieve contact info from "transfer to" TCert
 	contactInfo, err := certHandler.getContactInfo(toOwner)
 	if err != nil {
-		myLogger.Errorf("system error %v", err)
+		myLogger.Errorf("system error %v received", err)
 		return nil, errors.New("Unable to retrieve contact info from user certificate" + args[4])
 	}
 
@@ -131,7 +132,7 @@ func (t *AssetManagementChaincode) transferOwnership(stub *shim.ChaincodeStub, a
 	return nil, despositoryHandler.transfer(stub, fromAccountIds, toAccountIds[0], contactInfo, amount)
 }
 
-// Retrieve the contact information of the investor that owns a particular account ID
+// getOwnerContactInformation retrieves the contact information of the investor that owns a particular account ID
 // Note: user contact information shall be encrypted with issuer's pub key or KA key
 // between investor and issuer, so that only issuer can decrypt such information
 // args[0]: one of the many account IDs owned by "some" investor
@@ -142,9 +143,9 @@ func (t *AssetManagementChaincode) getOwnerContactInformation(stub *shim.Chainco
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
 
-	accountId := args[0]
+	accountID := args[0]
 
-	email, err := despositoryHandler.QueryContactInfo(stub, accountId)
+	email, err := despositoryHandler.QueryContactInfo(stub, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func (t *AssetManagementChaincode) getOwnerContactInformation(stub *shim.Chainco
 	return []byte(email), nil
 }
 
-// Retrieve the account balance information of the investor that owns a particular account ID
+// getBalance retrieves the account balance information of the investor that owns a particular account ID
 // args[0]: one of the many account IDs owned by "some" investor
 func (t *AssetManagementChaincode) getBalance(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	myLogger.Debugf("+++++++++++++++++++++++++++++++++++getBalance+++++++++++++++++++++++++++++++++")
@@ -161,9 +162,9 @@ func (t *AssetManagementChaincode) getBalance(stub *shim.ChaincodeStub, args []s
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
 
-	accountId := args[0]
+	accountID := args[0]
 
-	balance, err := despositoryHandler.QueryBalance(stub, accountId)
+	balance, err := despositoryHandler.QueryBalance(stub, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +188,7 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 	return nil, despositoryHandler.createTable(stub)
 }
 
-// Invoke; this method is the interceptor of all invocation transactions, its job is to direct
+// Invoke  method is the interceptor of all invocation transactions, its job is to direct
 // invocation transactions to intended APIs
 func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Debugf("********************************Invoke****************************************")
@@ -204,16 +205,16 @@ func (t *AssetManagementChaincode) Invoke(stub *shim.ChaincodeStub, function str
 	return nil, errors.New("Received unknown function invocation")
 }
 
-// Query; this method is the interceptor of all invocation transactions, its job is to direct
+// Query method is the interceptor of all invocation transactions, its job is to direct
 // query transactions to intended APIs, and return the result back to callers
-func (mp *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	myLogger.Debugf("********************************Query****************************************")
 
 	// Handle different functions
 	if function == "getOwnerContactInformation" {
-		return mp.getOwnerContactInformation(stub, args)
+		return t.getOwnerContactInformation(stub, args)
 	} else if function == "getBalance" {
-		return mp.getBalance(stub, args)
+		return t.getBalance(stub, args)
 	}
 
 	return nil, errors.New("Received unknown function query invocation with function " + function)
