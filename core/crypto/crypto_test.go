@@ -735,7 +735,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Cert = nil
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
-			t.Fatalf("Pre Validatiotn should fail. No Cert.", err)
+			t.Fatalf("Pre Validatiotn should fail. No Cert. %s", err)
 		}
 		tx.Cert = oldCert
 
@@ -744,7 +744,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Signature = nil
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
-			t.Fatalf("Pre Validatiotn should fail. No Signature", err)
+			t.Fatalf("Pre Validatiotn should fail. No Signature. %s", err)
 		}
 		tx.Signature = oldSig
 
@@ -753,7 +753,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Cert = []byte{0, 1, 2, 3, 4}
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
-			t.Fatalf("Pre Validatiotn should fail. Invalid Cert.", err)
+			t.Fatalf("Pre Validatiotn should fail. Invalid Cert. %s", err)
 		}
 		tx.Cert = oldCert
 
@@ -762,7 +762,7 @@ func TestPeerDeployTransaction(t *testing.T) {
 		tx.Signature = []byte{0, 1, 2, 3, 4}
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
-			t.Fatalf("Pre Validatiotn should fail. Invalid Signature", err)
+			t.Fatalf("Pre Validatiotn should fail. Invalid Signature. %s", err)
 		}
 		tx.Signature = oldSig
 	}
@@ -967,7 +967,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 		tx.ConfidentialityLevel = -1
 		_, err = validator.TransactionPreExecution(tx)
 		if err == nil {
-			t.Fatalf("TransactionPreExecution should fail. Invalid ConfidentialityLevel.", err)
+			t.Fatalf("TransactionPreExecution should fail. Invalid ConfidentialityLevel. %s", err)
 		}
 		if err != utils.ErrInvalidConfidentialityLevel {
 			t.Fatalf("TransactionPreExecution should with ErrInvalidConfidentialityLevel rather than [%s]", err)
@@ -987,7 +987,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ToValidators = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. No ToValidators.", err)
+				t.Fatalf("TransactionPreExecution should fail. No ToValidators. %s", err)
 			}
 			tx.ToValidators = oldToValidators
 
@@ -996,7 +996,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ToValidators = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. Invalid ToValidators.", err)
+				t.Fatalf("TransactionPreExecution should fail. Invalid ToValidators. %s", err)
 			}
 			tx.ToValidators = oldToValidators
 
@@ -1005,7 +1005,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.Payload = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. No Payload.", err)
+				t.Fatalf("TransactionPreExecution should fail. No Payload. %s", err)
 			}
 			tx.Payload = oldPayload
 
@@ -1014,7 +1014,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.Payload = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. Invalid Payload.", err)
+				t.Fatalf("TransactionPreExecution should fail. Invalid Payload. %s", err)
 			}
 			tx.Payload = oldPayload
 
@@ -1023,7 +1023,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ChaincodeID = nil
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. No ChaincodeID.", err)
+				t.Fatalf("TransactionPreExecution should fail. No ChaincodeID. %s", err)
 			}
 			tx.ChaincodeID = oldChaincodeID
 
@@ -1032,7 +1032,7 @@ func TestValidatorDeployTransaction(t *testing.T) {
 			tx.ChaincodeID = []byte{0, 1, 2, 3, 4}
 			_, err = validator.TransactionPreExecution(tx)
 			if err == nil {
-				t.Fatalf("TransactionPreExecution should fail. Invalid ChaincodeID.", err)
+				t.Fatalf("TransactionPreExecution should fail. Invalid ChaincodeID. %s", err)
 			}
 			tx.ChaincodeID = oldChaincodeID
 		}
@@ -1436,8 +1436,6 @@ func setup() {
 	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "obc-crypto-tests", "peers"))
 	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca"))
 	viper.Set("peer.pki.tls.rootcert.file", filepath.Join(os.TempDir(), "obc-crypto-tests", "ca", "tlsca.cert"))
-	viper.Set("pki.validity-period.update", "false")
-	viper.Set("validator.validity-period.verification", "false")
 
 	// Logging
 	var formatter = logging.MustStringFormatter(
@@ -1539,13 +1537,13 @@ func closeNodes() {
 	ok, errs := CloseAllClients()
 	if !ok {
 		for _, err := range errs {
-			log.Error("Failed closing clients [%s]", err)
+			log.Errorf("Failed closing clients [%s]", err)
 		}
 	}
 	ok, errs = CloseAllPeers()
 	if !ok {
 		for _, err := range errs {
-			log.Error("Failed closing clients [%s]", err)
+			log.Errorf("Failed closing clients [%s]", err)
 		}
 	}
 	ok, errs = CloseAllValidators()
@@ -2065,19 +2063,19 @@ func cleanup() {
 	ok, errs := CloseAllClients()
 	if !ok {
 		for _, err := range errs {
-			log.Error("Failed closing clients [%s]", err)
+			log.Errorf("Failed closing clients [%s]", err)
 		}
 	}
 	ok, errs = CloseAllPeers()
 	if !ok {
 		for _, err := range errs {
-			log.Error("Failed closing clients [%s]", err)
+			log.Errorf("Failed closing clients [%s]", err)
 		}
 	}
 	ok, errs = CloseAllValidators()
 	if !ok {
 		for _, err := range errs {
-			log.Error("Failed closing clients [%s]", err)
+			log.Errorf("Failed closing clients [%s]", err)
 		}
 	}
 	stopPKI()

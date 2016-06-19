@@ -596,6 +596,10 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			payload := []byte(err.Error())
 			chaincodeLogger.Errorf("[%s]Failed to get chaincode state(%s). Sending %s", shortuuid(msg.Uuid), err, pb.ChaincodeMessage_ERROR)
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
+		} else if res == nil {
+			//The state object being requested does not exist, so don't attempt to decrypt it
+			chaincodeLogger.Debugf("[%s]No state associated with key: %s. Sending %s with an empty payload", shortuuid(msg.Uuid), key, pb.ChaincodeMessage_RESPONSE)
+			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
 		} else {
 			// Decrypt the data if the confidential is enabled
 			if res, err = handler.decrypt(msg.Uuid, res); err == nil {

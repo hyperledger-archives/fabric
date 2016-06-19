@@ -33,7 +33,6 @@ import (
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
-	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/membersrvc/ca"
 	pb "github.com/hyperledger/fabric/protos"
@@ -317,7 +316,7 @@ func executeDeployTransaction(t *testing.T, url string) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
 		t.Fail()
@@ -479,7 +478,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -577,7 +576,7 @@ func TestExecuteQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -660,7 +659,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -721,7 +720,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -792,7 +791,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -905,7 +904,7 @@ func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1126,7 +1125,7 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1220,62 +1219,6 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
-// Test deploy of a transaction.
-func TestExecuteDeploySysChaincode(t *testing.T) {
-	var opts []grpc.ServerOption
-	if viper.GetBool("peer.tls.enabled") {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
-		if err != nil {
-			grpclog.Fatalf("Failed to generate credentials %v", err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
-
-	//lis, err := net.Listen("tcp", viper.GetString("peer.address"))
-
-	//use a different address than what we usually use for "peer"
-	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
-	lis, err := net.Listen("tcp", peerAddress)
-	if err != nil {
-		t.Fail()
-		t.Logf("Error starting peer listener %s", err)
-		return
-	}
-
-	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
-		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
-	}
-
-	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
-	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
-
-	go grpcServer.Serve(lis)
-
-	var ctxt = context.Background()
-
-	system_chaincode.RegisterSysCCs()
-
-	url := "github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
-
-	args := []string{"greeting", "hello world"}
-	cds := &pb.ChaincodeDeploymentSpec{ExecEnv: 1, ChaincodeSpec: &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: "sample_syscc", Path: url}, CtorMsg: &pb.ChaincodeInput{Args: args}}}
-	_, err = deploy2(ctxt, cds)
-	chaincodeID := cds.ChaincodeSpec.ChaincodeID.Name
-	if err != nil {
-		GetChain(DefaultChain).Stop(ctxt, cds)
-		closeListenerAndSleep(lis)
-		t.Fail()
-		t.Logf("Error deploying <%s>: %s", chaincodeID, err)
-		return
-	}
-
-	GetChain(DefaultChain).Stop(ctxt, cds)
-	closeListenerAndSleep(lis)
-}
-
 // Test the execution of a chaincode query that queries another chaincode with security enabled
 // NOTE: this really needs to be a behave test. Remove when we have support in behave for multiple chaincodes
 func TestChaincodeQueryChaincodeWithSec(t *testing.T) {
@@ -1345,7 +1288,7 @@ func TestRangeQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1415,7 +1358,7 @@ func TestGetEvent(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {

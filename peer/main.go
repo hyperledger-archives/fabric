@@ -395,20 +395,12 @@ func serve(args []string) error {
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 
-		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
-		// membersrvc from calling validity system chaincode -- though no harm otherwise
-		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-		viper.Set("validator.validity-period.verification", "false")
 	}
 
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
 
-	//register all system chaincodes. This just registers chaincodes, they must be
-	//still be deployed and launched
-	system_chaincode.RegisterSysCCs()
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
@@ -723,7 +715,12 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
+	ccSrv := chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper)
+
+	//Now that chaincode is initialized, register all system chaincodes.
+	system_chaincode.RegisterSysCCs()
+
+	pb.RegisterChaincodeSupportServer(grpcServer, ccSrv)
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {

@@ -23,48 +23,48 @@ import (
 )
 
 func (node *nodeImpl) registerCryptoEngine(enrollID, enrollPWD string) error {
-	node.debug("Registering node crypto engine...")
+	node.Debug("Registering node crypto engine...")
 
 	// Init CLI
 	node.eciesSPI = ecies.NewSPI()
 
 	if err := node.initTLS(); err != nil {
-		node.error("Failed initliazing TLS [%s].", err.Error())
+		node.Errorf("Failed initliazing TLS [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveECACertsChain(enrollID); err != nil {
-		node.error("Failed retrieving ECA certs chain [%s].", err.Error())
+		node.Errorf("Failed retrieving ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTCACertsChain(enrollID); err != nil {
-		node.error("Failed retrieving ECA certs chain [%s].", err.Error())
+		node.Errorf("Failed retrieving ECA certs chain [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveEnrollmentData(enrollID, enrollPWD); err != nil {
-		node.error("Failed retrieving enrollment data [%s].", err.Error())
+		node.Errorf("Failed retrieving enrollment data [%s].", err.Error())
 
 		return err
 	}
 
 	if err := node.retrieveTLSCertificate(enrollID, enrollPWD); err != nil {
-		node.error("Failed retrieving enrollment data: %s", err)
+		node.Errorf("Failed retrieving enrollment data: %s", err)
 
 		return err
 	}
 
-	node.debug("Registering node crypto engine...done!")
+	node.Debug("Registering node crypto engine...done!")
 
 	return nil
 }
 
 func (node *nodeImpl) initCryptoEngine() error {
-	node.debug("Initializing node crypto engine...")
+	node.Debug("Initializing node crypto engine...")
 
 	// Init CLI
 	node.eciesSPI = ecies.NewSPI()
@@ -115,7 +115,7 @@ func (node *nodeImpl) initCryptoEngine() error {
 		return err
 	}
 
-	node.debug("Initializing node crypto engine...done!")
+	node.Debug("Initializing node crypto engine...done!")
 
 	return nil
 }

@@ -19,14 +19,15 @@ package crypto
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 func (peer *peerImpl) initKeyStore() error {
 	// create tables
-	peer.debug("Create Table [%s] if not exists", "Certificates")
+	peer.Debugf("Create Table [%s] if not exists", "Certificates")
 	if _, err := peer.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, certsign BLOB, certenc BLOB, PRIMARY KEY (id))"); err != nil {
-		peer.debug("Failed creating table [%s].", err.Error())
+		peer.Debugf("Failed creating table [%s].", err.Error())
 		return err
 	}
 
@@ -45,39 +46,39 @@ func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte)
 
 	certSign, certEnc, err := ks.selectSignEnrollmentCert(sid)
 	if err != nil {
-		ks.node.error("Failed selecting enrollment cert [%s].", err.Error())
+		ks.node.Errorf("Failed selecting enrollment cert [%s].", err.Error())
 
 		return nil, err
 	}
 
 	if certSign == nil {
-		ks.node.debug("Cert for [%s] not available. Fetching from ECA....", sid)
+		ks.node.Debugf("Cert for [%s] not available. Fetching from ECA....", sid)
 
 		// If No cert is available, fetch from ECA
 
 		// 1. Fetch
-		ks.node.debug("Fectch Enrollment Certificate from ECA...")
+		ks.node.Debug("Fectch Enrollment Certificate from ECA...")
 		certSign, certEnc, err = certFetcher(id)
 		if err != nil {
 			return nil, err
 		}
 
 		// 2. Store
-		ks.node.debug("Store certificate...")
+		ks.node.Debug("Store certificate...")
 		tx, err := ks.sqlDB.Begin()
 		if err != nil {
-			ks.node.error("Failed beginning transaction [%s].", err.Error())
+			ks.node.Errorf("Failed beginning transaction [%s].", err.Error())
 
 			return nil, err
 		}
 
-		ks.node.debug("Insert id [%s].", sid)
-		ks.node.debug("Insert cert [% x].", certSign)
+		ks.node.Debugf("Insert id [%s].", sid)
+		ks.node.Debugf("Insert cert [% x].", certSign)
 
 		_, err = tx.Exec("INSERT INTO Certificates (id, certsign, certenc) VALUES (?, ?, ?)", sid, certSign, certEnc)
 
 		if err != nil {
-			ks.node.error("Failed inserting cert [%s].", err.Error())
+			ks.node.Errorf("Failed inserting cert [%s].", err.Error())
 
 			tx.Rollback()
 
@@ -86,30 +87,30 @@ func (ks *keyStore) GetSignEnrollmentCert(id []byte, certFetcher func(id []byte)
 
 		err = tx.Commit()
 		if err != nil {
-			ks.node.error("Failed committing transaction [%s].", err.Error())
+			ks.node.Errorf("Failed committing transaction [%s].", err.Error())
 
 			tx.Rollback()
 
 			return nil, err
 		}
 
-		ks.node.debug("Fectch Enrollment Certificate from ECA...done!")
+		ks.node.Debug("Fectch Enrollment Certificate from ECA...done!")
 
 		certSign, certEnc, err = ks.selectSignEnrollmentCert(sid)
 		if err != nil {
-			ks.node.error("Failed selecting next TCert after fetching [%s].", err.Error())
+			ks.node.Errorf("Failed selecting next TCert after fetching [%s].", err.Error())
 
 			return nil, err
 		}
 	}
 
-	ks.node.debug("Cert for [%s] = [% x]", sid, certSign)
+	ks.node.Debugf("Cert for [%s] = [% x]", sid, certSign)
 
 	return certSign, nil
 }
 
 func (ks *keyStore) selectSignEnrollmentCert(id string) ([]byte, []byte, error) {
-	ks.node.debug("Select Sign Enrollment Cert for id [%s]", id)
+	ks.node.Debugf("Select Sign Enrollment Cert for id [%s]", id)
 
 	// Get the first row available
 	var cert []byte
@@ -119,14 +120,14 @@ func (ks *keyStore) selectSignEnrollmentCert(id string) ([]byte, []byte, error) 
 	if err == sql.ErrNoRows {
 		return nil, nil, nil
 	} else if err != nil {
-		ks.node.error("Error during select [%s].", err.Error())
+		ks.node.Errorf("Error during select [%s].", err.Error())
 
 		return nil, nil, err
 	}
 
-	ks.node.debug("Cert [% x].", cert)
+	ks.node.Debugf("Cert [% x].", cert)
 
-	ks.node.debug("Select Enrollment Cert...done!")
+	ks.node.Debug("Select Enrollment Cert...done!")
 
 	return cert, nil, nil
 }

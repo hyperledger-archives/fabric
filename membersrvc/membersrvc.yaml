@@ -100,7 +100,7 @@ eca:
                 test_vp8: 4 BxP7QNh778gI
                 test_vp9: 4 wu3F1EwJWHvQ
 
-                test_user0: 1 MS9qrN8hFjlE bank_a        00006
+                test_user0: 1 MS9qrN8hFjlE bank_a        00001
                 test_user1: 1 jGlNl6ImkuDo institution_a 00007
                 test_user2: 1 zMflqOKezFiA bank_c        00008
                 test_user3: 1 vWdLCE00vJy0 bank_a        00009
@@ -146,21 +146,6 @@ aca:
           # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be added into the TCert.
           enabled: false
 pki:
-          validity-period:
-                 # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
-                 update: false
-                 chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
-                 # TLS Settings for communications to update the validity period
-                 tls:
-                         enabled: false
-                         cert:
-                                file: testdata/server1.pem
-                         key:
-                                file: testdata/server1.key
-                         # The server name use to verify the hostname returned by TLS handshake
-                         serverhostoverride:
-                 devops-address: 0.0.0.0:30303
-
           ca:
                  subject:
                          organization: Hyperledger

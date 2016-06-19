@@ -22,10 +22,11 @@ import (
 	"reflect"
 	"time"
 
+	google_protobuf "google/protobuf"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/consensus"
 	pb "github.com/hyperledger/fabric/protos"
-	google_protobuf "google/protobuf"
 
 	"github.com/spf13/viper"
 )
@@ -59,6 +60,12 @@ type obcSieve struct {
 	custodyTimerChan chan custodyInfo        // Written to by Complaint
 	stateUpdatedChan chan *checkpointMessage // Written to by StateUpdate
 	idleChan         chan struct{}           // Used for detecting thread idleness for testing
+}
+
+type custodyInfo struct {
+	hash      string
+	req       interface{}
+	complaint bool
 }
 
 type pbftExecute struct {

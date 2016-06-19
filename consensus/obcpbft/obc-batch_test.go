@@ -17,7 +17,6 @@ limitations under the License.
 package obcpbft
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -48,20 +47,19 @@ func TestNetworkBatch(t *testing.T) {
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
 	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
 	if err != nil {
+		t.Errorf("External request was not processed by backup: %v", err)
+	}
+	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
+	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
 
 	net.process()
-
-	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 1 {
-		t.Fatalf("%d message expected in primary's batchStore, found %d", 1, l)
-	}
-
-	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
 	net.process()
 
 	if l := len(net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore); l != 0 {
-		t.Fatalf("%d messages expected in primary's batchStore, found %d", 0, l)
+		t.Errorf("%d messages expected in primary's batchStore, found %v", 0,
+			net.endpoints[0].(*consumerEndpoint).consumer.(*obcBatch).batchStore)
 	}
 
 	for _, ep := range net.endpoints {
@@ -81,115 +79,150 @@ func TestNetworkBatch(t *testing.T) {
 	}
 }
 
-func TestBatchCustody(t *testing.T) {
-	t.Skip("test is racy")
-	validatorCount := 4
-	net := makeConsumerNetwork(validatorCount, func(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
-		config.Set("general.batchsize", "1")
-		config.Set("general.timeout.batch", "250ms")
-		if id == 0 {
-			// Keep replica 0 from unnecessarilly advancing its view
-			config.Set("general.timeout.request", "1500ms")
-		} else {
-			config.Set("general.timeout.request", "1000ms")
-		}
-		config.Set("general.timeout.viewchange", "800ms")
-		return newObcBatch(id, config, stack)
-	})
-	defer net.stop()
-	net.filterFn = func(src int, dst int, payload []byte) []byte {
-		logger.Infof("msg from %d to %d", src, dst)
-		if src == 0 {
-			return nil
-		}
-		return payload
+func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
+	b := newObcBatch(0, loadConfig(), &omniProto{})
+	defer b.Close()
+
+	b.outstandingReqs[&Request{}] = struct{}{}
+
+	b.manager.Queue() <- stateUpdatedEvent{
+		chkpt: &checkpointMessage{
+			seqNo: 10,
+		},
 	}
 
-	// Submit two requests to replica 2, because vp0 is byzantine, they will not be processed until complaints triggers a view change
-	// Once the complaints work, we should end up in view 1, with 2 blocks
-	r2 := net.endpoints[2].(*consumerEndpoint).consumer
-	r2.RecvMsg(createOcMsgWithChainTx(1), net.endpoints[1].getHandle())
-	r2.RecvMsg(createOcMsgWithChainTx(2), net.endpoints[1].getHandle())
+	b.manager.Queue() <- nil
 
-	//net.debug = true
-	net.debugMsg("Stage 1\n")
-	// Get the requests into the custody store, will return once vp2 complaints
-	net.process()
-	net.debugMsg("Stage 2\n")
-
-	// Let the complaint timer expire for vp1/vp3
-	time.Sleep(500 * time.Millisecond)
-
-	// Process the new view and execute the requests
-	net.process()
-	net.debugMsg("Stage 3\n")
-
-	// Let the complaint timer expire for the other request
-	time.Sleep(500 * time.Millisecond)
-
-	// Process the complaint, this time without view change
-	net.process()
-	net.debugMsg("Stage 4\n")
-
-	for i, ep := range net.endpoints {
-
-		b := ep.(*consumerEndpoint).consumer.(*obcBatch)
-
-		if _, err := b.stack.GetBlock(2); nil != err {
-			t.Errorf("Expected replica %d to have two blocks", i)
-		} else {
-			expectedView := uint64(1)
-			if b.pbft.view != expectedView {
-				t.Errorf("Expected replica %d to have two blocks and be in view %d", b.pbft.id, expectedView)
-			}
-		}
+	if len(b.outstandingReqs) != 0 {
+		t.Fatalf("Should not have any requests outstanding after completing state transfer")
 	}
-
 }
 
-func TestBatchStaleCustody(t *testing.T) {
-	config := loadConfig()
-	config.Set("general.batchsize", "1")
-	config.Set("general.timeout.batch", "250ms")
-	config.Set("general.timeout.request", "250ms")
-	config.Set("general.timeout.viewchange", "800ms")
+func TestOutstandingReqsIngestion(t *testing.T) {
+	bs := [3]*obcBatch{}
+	for i := range bs {
+		omni := &omniProto{
+			UnicastImpl: func(ocMsg *pb.Message, peer *pb.PeerID) error { return nil },
+		}
+		bs[i] = newObcBatch(uint64(i), loadConfig(), omni)
+		defer bs[i].Close()
 
-	var reqs []*Request
-	stack := &omniProto{
-		UnicastImpl: func(msg *pb.Message, p *pb.PeerID) error {
-			m := &Message{}
-			proto.Unmarshal(msg.Payload, m)
-			if r := m.GetRequest(); r != nil {
-				reqs = append(reqs, r)
+		// Have vp1 only deliver messages
+		if i == 1 {
+			omni.UnicastImpl = func(ocMsg *pb.Message, peer *pb.PeerID) error {
+				dest, _ := getValidatorID(peer)
+				if dest == 0 || dest == 2 {
+					bs[dest].RecvMsg(ocMsg, &pb.PeerID{Name: "vp1"})
+				}
+				return nil
 			}
-			return nil
-		},
-		BroadcastImpl: func(msg *pb.Message, pt pb.PeerEndpoint_Type) error {
-			// we need this mock because occasionally the
-			// custody timer for req3 goes off, and a
-			// complaint is sent.
-			return nil
-		},
-		BeginTxBatchImpl: func(id interface{}) error {
-			return nil
-		},
-		ExecuteImpl: func(tag interface{}, txs []*pb.Transaction) {},
-		CommitImpl:  func(tag interface{}, meta []byte) {},
+		}
 	}
-	op := newObcBatch(1, config, stack)
-	defer op.Close()
 
-	req1 := createOcMsgWithChainTx(1)
-	op.RecvMsg(req1, &pb.PeerID{})
-	op.RecvMsg(createOcMsgWithChainTx(2), &pb.PeerID{})
-	op.manager.Queue() <- nil
-	op.pbft.currentExec = new(uint64) // so that pbft.execDone doesn't get unhappy
-	*op.pbft.currentExec = 1
-	rblock2raw, _ := proto.Marshal(&RequestBlock{[]*Request{reqs[1]}})
-	op.manager.Queue() <- workEvent(func() { op.execute(1, rblock2raw) })
-	time.Sleep(500 * time.Millisecond)
-	op.manager.Queue() <- nil
-	if len(reqs) != 3 || !reflect.DeepEqual(reqs[2].Payload, req1.Payload) {
-		t.Error("expected resubmitted request")
+	err := bs[1].RecvMsg(createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp1"})
+	if err != nil {
+		t.Fatalf("External request was not processed by backup: %v", err)
+	}
+
+	for _, b := range bs {
+		b.manager.Queue() <- nil
+		b.broadcaster.Wait()
+		b.manager.Queue() <- nil
+	}
+
+	for i, b := range bs {
+		b.manager.Queue() <- nil
+		count := len(b.outstandingReqs)
+		if i == 0 {
+			if count != 0 {
+				t.Errorf("Batch primary should not have the request in its store: %v", b.outstandingReqs)
+			}
+		} else {
+			if count != 1 {
+				t.Errorf("Batch backup %d should have the request in its store", i)
+			}
+		}
+	}
+}
+
+func TestOutstandingReqsResubmission(t *testing.T) {
+	omni := &omniProto{}
+	b := newObcBatch(0, loadConfig(), omni)
+	defer b.Close()
+
+	omni.ExecuteImpl = func(tag interface{}, txs []*pb.Transaction) {
+		b.manager.Inject(executedEvent{tag: tag})
+	}
+
+	omni.CommitImpl = func(tag interface{}, meta []byte) {
+		b.manager.Inject(committedEvent{})
+	}
+
+	omni.UnicastImpl = func(ocMsg *pb.Message, dest *pb.PeerID) error {
+		if dest.Name != "vp1" {
+			return nil
+		}
+
+		batchMsg := &BatchMessage{}
+		err := proto.Unmarshal(ocMsg.Payload, batchMsg)
+
+		msgRaw := batchMsg.GetPbftMessage()
+		if msgRaw == nil {
+			t.Fatalf("Expected PBFT message only")
+		}
+
+		msg := &Message{}
+		err = proto.Unmarshal(msgRaw, msg)
+		if err != nil {
+			t.Fatalf("Error unpacking payload from message: %s", err)
+		}
+
+		logger.Debug("unicast: %v", msg)
+
+		prePrepare := msg.GetPrePrepare()
+
+		if err != nil {
+			t.Fatalf("Expected only a prePrepare")
+		}
+
+		// Shortcuts the whole 3 phase protocol, and executes whatever is in the prePrepare
+		b.execute(prePrepare.SequenceNumber, prePrepare.Request.Payload)
+
+		return nil
+	}
+
+	// Add two requests
+	b.outstandingReqs[createPbftRequestWithChainTx(1, 0)] = struct{}{}
+	b.outstandingReqs[createPbftRequestWithChainTx(2, 0)] = struct{}{}
+
+	seqNo := uint64(1)
+	b.pbft.currentExec = &seqNo
+
+	b.manager.Queue() <- committedEvent{}
+	b.manager.Queue() <- nil
+
+	b.broadcaster.Wait()
+
+	if len(b.outstandingReqs) != 0 {
+		t.Fatalf("All requests should have been resubmitted")
+	}
+}
+
+func TestViewChangeOnPrimarySilence(t *testing.T) {
+	b := newObcBatch(1, loadConfig(), &omniProto{
+		UnicastImpl: func(ocMsg *pb.Message, peer *pb.PeerID) error { return nil },
+		SignImpl:    func(msg []byte) ([]byte, error) { return msg, nil },
+		VerifyImpl:  func(peerID *pb.PeerID, signature []byte, message []byte) error { return nil },
+	})
+	b.pbft.requestTimeout = 50 * time.Millisecond
+	defer b.Close()
+
+	// Send a request, which will be ignored, triggering view change
+	b.manager.Queue() <- batchMessageEvent{createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp0"}}
+	time.Sleep(time.Second)
+	b.manager.Queue() <- nil
+
+	if b.pbft.activeView {
+		t.Fatalf("Should have caused a view change")
 	}
 }

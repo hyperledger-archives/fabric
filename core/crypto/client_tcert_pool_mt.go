@@ -54,7 +54,7 @@ func (tCertPoolEntry *tCertPoolEntry) Stop() (err error) {
 	tCertPoolEntry.done <- struct{}{}
 
 	// Store unused TCert
-	tCertPoolEntry.client.debug("Store unused TCerts...")
+	tCertPoolEntry.client.Debug("Store unused TCerts...")
 
 	tCerts := make([]*TCertBlock, 0)
 	for {
@@ -65,11 +65,11 @@ func (tCertPoolEntry *tCertPoolEntry) Stop() (err error) {
 		}
 	}
 
-	tCertPoolEntry.client.debug("Found %d unused TCerts...", len(tCerts))
+	tCertPoolEntry.client.Debugf("Found %d unused TCerts...", len(tCerts))
 
 	tCertPoolEntry.client.ks.storeUnusedTCerts(tCerts)
 
-	tCertPoolEntry.client.debug("Store unused TCerts...done!")
+	tCertPoolEntry.client.Debug("Store unused TCerts...done!")
 
 	return
 }
@@ -83,16 +83,16 @@ func (tCertPoolEntry *tCertPoolEntry) AddTCert(tCertBlock *TCertBlock) (err erro
 //GetNextTCert gets the next tcert of the pool.
 func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes ...string) (tCertBlock *TCertBlock, err error) {
 	for i := 0; i < 3; i++ {
-		tCertPoolEntry.client.debug("Getting next TCert... %d out of 3", i)
+		tCertPoolEntry.client.Debugf("Getting next TCert... %d out of 3", i)
 		select {
 		case tCertPoolEntry.tCertBlock = <-tCertPoolEntry.tCertChannel:
 			break
 		case <-time.After(30 * time.Second):
-			tCertPoolEntry.client.error("Failed getting a new TCert. Buffer is empty!")
+			tCertPoolEntry.client.Error("Failed getting a new TCert. Buffer is empty!")
 		}
 		if tCertPoolEntry.tCertBlock != nil {
 			// Send feedback to the filler
-			tCertPoolEntry.client.debug("Send feedback")
+			tCertPoolEntry.client.Debug("Send feedback")
 			tCertPoolEntry.tCertChannelFeedback <- struct{}{}
 			break
 		}
@@ -104,12 +104,12 @@ func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes ...string) (tCertB
 	}
 
 	tCertBlock = tCertPoolEntry.tCertBlock
-	tCertPoolEntry.client.debug("Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
+	tCertPoolEntry.client.Debugf("Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
 
 	// Store the TCert permanently
 	tCertPoolEntry.client.ks.storeUsedTCert(tCertBlock)
 
-	tCertPoolEntry.client.debug("Getting next TCert...done!")
+	tCertPoolEntry.client.Debug("Getting next TCert...done!")
 
 	return
 }
@@ -118,14 +118,14 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 	// Load unused TCerts
 	stop := false
 	full := false
-	tCertPoolEntry.client.debug("Filler()")
+	tCertPoolEntry.client.Debug("Filler()")
 
 	attributeHash := calculateAttributesHash(tCertPoolEntry.attributes)
 	for {
 		// Check if Stop was called
 		select {
 		case <-tCertPoolEntry.done:
-			tCertPoolEntry.client.debug("Force stop!")
+			tCertPoolEntry.client.Debug("Force stop!")
 			stop = true
 		default:
 		}
@@ -136,11 +136,11 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 		tCertDBBlocks, err := tCertPoolEntry.client.ks.loadUnusedTCerts()
 
 		if err != nil {
-			tCertPoolEntry.client.error("Failed loading TCert: [%s]", err)
+			tCertPoolEntry.client.Errorf("Failed loading TCert: [%s]", err)
 			break
 		}
 		if tCertDBBlocks == nil {
-			tCertPoolEntry.client.debug("No more TCerts in cache!")
+			tCertPoolEntry.client.Debug("No more TCerts in cache!")
 			break
 		}
 
@@ -149,7 +149,7 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 			if strings.Compare(attributeHash, tCertDBBlock.attributesHash) == 0 {
 				tCertBlock, err := tCertPoolEntry.client.getTCertFromDER(tCertDBBlock)
 				if err != nil {
-					tCertPoolEntry.client.error("Failed paring TCert [% x]: [%s]", tCertDBBlock.tCertDER, err)
+					tCertPoolEntry.client.Errorf("Failed paring TCert [% x]: [%s]", tCertDBBlock.tCertDER, err)
 					continue
 				}
 				tCert = tCertBlock
@@ -160,21 +160,21 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 			// Try to send the tCert to the channel if not full
 			select {
 			case tCertPoolEntry.tCertChannel <- tCert:
-				tCertPoolEntry.client.debug("TCert send to the channel!")
+				tCertPoolEntry.client.Debug("TCert send to the channel!")
 			default:
-				tCertPoolEntry.client.debug("Channell Full!")
+				tCertPoolEntry.client.Debug("Channell Full!")
 				full = true
 			}
 			if full {
 				break
 			}
 		} else {
-			tCertPoolEntry.client.debug("No more TCerts in cache!")
+			tCertPoolEntry.client.Debug("No more TCerts in cache!")
 			break
 		}
 	}
 
-	tCertPoolEntry.client.debug("Load unused TCerts...done!")
+	tCertPoolEntry.client.Debug("Load unused TCerts...done!")
 
 	if !stop {
 		ticker := time.NewTicker(1 * time.Second)
@@ -182,20 +182,20 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 			select {
 			case <-tCertPoolEntry.done:
 				stop = true
-				tCertPoolEntry.client.debug("Done signal.")
+				tCertPoolEntry.client.Debug("Done signal.")
 			case <-tCertPoolEntry.tCertChannelFeedback:
-				tCertPoolEntry.client.debug("Feedback received. Time to check for tcerts")
+				tCertPoolEntry.client.Debug("Feedback received. Time to check for tcerts")
 			case <-ticker.C:
-				tCertPoolEntry.client.debug("Time elapsed. Time to check for tcerts")
+				tCertPoolEntry.client.Debug("Time elapsed. Time to check for tcerts")
 			}
 
 			if stop {
-				tCertPoolEntry.client.debug("Quitting filler...")
+				tCertPoolEntry.client.Debug("Quitting filler...")
 				break
 			}
 
 			if len(tCertPoolEntry.tCertChannel) < tCertPoolEntry.client.conf.getTCertBatchSize() {
-				tCertPoolEntry.client.debug("Refill TCert Pool. Current size [%d].",
+				tCertPoolEntry.client.Debugf("Refill TCert Pool. Current size [%d].",
 					len(tCertPoolEntry.tCertChannel),
 				)
 
@@ -207,18 +207,18 @@ func (tCertPoolEntry *tCertPoolEntry) filler() {
 					}
 				}
 
-				tCertPoolEntry.client.info("Refilling [%d] TCerts.", numTCerts)
+				tCertPoolEntry.client.Infof("Refilling [%d] TCerts.", numTCerts)
 
 				err := tCertPoolEntry.client.getTCertsFromTCA(calculateAttributesHash(tCertPoolEntry.attributes), tCertPoolEntry.attributes, numTCerts)
 				if err != nil {
-					tCertPoolEntry.client.error("Failed getting TCerts from the TCA: [%s]", err)
+					tCertPoolEntry.client.Errorf("Failed getting TCerts from the TCA: [%s]", err)
 					break
 				}
 			}
 		}
 	}
 
-	tCertPoolEntry.client.debug("TCert filler stopped.")
+	tCertPoolEntry.client.Debug("TCert filler stopped.")
 }
 
 // The Multi-threaded tCertPool is currently not used.
@@ -274,20 +274,20 @@ func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntryFromHash(attributeHash
 
 //Returns a tCertPoolEntry for the attributes "attributes", if the tCertPoolEntry doesn't exists a new tCertPoolEntry will be create for that attributes.
 func (tCertPool *tCertPoolMultithreadingImpl) getPoolEntry(attributes []string) (*tCertPoolEntry, error) {
-	tCertPool.client.debug("Getting pool entry %v \n", attributes)
+	tCertPool.client.Debug("Getting pool entry %v \n", attributes)
 	attributeHash := calculateAttributesHash(attributes)
 	tCertPool.lockEntries()
 	defer tCertPool.releaseEntries()
 	poolEntry := tCertPool.poolEntries[attributeHash]
 	if poolEntry == nil {
-		tCertPool.client.debug("New pool entry %v \n", attributes)
+		tCertPool.client.Debugf("New pool entry %v \n", attributes)
 
 		poolEntry = newTCertPoolEntry(tCertPool.client, attributes)
 		tCertPool.poolEntries[attributeHash] = poolEntry
 		if err := poolEntry.Start(); err != nil {
 			return nil, err
 		}
-		tCertPool.client.debug("Pool entry started %v \n", attributes)
+		tCertPool.client.Debugf("Pool entry started %v \n", attributes)
 
 	}
 	return poolEntry, nil
@@ -311,7 +311,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) getNextTCert(attributes ...string)
 	if err != nil {
 		return nil, err
 	}
-	tCertPool.client.debug("Requesting tcert to the pool entry. %v", calculateAttributesHash(attributes))
+	tCertPool.client.Debugf("Requesting tcert to the pool entry. %v", calculateAttributesHash(attributes))
 	return poolEntry.GetNextTCert(attributes...)
 }
 
@@ -321,7 +321,7 @@ func (tCertPool *tCertPoolMultithreadingImpl) AddTCert(tCertBlock *TCertBlock) (
 	if poolEntry == nil {
 		return errors.New("No pool entry found for that attributes.")
 	}
-	tCertPool.client.debug("Adding %v \n.", tCertBlock.attributesHash)
+	tCertPool.client.Debugf("Adding %v \n.", tCertBlock.attributesHash)
 	poolEntry.AddTCert(tCertBlock)
 
 	return

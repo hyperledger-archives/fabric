@@ -151,11 +151,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification
-        # of the validity period in the validator
-        validity-period:
-            verification: false
-
+        
     # TLS Settings for p2p communications
     tls:
         enabled:  false
@@ -321,21 +317,6 @@ ledger:
 
     # Define the genesis block
     genesisBlock:
-
-      # Deploy chaincodes into the genesis block
-      chaincodes:
-
-        #sample_syscc:
-        #  path: github.com/hyperledger/fabric/core/system_chaincode/sample_syscc
-        #  type: GOLANG
-        #  constructor:
-        #    args:
-        #      - greetings
-        #      - hello world
-
-    # Setting the deploy-system-chaincode property to false will prevent the
-    # deploying of system chaincode at genesis time.
-    deploy-system-chaincode: false
 
   state:
 

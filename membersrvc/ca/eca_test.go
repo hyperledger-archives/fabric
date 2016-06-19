@@ -367,7 +367,7 @@ func TestReadUserSet(t *testing.T) {
 		t.Errorf("Failed to read user set: [%s]", err.Error())
 	}
 
-	t.Logf("number of users: [%s]", len(resp.Users))
+	t.Logf("number of users: [%d]", len(resp.Users))
 
 }
 
@@ -463,6 +463,6 @@ func TestPublishCRL(t *testing.T) {
 
 	_, err := ecaa.PublishCRL(context.Background(), &pb.ECertCRLReq{})
 	if err.Error() != "ECAA:PublishCRL method not (yet) implemented" {
-		t.Error("Expected error was not returned: [%s]", err.Error())
+		t.Errorf("Expected error was not returned: [%s]", err.Error())
 	}
 }

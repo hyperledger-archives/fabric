@@ -96,7 +96,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 ### Security administration docs:
 
-- [Certificate Authority (CA) Setup](dev-setup/obcca-setup.md):
+- [Certificate Authority (CA) Setup](dev-setup/ca-setup.md):
      - Enrollment CA
      - Transaction CA
      - TLS CA

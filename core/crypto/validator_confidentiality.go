@@ -19,6 +19,7 @@ package crypto
 import (
 	"encoding/asn1"
 	"errors"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -28,7 +29,7 @@ import (
 func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.Transaction, error) {
 	raw, err := proto.Marshal(tx)
 	if err != nil {
-		validator.error("Failed cloning transaction [%s].", err.Error())
+		validator.Errorf("Failed cloning transaction [%s].", err.Error())
 
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (validator *validatorImpl) deepCloneTransaction(tx *obc.Transaction) (*obc.
 	clone := &obc.Transaction{}
 	err = proto.Unmarshal(raw, clone)
 	if err != nil {
-		validator.error("Failed cloning transaction [%s].", err.Error())
+		validator.Errorf("Failed cloning transaction [%s].", err.Error())
 
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	// clone tx
 	clone, err := validator.deepCloneTransaction(tx)
 	if err != nil {
-		validator.error("Failed deep cloning [%s].", err.Error())
+		validator.Errorf("Failed deep cloning [%s].", err.Error())
 		return nil, err
 	}
 
@@ -82,7 +83,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	payloadKey := primitives.HMACAESTruncated(key, []byte{1})
 	payload, err := primitives.CBCPKCS7Decrypt(payloadKey, utils.Clone(clone.Payload))
 	if err != nil {
-		validator.error("Failed decrypting payload [%s].", err.Error())
+		validator.Errorf("Failed decrypting payload [%s].", err.Error())
 		return nil, err
 	}
 	clone.Payload = payload
@@ -91,7 +92,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 	chaincodeIDKey := primitives.HMACAESTruncated(key, []byte{2})
 	chaincodeID, err := primitives.CBCPKCS7Decrypt(chaincodeIDKey, utils.Clone(clone.ChaincodeID))
 	if err != nil {
-		validator.error("Failed decrypting chaincode [%s].", err.Error())
+		validator.Errorf("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
 	clone.ChaincodeID = chaincodeID
@@ -101,7 +102,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_1(tx *obc.Transaction) (*
 		metadataKey := primitives.HMACAESTruncated(key, []byte{3})
 		metadata, err := primitives.CBCPKCS7Decrypt(metadataKey, utils.Clone(clone.Metadata))
 		if err != nil {
-			validator.error("Failed decrypting metadata [%s].", err.Error())
+			validator.Errorf("Failed decrypting metadata [%s].", err.Error())
 			return nil, err
 		}
 		clone.Metadata = metadata
@@ -118,54 +119,54 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	// clone tx
 	clone, err := validator.deepCloneTransaction(tx)
 	if err != nil {
-		validator.error("Failed deep cloning [%s].", err.Error())
+		validator.Errorf("Failed deep cloning [%s].", err.Error())
 		return nil, err
 	}
 
 	var ccPrivateKey primitives.PrivateKey
 
-	validator.debug("Transaction type [%s].", tx.Type.String())
+	validator.Debugf("Transaction type [%s].", tx.Type.String())
 
-	validator.debug("Extract transaction key...")
+	validator.Debug("Extract transaction key...")
 
 	// Derive transaction key
 	cipher, err := validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(validator.chainPrivateKey)
 	if err != nil {
-		validator.error("Failed init decryption engine [%s].", err.Error())
+		validator.Errorf("Failed init decryption engine [%s].", err.Error())
 		return nil, err
 	}
 
 	msgToValidatorsRaw, err := cipher.Process(tx.ToValidators)
 	if err != nil {
-		validator.error("Failed decrypting message to validators [% x]: [%s].", tx.ToValidators, err.Error())
+		validator.Errorf("Failed decrypting message to validators [% x]: [%s].", tx.ToValidators, err.Error())
 		return nil, err
 	}
 
 	msgToValidators := new(chainCodeValidatorMessage1_2)
 	_, err = asn1.Unmarshal(msgToValidatorsRaw, msgToValidators)
 	if err != nil {
-		validator.error("Failed unmarshalling message to validators [%s].", err.Error())
+		validator.Errorf("Failed unmarshalling message to validators [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.debug("Deserializing transaction key [% x].", msgToValidators.PrivateKey)
+	validator.Debugf("Deserializing transaction key [% x].", msgToValidators.PrivateKey)
 	ccPrivateKey, err = validator.eciesSPI.DeserializePrivateKey(msgToValidators.PrivateKey)
 	if err != nil {
-		validator.error("Failed deserializing transaction key [%s].", err.Error())
+		validator.Errorf("Failed deserializing transaction key [%s].", err.Error())
 		return nil, err
 	}
 
-	validator.debug("Extract transaction key...done")
+	validator.Debug("Extract transaction key...done")
 
 	cipher, err = validator.eciesSPI.NewAsymmetricCipherFromPrivateKey(ccPrivateKey)
 	if err != nil {
-		validator.error("Failed init transaction decryption engine [%s].", err.Error())
+		validator.Errorf("Failed init transaction decryption engine [%s].", err.Error())
 		return nil, err
 	}
 	// Decrypt Payload
 	payload, err := cipher.Process(clone.Payload)
 	if err != nil {
-		validator.error("Failed decrypting payload [%s].", err.Error())
+		validator.Errorf("Failed decrypting payload [%s].", err.Error())
 		return nil, err
 	}
 	clone.Payload = payload
@@ -173,7 +174,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	// Decrypt ChaincodeID
 	chaincodeID, err := cipher.Process(clone.ChaincodeID)
 	if err != nil {
-		validator.error("Failed decrypting chaincode [%s].", err.Error())
+		validator.Errorf("Failed decrypting chaincode [%s].", err.Error())
 		return nil, err
 	}
 	clone.ChaincodeID = chaincodeID
@@ -182,7 +183,7 @@ func (validator *validatorImpl) deepCloneAndDecryptTx1_2(tx *obc.Transaction) (*
 	if len(clone.Metadata) != 0 {
 		metadata, err := cipher.Process(clone.Metadata)
 		if err != nil {
-			validator.error("Failed decrypting metadata [%s].", err.Error())
+			validator.Errorf("Failed decrypting metadata [%s].", err.Error())
 			return nil, err
 		}
 		clone.Metadata = metadata

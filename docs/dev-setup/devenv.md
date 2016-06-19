@@ -54,9 +54,12 @@ cd $GOPATH/src/github.com/hyperledger/fabric/devenv
 vagrant up
 ```
 
-**NOTE:** If you intend to run the development environment behind an HTTP Proxy, you need to configure the guest so that the provisioning process may complete.  You can achieve this via the *vagrant-proxyconf* plugin. Install with *vagrant plugin install vagrant-proxyconf* and then set the VAGRANT_HTTP_PROXY and VAGRANT_HTTPS_PROXY environment variables *before* you execute *vagrant up*. More details are available here: https://github.com/tmatilai/vagrant-proxyconf/
+**NOTE:** If you intend to run the development environment behind an HTTP Proxy, you need to configure the guest so that the provisioning process may complete.  You can achieve this via the *vagrant-proxyconf* plugin. Install with `vagrant plugin install vagrant-proxyconf` and then set the VAGRANT_HTTP_PROXY and VAGRANT_HTTPS_PROXY environment variables *before* you execute `vagrant up`. More details are available here: https://github.com/tmatilai/vagrant-proxyconf/
 
-**NOTE #2:** The first time you run this command it may take quite a while to complete (it could take 30 minutes or more depending on your environment) and at times it may look like it's not doing anything. As long you don't get any error messages just leave it alone, it's all good, it's just cranking.
+**NOTE:** The first time you run this command it may take quite a while to complete (it could take 30 minutes or more depending on your environment) and at times it may look like it's not doing anything. As long you don't get any error messages just leave it alone, it's all good, it's just cranking.
+
+**NOTE to Windows 10 Users:** There is a known problem with vagrant on Windows 10 (see [mitchellh/vagrant#6754](https://github.com/mitchellh/vagrant/issues/6754)). If the `vagrant up` command fails it may be because you do not have Microsoft Visual C++ Redistributable installed. You can download the missing package at the following address: http://www.microsoft.com/en-us/download/details.aspx?id=8328
+
 
 Once complete, you should now be able to SSH into your new VM with the following command from the same directory.
 
@@ -64,4 +67,4 @@ Once complete, you should now be able to SSH into your new VM with the following
 
 Once inside the VM, you can find the peer project under $GOPATH/src/github.com/hyperledger/fabric (as well as /hyperledger).
 
-**NOTE:** any time you *git clone* any of the projects in your Host's fabric directory (under $GOPATH/src/github.com/hyperledger/fabric), the update will be instantly available within the VM fabric directory.
+**NOTE:** any time you `git clone` any of the projects in your Host's fabric directory (under $GOPATH/src/github.com/hyperledger/fabric), the update will be instantly available within the VM fabric directory.

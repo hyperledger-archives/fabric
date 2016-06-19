@@ -18,13 +18,14 @@ package crypto
 
 import (
 	"errors"
-	"github.com/spf13/viper"
 	"strconv"
 	"time"
 
+	"github.com/spf13/viper"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/ledger"
 	obc "github.com/hyperledger/fabric/protos"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 //We are temporarily disabling the validity period functionality
@@ -46,7 +47,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		// Unmarshal cert
 		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err
 		}
 
@@ -54,19 +55,19 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		ledger, err := ledger.GetLedger()
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed getting access to the ledger %s:", err)
 			return tx, err
 		}
 
 		vpBytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
 		i, err := strconv.ParseInt(string(vpBytes[:]), 10, 64)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
 		}
 
@@ -85,7 +86,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		}
 
 		if errMsg != "" {
-			validator.error(errMsg)
+			validator.Error(errMsg)
 			return tx, errors.New(errMsg)
 		}
 	}

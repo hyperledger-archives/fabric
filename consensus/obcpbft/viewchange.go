@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 )
 
-// viewChangeQuorumEvent is returned to the event loop when the number of view change matches is exactly the required quorum size
+// viewChangeQuorumEvent is returned to the event loop when a new ViewChange message is received which is part of a quorum cert
 type viewChangeQuorumEvent struct{}
 
 func (instance *pbftCore) correctViewChange(vc *ViewChange) bool {
@@ -158,10 +158,16 @@ func (instance *pbftCore) sendViewChange() events.Event {
 	}
 
 	for _, p := range instance.pset {
+		if p.SequenceNumber < instance.h {
+			logger.Errorf("BUG! Replica %d should not have anything in our pset less than h, found %+v", instance.id, p)
+		}
 		vc.Pset = append(vc.Pset, p)
 	}
 
 	for _, q := range instance.qset {
+		if q.SequenceNumber < instance.h {
+			logger.Errorf("BUG! Replica %d should not have anything in our qset less than h, found %+v", instance.id, q)
+		}
 		vc.Qset = append(vc.Qset, q)
 	}
 
@@ -237,7 +243,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 	logger.Debugf("Replica %d now has %d view change requests for view %d", instance.id, quorum, instance.view)
 
 	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
-		if quorum == instance.allCorrectReplicasQuorum() {
+		if quorum >= instance.allCorrectReplicasQuorum() {
 			instance.startTimer(instance.lastNewViewTimeout, "new view change")
 			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 			return viewChangeQuorumEvent{}
@@ -353,9 +359,16 @@ func (instance *pbftCore) processNewView() events.Event {
 			return nil
 		}
 
-		instance.skipInProgress = true
-		instance.stateTransferring = true
-		instance.consumer.skipTo(cp.SequenceNumber, snapshotID, replicas)
+		target := &stateUpdateTarget{
+			checkpointMessage: checkpointMessage{
+				seqNo: cp.SequenceNumber,
+				id:    snapshotID,
+			},
+			replicas: replicas,
+		}
+
+		instance.updateHighStateTarget(target)
+		instance.stateTransfer(target)
 	}
 
 	for n, d := range nv.Xset {
@@ -400,8 +413,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 	instance.activeView = true
 	delete(instance.newViewStore, instance.view-1)
 
-	instance.seqNo = 0
+	instance.seqNo = instance.h
 	for n, d := range nv.Xset {
+		if n <= instance.h {
+			continue
+		}
 		preprep := &PrePrepare{
 			View:           instance.view,
 			SequenceNumber: n,
@@ -427,9 +443,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 				RequestDigest:  d,
 				ReplicaId:      instance.id,
 			}
-			cert := instance.getCert(instance.view, n)
-			cert.sentPrepare = true
-			instance.recvPrepare(prep)
+			if n > instance.h {
+				cert := instance.getCert(instance.view, n)
+				cert.sentPrepare = true
+				instance.recvPrepare(prep)
+			}
 			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
 		}
 	} else {

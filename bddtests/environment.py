@@ -36,6 +36,8 @@ def after_scenario(context, scenario):
 
             print("Decomposing with yaml '{0}' after scenario {1}, ".format(context.compose_yaml, scenario.name))
             context.compose_output, context.compose_error, context.compose_returncode = \
+                cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["unpause"], expect_success=True)
+            context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["kill"], expect_success=True)
             context.compose_output, context.compose_error, context.compose_returncode = \
                 cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + ["rm","-f"], expect_success=True)

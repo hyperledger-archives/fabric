@@ -19,6 +19,7 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
@@ -62,7 +63,7 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 
 	out, err := gcm.Open(nil, nonce, ct[gcm.NonceSize():], nil)
 	if err != nil {
-		client.error("Failed decrypting query result [%s].", err.Error())
+		client.Errorf("Failed decrypting query result [%s].", err.Error())
 		return nil, utils.ErrDecrypt
 	}
 	return out, nil

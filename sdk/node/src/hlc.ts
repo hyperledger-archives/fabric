@@ -54,10 +54,10 @@ var util = require('util');
 var jsrsa = require('jsrsasign');
 var elliptic = require('elliptic');
 var sha3 = require('js-sha3');
-var uuid = require('node-uuid');
 var BN = require('bn.js');
 import * as crypto from "./crypto"
 import * as stats from "./stats"
+import * as sdk_util from "./sdk_util"
 import events = require('events');
 
 let debug = debugModule('hlc');   // 'hlc' stands for 'HyperLedger Client'
@@ -66,7 +66,6 @@ var asn1Builder = require('asn1');
 
 let _caProto = grpc.load(__dirname + "/protos/ca.proto").protos;
 let _fabricProto = grpc.load(__dirname + "/protos/fabric.proto").protos;
-let _timeStampProto = grpc.load(__dirname + "/protos/google/protobuf/timestamp.proto").google.protobuf.Timestamp;
 let _chaincodeProto = grpc.load(__dirname + "/protos/chaincode.proto").protos;
 let net = require('net');
 
@@ -140,13 +139,10 @@ export interface MemberServices {
 
     /**
      * Get an array of transaction certificates (tcerts).
-     * @param {Object} req Request of the form: {name,enrollment,num} where
-     * 'name' is the member name,
-     * 'enrollment' is what was returned by enroll, and
-     * 'num' is the number of transaction contexts to obtain.
-     * @param {function(err,[Object])} cb The callback function which is called with an error as 1st arg and an array of tcerts as 2nd arg.
+     * @param req A GetTCertBatchRequest
+     * @param cb A GetTCertBatchCallback
      */
-    getTCertBatch(req:{name:string, enrollment:Enrollment, num:number}, cb:GetTCertBatchCallback):void;
+    getTCertBatch(req:GetTCertBatchRequest, cb:GetTCertBatchCallback):void;
 
 }
 
@@ -186,10 +182,13 @@ export interface EnrollmentRequest {
 export interface GetMemberCallback { (err:Error, member?:Member):void }
 
 // The callback from the Chain.register method
-export interface RegisterCallback {(err:Error, enrollmentPassword?:string):void }
+export interface RegisterCallback { (err:Error, enrollmentPassword?:string):void }
 
 // The callback from the Chain.enroll method
-export interface EnrollCallback {(err:Error, enrollment?:Enrollment):void }
+export interface EnrollCallback { (err:Error, enrollment?:Enrollment):void }
+
+// The callback from the newBuildOrDeployTransaction
+export interface DeployTransactionCallback { (err:Error, deployTx?:Transaction):void }
 
 // Enrollment metadata
 export interface Enrollment {
@@ -199,12 +198,60 @@ export interface Enrollment {
 }
 
 // A request to get a batch of TCerts
-export interface GetTCertBatchRequest {
-    name:string;
-    // Return value from MemberServices.enroll
-    enrollment:Enrollment;
-    // Number of tcerts to retrieve
-    num:number;
+export class GetTCertBatchRequest {
+   constructor( public name: string,
+                public enrollment: Enrollment,
+                public num: number,
+                public attrs: string[]) {};
+}
+
+// This is the object that is delivered as the result with the "submitted" event
+// from a Transaction object for a **deploy** operation.
+export class EventDeploySubmitted {
+    // The transaction ID of a deploy transaction which was successfully submitted.
+    constructor(public uuid:string, public chaincodeID:string){};
+}
+
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **deploy** operation.
+// TODO: This class may change once the real event processing is added.
+export class EventDeployComplete {
+    constructor(public uuid:string, public chaincodeID:string, public result?:any){};
+}
+
+// This is the data that is delivered as the result with the "submitted" event
+// from a Transaction object for an **invoke** operation.
+export class EventInvokeSubmitted {
+    // The transaction ID of an invoke transaction which was successfully submitted.
+    constructor(public uuid:string){};
+}
+
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **invoke** operation.
+// TODO: This class may change once the real event processing is added.
+export class EventInvokeComplete {
+    constructor(public result?:any){};
+}
+
+// This is the object that is delivered as the result with the "complete" event
+// from a Transaction object for a **query** operation.
+export class EventQueryComplete {
+    constructor(public result?:any){};
+}
+
+// This is the data that is delivered as the result with the "error" event
+// from a Transaction object for any of the following operations:
+// **deploy**, **invoke**, or **query**.
+export class EventTransactionError {
+    public msg:string;
+    // The transaction ID of an invoke transaction which was successfully submitted.
+    constructor(public error:any){
+       if (error && error.msg && isFunction(error.msg.toString)) {
+          this.msg = error.msg.toString();
+       } else if (isFunction(error.toString)) {
+          this.msg = error.toString();
+       }
+    };
 }
 
 // This is the data that is delivered as the result with the 'submitted' event
@@ -283,6 +330,10 @@ export interface TransactionRequest {
  * Deploy request.
  */
 export interface DeployRequest extends TransactionRequest {
+    // The local path containing the chaincode to deploy in network mode.
+    chaincodePath:string;
+    // The name identifier for the chaincode to deploy in development mode.
+    chaincodeName:string;
 }
 
 /**
@@ -308,7 +359,7 @@ export interface InvokeRequest extends InvokeOrQueryRequest {
 /**
  * A transaction.
  */
-export interface Transaction {
+export interface TransactionProtobuf {
     getType():string;
     setCert(cert:Buffer):void;
     setSignature(sig:Buffer):void;
@@ -324,6 +375,10 @@ export interface Transaction {
     getPayload():{buffer: Buffer};
     setPayload(buffer:Buffer):void;
     toBuffer():Buffer;
+}
+
+export class Transaction {
+    constructor(public pb:TransactionProtobuf, public chaincodeID:string){};
 }
 
 /**
@@ -371,6 +426,11 @@ export class Chain {
 
     // If in prefetch mode, we prefetch tcerts from member services to help performance
     private preFetchMode:boolean = true;
+
+    // Temporary variables to control how long to wait for deploy and invoke to complete before
+    // emitting events.  This will be removed when the SDK is able to receive events from the
+    private deployWaitTime:number = 20;
+    private invokeWaitTime:number = 5;
 
     // The crypto primitives object
     cryptoPrimitives:crypto.Crypto;
@@ -480,6 +540,36 @@ export class Chain {
      */
     setDevMode(devMode:boolean):void {
         this.devMode = devMode;
+    }
+
+    /**
+     * Get the deploy wait time in seconds.
+     */
+    getDeployWaitTime():number {
+        return this.deployWaitTime;
+    }
+
+    /**
+     * Set the deploy wait time in seconds.
+     * @param secs
+     */
+    setDeployWaitTime(secs:number):void {
+        this.deployWaitTime = secs;
+    }
+
+    /**
+     * Get the invoke wait time in seconds.
+     */
+    getInvokeWaitTime():number {
+        return this.invokeWaitTime;
+    }
+
+    /**
+     * Set the invoke wait time in seconds.
+     * @param secs
+     */
+    setInvokeWaitTime(secs:number):void {
+        this.invokeWaitTime = secs;
     }
 
     /**
@@ -609,12 +699,12 @@ export class Chain {
      */
     sendTransaction(tx:Transaction, eventEmitter:events.EventEmitter) {
         if (this.peers.length === 0) {
-            return eventEmitter.emit('error', new Error(util.format("chain %s has no peers", this.getName())));
+            return eventEmitter.emit('error', new EventTransactionError(util.format("chain %s has no peers", this.getName())));
         }
         let peers = this.peers;
         let trySendTransaction = (pidx) => {
 	       if( pidx >= peers.length ) {
-		      eventEmitter.emit('error', "None of "+peers.length+" peers reponding");
+		      eventEmitter.emit('error', new EventTransactionError("None of "+peers.length+" peers reponding"));
 		      return;
 	       }
 	       let p = urlParser.parse(peers[pidx].getUrl());
@@ -653,12 +743,8 @@ export class Member {
     private memberServices:MemberServices;
     private keyValStore:KeyValStore;
     private keyValStoreName:string;
-    private tcerts:any[] = [];
+    private tcertGetterMap: {[s:string]:TCertGetter} = {};
     private tcertBatchSize:number;
-    private arrivalRate:stats.Rate = new stats.Rate();
-    private getTCertResponseTime:stats.ResponseTime = new stats.ResponseTime();
-    private getTCertWaiters:GetTCertCallback[] = [];
-    private gettingTCerts:boolean = false;
 
     /**
      * Constructor for a member.
@@ -679,7 +765,6 @@ export class Member {
         this.memberServices = chain.getMemberServices();
         this.keyValStore = chain.getKeyValStore();
         this.keyValStoreName = toKeyValStoreName(this.name);
-        this.tcerts = [];
         this.tcertBatchSize = chain.getTCertBatchSize();
     }
 
@@ -697,6 +782,14 @@ export class Member {
      */
     getChain():Chain {
         return this.chain;
+    };
+
+    /**
+     * Get the member services.
+     * @returns {MemberServices} The member services.
+     */
+    getMemberServices():MemberServices {
+       return this.memberServices;
     };
 
     /**
@@ -882,6 +975,8 @@ export class Member {
      * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
      */
     deploy(deployRequest:DeployRequest):TransactionContext {
+        debug("Member.deploy");
+
         let tx = this.newTransactionContext();
         tx.deploy(deployRequest);
         return tx;
@@ -919,122 +1014,60 @@ export class Member {
         return new TransactionContext(this, tcert);
     }
 
-    getUserCert(cb:GetTCertCallback):void {
-        this.getNextTCert(cb);
+    /**
+     * Get a user certificate.
+     * @param attrs The names of attributes to include in the user certificate.
+     * @param cb A GetTCertCallback
+     */
+    getUserCert(attrs:string[], cb:GetTCertCallback):void {
+        this.getNextTCert(attrs,cb);
     }
 
     /**
-     * Get the next available transaction certificate.
-     * @param cb
-     */
-    getNextTCert(cb:GetTCertCallback):void {
+   * Get the next available transaction certificate with the appropriate attributes.
+   * @param cb
+   */
+   getNextTCert(attrs:string[], cb:GetTCertCallback):void {
         let self = this;
         if (!self.isEnrolled()) {
             return cb(Error(util.format("user '%s' is not enrolled",self.getName())));
         }
-        self.arrivalRate.tick();
-        var tcert = self.tcerts.length > 0? self.tcerts.shift() : undefined;
-        if (tcert) {
-            return cb(null,tcert);
-        } else {
-            self.getTCertWaiters.push(cb);
+        let key = getAttrsKey(attrs);
+        debug("Member.getNextTCert: key=%s",key);
+        let tcertGetter = self.tcertGetterMap[key];
+        if (!tcertGetter) {
+            debug("Member.getNextTCert: key=%s, creating new getter",key);
+            tcertGetter = new TCertGetter(self,attrs,key);
+            self.tcertGetterMap[key] = tcertGetter;
         }
-        if (self.shouldGetTCerts()) {
-            self.getTCerts();
-        }
-    }
+        return tcertGetter.getNextTCert(cb);
+   }
 
-    // Determine if we should issue a request to get more tcerts now.
-    private shouldGetTCerts(): boolean {
-        let self = this;
-        // Do nothing if we are already getting more tcerts
-        if (self.gettingTCerts) {
-            debug("shouldGetTCerts: no, already getting tcerts");
-            return false;
-        }
-        // If there are none, then definitely get more
-        if (self.tcerts.length == 0) {
-            debug("shouldGetTCerts: yes, we have no tcerts");
-            return true;
-        }
-        // If we aren't in prefetch mode, return false;
-        if (!self.chain.isPreFetchMode()) {
-            debug("shouldGetTCerts: no, prefetch disabled");
-            return false;
-        }
-        // Otherwise, see if we should prefetch based on the arrival rate
-        // (i.e. the rate at which tcerts are requested) and the response
-        // time.
-        // 'arrivalRate' is in req/ms and 'responseTime' in ms,
-        // so 'tcertCountThreshold' is number of tcerts at which we should
-        // request the next batch of tcerts so we don't have to wait on the
-        // transaction path.  Note that we add 1 sec to the average response
-        // time to add a little buffer time so we don't have to wait.
-        let arrivalRate = self.arrivalRate.getValue();
-        let responseTime = self.getTCertResponseTime.getValue() + 1000;
-        let tcertThreshold = arrivalRate * responseTime;
-        let tcertCount = self.tcerts.length;
-        let result = tcertCount <= tcertThreshold;
-        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s",
-                           result, tcertThreshold, tcertCount, arrivalRate, responseTime));
-        return result;
-    }
+   /**
+    * Save the state of this member to the key value store.
+    * @param cb Callback of the form: {function(err}
+    */
+   saveState(cb:ErrorCallback):void {
+      let self = this;
+      self.keyValStore.setValue(self.keyValStoreName, self.toString(), cb);
+   }
 
-    // Call member services to get more tcerts
-    private getTCerts():void {
-        let self = this;
-        let req = {
-            name: self.getName(),
-            enrollment: self.enrollment,
-            num: self.getTCertBatchSize()
-        };
-        self.getTCertResponseTime.start();
-        self.memberServices.getTCertBatch(req, function (err, tcerts) {
-            if (err) {
-                self.getTCertResponseTime.cancel();
-                // Error all waiters
-                while (self.getTCertWaiters.length > 0) {
-                    self.getTCertWaiters.shift()(err);
-                }
-                return;
-            }
-            self.getTCertResponseTime.stop();
-            // Add to member's tcert list
-            while (tcerts.length > 0) {
-                self.tcerts.push(tcerts.shift());
-            }
-            // Allow waiters to proceed
-            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
-                self.getTCertWaiters.shift()(null,self.tcerts.shift());
-            }
-        });
-    }
-
-    /**
-     * Save the state of this member to the key value store.
-     * @param cb Callback of the form: {function(err}
-     */
-    saveState(cb:ErrorCallback):void {
-        let self = this;
-        self.keyValStore.setValue(self.keyValStoreName, self.toString(), cb);
-    }
-
-    /**
-     * Restore the state of this member from the key value store (if found).  If not found, do nothing.
-     * @param cb Callback of the form: function(err}
-     */
-    restoreState(cb:ErrorCallback):void {
-        var self = this;
-        self.keyValStore.getValue(self.keyValStoreName, function (err, memberStr) {
-            if (err) return cb(err);
-            // debug("restoreState: name=%s, memberStr=%s", self.getName(), memberStr);
-            if (memberStr) {
-                // The member was found in the key value store, so restore the state.
-                self.fromString(memberStr);
-            }
-            cb(null);
-        });
-    }
+   /**
+    * Restore the state of this member from the key value store (if found).  If not found, do nothing.
+    * @param cb Callback of the form: function(err}
+    */
+   restoreState(cb:ErrorCallback):void {
+      var self = this;
+      self.keyValStore.getValue(self.keyValStoreName, function (err, memberStr) {
+         if (err) return cb(err);
+         // debug("restoreState: name=%s, memberStr=%s", self.getName(), memberStr);
+         if (memberStr) {
+             // The member was found in the key value store, so restore the state.
+             self.fromString(memberStr);
+         }
+         cb(null);
+      });
+   }
 
     /**
      * Get the current state of this member as a string
@@ -1082,6 +1115,7 @@ export class TransactionContext extends events.EventEmitter {
     private nonce: any;
     private binding: any;
     private tcert:TCert;
+    private attrs:string[];
 
     constructor(member:Member, tcert:TCert) {
         super();
@@ -1121,17 +1155,34 @@ export class TransactionContext extends events.EventEmitter {
      * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
    */
     deploy(deployRequest:DeployRequest):TransactionContext {
+        debug("TransactionContext.deploy");
+        debug("Received deploy request: %j", deployRequest);
+
         let self = this;
-        debug("received deploy request: %j",deployRequest);
+
+        // Get a TCert to use in the deployment transaction
         self.getMyTCert(function (err) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
+                self.emit('error', new EventTransactionError(err));
 
-                return self
+                return self;
             }
 
-            return self.execute(self.newBuildOrDeployTransaction(deployRequest, false));
+            debug("Got a TCert successfully, continue...");
+
+            self.newBuildOrDeployTransaction(deployRequest, false, function(err, deployTx) {
+              if (err) {
+                debug("Error in newBuildOrDeployTransaction [%s]", err);
+                self.emit('error', new EventTransactionError(err));
+
+                return self;
+              }
+
+              debug("Calling TransactionContext.execute");
+
+              return self.execute(deployTx);
+            });
         });
         return self;
     }
@@ -1142,14 +1193,14 @@ export class TransactionContext extends events.EventEmitter {
      */
     invoke(invokeRequest:InvokeRequest):TransactionContext {
         let self = this;
+        debug("Member.invoke: req=%j",invokeRequest);
+        self.setAttrs(invokeRequest.attrs);
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
-
+                self.emit('error', new EventTransactionError(err));
                 return self;
             }
-
             return self.execute(self.newInvokeOrQueryTransaction(invokeRequest, true));
         });
         return self;
@@ -1161,20 +1212,32 @@ export class TransactionContext extends events.EventEmitter {
      */
     query(queryRequest:QueryRequest):TransactionContext {
         let self = this;
-
+        debug("Member.query: req=%j",queryRequest);
+        self.setAttrs(queryRequest.attrs);
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', err);
-
+                self.emit('error', new EventTransactionError(err));
                 return self;
             }
-
             return self.execute(self.newInvokeOrQueryTransaction(queryRequest, false));
         });
-
         return self;
     }
+
+   /**
+    * Get the attribute names associated
+    */
+   getAttrs(): string[] {
+       return this.attrs;
+   }
+
+   /**
+    * Set the attributes for this transaction context.
+    */
+   setAttrs(attrs:string[]): void {
+       this.attrs = attrs;
+   }
 
     /**
      * Execute a transaction
@@ -1188,12 +1251,12 @@ export class TransactionContext extends events.EventEmitter {
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                return self.emit('error', err);
+                return self.emit('error', new EventTransactionError(err));
             }
 
             if (tcert) {
                 // Set nonce
-                tx.setNonce(self.nonce);
+                tx.pb.setNonce(self.nonce);
 
                 // Process confidentiality
                 debug('Process Confidentiality...');
@@ -1203,40 +1266,38 @@ export class TransactionContext extends events.EventEmitter {
                 debug('Sign transaction...');
 
                 // Add the tcert
-                tx.setCert(tcert.publicKey);
+                tx.pb.setCert(tcert.publicKey);
                 // sign the transaction bytes
-                let txBytes = tx.toBuffer();
+                let txBytes = tx.pb.toBuffer();
                 let derSignature = self.chain.cryptoPrimitives.ecdsaSign(tcert.privateKey.getPrivate('hex'), txBytes).toDER();
                 // debug('signature: ', derSignature);
-                tx.setSignature(new Buffer(derSignature));
+                tx.pb.setSignature(new Buffer(derSignature));
 
                 debug('Send transaction...');
-                debug('Confidentiality: ', tx.getConfidentialityLevel());
+                debug('Confidentiality: ', tx.pb.getConfidentialityLevel());
 
-                if (tx.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
-                        tx.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
-
+                if (tx.pb.getConfidentialityLevel() == _fabricProto.ConfidentialityLevel.CONFIDENTIAL &&
+                        tx.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_QUERY) {
+                    // Need to send a different event emitter so we can catch the response
+                    // and perform decryption before sending the real complete response
+                    // to the caller
                     var emitter = new events.EventEmitter();
-                    emitter.on("complete", function (results) {
-                        debug("Encrypted: [%j]", results);
-
-                        let res = self.decryptResult(results);
-
-                        debug("Decrypted: [%j]", res);
-
-                        self.emit("complete", res);
+                    emitter.on("complete", function (event:EventQueryComplete) {
+                        debug("Encrypted: [%j]", event);
+                        event.result = self.decryptResult(event.result);
+                        debug("Decrypted: [%j]", event);
+                        self.emit("complete", event);
                     });
-                    emitter.on("error", function (results) {
-                        self.emit("error", results);
+                    emitter.on("error", function (event:EventTransactionError) {
+                        self.emit("error", event);
                     });
-
                     self.getChain().sendTransaction(tx, emitter);
                 } else {
                     self.getChain().sendTransaction(tx, self);
                 }
             } else {
                 debug('Missing TCert...');
-                return self.emit('error', 'Missing TCert.')
+                return self.emit('error', new EventTransactionError('Missing TCert.'));
             }
 
         });
@@ -1250,7 +1311,7 @@ export class TransactionContext extends events.EventEmitter {
             return cb(null, self.tcert);
         }
         debug('[TransactionContext] No TCert cached. Retrieving one.');
-        this.member.getNextTCert(function (err, tcert) {
+        this.member.getNextTCert(self.attrs, function (err, tcert) {
             if (err) return cb(err);
             self.tcert = tcert;
             return cb(null, tcert);
@@ -1259,7 +1320,7 @@ export class TransactionContext extends events.EventEmitter {
 
     private processConfidentiality(transaction:Transaction) {
         // is confidentiality required?
-        if (transaction.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
+        if (transaction.pb.getConfidentialityLevel() != _fabricProto.ConfidentialityLevel.CONFIDENTIAL) {
             // No confidentiality is required
             return
         }
@@ -1268,7 +1329,7 @@ export class TransactionContext extends events.EventEmitter {
         var self = this;
 
         // Set confidentiality level and protocol version
-        transaction.setConfidentialityProtocolVersion('1.2');
+        transaction.pb.setConfidentialityProtocolVersion('1.2');
 
         // Generate transaction key. Common to all type of transactions
         var txKey = self.chain.cryptoPrimitives.eciesKeyGen();
@@ -1281,10 +1342,10 @@ export class TransactionContext extends events.EventEmitter {
 
         // Generate stateKey. Transaction type dependent step.
         var stateKey;
-        if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
+        if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_DEPLOY) {
             // The request is for a deploy
             stateKey = new Buffer(self.chain.cryptoPrimitives.aesKeyGen());
-        } else if (transaction.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE ) {
+        } else if (transaction.pb.getType() == _fabricProto.Transaction.Type.CHAINCODE_INVOKE ) {
             // The request is for an execute
             // Empty state key
             stateKey = new Buffer([]);
@@ -1322,33 +1383,33 @@ export class TransactionContext extends events.EventEmitter {
             ecdsaChainKey,
             chainCodeValidatorMessage1_2.buffer
         );
-        transaction.setToValidators(encMsgToValidators);
+        transaction.pb.setToValidators(encMsgToValidators);
 
         // Encrypts chaincodeID using txKey
         // debug('CHAINCODE ID %j', transaction.chaincodeID);
 
         let encryptedChaincodeID = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
-            transaction.getChaincodeID().buffer
+            transaction.pb.getChaincodeID().buffer
         );
-        transaction.setChaincodeID(encryptedChaincodeID);
+        transaction.pb.setChaincodeID(encryptedChaincodeID);
 
         // Encrypts payload using txKey
         // debug('PAYLOAD ID %j', transaction.payload);
         let encryptedPayload = self.chain.cryptoPrimitives.eciesEncrypt(
             txKey.pubKeyObj,
-            transaction.getPayload().buffer
+            transaction.pb.getPayload().buffer
         );
-        transaction.setPayload(encryptedPayload);
+        transaction.pb.setPayload(encryptedPayload);
 
         // Encrypt metadata using txKey
-        if (transaction.getMetadata() != null && transaction.getMetadata().buffer != null) {
-            debug('Metadata [%j]', transaction.getMetadata().buffer);
+        if (transaction.pb.getMetadata() != null && transaction.pb.getMetadata().buffer != null) {
+            debug('Metadata [%j]', transaction.pb.getMetadata().buffer);
             let encryptedMetadata = self.chain.cryptoPrimitives.eciesEncrypt(
                 txKey.pubKeyObj,
-                transaction.getMetadata().buffer
+                transaction.pb.getMetadata().buffer
             );
-            transaction.setMetadata(encryptedMetadata);
+            transaction.pb.setMetadata(encryptedMetadata);
         }
     }
 
@@ -1367,18 +1428,46 @@ export class TransactionContext extends events.EventEmitter {
      * Create a deploy transaction.
      * @param request {Object} A BuildRequest or DeployRequest
      */
-    private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean):Transaction {
+    private newBuildOrDeployTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+      	debug("newBuildOrDeployTransaction");
+
         let self = this;
+
+        // Determine if deployment is for dev mode or net mode
+        if (self.chain.isDevMode()) {
+            // Deployment in developent mode. Build a dev mode transaction.
+            this.newDevModeTransaction(request, isBuildRequest, function(err, tx) {
+                return cb(null, tx);
+            });
+        } else {
+          // Deployment in network mode. Build a net mode transaction.
+          this.newNetModeTransaction(request, isBuildRequest, function(err, tx) {
+              return cb(null, tx);
+          });
+        }
+    } // end newBuildOrDeployTransaction
+
+    /**
+     * Create a development mode deploy transaction.
+     * @param request {Object} A development mode BuildRequest or DeployRequest
+     */
+    private newDevModeTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+        debug("newDevModeTransaction");
+
+        let self = this;
+
         let tx = new _fabricProto.Transaction();
+
         if (isBuildRequest) {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
         } else {
             tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
         }
+
         // Set the chaincodeID
         let chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.chaincodeID);
-        debug("newBuildOrDeployTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
+        chaincodeID.setName(request.chaincodeName);
+        debug("newDevModeTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
 
         // Construct the ChaincodeSpec
@@ -1399,29 +1488,252 @@ export class TransactionContext extends events.EventEmitter {
         tx.setPayload(chaincodeDeploymentSpec.toBuffer());
 
         // Set the transaction UUID
-        if (self.chain.isDevMode()) {
-            tx.setUuid(request.chaincodeID);
-        } else {
-            tx.setUuid(generateUUID());
-        }
+        tx.setUuid(request.chaincodeName);
 
         // Set the transaction timestamp
-        tx.setTimestamp(generateTimestamp());
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
 
         // Set confidentiality level
         if (request.confidential) {
-            debug('Set confidentiality on');
-            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL)
+            debug("Set confidentiality level to CONFIDENTIAL");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
         } else {
-            debug('Set confidentiality on');
-            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC)
+            debug("Set confidentiality level to PUBLIC");
+            tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
         }
 
+        // Set request metadata
         if (request.metadata) {
-            tx.setMetadata(request.metadata)
+            tx.setMetadata(request.metadata);
         }
 
-        return tx;
+        // Set the user certificate data
+        if (request.userCert) {
+            // cert based
+            let certRaw = new Buffer(self.tcert.publicKey);
+            // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+            let nonceRaw = new Buffer(self.nonce);
+            let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+            // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+            this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+            // debug('========== Binding [%s]', this.binding.toString('hex'));
+            let ctor = chaincodeSpec.getCtorMsg().toBuffer();
+            // debug('========== Ctor [%s]', ctor.toString('hex'));
+            let txmsg = Buffer.concat([ctor, this.binding]);
+            // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
+            let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+            let sigma = new Buffer(mdsig.toDER());
+            // debug('========== Sigma [%s]', sigma.toString('hex'));
+            tx.setMetadata(sigma);
+        }
+
+        tx = new Transaction(tx, request.chaincodeName);
+
+        return cb(null, tx);
+    }
+
+    /**
+     * Create a network mode deploy transaction.
+     * @param request {Object} A network mode BuildRequest or DeployRequest
+     */
+    private newNetModeTransaction(request:DeployRequest, isBuildRequest:boolean, cb:DeployTransactionCallback):void {
+        debug("newNetModeTransaction");
+
+        let self = this;
+
+        // Determine the user's $GOPATH
+        let goPath =  process.env['GOPATH'];
+        debug("$GOPATH: " + goPath);
+
+        // Compose the path to the chaincode project directory
+        let projDir = goPath + "/src/" + request.chaincodePath;
+        debug("projDir: " + projDir);
+
+        // Compute the hash of the chaincode deployment parameters
+        let hash = sdk_util.GenerateParameterHash(request.chaincodePath, request.fcn, request.args);
+
+        // Compute the hash of the project directory contents
+        hash = sdk_util.GenerateDirectoryHash(goPath + "/src/", request.chaincodePath, hash);
+        debug("hash: " + hash);
+
+        // Compose the Dockerfile commands
+     	  let dockerFileContents =
+        "from hyperledger/fabric-baseimage" + "\n" +
+     	  "COPY . $GOPATH/src/build-chaincode/" + "\n" +
+     	  "WORKDIR $GOPATH" + "\n\n" +
+     	  "RUN go install build-chaincode && cp src/build-chaincode/vendor/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/build-chaincode $GOPATH/bin/%s";
+
+     	  // Substitute the hashStrHash for the image name
+     	  dockerFileContents = util.format(dockerFileContents, hash);
+
+     	  // Create a Docker file with dockerFileContents
+     	  let dockerFilePath = projDir + "/Dockerfile";
+     	  fs.writeFile(dockerFilePath, dockerFileContents, function(err) {
+            if (err) {
+                debug(util.format("Error writing file [%s]: %s", dockerFilePath, err));
+                return cb(Error(util.format("Error writing file [%s]: %s", dockerFilePath, err)));
+            }
+
+            debug("Created Dockerfile at [%s]", dockerFilePath);
+
+            // Create the .tar.gz file of the chaincode package
+            let targzFilePath = "/tmp/deployment-package.tar.gz";
+            // Create the compressed archive
+            sdk_util.GenerateTarGz(projDir, targzFilePath, function(err) {
+                if(err) {
+                    debug(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err));
+                    return cb(Error(util.format("Error creating deployment archive [%s]: %s", targzFilePath, err)));
+                }
+
+                debug(util.format("Created deployment archive at [%s]", targzFilePath));
+
+                //
+                // Initialize a transaction structure
+                //
+
+                let tx = new _fabricProto.Transaction();
+
+                //
+                // Set the transaction type
+                //
+
+                if (isBuildRequest) {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_BUILD);
+                } else {
+                    tx.setType(_fabricProto.Transaction.Type.CHAINCODE_DEPLOY);
+                }
+
+                //
+                // Set the chaincodeID
+                //
+
+                let chaincodeID = new _chaincodeProto.ChaincodeID();
+                chaincodeID.setName(hash);
+                debug("chaincodeID: " + JSON.stringify(chaincodeID));
+                tx.setChaincodeID(chaincodeID.toBuffer());
+
+                //
+                // Set the payload
+                //
+
+                // Construct the ChaincodeSpec
+                let chaincodeSpec = new _chaincodeProto.ChaincodeSpec();
+
+                // Set Type -- GOLANG is the only chaincode language supported at this time
+                chaincodeSpec.setType(_chaincodeProto.ChaincodeSpec.Type.GOLANG);
+                // Set chaincodeID
+                chaincodeSpec.setChaincodeID(chaincodeID);
+                // Set ctorMsg
+                let chaincodeInput = new _chaincodeProto.ChaincodeInput();
+                chaincodeInput.setFunction(request.fcn);
+                chaincodeInput.setArgs(request.args);
+                chaincodeSpec.setCtorMsg(chaincodeInput);
+                debug("chaincodeSpec: " + JSON.stringify(chaincodeSpec));
+
+                // Construct the ChaincodeDeploymentSpec and set it as the Transaction payload
+                let chaincodeDeploymentSpec = new _chaincodeProto.ChaincodeDeploymentSpec();
+                chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
+
+                // Read in the .tar.zg and set it as the CodePackage in ChaincodeDeploymentSpec
+                fs.readFile(targzFilePath, function(err, data) {
+                    if(err) {
+                        debug(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err));
+                        return cb(Error(util.format("Error reading deployment archive [%s]: %s", targzFilePath, err)));
+                    }
+
+                    debug(util.format("Read in deployment archive from [%s]", targzFilePath));
+
+                    chaincodeDeploymentSpec.setCodePackage(data);
+                    tx.setPayload(chaincodeDeploymentSpec.toBuffer());
+
+                    //
+                    // Set the transaction UUID
+                    //
+
+                    tx.setUuid(sdk_util.GenerateUUID());
+
+                    //
+                    // Set the transaction timestamp
+                    //
+
+                    tx.setTimestamp(sdk_util.GenerateTimestamp());
+
+                    //
+                    // Set confidentiality level
+                    //
+
+                    if (request.confidential) {
+                        debug("Set confidentiality level to CONFIDENTIAL");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.CONFIDENTIAL);
+                    } else {
+                        debug("Set confidentiality level to PUBLIC");
+                        tx.setConfidentialityLevel(_fabricProto.ConfidentialityLevel.PUBLIC);
+                    }
+
+                    //
+                    // Set request metadata
+                    //
+
+                    if (request.metadata) {
+                        tx.setMetadata(request.metadata);
+                    }
+
+                    //
+                    // Set the user certificate data
+                    //
+
+                    if (request.userCert) {
+                        // cert based
+                        let certRaw = new Buffer(self.tcert.publicKey);
+                        // debug('========== Invoker Cert [%s]', certRaw.toString('hex'));
+                        let nonceRaw = new Buffer(self.nonce);
+                        let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
+                        // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
+                        this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+                        // debug('========== Binding [%s]', this.binding.toString('hex'));
+                        let ctor = chaincodeSpec.getCtorMsg().toBuffer();
+                        // debug('========== Ctor [%s]', ctor.toString('hex'));
+                        let txmsg = Buffer.concat([ctor, this.binding]);
+                        // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
+                        let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
+                        let sigma = new Buffer(mdsig.toDER());
+                        // debug('========== Sigma [%s]', sigma.toString('hex'));
+                        tx.setMetadata(sigma);
+                    }
+
+                    //
+                    // Clean up temporary files
+                    //
+
+                    // Remove the temporary .tar.gz with the deployment contents and the Dockerfile
+                    fs.unlink(targzFilePath, function(err) {
+                        if(err) {
+                            debug(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err));
+                            return cb(Error(util.format("Error deleting temporary archive [%s]: %s", targzFilePath, err)));
+                        }
+
+                        debug("Temporary archive deleted successfully ---> " + targzFilePath);
+
+                        fs.unlink(dockerFilePath, function(err) {
+                            if(err) {
+                                debug(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err));
+                                return cb(Error(util.format("Error deleting temporary file [%s]: %s", dockerFilePath, err)));
+                            }
+
+                            debug("File deleted successfully ---> " + dockerFilePath);
+
+                            //
+                            // Return the deploy transaction structure
+                            //
+
+                            tx = new Transaction(tx, hash);
+
+                            return cb(null, tx);
+                        }); // end delete Dockerfile
+                    }); // end delete .tar.gz
+              }); // end reading .tar.zg and composing transaction
+	         }); // end writing .tar.gz
+	      }); // end writing Dockerfile
     }
 
     /**
@@ -1462,10 +1774,10 @@ export class TransactionContext extends events.EventEmitter {
         tx.setPayload(chaincodeInvocationSpec.toBuffer());
 
         // Set the transaction UUID
-        tx.setUuid(generateUUID());
+        tx.setUuid(sdk_util.GenerateUUID());
 
         // Set the transaction timestamp
-        tx.setTimestamp(generateTimestamp());
+        tx.setTimestamp(sdk_util.GenerateTimestamp());
 
         // Set confidentiality level
         if (request.confidential) {
@@ -1498,10 +1810,143 @@ export class TransactionContext extends events.EventEmitter {
             // debug('========== Sigma [%s]', sigma.toString('hex'));
             tx.setMetadata(sigma)
         }
+
+        tx = new Transaction(tx, request.chaincodeID);
+
         return tx;
     }
 
 }  // end TransactionContext
+
+// A class to get TCerts.
+// There is one class per set of attributes requested by each member.
+class TCertGetter {
+
+    private chain:Chain;
+    private member:Member;
+    private attrs:string[];
+    private key:string;
+    private memberServices:MemberServices;
+    private tcerts:any[] = [];
+    private arrivalRate:stats.Rate = new stats.Rate();
+    private getTCertResponseTime:stats.ResponseTime = new stats.ResponseTime();
+    private getTCertWaiters:GetTCertCallback[] = [];
+    private gettingTCerts:boolean = false;
+
+    /**
+    * Constructor for a member.
+    * @param cfg {string | RegistrationRequest} The member name or registration request.
+    * @returns {Member} A member who is neither registered nor enrolled.
+    */
+    constructor(member:Member, attrs:string[], key:string) {
+        this.member = member;
+        this.attrs = attrs;
+        this.key = key;
+        this.chain = member.getChain();
+        this.memberServices = member.getMemberServices();
+        this.tcerts = [];
+    }
+
+    /**
+    * Get the chain.
+    * @returns {Chain} The chain.
+    */
+    getChain():Chain {
+        return this.chain;
+    };
+
+    getUserCert(cb:GetTCertCallback):void {
+        this.getNextTCert(cb);
+    }
+
+    /**
+    * Get the next available transaction certificate.
+    * @param cb
+    */
+    getNextTCert(cb:GetTCertCallback):void {
+        let self = this;
+        self.arrivalRate.tick();
+        let tcert = self.tcerts.length > 0? self.tcerts.shift() : undefined;
+        if (tcert) {
+            return cb(null,tcert);
+        } else {
+           if (!cb) throw Error("null callback");
+            self.getTCertWaiters.push(cb);
+        }
+        if (self.shouldGetTCerts()) {
+            self.getTCerts();
+        }
+    }
+
+    // Determine if we should issue a request to get more tcerts now.
+    private shouldGetTCerts(): boolean {
+        let self = this;
+        // Do nothing if we are already getting more tcerts
+        if (self.gettingTCerts) {
+            debug("shouldGetTCerts: no, already getting tcerts");
+            return false;
+        }
+        // If there are none, then definitely get more
+        if (self.tcerts.length == 0) {
+            debug("shouldGetTCerts: yes, we have no tcerts");
+            return true;
+        }
+        // If we aren't in prefetch mode, return false;
+        if (!self.chain.isPreFetchMode()) {
+            debug("shouldGetTCerts: no, prefetch disabled");
+            return false;
+        }
+        // Otherwise, see if we should prefetch based on the arrival rate
+        // (i.e. the rate at which tcerts are requested) and the response
+        // time.
+        // "arrivalRate" is in req/ms and "responseTime" in ms,
+        // so "tcertCountThreshold" is number of tcerts at which we should
+        // request the next batch of tcerts so we don't have to wait on the
+        // transaction path.  Note that we add 1 sec to the average response
+        // time to add a little buffer time so we don't have to wait.
+        let arrivalRate = self.arrivalRate.getValue();
+        let responseTime = self.getTCertResponseTime.getValue() + 1000;
+        let tcertThreshold = arrivalRate * responseTime;
+        let tcertCount = self.tcerts.length;
+        let result = tcertCount <= tcertThreshold;
+        debug(util.format("shouldGetTCerts: %s, threshold=%s, count=%s, rate=%s, responseTime=%s",
+        result, tcertThreshold, tcertCount, arrivalRate, responseTime));
+        return result;
+    }
+
+    // Call member services to get more tcerts
+    private getTCerts():void {
+        let self = this;
+        let req = {
+            name: self.member.getName(),
+            enrollment: self.member.getEnrollment(),
+            num: self.member.getTCertBatchSize(),
+            attrs: self.attrs
+        };
+        self.getTCertResponseTime.start();
+        self.memberServices.getTCertBatch(req, function (err, tcerts) {
+            if (err) {
+                self.getTCertResponseTime.cancel();
+                // Error all waiters
+                while (self.getTCertWaiters.length > 0) {
+                    self.getTCertWaiters.shift()(err);
+                }
+                return;
+            }
+            self.getTCertResponseTime.stop();
+            // Add to member's tcert list
+            while (tcerts.length > 0) {
+                self.tcerts.push(tcerts.shift());
+            }
+            // Allow waiters to proceed
+            while (self.getTCertWaiters.length > 0 && self.tcerts.length > 0) {
+                let waiter = self.getTCertWaiters.shift();
+                waiter(null,self.tcerts.shift());
+            }
+        });
+    }
+
+} // end TCertGetter
 
 /**
  * The Peer class represents a peer to which HLC sends deploy, invoke, or query requests.
@@ -1550,76 +1995,105 @@ export class Peer {
     sendTransaction = function (tx:Transaction, eventEmitter:events.EventEmitter) {
         var self = this;
 
-        //debug("peer.sendTransaction: sending %j", tx);
+        debug("peer.sendTransaction");
 
         // Send the transaction to the peer node via grpc
         // The rpc specification on the peer side is:
         //     rpc ProcessTransaction(Transaction) returns (Response) {}
-        self.peerClient.processTransaction(tx, function (err, response) {
+        self.peerClient.processTransaction(tx.pb, function (err, response) {
             if (err) {
                 debug("peer.sendTransaction: error=%j", err);
-                return eventEmitter.emit('error', err);
+                return eventEmitter.emit('error', new EventTransactionError(err));
             }
 
             debug("peer.sendTransaction: received %j", response);
 
-            // Check transaction type here, as deploy/invoke are asynchronous calls,
-            // whereas a query is a synchonous call. As such, deploy/invoke will emit
-            // 'submitted' and 'error', while a query will emit 'complete' and 'error'.
-            let txType = tx.getType();
+            // Check transaction type here, as invoke is an asynchronous call,
+            // whereas a deploy and a query are synchonous calls. As such,
+            // invoke will emit 'submitted' and 'error', while a deploy/query
+            // will emit 'complete' and 'error'.
+            let txType = tx.pb.getType();
             switch (txType) {
-                case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
-                    if (response.status === "SUCCESS") {
-                        // Deploy transaction has been submitted
-                        if (!response.msg || response.msg === "") {
-                            eventEmitter.emit('error', 'the response is missing the transaction UUID');
-                        } else {
-                            eventEmitter.emit('submitted', response.msg);
-                            self.waitToComplete(eventEmitter);
-                        }
-                    } else {
-                        // Deploy completed with status "FAILURE" or "UNDEFINED"
-                        eventEmitter.emit('error', response.msg);
-                    }
-                    break;
-                case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
-                    if (response.status === "SUCCESS") {
-                        // Invoke transaction has been submitted
-                        eventEmitter.emit('submitted', response.msg.toString());
-                        self.waitToComplete(eventEmitter);
-                    } else {
-                        // Invoke completed with status "FAILURE" or "UNDEFINED"
-                        eventEmitter.emit('error', response.msg);
-                    }
-                    break;
-                case _fabricProto.Transaction.Type.CHAINCODE_QUERY: // sync
-                    if (response.status === "SUCCESS") {
-                        // Query transaction has been completed
-                        eventEmitter.emit('complete', response.msg);
-                    } else {
-                        // Query completed with status "FAILURE" or "UNDEFINED"
-                        eventEmitter.emit('error', response.msg);
-                    }
-                    break;
-                default: // not implemented
-                    eventEmitter.emit('error', new Error("processTransaction for this transaction type is not yet implemented!"));
-             }
-          }
-      );
+               case _fabricProto.Transaction.Type.CHAINCODE_DEPLOY: // async
+                  if (response.status === "SUCCESS") {
+                     // Deploy transaction has been completed
+                     if (!response.msg || response.msg === "") {
+                        eventEmitter.emit("error", new EventTransactionError("the deploy response is missing the transaction UUID"));
+                     } else {
+                        let event = new EventDeploySubmitted(response.msg.toString(), tx.chaincodeID);
+                        debug("EventDeploySubmitted event: %j", event);
+                        eventEmitter.emit("submitted", event);
+                        self.waitForDeployComplete(eventEmitter,event);
+                     }
+                  } else {
+                     // Deploy completed with status "FAILURE" or "UNDEFINED"
+                     eventEmitter.emit("error", new EventTransactionError(response));
+                  }
+                  break;
+               case _fabricProto.Transaction.Type.CHAINCODE_INVOKE: // async
+                  if (response.status === "SUCCESS") {
+                     // Invoke transaction has been submitted
+                     if (!response.msg || response.msg === "") {
+                        eventEmitter.emit("error", new EventTransactionError("the invoke response is missing the transaction UUID"));
+                     } else {
+                        eventEmitter.emit("submitted", new EventInvokeSubmitted(response.msg.toString()));
+                        self.waitForInvokeComplete(eventEmitter);
+                     }
+                  } else {
+                     // Invoke completed with status "FAILURE" or "UNDEFINED"
+                     eventEmitter.emit("error", new EventTransactionError(response));
+                  }
+                  break;
+               case _fabricProto.Transaction.Type.CHAINCODE_QUERY: // sync
+                  if (response.status === "SUCCESS") {
+                     // Query transaction has been completed
+                     eventEmitter.emit("complete", new EventQueryComplete(response.msg));
+                  } else {
+                     // Query completed with status "FAILURE" or "UNDEFINED"
+                     eventEmitter.emit("error", new EventTransactionError(response));
+                  }
+                  break;
+               default: // not implemented
+                  eventEmitter.emit("error", new EventTransactionError("processTransaction for this transaction type is not yet implemented!"));
+            }
+          });
     };
 
     /**
-     * For now, just wait 5 seconds and then fire the complete event.
-     * This is a temporary hack until event notification is implemented.
-     * TODO: implement this appropriately.
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
      */
-    private waitToComplete(eventEmitter:events.EventEmitter): void {
-        debug("waiting 5 seconds before emitting complete event");
-        var emitComplete = function() {
-            debug("emitting completion event");
-            eventEmitter.emit('complete');
-        };
-        setTimeout(emitComplete,5000);
+    private waitForDeployComplete(eventEmitter:events.EventEmitter, submitted:EventDeploySubmitted): void {
+        let waitTime = this.chain.getDeployWaitTime();
+        debug("waiting %d seconds before emitting deploy complete event",waitTime);
+        setTimeout(
+           function() {
+              let event = new EventDeployComplete(
+                  submitted.uuid,
+                  submitted.chaincodeID,
+                  "TODO: get actual results; waited "+waitTime+" seconds and assumed deploy was successful"
+              );
+              eventEmitter.emit("complete",event);
+           },
+           waitTime * 1000
+        );
+    }
+
+    /**
+     * TODO: Temporary hack to wait until the deploy event has hopefully completed.
+     * This does not detect if an error occurs in the peer or chaincode when deploying.
+     * When peer event listening is added to the SDK, this will be implemented correctly.
+     */
+    private waitForInvokeComplete(eventEmitter:events.EventEmitter): void {
+        let waitTime = this.chain.getInvokeWaitTime();
+        debug("waiting %d seconds before emitting invoke complete event",waitTime);
+        setTimeout(
+           function() {
+              eventEmitter.emit("complete",new EventInvokeComplete("waited "+waitTime+" seconds and assumed invoke was successful"));
+           },
+           waitTime * 1000
+        );
     }
 
     /**
@@ -1793,7 +2267,7 @@ class MemberServicesImpl implements MemberServices {
 
         // create the proto message
         var eCertCreateRequest = new _caProto.ECertCreateReq();
-        var timestamp = new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
+        var timestamp = sdk_util.GenerateTimestamp();
         eCertCreateRequest.setTs(timestamp);
         eCertCreateRequest.setId({id: req.enrollmentID});
         eCertCreateRequest.setTok({tok: new Buffer(req.enrollmentSecret)});
@@ -1876,13 +2350,20 @@ class MemberServicesImpl implements MemberServices {
         let self = this;
         cb = cb || nullCB;
 
-        let timestamp = new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
+        let timestamp = sdk_util.GenerateTimestamp();
 
         // create the proto
         let tCertCreateSetReq = new _caProto.TCertCreateSetReq();
         tCertCreateSetReq.setTs(timestamp);
         tCertCreateSetReq.setId({id: req.name});
         tCertCreateSetReq.setNum(req.num);
+        if (req.attrs) {
+            let attrs = [];
+            for (let i = 0; i < req.attrs.length; i++) {
+                attrs.push({attributeName:req.attrs[i]});
+            }
+            tCertCreateSetReq.setAttributes(attrs);
+        }
 
         // serialize proto
         let buf = tCertCreateSetReq.toBuffer();
@@ -2024,35 +2505,21 @@ class FileKeyValStore implements KeyValStore {
 
 } // end FileKeyValStore
 
-/**
- * generateUUID returns an RFC4122 compliant UUID.
- *    http://www.ietf.org/rfc/rfc4122.txt
- */
-function generateUUID() {
-    return uuid.v4();
-};
-
-/**
- * generateTimestamp returns the current time in the google/protobuf/timestamp.proto structure.
- */
-function generateTimestamp() {
-    return new _timeStampProto({seconds: Date.now() / 1000, nanos: 0});
-}
-
 function toKeyValStoreName(name:string):string {
     return "member." + name;
 }
 
-/**
- * Create and load peers for bluemix.
- */
-function bluemixInit():boolean {
-    var vcap = process.env['VCAP_SERVICES'];
-    if (!vcap) return false; // not in bluemix
-    // TODO: Take logic from marbles app
-    return true;
+// Return a unique string value for the list of attributes.
+function getAttrsKey(attrs?:string[]): string {
+    if (!attrs) return "null";
+    let key = "[]";
+    for (let i = 0; i < attrs.length; i++) {
+       key += "," + attrs[i];
+    }
+    return key;
 }
 
+// A null callback to use when the user doesn't pass one in
 function nullCB():void {
 }
 

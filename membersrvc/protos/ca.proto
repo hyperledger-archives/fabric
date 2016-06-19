@@ -43,14 +43,11 @@ service ECAA { // admin service
 service TCAP { // public service
 	rpc ReadCACertificate(Empty) returns (Cert);
 	rpc CreateCertificateSet(TCertCreateSetReq) returns (TCertCreateSetResp);
-	rpc ReadCertificate(TCertReadReq) returns (Cert);
-	rpc ReadCertificateSet(TCertReadSetReq) returns (CertSet);
 	rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // a user can revoke only his/her cert
 	rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // a user can revoke only his/her certs
 }
 
 service TCAA { // admin service
-	rpc ReadCertificateSets(TCertReadSetsReq) returns (CertSets);
 	rpc RevokeCertificate(TCertRevokeReq) returns (CAStatus); // an admin can revoke any cert
 	rpc RevokeCertificateSet(TCertRevokeSetReq) returns (CAStatus); // an admin can revoke any cert
 	rpc PublishCRL(TCertCRLReq) returns (CAStatus); // publishes CRL in the blockchain
@@ -232,22 +229,6 @@ message TCertCreateSetResp {
 	CertSet certs = 1;
 }
 
-message TCertReadReq {
-	google.protobuf.Timestamp ts = 1; // timestamp of cert to read
-	Hash hash = 2; // hash of the cert to read if ts == 0
-	Identity req = 3; // corresponding ECert retrieved from ECA
-	Identity id = 4;
-	Signature sig = 5; // sign(priv, ts | req | id)
-}
-
-message TCertReadSetReq {
-	google.protobuf.Timestamp ts = 1; // timestamp of cert set to read
-	Identity req = 2; // corresponding ECert retrieved from ECA
-	Identity id = 3;
-	uint32 num = 4; // number of certs to read (0 == all)
-	Signature sig = 5; // sign(priv, ts | req | id | num)
-}
-
 message TCertReadSetsReq {
 	google.protobuf.Timestamp begin = 1;
 	google.protobuf.Timestamp end = 2;
@@ -347,10 +328,20 @@ message ACAAttrResp {
  	PARTIAL_SUCCESSFUL  = 001;
 	// Processed OK  but no attributes included.
 	NO_ATTRIBUTES_FOUND = 010;
+
 	// Processed with errors.
- 	FAILURE				= 100;
+	option allow_alias = true;
+	FAILURE_MINVAL = 100;
+	FAILURE = 100;
+	BAD_REQUEST = 200;
 	// Missing parameters
- 	BAD_REQUEST = 101;
+	FAIL_NIL_TS = 201;
+	FAIL_NIL_ID = 202;
+	FAIL_NIL_ECERT = 203;
+	FAIL_NIL_SIGNATURE = 204;
+	FAIL_NIL_ATTRIBUTES = 205;
+
+	FAILURE_MAXVAL = 205;
 	}
 	// Indicates the request process status.
 	StatusCode status = 1;
@@ -373,10 +364,10 @@ message ACAFetchAttrReq {
 //ACAFetchAttrReq is the answer of the Attribute Certificate Authority (ACA) to the refresh request.
 message ACAFetchAttrResp {
 	enum StatusCode {
-	// Processed OK
-	SUCCESS = 000;
-	// Processed with errors.
-	FAILURE = 100;
+	   // Processed OK
+       SUCCESS = 000;
+       // Processed with errors.
+       FAILURE = 100;
 	}
 	// Status of the fetch process.
 	StatusCode status = 1;
