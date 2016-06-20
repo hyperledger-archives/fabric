@@ -18,7 +18,7 @@ Feature: Role Based Access Control (RBAC)
       And I wait "5" seconds
       And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
          | vp0  |
-      And I register with CA supplying username "alice" and secret "8Y7WIrLX0A8G" on peers:
+      And I register with CA supplying username "alice" and secret "CMS10pEQlB16" on peers:
          | vp0  |
       And I use the following credentials for querying peers:
          | peer |   username  |    secret    |
@@ -182,7 +182,7 @@ Feature: Role Based Access Control (RBAC)
       And I wait "5" seconds
       And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
          | vp0  |
-      And I register with CA supplying username "alice" and secret "8Y7WIrLX0A8G" on peers:
+      And I register with CA supplying username "alice" and secret "CMS10pEQlB16" on peers:
          | vp0  |
       And I use the following credentials for querying peers:
          | peer |   username  |    secret    |
