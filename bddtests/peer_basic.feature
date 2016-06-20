@@ -743,10 +743,10 @@ Feature: lanching 3 peers
               | vp0  | vp1 | vp2 |
 
       Examples: Consensus Options
-          |          ComposeFile                                   |   WaitTime   |
-#         |   docker-compose-4-consensus-classic-1-byzantine.yml   |      60      |
-          |   docker-compose-4-consensus-batch-1-byzantine.yml     |      60      |
-#         |   docker-compose-4-consensus-sieve-1-byzantine.yml     |      60      |
+          |                                  ComposeFile                                               |   WaitTime   |
+#          |   docker-compose-4-consensus-classic.yml  docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
+          |   docker-compose-4-consensus-batch.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
+#          |   docker-compose-4-consensus-sieve.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
 
 
   #@doNotDecompose
@@ -1014,6 +1014,7 @@ Feature: lanching 3 peers
              | vp0  | vp1 | vp3 |
              Then I should get a JSON response from peers with "OK" = "0"
              | vp0  | vp1 | vp3 |
+
 #@doNotDecompose
 #    @wip
 @issue_1873
@@ -1066,3 +1067,31 @@ Feature: lanching 3 peers
               #    |   docker-compose-4-consensus-classic.yml   |      60      |
                |   docker-compose-4-consensus-batch.yml     |      60      |
               #    |   docker-compose-4-consensus-sieve.yml     |      60
+
+  #@doNotDecompose
+  #@wip
+  @issue_1851
+  Scenario Outline: verify reconnect of disconnected peer, issue #1851
+
+      Given we compose "<ComposeFile>"
+      And I wait "2" seconds
+      
+      When requesting "/network/peers" from "vp0"
+      Then I should get a JSON response with array "peers" contains "2" elements
+      
+      Given I stop peers:
+            | vp0  |
+      
+      When requesting "/network/peers" from "vp1"
+      Then I should get a JSON response with array "peers" contains "1" elements
+
+      Given I start peers:
+            | vp0  |
+      And I wait "5" seconds
+      
+      When requesting "/network/peers" from "vp1"
+      Then I should get a JSON response with array "peers" contains "2" elements
+
+    Examples: Composition options
+        |          ComposeFile     |
+        |   docker-compose-2.yml   |

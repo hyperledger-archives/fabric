@@ -380,6 +380,11 @@ func (ledger *Ledger) GetTransactionByUUID(txUUID string) (*protos.Transaction, 
 	return ledger.blockchain.getTransactionByUUID(txUUID)
 }
 
+// GetTransactionByUUID return transaction by it's uuid
+func (ledger *Ledger) GetTransactionResultByUUID(txUUID string) (*protos.TransactionResult, error) {
+	return ledger.blockchain.getTransactionResultByUUID(txUUID)
+}
+
 // PutRawBlock puts a raw block on the chain. This function should only be
 // used for synchronization between peers.
 func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error {

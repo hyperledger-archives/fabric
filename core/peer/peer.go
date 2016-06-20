@@ -74,6 +74,11 @@ type BlockChainAccessor interface {
 	GetCurrentStateHash() (stateHash []byte, err error)
 }
 
+// TransactionAccessor interface for retrieving transaction information
+type TransactionAccessor interface {
+	GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error)
+}
+
 // BlockChainModifier interface for applying changes to the block chain
 type BlockChainModifier interface {
 	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
@@ -112,6 +117,7 @@ type MessageHandlerCoordinator interface {
 	BlockChainModifier
 	BlockChainUtil
 	StateAccessor
+	TransactionAccessor
 	RegisterHandler(messageHandler MessageHandler) error
 	DeregisterHandler(messageHandler MessageHandler) error
 	Broadcast(*pb.Message, pb.PeerEndpoint_Type) []error
@@ -190,6 +196,7 @@ type PeerImpl struct {
 	engine         Engine
 	isValidator    bool
 	discoverySvc   discovery.Discovery
+	reconnectOnce  sync.Once
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -506,8 +513,39 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 	return response
 }
 
+func (p *PeerImpl) ensureConnected() {
+	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
+	tickChan := time.NewTicker(touchPeriod).C
+	// See if rootNode(s) defined, if NOT, simply return
+	if len(p.discoverySvc.GetRootNodes()) == 1 {
+		if len(p.discoverySvc.GetRootNodes()[0]) == 0 {
+			peerLogger.Warning("Touch service stopping, no rootNode(s) defined")
+			return
+		}
+	}
+	peerLogger.Debug("Starting Peer reconnect service, with touchPeriod = %s", touchPeriod)
+	for {
+		// Simply loop and check if need to reconnect
+		<-tickChan
+		peersMsg, err := p.GetPeers()
+		if err != nil {
+			peerLogger.Errorf("Error in touch service: %s", err.Error())
+		}
+		if len(peersMsg.Peers) == 0 {
+			// No currently connected peers, going to try to chat with rootnode again if defined
+			peerLogger.Info("Touch service indicates no peers connected, attempting to chat with rootNode(s)")
+			p.chatWithSomePeers(p.discoverySvc.GetRootNodes())
+		}
+	}
+
+}
+
 // chatWithSomePeers initiates chat with 1 or all peers according to whether the node is a validator or not
 func (p *PeerImpl) chatWithSomePeers(peers []string) {
+	// Start the function to ensure we are connected
+	p.reconnectOnce.Do(func() {
+		go p.ensureConnected()
+	})
 
 	peerCountToChatWith := 1
 
@@ -762,4 +800,11 @@ func (p *PeerImpl) signMessageMutating(msg *pb.Message) error {
 		msg.Signature = sig
 	}
 	return nil
+}
+
+// GetTransactionResultByUUID Return the TransactionResult for the specified transaction ID.
+func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionResult, error) {
+	p.ledgerWrapper.RLock()
+	defer p.ledgerWrapper.RUnlock()
+	return p.ledgerWrapper.ledger.GetTransactionResultByUUID(txUuid)
 }
