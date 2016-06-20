@@ -77,7 +77,13 @@ func closeListenerAndSleep(l net.Listener) {
 func TestExecuteDeploySysChaincode(t *testing.T) {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
-	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	db := "/var/hyperledger/test/syscctmpdb"
+	defer func() {
+		os.RemoveAll(db)
+	}()
+		
+	viper.Set("peer.fileSystemPath", db)
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
