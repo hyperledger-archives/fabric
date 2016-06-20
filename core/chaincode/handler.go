@@ -699,9 +699,9 @@ func (handler *Handler) handleRangeQueryState(msg *pb.ChaincodeMessage) {
 		for ; hasNext && i < maxRangeQueryStateLimit; i++ {
 			key, value := rangeIter.GetKeyValue()
 			// Decrypt the data if the confidential is enabled
-			decryptedValue, err := handler.decrypt(msg.Uuid, value)
-			if err != nil {
-				payload := []byte(unmarshalErr.Error())
+			decryptedValue, decryptErr := handler.decrypt(msg.Uuid, value)
+			if decryptErr != nil {
+				payload := []byte(decryptErr.Error())
 				chaincodeLogger.Debugf("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 
@@ -801,9 +801,9 @@ func (handler *Handler) handleRangeQueryStateNext(msg *pb.ChaincodeMessage) {
 		for ; hasNext && i < maxRangeQueryStateLimit; i++ {
 			key, value := rangeIter.GetKeyValue()
 			// Decrypt the data if the confidential is enabled
-			decryptedValue, err := handler.decrypt(msg.Uuid, value)
-			if err != nil {
-				payload := []byte(unmarshalErr.Error())
+			decryptedValue, decryptErr := handler.decrypt(msg.Uuid, value)
+			if decryptErr != nil {
+				payload := []byte(decryptErr.Error())
 				chaincodeLogger.Debugf("Failed decrypt value. Sending %s", pb.ChaincodeMessage_ERROR)
 				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 
