@@ -231,8 +231,8 @@ node-sdk:
 .PHONY: clean
 clean: images-clean
 	-@rm -rf build ||:
-	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
 dist-clean: clean
 	-@rm -rf /var/hyperledger/* ||:
+	-@rm -f $(GOTOOLS_BIN) ||:
