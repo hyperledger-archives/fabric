@@ -3,10 +3,11 @@ package java
 import (
 	"archive/tar"
 	"fmt"
-	"github.com/spf13/viper"
 	"strings"
 	"time"
-	
+
+	"github.com/spf13/viper"
+
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -21,11 +22,11 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 		urlLocation = spec.ChaincodeID.Path[8:]
 	} else {
 		urlLocation = spec.ChaincodeID.Path
-//		if !strings.HasPrefix(urlLocation, "/") {
-//			wd := ""
-//			wd, _ = os.Getwd()
-//			urlLocation = wd + "/" + urlLocation
-//		}
+		//		if !strings.HasPrefix(urlLocation, "/") {
+		//			wd := ""
+		//			wd, _ = os.Getwd()
+		//			urlLocation = wd + "/" + urlLocation
+		//		}
 	}
 
 	if urlLocation == "" {
@@ -35,14 +36,13 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 	if strings.LastIndex(urlLocation, "/") == len(urlLocation)-1 {
 		urlLocation = urlLocation[:len(urlLocation)-1]
 	}
-	urlLocation = urlLocation[strings.LastIndex(urlLocation, "/") + 1:]
-	
+	urlLocation = urlLocation[strings.LastIndex(urlLocation, "/")+1:]
 
 	var newRunLine string
 	if viper.GetBool("security.enabled") {
 		//todo
 	} else {
-		newRunLine = fmt.Sprintf("COPY %s /root/\n" + 
+		newRunLine = fmt.Sprintf("COPY %s /root/\n"+
 			"RUN cd /root/ && gradle build", urlLocation)
 	}
 

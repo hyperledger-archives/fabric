@@ -27,12 +27,13 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
+	"strings"
+
 	"github.com/hyperledger/fabric/core/container"
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
-	"strings"
 )
 
 // ChainName is the name of the chain to which this chaincode support belongs to.
@@ -252,15 +253,14 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLang pb.ChaincodeSpec_Type) (args []string, envs []string, err error) {
 	envs = []string{"OPENCHAIN_CHAINCODE_ID_NAME=" + cID.Name}
 	switch cLang {
-	case pb.ChaincodeSpec_GOLANG :
+	case pb.ChaincodeSpec_GOLANG:
 		//chaincode executable will be same as the name of the chaincode
 		args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
 		chaincodeLogger.Debug("Executable is %s", args[0])
-	case pb.ChaincodeSpec_CAR :
+	case pb.ChaincodeSpec_CAR:
 		//chaincode executable will be same as the name of the chaincode
 		args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
 		chaincodeLogger.Debug("Executable is %s", args[0])
-		
 	case pb.ChaincodeSpec_JAVA:
 		//TODO add security args
 		args = strings.Split(
@@ -520,7 +520,6 @@ func (chaincodeSupport *ChaincodeSupport) getVMType(cds *pb.ChaincodeDeploymentS
 func (chaincodeSupport *ChaincodeSupport) Deploy(context context.Context, t *pb.Transaction) (*pb.ChaincodeDeploymentSpec, error) {
 	//build the chaincode
 	cds := &pb.ChaincodeDeploymentSpec{}
-
 
 	err := proto.Unmarshal(t.Payload, cds)
 
