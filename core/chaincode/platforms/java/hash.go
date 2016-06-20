@@ -94,7 +94,7 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if ctor == nil || ctor.Function == "" {
 		return "", fmt.Errorf("Cannot generate hashcode from empty ctor")
 	}
-	
+
 	codepath := chaincodeID.Path
 
 	var ishttp bool
@@ -103,7 +103,6 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 			os.RemoveAll(codepath)
 		}
 	}()
-
 
 	var err error
 	if strings.HasPrefix(codepath, "http://") {
@@ -132,8 +131,8 @@ func generateHashcode(spec *pb.ChaincodeSpec, tw *tar.Writer) (string, error) {
 	if strings.LastIndex(root, "/") == len(root)-1 {
 		root = root[:len(root)-1]
 	}
-	root = root[:strings.LastIndex(root, "/") + 1]
-	
+	root = root[:strings.LastIndex(root, "/")+1]
+
 	hash := util.GenerateHashFromSignature(codepath, ctor.Function, ctor.Args)
 
 	hash, err = hashFilesInDir(root, codepath, hash, tw)
