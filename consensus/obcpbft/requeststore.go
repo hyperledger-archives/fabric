@@ -17,45 +17,50 @@ limitations under the License.
 package obcpbft
 
 import (
-	"reflect"
+	"fmt"
 	"sort"
-	"time"
+	"strings"
 )
 
-type orderedRequests []*Request
+type requestContainer struct {
+	key string
+	req *Request
+}
+
+type orderedRequests struct {
+	order    []requestContainer
+	presence map[string]struct{}
+}
 
 func (a *orderedRequests) Len() int {
-	return len(*a)
+	return len(a.order)
 }
 func (a *orderedRequests) Swap(i, j int) {
-	(*a)[i], (*a)[j] = (*a)[j], (*a)[i]
+	a.order[i], a.order[j] = a.order[j], a.order[i]
 }
 func (a *orderedRequests) Less(i, j int) bool {
-	if (*a)[i].Timestamp == nil {
-		// a[i] has no timestamp, handle it later, TODO, eventually this should be an error
-		return false
+	return strings.Compare(a.order[i].key, a.order[j].key) < 0
+}
+
+func wrapRequest(req *Request) requestContainer {
+	return requestContainer{
+		key: fmt.Sprintf("%16x-%16x-%s", req.Timestamp.Seconds, req.Timestamp.Nanos, hashReq(req)),
+		req: req,
 	}
+}
 
-	if (*a)[j].Timestamp == nil {
-		// a[j] has no timestamp, handle it later, TODO, eventually this should be an error
-		return true
-	}
-
-	iTime := time.Unix((*a)[i].Timestamp.Seconds, int64((*a)[i].Timestamp.Nanos))
-	jTime := time.Unix((*a)[j].Timestamp.Seconds, int64((*a)[j].Timestamp.Nanos))
-
-	return jTime.After(iTime)
+func (a *orderedRequests) has(key string) bool {
+	_, ok := a.presence[key]
+	return ok
 }
 
 func (a *orderedRequests) add(request *Request) {
-	for _, req := range *a {
-		if reflect.DeepEqual(req, request) {
-			return
-		}
+	rc := wrapRequest(request)
+	if !a.has(rc.key) {
+		a.order = append(a.order, rc)
+		a.presence[rc.key] = struct{}{}
+		sort.Sort(a)
 	}
-
-	*a = append(*a, request)
-	sort.Sort(a)
 }
 
 func (a *orderedRequests) adds(requests []*Request) {
@@ -65,22 +70,21 @@ func (a *orderedRequests) adds(requests []*Request) {
 }
 
 func (a *orderedRequests) remove(request *Request) bool {
-	if len(*a) == 0 {
+	rc := wrapRequest(request)
+	if !a.has(rc.key) {
 		return false
 	}
-	defer sort.Sort(a)
-	var lastReq *Request
-	for i, req := range *a {
-		(*a)[i] = lastReq
-		if reflect.DeepEqual(req, request) {
-			*a = (*a)[1:]
-			return true
+	for i, it := range a.order {
+		if it.key != rc.key {
+			continue
 		}
-		lastReq = req
+		a.order = append(a.order[0:i], a.order[i+1:]...)
+		delete(a.presence, rc.key)
+		sort.Sort(a)
+		return true
 	}
-	// This isn't the most efficient, but this should be a degenerate case
-	(*a)[0] = lastReq
-	return false
+
+	panic("orderedRequest inconsistent")
 }
 
 func (a *orderedRequests) removes(requests []*Request) bool {
@@ -95,7 +99,8 @@ func (a *orderedRequests) removes(requests []*Request) bool {
 }
 
 func (a *orderedRequests) empty() {
-	*a = nil
+	a.order = nil
+	a.presence = make(map[string]struct{})
 }
 
 type requestStore struct {
@@ -105,10 +110,15 @@ type requestStore struct {
 
 // newRequestStore creates a new requestStore.
 func newRequestStore() *requestStore {
-	return &requestStore{
+	rs := &requestStore{
 		outstandingRequests: &orderedRequests{},
 		pendingRequests:     &orderedRequests{},
 	}
+	// initialize data structures
+	rs.outstandingRequests.empty()
+	rs.pendingRequests.empty()
+
+	return rs
 }
 
 // storeOutstanding adds a request to the outstanding request list
@@ -135,26 +145,20 @@ func (rs *requestStore) remove(request *Request) (outstanding, pending bool) {
 
 // getNextNonPending returns up to the next n outstanding, but not pending requests
 func (rs *requestStore) hasNonPending() bool {
-	return len(*(rs.outstandingRequests)) > len(*(rs.pendingRequests))
+	return rs.outstandingRequests.Len() > rs.pendingRequests.Len()
 }
 
 // getNextNonPending returns up to the next n outstanding, but not pending requests
-func (rs *requestStore) getNextNonPending(n int) []*Request {
-	result := make([]*Request, n)
-	i := 0
-outer:
-	for _, oreq := range *(rs.outstandingRequests) {
-		if i == n {
+func (rs *requestStore) getNextNonPending(n int) (result []*Request) {
+	for _, oreq := range rs.outstandingRequests.order {
+		if rs.pendingRequests.has(oreq.key) {
+			continue
+		}
+		result = append(result, oreq.req)
+		if len(result) == n {
 			break
 		}
-		for _, preq := range *(rs.pendingRequests) {
-			if reflect.DeepEqual(preq, oreq) {
-				continue outer
-			}
-		}
-		result[i] = oreq
-		i++
 	}
 
-	return result[:i]
+	return result
 }

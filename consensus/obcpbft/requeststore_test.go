@@ -1,0 +1,55 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+                 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package obcpbft
+
+import "testing"
+
+func TestOrderedRequests(t *testing.T) {
+	or := &orderedRequests{}
+	or.empty()
+
+	r1 := createPbftRequestWithChainTx(2, 1)
+	r2 := createPbftRequestWithChainTx(2, 2)
+	r3 := createPbftRequestWithChainTx(19, 1)
+	if or.has(wrapRequest(r1).key) {
+		t.Errorf("should not have req")
+	}
+	or.add(r1)
+	if !or.has(wrapRequest(r1).key) {
+		t.Errorf("should have req")
+	}
+	if or.has(wrapRequest(r2).key) {
+		t.Errorf("should not have req")
+	}
+	if or.remove(r2) {
+		t.Errorf("should not have removed req")
+	}
+	if !or.remove(r1) {
+		t.Errorf("should have removed req")
+	}
+	if or.remove(r1) {
+		t.Errorf("should not have removed req")
+	}
+	if len(or.order) != 0 || len(or.presence) != 0 {
+		t.Errorf("should have 0 len")
+	}
+	or.adds([]*Request{r1, r2, r3})
+
+	if or.order[2].req != r3 {
+		t.Errorf("incorrect order")
+	}
+}
