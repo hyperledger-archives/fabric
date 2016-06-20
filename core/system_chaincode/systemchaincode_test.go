@@ -82,7 +82,7 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 	defer func() {
 		os.RemoveAll(db)
 	}()
-		
+
 	viper.Set("peer.fileSystemPath", db)
 
 	//use a different address than what we usually use for "peer"
