@@ -3,12 +3,14 @@ package java
 import (
 	"archive/tar"
 	"fmt"
-	pb "github.com/hyperledger/fabric/protos"
 	"net/url"
 	"os"
-//	"path/filepath"
+
+	pb "github.com/hyperledger/fabric/protos"
+	//	"path/filepath"
 )
 
+// Platform for java chaincodes in java
 type Platform struct {
 }
 
@@ -24,7 +26,8 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
+//ValidateSpec validates the java chaincode specs
+func (javaPlatform *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	url, err := url.Parse(spec.ChaincodeID.Path)
 	if err != nil || url == nil {
 		return fmt.Errorf("invalid path: %s", err)
@@ -33,20 +36,21 @@ func (self *Platform) ValidateSpec(spec *pb.ChaincodeSpec) error {
 	//we have no real good way of checking existence of remote urls except by downloading and testing
 	//which we do later anyway. But we *can* - and *should* - test for existence of local paths.
 	//Treat empty scheme as a local filesystem path
-//	if url.Scheme == "" {
-//		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
-//		exists, err := pathExists(pathToCheck)
-//		if err != nil {
-//			return fmt.Errorf("Error validating chaincode path: %s", err)
-//		}
-//		if !exists {
-//			return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
-//		}
-//	}
+	//	if url.Scheme == "" {
+	//		pathToCheck := filepath.Join(os.Getenv("GOPATH"), "src", spec.ChaincodeID.Path)
+	//		exists, err := pathExists(pathToCheck)
+	//		if err != nil {
+	//			return fmt.Errorf("Error validating chaincode path: %s", err)
+	//		}
+	//		if !exists {
+	//			return fmt.Errorf("Path to chaincode does not exist: %s", spec.ChaincodeID.Path)
+	//		}
+	//	}
 	return nil
 }
 
-func (self *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
+// WritePackage writes the java chaincode package
+func (javaPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	var err error
 	spec.ChaincodeID.Name, err = generateHashcode(spec, tw)
