@@ -25,14 +25,14 @@ func TestOrderedRequests(t *testing.T) {
 	r1 := createPbftRequestWithChainTx(2, 1)
 	r2 := createPbftRequestWithChainTx(2, 2)
 	r3 := createPbftRequestWithChainTx(19, 1)
-	if or.has(wrapRequest(r1).key) {
+	if or.has(or.wrapRequest(r1).key) {
 		t.Errorf("should not have req")
 	}
 	or.add(r1)
-	if !or.has(wrapRequest(r1).key) {
+	if !or.has(or.wrapRequest(r1).key) {
 		t.Errorf("should have req")
 	}
-	if or.has(wrapRequest(r2).key) {
+	if or.has(or.wrapRequest(r2).key) {
 		t.Errorf("should not have req")
 	}
 	if or.remove(r2) {
@@ -44,12 +44,12 @@ func TestOrderedRequests(t *testing.T) {
 	if or.remove(r1) {
 		t.Errorf("should not have removed req")
 	}
-	if len(or.order) != 0 || len(or.presence) != 0 {
+	if or.order.Len() != 0 || len(or.presence) != 0 {
 		t.Errorf("should have 0 len")
 	}
 	or.adds([]*Request{r1, r2, r3})
 
-	if or.order[2].req != r3 {
+	if or.order.Back().Value.(requestContainer).req != r3 {
 		t.Errorf("incorrect order")
 	}
 }
@@ -58,11 +58,11 @@ func BenchmarkOrderedRequests(b *testing.B) {
 	or := &orderedRequests{}
 	or.empty()
 
-	Nreq := 100
+	Nreq := 1000
 
 	reqs := make(map[string]*Request)
 	for i := 0; i < Nreq; i++ {
-		rc := wrapRequest(createPbftRequestWithChainTx(int64(i), 0))
+		rc := or.wrapRequest(createPbftRequestWithChainTx(int64(i), 0))
 		reqs[rc.key] = rc.req
 	}
 	b.ResetTimer()

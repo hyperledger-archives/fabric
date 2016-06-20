@@ -16,11 +16,7 @@ limitations under the License.
 
 package obcpbft
 
-import (
-	"fmt"
-	"sort"
-	"strings"
-)
+import "container/list"
 
 type requestContainer struct {
 	key string
@@ -28,23 +24,17 @@ type requestContainer struct {
 }
 
 type orderedRequests struct {
-	order    []requestContainer
-	presence map[string]struct{}
+	order    list.List
+	presence map[string]*list.Element
 }
 
 func (a *orderedRequests) Len() int {
-	return len(a.order)
-}
-func (a *orderedRequests) Swap(i, j int) {
-	a.order[i], a.order[j] = a.order[j], a.order[i]
-}
-func (a *orderedRequests) Less(i, j int) bool {
-	return strings.Compare(a.order[i].key, a.order[j].key) < 0
+	return a.order.Len()
 }
 
-func wrapRequest(req *Request) requestContainer {
+func (a *orderedRequests) wrapRequest(req *Request) requestContainer {
 	return requestContainer{
-		key: fmt.Sprintf("%16x-%16x-%s", req.Timestamp.Seconds, req.Timestamp.Nanos, hashReq(req)),
+		key: hashReq(req),
 		req: req,
 	}
 }
@@ -55,11 +45,10 @@ func (a *orderedRequests) has(key string) bool {
 }
 
 func (a *orderedRequests) add(request *Request) {
-	rc := wrapRequest(request)
+	rc := a.wrapRequest(request)
 	if !a.has(rc.key) {
-		a.order = append(a.order, rc)
-		a.presence[rc.key] = struct{}{}
-		sort.Sort(a)
+		e := a.order.PushBack(rc)
+		a.presence[rc.key] = e
 	}
 }
 
@@ -70,21 +59,14 @@ func (a *orderedRequests) adds(requests []*Request) {
 }
 
 func (a *orderedRequests) remove(request *Request) bool {
-	rc := wrapRequest(request)
-	if !a.has(rc.key) {
+	rc := a.wrapRequest(request)
+	e, ok := a.presence[rc.key]
+	if !ok {
 		return false
 	}
-	for i, it := range a.order {
-		if it.key != rc.key {
-			continue
-		}
-		a.order = append(a.order[0:i], a.order[i+1:]...)
-		delete(a.presence, rc.key)
-		sort.Sort(a)
-		return true
-	}
-
-	panic("orderedRequest inconsistent")
+	a.order.Remove(e)
+	delete(a.presence, rc.key)
+	return true
 }
 
 func (a *orderedRequests) removes(requests []*Request) bool {
@@ -99,8 +81,8 @@ func (a *orderedRequests) removes(requests []*Request) bool {
 }
 
 func (a *orderedRequests) empty() {
-	a.order = nil
-	a.presence = make(map[string]struct{})
+	a.order.Init()
+	a.presence = make(map[string]*list.Element)
 }
 
 type requestStore struct {
@@ -150,7 +132,8 @@ func (rs *requestStore) hasNonPending() bool {
 
 // getNextNonPending returns up to the next n outstanding, but not pending requests
 func (rs *requestStore) getNextNonPending(n int) (result []*Request) {
-	for _, oreq := range rs.outstandingRequests.order {
+	for oreqc := rs.outstandingRequests.order.Front(); oreqc != nil; oreqc = oreqc.Next() {
+		oreq := oreqc.Value.(requestContainer)
 		if rs.pendingRequests.has(oreq.key) {
 			continue
 		}
