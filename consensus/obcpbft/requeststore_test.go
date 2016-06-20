@@ -53,3 +53,31 @@ func TestOrderedRequests(t *testing.T) {
 		t.Errorf("incorrect order")
 	}
 }
+
+func BenchmarkOrderedRequests(b *testing.B) {
+	or := &orderedRequests{}
+	or.empty()
+
+	Nreq := 100
+
+	reqs := make(map[string]*Request)
+	for i := 0; i < Nreq; i++ {
+		rc := wrapRequest(createPbftRequestWithChainTx(int64(i), 0))
+		reqs[rc.key] = rc.req
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, r := range reqs {
+			or.add(r)
+		}
+
+		for k := range reqs {
+			_ = or.has(k)
+		}
+
+		for _, r := range reqs {
+			or.remove(r)
+		}
+	}
+}
