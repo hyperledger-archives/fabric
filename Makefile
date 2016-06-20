@@ -201,7 +201,7 @@ build/image/%/.dummy: build/image/src/.dummy build/docker/bin/%
 	@touch $@
 
 .PHONY: protos
-protos:
+protos: gotools
 	./devenv/compile_protos.sh
 
 base-image-clean:
