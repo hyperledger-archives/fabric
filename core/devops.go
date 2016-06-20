@@ -26,6 +26,8 @@ import (
 
 	"encoding/asn1"
 	"encoding/base64"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/platforms"
@@ -34,7 +36,6 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
-	"sync"
 )
 
 var devopsLogger = logging.MustGetLogger("devops")

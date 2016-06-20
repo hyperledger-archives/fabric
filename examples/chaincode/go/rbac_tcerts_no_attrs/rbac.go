@@ -25,10 +25,11 @@ import (
 
 	"encoding/asn1"
 	"encoding/base64"
+	"strings"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/op/go-logging"
-	"strings"
 )
 
 var myLogger = logging.MustGetLogger("rbac_chaincode")
