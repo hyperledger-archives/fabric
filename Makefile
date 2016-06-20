@@ -210,8 +210,8 @@ base-image-clean:
 
 %-image-clean:
 	$(eval TARGET = ${patsubst %-image-clean,%,${@}})
-	-@rm -rf build/image/$(TARGET) ||:
 	-docker rmi -f $(PROJECT_NAME)-$(TARGET)
+	-@rm -rf build/image/$(TARGET) ||:
 
 images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
