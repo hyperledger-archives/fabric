@@ -23,66 +23,66 @@ import (
 	d "github.com/hyperledger/fabric/discovery"
 )
 
-func TestDiscovery_GetEmptyRootNode(t *testing.T) {
-	assertRandomRootNode(t, "", NewStaticDiscovery(""))
+func TestDiscovery_GetEmptyNode(t *testing.T) {
+	assertRandomNode(t, "", NewDiscoveryImpl(""))
 }
 
-func TestDiscovery_GetEmptyRootNodes(t *testing.T) {
-	discovery := NewStaticDiscovery("")
-	rootNodes := discovery.GetRootNodes()
-	if size := len(rootNodes); size != 1 || rootNodes[0] != "" {
-		t.Fatalf("Needed input is not ['']")
+func TestDiscovery_GetEmptyNodes(t *testing.T) {
+	discovery := NewDiscoveryImpl("")
+	nodes := discovery.GetAllNodes()
+	if size := len(nodes); size != 1 || nodes[0] != "" {
+		t.Fatalf("Expected output is not ['']")
 	}
 }
 
 func TestDiscovery_GetSinglePeer(t *testing.T) {
-	assertRandomRootNode(t, "someHost", NewStaticDiscovery("someHost"))
+	assertRandomNode(t, "someHost", NewDiscoveryImpl("someHost"))
 }
 
 func TestDiscovery_GetAllPeers(t *testing.T) {
 	s := "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
-	discovery := NewStaticDiscovery(s)
-	rootNodes := discovery.GetRootNodes()
+	discovery := NewDiscoveryImpl(s)
+	nodes := discovery.GetAllNodes()
 
 	expectedArrSize := strings.Count(s, ",") + 1
-	if len(rootNodes) != expectedArrSize {
-		t.Fatalf("Rootnodes length should have been %d but is %d", expectedArrSize, len(rootNodes))
+	if len(nodes) != expectedArrSize {
+		t.Fatalf("Nodes list length should have been %d but is %d", expectedArrSize, len(nodes))
 		return
 	}
 
-	for _, rootNode := range rootNodes {
-		if !strings.Contains(s, rootNode) {
-			t.Fatalf("%s is not a rootNode of [%s]", rootNode, s)
+	for _, node := range nodes {
+		if !strings.Contains(s, node) {
+			t.Fatalf("%s is not a node in [%s]", node, s)
 		}
 	}
 }
 
 func TestDiscovery_GetMulti(t *testing.T) {
-	assertRootNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewStaticDiscovery("a,b,c,d,e"))
+	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl("a,b,c,d,e"))
 }
 
-func assertRandomRootNode(t *testing.T, expected string, discovery d.Discovery) {
-	rootNode := discovery.GetRandomNode()
+func assertRandomNode(t *testing.T, expected string, discovery d.Discovery) {
+	node := discovery.GetRandomNode()
 
-	if rootNode != expected {
-		t.Fatalf("RootNode's value should be '%s'", expected)
+	if node != expected {
+		t.Fatalf("Node's value should be '%s'", expected)
 	}
 }
 
-func assertRootNodeRandomValues(t *testing.T, expected []string, discovery d.Discovery) {
-	rootNode := discovery.GetRandomNode()
+func assertNodeRandomValues(t *testing.T, expected []string, discovery d.Discovery) {
+	node := discovery.GetRandomNode()
 
-	if !inArray(rootNode, expected) {
-		t.Fatalf("RootNode's value should be one of '%v'", expected)
+	if !inArray(node, expected) {
+		t.Fatalf("Node's value should be one of '%v'", expected)
 	}
 
 	// Now test that a random value is sometimes returned
 	for i := 0; i < 100; i++ {
-		if val := discovery.GetRandomNode(); rootNode != val {
+		if val := discovery.GetRandomNode(); node != val {
 			return
 		}
 	}
-	t.Fatalf("returned value was always %s", rootNode)
+	t.Fatalf("Returned value was always %s", node)
 
 }
 

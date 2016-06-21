@@ -239,7 +239,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 
-	peer.chatWithSomePeers(peer.discoverySvc.GetRootNodes())
+	peer.chatWithSomePeers(peer.discoverySvc.GetAllNodes())
 	return peer, nil
 }
 
@@ -276,7 +276,7 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	if peer.handlerFactory == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
-	rootNodes := peer.discoverySvc.GetRootNodes()
+	rootNodes := peer.discoverySvc.GetAllNodes()
 	peer.chatWithSomePeers(rootNodes)
 	return peer, nil
 
@@ -515,8 +515,8 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 
 func (p *PeerImpl) ensureConnected() {
 	// See if rootNode(s) defined, if NOT, simply return
-	if len(p.discoverySvc.GetRootNodes()) == 1 {
-		if len(p.discoverySvc.GetRootNodes()[0]) == 0 {
+	if len(p.discoverySvc.GetAllNodes()) == 1 {
+		if len(p.discoverySvc.GetAllNodes()[0]) == 0 {
 			peerLogger.Warning("Touch service stopping, no rootNode(s) defined")
 			return
 		}
@@ -534,7 +534,7 @@ func (p *PeerImpl) ensureConnected() {
 		if len(peersMsg.Peers) == 0 {
 			// No currently connected peers, going to try to chat with rootnode again if defined
 			peerLogger.Info("Touch service indicates no peers connected, attempting to chat with rootNode(s)")
-			p.chatWithSomePeers(p.discoverySvc.GetRootNodes())
+			p.chatWithSomePeers(p.discoverySvc.GetAllNodes())
 		}
 	}
 

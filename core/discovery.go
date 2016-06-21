@@ -22,28 +22,33 @@ import (
 	"time"
 )
 
-// StaticDiscovery is an implementation of Discovery
-type StaticDiscovery struct {
-	rootNodes []string
-	random    *rand.Rand
+// DiscoveryImpl is an implementation of Discovery
+type DiscoveryImpl struct {
+	nodes  []string
+	random *rand.Rand
 }
 
-// NewStaticDiscovery is a constructor of a Discovery implementation
-// Accepts as a parameter the root node configuration, which is a single node,
-// or a comma separated list of nodes with no spaces
-func NewStaticDiscovery(rootNodesString string) *StaticDiscovery {
-	sd := StaticDiscovery{}
-	sd.rootNodes = strings.Split(rootNodesString, ",")
-	sd.random = rand.New(rand.NewSource(time.Now().Unix()))
-	return &sd
+// NewDiscoveryImpl is a constructor of a Discovery implementation
+// Accepts as a parameter a single node, or a comma-separated list of nodes with no spaces
+func NewDiscoveryImpl(nodes string) *DiscoveryImpl {
+	di := DiscoveryImpl{}
+	di.nodes = strings.Split(nodes, ",")
+	di.random = rand.New(rand.NewSource(time.Now().Unix()))
+	return &di
 }
 
-// GetRandomNode returns a random root node out of the nodes the discovery was initialized with
-func (sd *StaticDiscovery) GetRandomNode() string {
-	return sd.rootNodes[sd.random.Intn(len(sd.rootNodes))]
+// AddNode adds a node to the peer's discovery list
+func (di *DiscoveryImpl) AddNode(node string) []string {
+	di.nodes = append(di.nodes, node)
+	return di.GetAllNodes()
 }
 
-// GetRootNodes returns an array of all the nodes it was initialized with
-func (sd *StaticDiscovery) GetRootNodes() []string {
-	return append([]string{}, sd.rootNodes...)
+// GetAllNodes returns an array of all stored nodes
+func (di *DiscoveryImpl) GetAllNodes() []string {
+	return di.nodes
+}
+
+// GetRandomNode returns a random bootstrap node
+func (di *DiscoveryImpl) GetRandomNode() string {
+	return di.nodes[di.random.Intn(len(di.nodes))]
 }
