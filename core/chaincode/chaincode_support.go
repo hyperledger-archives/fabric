@@ -294,8 +294,8 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLa
 	return args, envs, nil
 }
 
-// launchAndWaitForRegister will launch container if not already running
-func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, cLang pb.ChaincodeSpec_Type, uuid string) (bool, error) {
+// launchAndWaitForRegister will launch container if not already running. Use the targz to create the image if not found
+func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, cLang pb.ChaincodeSpec_Type, uuid string, targz io.Reader) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
 		return false, fmt.Errorf("chaincode name not set")
@@ -494,7 +494,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 	//launch container if it is a System container or not in dev mode
 	if (!chaincodeSupport.userRunsCC || cds.ExecEnv == pb.ChaincodeDeploymentSpec_SYSTEM) && (chrte == nil || chrte.handler == nil) {
 		var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid, targz)
+		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, cLang, t.Uuid, targz)
 		if err != nil {
 			chaincodeLogger.Debugf("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
