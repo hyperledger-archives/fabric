@@ -16,13 +16,17 @@
 # under the License.
 #
 
+EXECUTABLES = npm
+K := $(foreach exec,$(EXECUTABLES),\
+	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
+
 all: hlc
 
 .PHONY: hlc
 hlc:
 	cp ../../protos/*.proto ./lib/protos
 	cp ../../membersrvc/protos/*.proto ./lib/protos
-	sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
+	npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	tsc
 	./makedoc.sh
 
