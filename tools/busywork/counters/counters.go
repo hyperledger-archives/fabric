@@ -233,7 +233,7 @@ func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byt
 	flags.StringVar(&c.id, "id", "", "A unique identifier; Allows multiple copies of this chaincode to be deployed")
 	loggingLevel := flags.String("loggingLevel", "default", "The logging level of the chaincode logger. Defaults to INFO.")
 	shimLoggingLevel := flags.String("shimLoggingLevel", "default", "The logging level of the chaincode 'shim' interface. Defaults to WARNING.")
-	flags.BoolVar(&c.checkCounters, "checkCounters", true, "Default true; If false, no error/consistency checks are made on counter array states.")
+	flags.BoolVar(&c.checkCounters, "checkCounters", false, "Default false. If true, consistency checks are made on counter states during increment/decrement.")
 	flags.BoolVar(&c.checkStatus, "checkStatus", true, "Default true; If false, no error/consistency checks are made in the 'status' method.")
 	err = flags.Parse(args)
 	if err != nil {
