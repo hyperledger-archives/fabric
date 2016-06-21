@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"net"
 	"os"
@@ -34,8 +35,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
-	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -465,7 +464,7 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
+	discInstance := core.NewDiscoveryImpl(viper.GetString("peer.discovery.rootnode"))
 
 	//create the peerServer....
 	if peer.ValidatorEnabled() {
@@ -512,7 +511,7 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNodes := discInstance.GetRootNodes()
+	rootNodes := discInstance.GetAllNodes()
 
 	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
 		peerEndpoint.ID, viper.GetString("peer.networkId"),

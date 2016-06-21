@@ -19,13 +19,10 @@ under the License.
 
 package discovery
 
-// Discovery is the interface that consolidates bootstrap peer membership selection
-// and validating peer selection for non validating peers
+// Discovery is the interface that consolidates bootstrap peer membership
+// selection and validating peer selection for non-validating peers
 type Discovery interface {
-
-	// GetRootNode function for providing a random bootstrap address for a peer
-	GetRandomNode() string
-
-	// GetRootNode function for providing all bootstrap addresses for a peer
-	GetRootNodes() []string
+	AddNode(string) []string // Add an address to the discovery list, return all addresses in the list
+	GetAllNodes() []string   // Return all addresses this peer maintains
+	GetRandomNode() string   // Return a random address for this peer to connect to
 }
