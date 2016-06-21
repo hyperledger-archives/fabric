@@ -137,24 +137,34 @@ function fail(t, msg, err) {
 }
 
 //
-// Set Invalid security level and hash family.
+// Set Invalid security level and hash algorithm.
 //
 
-test('Set Invalid security level and hash family.', function (t) {
+test('Set Invalid security level and hash algorithm.', function (t) {
     t.plan(2);
 
+    var securityLevel = chain.getMemberServices().getSecurityLevel();
     try {
-        chain.setSecurityLevel(128);
+        chain.getMemberServices().setSecurityLevel(128);
         t.fail("Setting an invalid security level should fail. Allowed security levels are '256' and '384'.")
     } catch (err) {
+        if (securityLevel != chain.getMemberServices().getSecurityLevel()) {
+            t.fail("Chain is using an invalid security level.")
+        }
+
         t.pass("Setting an invalid security level failed as expected.")
     }
 
+    var hashAlgorithm = chain.getMemberServices().getHashAlgorithm();
     try {
-        chain.setHashAlgorithm('SHA');
-        t.fail("Setting an invalid hash family should fail. Allowed hash family are 'SHA2' and 'SHA3'.")
+        chain.getMemberServices().setHashAlgorithm('SHA');
+        t.fail("Setting an invalid hash algorithm should fail. Allowed hash algorithm are 'SHA2' and 'SHA3'.")
     } catch (err) {
-        t.pass("Setting an invalid hash family failed as expected.")
+        if (hashAlgorithm != chain.getMemberServices().getHashAlgorithm()) {
+            t.fail("Chain is using an invalid hash algorithm.")
+        }
+
+        t.pass("Setting an invalid hash algorithm failed as expected.")
     }
 
 });
