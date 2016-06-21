@@ -311,7 +311,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLa
 	return args, envs, nil
 }
 
-// launchAndWaitForRegister will launch container if not already running
+// launchAndWaitForRegister will launch container if not already running. Use the targz to create the image if not found
 func (chaincodeSupport *ChaincodeSupport) launchAndWaitForRegister(ctxt context.Context, cds *pb.ChaincodeDeploymentSpec, cID *pb.ChaincodeID, uuid string, cLang pb.ChaincodeSpec_Type, targz io.Reader) (bool, error) {
 	chaincode := cID.Name
 	if chaincode == "" {
