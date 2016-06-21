@@ -73,41 +73,41 @@ func (b *broadcaster) Wait() {
 	b.closed.Wait()
 }
 
-func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, printedValidatorNotFound bool) bool {
+func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, successLastTime bool) bool {
+	// Note, successLastTime is purely used to avoid flooding the log with unnecessary warning messages when a network problem is encountered
 	defer func() {
 		b.closed.Done()
 	}()
 	h, err := getValidatorHandle(dest)
 	if err != nil {
-		if !printedValidatorNotFound {
+		if successLastTime {
 			logger.Warningf("could not get handle for replica %d", dest)
 		}
-		time.Sleep(time.Second)
 		send.done <- false
-		return true
-	}
-
-	if printedValidatorNotFound {
-		logger.Infof("Found handle for replica %d", dest)
-		printedValidatorNotFound = false
+		return false
 	}
 
 	err = b.comm.Unicast(send.msg, h)
 	if err != nil {
-		logger.Warningf("could not send to replica %d: %v", dest, err)
+		if successLastTime {
+			logger.Warningf("could not send to replica %d: %v", dest, err)
+		}
 		send.done <- false
-	} else {
-		send.done <- true
+		return false
 	}
 
-	return false
+	send.done <- true
+	return true
+
 }
 
 func (b *broadcaster) drainer(dest uint64) {
-	printedValidatorNotFound := false
+	successLastTime := false
 
 	for {
 		select {
+		case send := <-b.msgChans[dest]:
+			successLastTime = b.drainerSend(dest, send, successLastTime)
 		case <-b.closedCh:
 			for {
 				// Drain the message channel to free calling waiters before we shut down
@@ -119,8 +119,6 @@ func (b *broadcaster) drainer(dest uint64) {
 					return
 				}
 			}
-		case send := <-b.msgChans[dest]:
-			printedValidatorNotFound = b.drainerSend(dest, send, printedValidatorNotFound)
 		}
 	}
 }
