@@ -177,7 +177,7 @@ mentioned above with the `parms -checkCounters` option, if state transfer has
 taken place on a peer then the expected count (which records the number of
 transactions actually executed by the peer) will not match the actual count
 obtained from the state. There is no reason for the expected and actual array
-lengths not to match.
+lengths not to match, however.
 
 
   
