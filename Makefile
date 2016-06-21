@@ -81,7 +81,7 @@ unit-test: peer-image gotools
 images: $(patsubst %,build/image/%/.dummy, $(IMAGES))
 
 build/behave/.grpc-dummy:
-	pip install -q 'grpcio==0.13.1'
+	sudo pip install -q 'grpcio==0.13.1'
 	mkdir -p build/behave
 	touch build/behave/.grpc-dummy
 
