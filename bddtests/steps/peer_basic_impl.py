@@ -91,17 +91,6 @@ def parseComposeOutput(context):
     setattr(context, "compose_containers", newContainerDataList)
     print("")
 
-def ipFromContainerNamePart(namePart, containerDataList):
-	"""Returns the IPAddress based upon a name part of the full container name"""
-	ip = None
-	containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-	for containerData in containerDataList:
-	    if containerData.containerName.startswith(containerNamePrefix + namePart):
-	    	ip = containerData.ipAddress
-	if ip == None:
-		raise Exception("Could not find container with namePart = {0}".format(namePart))
-	return ip
-
 def buildUrl(context, ipAddress, path):
     schema = "http"
     if 'TLS' in context.tags:
@@ -120,11 +109,6 @@ def getDockerComposeFileArgsFromYamlFile(compose_yaml):
 
 @given(u'we compose "{composeYamlFile}"')
 def step_impl(context, composeYamlFile):
-	# Use the uninstalled version of `cf active-deploy` rather than the installed version on the OS $PATH
-    #cmd = os.path.dirname(os.path.abspath(__file__)) + "/../../../cf_update/v1/cf_update.py"
-
-    # Expand $vars, e.g. "--path $PATH" becomes "--path /bin"
-    #args = re.sub('\$\w+', lambda v: os.getenv(v.group(0)[1:]), composeYamlFile)
     context.compose_yaml = composeYamlFile
     fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     context.compose_output, context.compose_error, context.compose_returncode = \
@@ -135,7 +119,7 @@ def step_impl(context, composeYamlFile):
 
 @when(u'requesting "{path}" from "{containerName}"')
 def step_impl(context, path, containerName):
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, path)
     print("Requesting path = {0}".format(request_url))
     resp = requests.get(request_url, headers={'Accept': 'application/json'}, verify=False)
@@ -171,7 +155,7 @@ def step_impl(context, seconds):
 
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
 def step_impl(context, chaincodePath, ctor, containerName):
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/deploy")
     print("Requesting path = {0}".format(request_url))
     args = []
@@ -195,6 +179,8 @@ def step_impl(context, chaincodePath, ctor, containerName):
     }
     if 'userName' in context:
         chaincodeSpec["secureContext"] = context.userName
+    if 'metadata' in context:
+        chaincodeSpec["metadata"] = context.metadata
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
@@ -211,6 +197,10 @@ def step_impl(context):
         assert context.chaincodeSpec['chaincodeID']['name'] != ""
         # Set the current transactionID to the name passed back
         context.transactionID = context.chaincodeSpec['chaincodeID']['name']
+    elif 'grpcChaincodeSpec' in context:
+        assert context.grpcChaincodeSpec.chaincodeID.name != ""
+        # Set the current transactionID to the name passed back
+        context.transactionID = context.grpcChaincodeSpec.chaincodeID.name
     else:
         fail('chaincodeSpec not in context')
 
@@ -252,7 +242,7 @@ def invokeChaincode(context, devopsFunc, functionName, containerName):
     chaincodeInvocationSpec = {
         "chaincodeSpec" : context.chaincodeSpec
     }
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
@@ -278,7 +268,7 @@ def step_impl(context, seconds):
 @then(u'I wait "{seconds}" seconds for transaction to be committed to block on "{containerName}"')
 def step_impl(context, seconds, containerName):
     assert 'transactionID' in context, "transactionID not found in context"
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/transactions/{0}".format(context.transactionID))
     print("{0} GETing path = {1}".format(currentTime(), request_url))
 
@@ -338,18 +328,6 @@ def step_impl(context, seconds):
     print("Result of request to all peers = {0}".format(respMap))
     print("")
 
-def getContainerDataValuesFromContext(context, aliases, callback):
-    """Returns the IPAddress based upon a name part of the full container name"""
-    assert 'compose_containers' in context, "compose_containers not found in context"
-    values = []
-    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-    for namePart in aliases:
-        for containerData in context.compose_containers:
-            if containerData.containerName.startswith(containerNamePrefix + namePart):
-                values.append(callback(containerData))
-                break
-    return values
-
 
 @then(u'I wait up to "{seconds}" seconds for transaction to be committed to peers')
 def step_impl(context, seconds):
@@ -358,7 +336,7 @@ def step_impl(context, seconds):
     assert 'table' in context, "table (of peers) not found in context"
 
     aliases =  context.table.headings
-    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     # Build map of "containerName" : resp.statusCode
     respMap = {container.containerName:0 for container in containerDataList}
@@ -430,7 +408,7 @@ def query_common(context, chaincodeName, functionName, value, failOnError):
     assert 'peerToSecretMessage' in context, "peerToSecretMessage map not found in context"
 
     aliases =  context.table.headings
-    containerDataList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     # Update the chaincodeSpec ctorMsg for invoke
     context.chaincodeSpec['ctorMsg']['function'] = functionName
@@ -481,7 +459,7 @@ def step_impl(context, userName, secret):
 
     # Get list of IPs to login to
     aliases =  context.table.headings
-    ipAddressList = getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData.ipAddress)
+    containerDataList = bdd_test_util.getContainerDataValuesFromContext(context, aliases, lambda containerData: containerData)
 
     secretMsg = {
         "enrollId": userName,
@@ -489,14 +467,18 @@ def step_impl(context, userName, secret):
     }
 
     # Login to each container specified
-    for ipAddress in ipAddressList:
-        request_url = buildUrl(context, ipAddress, "/registrar")
+    for containerData in containerDataList:
+        request_url = buildUrl(context, containerData.ipAddress, "/registrar")
         print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(secretMsg), verify=False)
         assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
         context.response = resp
         print("message = {0}".format(resp.json()))
+    
+        # Create new User entry
+        bdd_test_util.registerUser(context, secretMsg, containerData.composeService)
+
     # Store the username in the context
     context.userName = userName
     # if we already have the chaincodeSpec, change secureContext
@@ -519,7 +501,7 @@ def step_impl(context):
             "enrollSecret" : secret
         }
 
-        ipAddress = ipFromContainerNamePart(peer, context.compose_containers)
+        ipAddress = bdd_test_util.ipFromContainerNamePart(peer, context.compose_containers)
         request_url = buildUrl(context, ipAddress, "/registrar")
         print("POSTing to service = {0}, path = {1}".format(peer, request_url))
 
@@ -551,6 +533,7 @@ def compose_op(context, op):
     assert 'table' in context, "table (of peers) not found in context"
     assert 'compose_yaml' in context, "compose_yaml not found in context"
 
+    fileArgsToDockerCompose = getDockerComposeFileArgsFromYamlFile(context.compose_yaml)
     services =  context.table.headings
     # Loop through services and start/stop them, and modify the container data list if successful.
     for service in services:

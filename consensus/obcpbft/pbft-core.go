@@ -378,6 +378,8 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 		if instance.skipInProgress {
 			instance.retryStateTransfer(nil)
 		}
+		// We will delay new view processing sometimes
+		return instance.processNewView()
 	case nullRequestEvent:
 		instance.nullRequestHandler()
 	case workEvent:

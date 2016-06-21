@@ -21,6 +21,8 @@ import (
 	"encoding/binary"
 	"strconv"
 
+	"fmt"
+
 	"github.com/hyperledger/fabric/core/db"
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/hyperledger/fabric/protos"
@@ -119,6 +121,48 @@ func (blockchain *blockchain) getTransactionByUUID(txUUID string) (*protos.Trans
 	}
 	transaction := block.GetTransactions()[txIndex]
 	return transaction, nil
+}
+
+func (blockchain *blockchain) getTransactionResultByUUID(txUUID string) (*protos.TransactionResult, error) {
+	blockNumber, txIndex, err := blockchain.indexer.fetchTransactionIndexByUUID(txUUID)
+	if err != nil {
+		return nil, err
+	}
+	block, err := blockchain.getBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	nonHashData := block.GetNonHashData()
+	if nonHashData == nil {
+		return nil, fmt.Errorf("Error getting TransactionResult for txUUID = %s, nonHashData was nil", txUUID)
+	}
+	transactionResults := nonHashData.GetTransactionResults()
+	if transactionResults == nil {
+		return nil, fmt.Errorf("Error getting TransactionResult for txUUID = %s, GetTransactionResults returned nil", txUUID)
+	}
+	if txIndex > uint64(len(transactionResults))-1 {
+		return nil, fmt.Errorf("Error getting TransactionResult for txUUID = %s, txIndex (%d) out of range in TransactionResults with length = %d", txUUID, txIndex, len(transactionResults))
+	}
+	txResult := transactionResults[txIndex]
+	return txResult, nil
+}
+
+// getTransactions get all transactions in a block identified by block number
+func (blockchain *blockchain) getTransactions(blockNumber uint64) ([]*protos.Transaction, error) {
+	block, err := blockchain.getBlock(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions(), nil
+}
+
+// getTransactionsByBlockHash get all transactions in a block identified by block hash
+func (blockchain *blockchain) getTransactionsByBlockHash(blockHash []byte) ([]*protos.Transaction, error) {
+	block, err := blockchain.getBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	return block.GetTransactions(), nil
 }
 
 // getTransaction get a transaction identified by blocknumber and index within the block

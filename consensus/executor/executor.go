@@ -97,6 +97,8 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		info := co.rawExecutor.GetBlockchainInfo()
 
+		logger.Debugf("Committed block %d with hash %x to chain", info.Height-1, info.CurrentBlockHash)
+
 		co.consumer.Committed(et.tag, info)
 	case rollbackEvent:
 		logger.Debug("Executor is processing an rollbackEvent")
@@ -138,7 +140,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 				co.consumer.StateUpdated(et.tag, nil)
 				return nil
 			}
-			logger.Warning("State transfer did not complete successfully but is recoverable, trying again: %s", err)
+			logger.Warningf("State transfer did not complete successfully but is recoverable, trying again: %s", err)
 			et.peers = nil // Broaden the peers included in recover to all connected
 		}
 	default:

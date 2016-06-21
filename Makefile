@@ -80,7 +80,15 @@ unit-test: peer-image gotools
 .PHONY: images
 images: $(patsubst %,build/image/%/.dummy, $(IMAGES))
 
-behave-deps: images peer
+build/behave/.grpc-dummy:
+	sudo pip install -q 'grpcio==0.13.1'
+	mkdir -p build/behave
+	touch build/behave/.grpc-dummy
+
+behave-grpc: build/behave/.grpc-dummy
+	
+
+behave-deps: images peer behave-grpc
 behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
@@ -98,6 +106,8 @@ linter: gotools
 	go vet ./membersrvc/...
 	go vet ./peer/...
 	go vet ./protos/...
+	@echo "Running goimports"
+	@./scripts/goimports.sh
 
 # Special override for protoc-gen-go since we want to use the version vendored with the project
 gotool.protoc-gen-go:
