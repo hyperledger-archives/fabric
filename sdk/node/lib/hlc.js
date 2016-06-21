@@ -1158,7 +1158,7 @@ var TransactionContext = (function (_super) {
         }
         // Set the chaincodeID
         var chaincodeID = new _chaincodeProto.ChaincodeID();
-        chaincodeID.setName(request.chaincodeID);
+        chaincodeID.setName(request.chaincodeName);
         debug("newDevModeTransaction: chaincodeID: " + JSON.stringify(chaincodeID));
         tx.setChaincodeID(chaincodeID.toBuffer());
         // Construct the ChaincodeSpec
@@ -1177,7 +1177,7 @@ var TransactionContext = (function (_super) {
         chaincodeDeploymentSpec.setChaincodeSpec(chaincodeSpec);
         tx.setPayload(chaincodeDeploymentSpec.toBuffer());
         // Set the transaction UUID
-        tx.setUuid(request.chaincodeID);
+        tx.setUuid(request.chaincodeName);
         // Set the transaction timestamp
         tx.setTimestamp(sdk_util.GenerateTimestamp());
         // Set confidentiality level
@@ -1212,7 +1212,7 @@ var TransactionContext = (function (_super) {
             // debug('========== Sigma [%s]', sigma.toString('hex'));
             tx.setMetadata(sigma);
         }
-        tx = new Transaction(tx, request.chaincodeID);
+        tx = new Transaction(tx, request.chaincodeName);
         return cb(null, tx);
     };
     /**

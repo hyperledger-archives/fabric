@@ -137,6 +137,30 @@ function fail(t, msg, err) {
 }
 
 //
+// Set Invalid security level and hash family.
+//
+
+test('Set Invalid security level and hash family.', function (t) {
+    t.plan(2);
+
+    try {
+        chain.setSecurityLevel(128);
+        t.fail("Setting an invalid security level should fail. Allowed security levels are '256' and '384'.")
+    } catch (err) {
+        t.pass("Setting an invalid security level failed as expected.")
+    }
+
+    try {
+        chain.setHashAlgorithm('SHA');
+        t.fail("Setting an invalid hash family should fail. Allowed hash family are 'SHA2' and 'SHA3'.")
+    } catch (err) {
+        t.pass("Setting an invalid hash family failed as expected.")
+    }
+
+});
+
+
+//
 // Enroll the WebAppAdmin member. WebAppAdmin member is already registered
 // manually by being included inside the membersrvc.yaml file.
 //
