@@ -319,15 +319,27 @@ func TestReadCertificatePair(t *testing.T) {
 }
 
 func TestReadCertificatePairBadIdentity(t *testing.T) {
-	t.SkipNow() //need to fix error
 	ecap := &ECAP{eca}
 
 	req := &pb.ECertReadReq{Id: &pb.Identity{Id: "badUser"}}
 
 	_, err := ecap.ReadCertificatePair(context.Background(), req)
 
-	if err != nil {
-		t.Errorf("Failed to read certificate pair: [%s]", err.Error())
+	if err == nil {
+		t.Error("The query result searching by an Invalid User Identity should have been empty. ")
+	}
+
+}
+
+func TestReadCertificateByInvalidHash(t *testing.T) {
+	ecap := &ECAP{eca}
+
+	req := &pb.Hash{Hash: nil}
+
+	_, err := ecap.ReadCertificateByHash(context.Background(), req)
+
+	if err == nil {
+		t.Error("The query result searching by an Invalid Hash value should have been empty. ")
 	}
 
 }
