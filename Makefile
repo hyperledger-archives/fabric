@@ -86,7 +86,7 @@ build/behave/.grpc-dummy:
 	touch build/behave/.grpc-dummy
 
 behave-grpc: build/behave/.grpc-dummy
-	
+
 
 behave-deps: images peer behave-grpc
 behave: behave-deps
@@ -227,7 +227,6 @@ node-sdk:
 node-sdk-unit-tests: node-sdk
 	@./sdk/node/bin/run-unit-tests.sh
 
-node-sdk:
 .PHONY: clean
 clean: images-clean
 	-@rm -rf build ||:
