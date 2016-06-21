@@ -99,7 +99,9 @@ stress2: stress2b stress2c stress2s
 
 .PHONY: secure1
 secure1:
-	@$(NETWORK) -sieve -security 4
+	@CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
+	$(NETWORK) -batch -security 4
+	@echo "Sleeping 10 seconds to allow peers to interlock"; sleep 10
 	@./driver \
 		-transactions 100 \
 		-peerBurst 10 \
