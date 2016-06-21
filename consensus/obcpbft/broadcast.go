@@ -41,7 +41,7 @@ type broadcaster struct {
 
 type sendRequest struct {
 	msg  *pb.Message
-	done chan struct{}
+	done chan bool
 }
 
 func newBroadcaster(self uint64, N int, f int, c communicator) *broadcaster {
@@ -75,7 +75,6 @@ func (b *broadcaster) Wait() {
 
 func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, printedValidatorNotFound bool) bool {
 	defer func() {
-		send.done <- struct{}{}
 		b.closed.Done()
 	}()
 	h, err := getValidatorHandle(dest)
@@ -84,6 +83,7 @@ func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, printedValidat
 			logger.Warningf("could not get handle for replica %d", dest)
 		}
 		time.Sleep(time.Second)
+		send.done <- false
 		return true
 	}
 
@@ -95,6 +95,9 @@ func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, printedValidat
 	err = b.comm.Unicast(send.msg, h)
 	if err != nil {
 		logger.Warningf("could not send to replica %d: %v", dest, err)
+		send.done <- false
+	} else {
+		send.done <- true
 	}
 
 	return false
@@ -110,7 +113,7 @@ func (b *broadcaster) drainer(dest uint64) {
 				// Drain the message channel to free calling waiters before we shut down
 				select {
 				case send := <-b.msgChans[dest]:
-					send.done <- struct{}{}
+					send.done <- false
 					b.closed.Done()
 				default:
 					return
@@ -122,7 +125,7 @@ func (b *broadcaster) drainer(dest uint64) {
 	}
 }
 
-func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan struct{}) {
+func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan bool) {
 	select {
 	case b.msgChans[dest] <- &sendRequest{
 		msg:  msg,
@@ -130,7 +133,7 @@ func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan struct{
 	}:
 	default:
 		// If this channel is full, we must discard the message and flag it as done
-		wait <- struct{}{}
+		wait <- false
 		b.closed.Done()
 	}
 }
@@ -152,7 +155,7 @@ func (b *broadcaster) send(msg *pb.Message, dest *uint64) error {
 		required = destCount - b.f
 	}
 
-	wait := make(chan struct{}, destCount)
+	wait := make(chan bool, destCount)
 
 	if dest != nil {
 		b.closed.Add(1)
@@ -164,8 +167,29 @@ func (b *broadcaster) send(msg *pb.Message, dest *uint64) error {
 		}
 	}
 
-	for i := 0; i < required; i++ {
-		<-wait
+	succeeded := 0
+	timer := time.NewTimer(time.Second) // TODO, make this configurable
+
+	// This loop will try to send, until one of:
+	// a) the required number of sends succeed
+	// b) all sends complete regardless of success
+	// c) the timeout expires and the required number of sends have returned
+outer:
+	for i := 0; i < destCount; i++ {
+		select {
+		case success := <-wait:
+			if success {
+				succeeded++
+				if succeeded >= required {
+					break outer
+				}
+			}
+		case <-timer.C:
+			for i := i; i < required; i++ {
+				<-wait
+			}
+			break outer
+		}
 	}
 
 	return nil
