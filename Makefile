@@ -45,26 +45,24 @@ EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
+# SUBDIRS are components that have their own Makefiles that we can invoke
+SUBDIRS = gotools
+SUBDIRS:=$(strip $(SUBDIRS))
+
 # Make our baseimage depend on any changes to images/base or scripts/provision
 BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
 BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
 
-GOTOOLS = golint govendor goimports protoc-gen-go ginkgo gomega
-GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
-
 PROJECT_FILES = $(shell git ls-files)
 IMAGES = base src ccenv peer membersrvc
-
-# go tool->path mapping
-go.fqp.govendor  := github.com/kardianos/govendor
-go.fqp.golint    := github.com/golang/lint/golint
-go.fqp.goimports := golang.org/x/tools/cmd/goimports
-go.fqp.ginkgo := github.com/onsi/ginkgo/ginkgo
-go.fqp.gomega := github.com/onsi/gomega
 
 all: peer membersrvc checks
 
 checks: linter unit-test behave
+
+.PHONY: $(SUBDIRS)
+$(SUBDIRS):
+	cd $@ && $(MAKE)
 
 .PHONY: peer
 peer: build/bin/peer
@@ -93,8 +91,6 @@ behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
 
-gotools: $(GOTOOLS_BIN)
-
 linter: gotools
 	@echo "LINT: Running code checks.."
 	@echo "Running go vet"
@@ -108,22 +104,6 @@ linter: gotools
 	go vet ./protos/...
 	@echo "Running goimports"
 	@./scripts/goimports.sh
-
-# Special override for protoc-gen-go since we want to use the version vendored with the project
-gotool.protoc-gen-go:
-	mkdir -p $(GOPATH)/src/github.com/golang/protobuf/
-	cp -r $(GOPATH)/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $(GOPATH)/src/github.com/golang/
-	go install github.com/golang/protobuf/protoc-gen-go
-	rm -rf $(GOPATH)/src/github.com/golang/protobuf
-
-# Default rule for gotools uses the name->path map for a generic 'go get' style build
-gotool.%:
-	$(eval TOOL = ${subst gotool.,,${@}})
-	go get ${go.fqp.${TOOL}}
-
-$(GOPATH)/bin/%:
-	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
-	$(MAKE) gotool.$(TOOL)
 
 # We (re)build protoc-gen-go from within docker context so that
 # we may later inject the binary into a different docker environment
@@ -227,11 +207,14 @@ node-sdk:
 node-sdk-unit-tests: node-sdk
 	@./sdk/node/bin/run-unit-tests.sh
 
+.PHONY: $(SUBDIRS:=-clean)
+$(SUBDIRS:=-clean):
+	cd $(patsubst %-clean,%,$@) && $(MAKE) clean
+
 .PHONY: clean
-clean: images-clean
+clean: images-clean $(filter-out gotools-clean, $(SUBDIRS:=-clean))
 	-@rm -rf build ||:
 
 .PHONY: dist-clean
-dist-clean: clean
+dist-clean: clean gotools-clean
 	-@rm -rf /var/hyperledger/* ||:
-	-@rm -f $(GOTOOLS_BIN) ||:
