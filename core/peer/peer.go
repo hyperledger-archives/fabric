@@ -514,8 +514,6 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 }
 
 func (p *PeerImpl) ensureConnected() {
-	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
-	tickChan := time.NewTicker(touchPeriod).C
 	// See if rootNode(s) defined, if NOT, simply return
 	if len(p.discoverySvc.GetRootNodes()) == 1 {
 		if len(p.discoverySvc.GetRootNodes()[0]) == 0 {
@@ -523,6 +521,8 @@ func (p *PeerImpl) ensureConnected() {
 			return
 		}
 	}
+	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
+	tickChan := time.NewTicker(touchPeriod).C
 	peerLogger.Debug("Starting Peer reconnect service, with touchPeriod = %s", touchPeriod)
 	for {
 		// Simply loop and check if need to reconnect
