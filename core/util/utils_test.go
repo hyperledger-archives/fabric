@@ -67,3 +67,18 @@ func TestGenerateHashFromSignature(t *testing.T) {
 		t.Fatalf("Expected hashes to be different, but they match")
 	}
 }
+
+func TestFindMissingElements(t *testing.T) {
+	all := []string{"a", "b", "c", "d"}
+	some := []string{"b", "c"}
+	expectedDelta := []string{"a", "d"}
+	actualDelta := FindMissingElements(all, some)
+	if len(expectedDelta) != len(actualDelta) {
+		t.Fatalf("Got %v, expected %v", actualDelta, expectedDelta)
+	}
+	for i := range expectedDelta {
+		if expectedDelta[i] != actualDelta[i] {
+			t.Fatalf("Got %v, expected %v", actualDelta, expectedDelta)
+		}
+	}
+}
