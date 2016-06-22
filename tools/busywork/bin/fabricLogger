@@ -194,8 +194,13 @@ atErrorExit {killPIDs}
 
 # TODO : Move block access to ::fabric package procedures
 
+# NB: To avoid memory leaks the HTTP token must always be cleaned up
+# (deleted). We even delete the token on errorExit paths, as one day we may
+# decide to add an option to return errors instead of exiting from errorExit.
+
 proc forceBreakOrErrorExit {i_token} {
     if {[parms force]} {
+        http::cleanup $i_token
         err {} "Continuing after error (-force mode)"
         return -code break
     } else {
@@ -224,6 +229,7 @@ while {1} {
                 http::cleanup $token
                 continue
             }
+            http::cleanup $token
             errorExit \
                 "$peer @ block $block: ::http::geturl failed " \
                 "with [parms retry] retries : $token"
@@ -233,6 +239,7 @@ while {1} {
 
             # End of blockchain
             
+            http::cleanup $token
             if {![parms follow]} {exit 0}
             if {[parms followPoll] == 0} break
             after [parms followPoll]
