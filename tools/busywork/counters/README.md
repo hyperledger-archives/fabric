@@ -58,9 +58,12 @@ values, interpreted as detailed for the individual keys below.
   interface. See the `-loggingLevel` option for details on the `<level>`
   argument. The default level for *shim* logging is WARNING.
   
-- `-checkCounters=<bool>` : The `<bool>` value defaults to `true`. This is a
-   debugging flag only (?). If `false`, the chaincode does not check for
-   consistency of the array state before incrementing and decrementing.
+- `-checkCounters=<bool>` : The `<bool>` value defaults to `false`.  When
+   `false`, the chaincode does not check for consistency of the array state
+   before incrementing and decrementing. This setting is required in most
+   cases because if a peer "falls behind" the other peers it may get its state
+   by a state transfer, and not by actually executing transactions. The `true`
+   setting will likely only work (and *should* work) with NOOPS consensus.
   
 - `-checkStatus=<bool>` : The `<bool>` value defaults to `true`. This is a
   debugging flag only. See **counters.go**, `status()` function for the
@@ -129,8 +132,6 @@ for each occurrence, without rewriting the array back to the state between
 increments.
 	
 
-
-
 ## Query Methods
 
 ### `parms ?... <parm> ...?`
@@ -171,7 +172,12 @@ Examples:
 	--> "1 1 10 10 2 2 20 20 3 3 30 30"
 
 It is an error to name an array that has not been created. This query *does
-not* signal an error if the expected and actual values do not match.
+not* signal an error if the expected and actual values do not match. As
+mentioned above with the `parms -checkCounters` option, if state transfer has
+taken place on a peer then the expected count (which records the number of
+transactions actually executed by the peer) will not match the actual count
+obtained from the state. There is no reason for the expected and actual array
+lengths not to match, however.
 
 
   

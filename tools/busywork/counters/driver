@@ -210,7 +210,14 @@ Optional parameters. Default values are given after the colon:
 -finalWait <duration> : 10s    
 
     If not running in -interlock mode, wait this duration at the end of the
-    run to check the final status for correctness.
+    run before checking the final status for correctness.
+
+    If the run is in -interlock mode, then the run will not finish until at
+    least one peer has recorded every transaction. However due to delays and
+    state transfer, there may be lagging peers that have not finished yet. In
+    this case we do "strong reads" of the block height of every node, and do
+    not start checking until there is 100% consensus on the block
+    height. These checks must converge within the -finalWait time.
 
 -keepLog | -noKeepLog : -noKeepLog
 
@@ -457,13 +464,13 @@ for {set i 1} {$i <= [parms nArrays]} {incr i} {
 parms arrayNames $names
 note {} "[llength [parms arrayNames]] array(s) will be defined per chaincode"
 
-set countPerArray [expr {[parms transactions] * [parms clients]}]
-set totalTransactions \
-    [expr {$countPerArray * [parms nChaincodes] * [parms nArrays]}]
+parms countPerArray [expr {[parms transactions] * [parms clients]}]
+parms totalTransactions \
+    [expr {[parms countPerArray] * [parms nChaincodes] * [parms nArrays]}]
 
 note {} "[parms clients] clients will be activated"
-note {} "$countPerArray transaction(s) will be issued to each array"
-note {} "$totalTransactions total transaction(s) will be issued"
+note {} "[parms countPerArray] transaction(s) will be issued to each array"
+note {} "[parms totalTransactions] total transaction(s) will be issued"
 
 
 set sizes {}
@@ -880,8 +887,10 @@ set t [time {set errors [waitPIDs $pids]} 1]
 
 if {!$errors} {
     set seconds [expr {[lindex $t 0] / 1e6}]
-    set rate [format %.2f [expr {$totalTransactions / $seconds}]]
-    note {} "Transaction rate : $rate per second ($totalTransactions / $seconds)"
+    set rate [format %.2f [expr {[parms totalTransactions] / $seconds}]]
+    note {} \
+        "Transaction rate : $rate per second " \
+        "([parms totalTransactions] / $seconds)"
 }
 
 if {$p_pprofClient} {
@@ -892,53 +901,100 @@ if {$p_pprofClient} {
     }
 }
 
+if {$errors && ![parms force]} {
+    errorExit "Aborting due to client errors"
+}
+
 
 # Finally, check the results for correctness. For the most accurate completed
 # transaction rates you need to -interlock, as it is likely that not all
 # invocations have been commited at this point if -interlock is not specified.
 
-if {![parms interlock] && (!$errors || [parms force])} {
+if {[parms interlock]} {
+
+    # For interlocked runs, do "strong reads" of the block height until
+    # consensus is reached.
+
+    proc strongReadBlockHeight {} {
+        set originalHeights [mapeach peer [parms peers] {
+            return [::fabric::height $peer]
+        }]
+        set heights [removeDuplicates $originalHeights]
+        if {[llength $heights] != 1} {
+            note {} "    Observed block heights: $originalHeights"
+        }
+        return [expr {[llength $heights] == 1}]
+    }
+    
+    note {} "Waiting up to [parms finalWait] for block-height consensus"
+    if {[waitFor [parms finalWait] strongReadBlockHeight 1s]} {
+        if {![parms force]} {
+            set errors 1
+            errorExit "Aborting due to block-height consensus timeout"
+        }
+    }
+        
+} else {
+
+    # For runs without -interlock, we always wait -finalWait before continuing
+    # with the checks.
+    
     note {} "Waiting [parms finalWait] before collecting the final status"
     after [durationToMs [parms finalWait]]
 }
 
-if {!$errors || [parms force]} {
-    note {} "Checking final results"
-    foreach peer [parms peers] {
-        foreach name [parms chaincodeNames] id [parms chaincodeIDs] {
-            debug {} "::fabric::query $peer $name status [parms arrayNames]"
-            set status \
-                [::fabric::query \
-                $peer [peerUser $peer] $name status [parms arrayNames]]
-            foreach \
-                {l1 l2 c1 c2} $status \
-                arrayName [parms arrayNames] \
-                size [parms arraySizes] {
 
-                    if {($l1 != $l2) || ($l1 != $size)} {
-                        err err \
-                            "Peer $peer : Array length mismatch for " \
+# Now we check the consistency of the counters. Due to state transfer it will
+# not always be the case the every chaincode executes every transaction, but
+# it must be the case that every chaincode has a state that makes it appear
+# that it executed every transaction.
+
+note {} "Checking consistency of the final state"
+foreach peer [parms peers] {
+    foreach name [parms chaincodeNames] id [parms chaincodeIDs] {
+        debug {} "::fabric::query $peer $name status [parms arrayNames]"
+        set status \
+            [::fabric::query \
+                 $peer [peerUser $peer] $name status [parms arrayNames]]
+        foreach \
+            {l1 l2 c1 c2} $status \
+            arrayName [parms arrayNames] \
+            size [parms arraySizes] {
+
+                if {($l1 != $l2) || ($l1 != $size)} {
+                    err {} \
+                        "Peer $peer : Array length mismatch for " \
                             "chaincode $id, array $arrayName.\n" \
                             "Expected $size, Reported $l1 $l2"
                         set errors 1
                     }
 
-                    if {($c1 != $c2) || ($c1 != $countPerArray)} {
-                        err err \
-                            "Peer $peer : Count mismatch for chaincode $id, " \
-                            "array $arrayName.\n" \
-                            "Expected $countPerArray, Reported $c1 $c2"
+                    if {$c1 != $c2} {
+                        warn {} \
+                            "Peer $peer: Expected/observed mismatch for " \
+                            "chaincode $id, array $arrayName"
+                        warn {} \
+                            "Expected [parms countPerArray], reported $c1 $c2"
+                    }
+
+                    if {$c2 != [parms countPerArray]} {
+                        err {} \
+                            "Peer $peer: Final count mismatch for " \
+                            "chaincode $id, array $arrayName"
+                        err {} \
+                            "Expected [parms countPerArray], Reported $c1 $c2"
                         set errors 1
                     }
                 }
         }
-    }
 }
 
 
-# Check for peer agreement
+# Check for peer agreement. Note that we do this even if the previous checks
+# failed. There are interesting cases where the status may be inconsistent but
+# the blockchains actually agree.
 
-if {$p_checkAgreement && (!$errors || [parms force])} {
+if {$p_checkAgreement} {
 
     note {} "Checking for agreement between the peers"
     set checkAgreement [file dirname [info script]]/../bin/checkAgreement
@@ -950,7 +1006,6 @@ if {$p_checkAgreement && (!$errors || [parms force])} {
         set errors 1
     }
 }
-
 
 if {$errors} {
     err err "Aborting due to errors, mismatches or disagreements above"
