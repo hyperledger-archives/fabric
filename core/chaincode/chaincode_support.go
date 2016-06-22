@@ -470,6 +470,9 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		if err != nil {
 			return cID, cMsg, fmt.Errorf("failed to unmarshal deployment transactions for %s - %s", chaincode, err)
 		}
+		cMsgTemp := cds.ChaincodeSpec.CtorMsg
+		f = &cMsgTemp.Function
+		initargs = cMsgTemp.Args
 	}
 
 	//from here on : if we launch the container and get an error, we need to stop the container
