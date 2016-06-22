@@ -10,36 +10,7 @@
 #@chaincodeImagesUpToDate
 Feature: Chaincode02 example
 
-#    @doNotDecompose
-#    @wip
-	Scenario: chaincode example02 with 1 peer
-      	    Given we compose "docker-compose-1.yml"
-	    When requesting "/chain" from "vp0"
-	    Then I should get a JSON response with "height" = "1"
-
-	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
-		     | arg1 |  arg2 | arg3 | arg4 |
-		     |  a   |  100  |  b   |  200 |
-	    Then I should have received a chaincode name
-	    Then I wait up to "60" seconds for transaction to be committed to all peers
-
-        When I query chaincode "example2" function name "query" on all peers:
-            |arg1|
-            |  a |
-	    Then I should get a JSON response from all peers with "OK" = "100"
-
-        When I invoke chaincode "example2" function name "invoke" on "vp0"
-			|arg1|arg2|arg3|
-			| a  | b  | 20 |
-	    Then I should have received a transactionID
-	    Then I wait up to "20" seconds for transaction to be committed to all peers
-
-        When I query chaincode "example2" function name "query" on all peers:
-            |arg1|
-            |  a |
-	    Then I should get a JSON response from all peers with "OK" = "80"
-
-#@doNotDecompose
+@doNotDecompose
 #    @wip
   Scenario: java SimpleSample chaincode example single peer
       Given we compose "docker-compose-1.yml"
@@ -49,7 +20,7 @@ Feature: Chaincode02 example
       		     | arg1 |  arg2 | arg3 | arg4 |
       		     |  a   |  100  |  b   |  200 |
       	    Then I should have received a chaincode name
-      	    Then I wait up to "60" seconds for transaction to be committed to all peers
+      	    Then I wait up to "300" seconds for transaction to be committed to all peers
 
       	    When requesting "/chain" from "vp0"
       	    Then I should get a JSON response with "height" = "2"
@@ -57,7 +28,7 @@ Feature: Chaincode02 example
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  a |
-      	    Then I should get a JSON response with "OK" = "100"
+      	    Then I should get a JSON response with "OK" = "{u'Amount': u'100', u'Name': u'a'}"
 
 
               When I invoke chaincode "example2" function name "transfer" on "vp0"
@@ -72,9 +43,9 @@ Feature: Chaincode02 example
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  a |
-      	    Then I should get a JSON response with "OK" = "90"
+      	    Then I should get a JSON response with "OK" = "{u'Amount': u'90', u'Name': u'a'}"
 
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  b |
-      	    Then I should get a JSON response with "OK" = "210"
+      	    Then I should get a JSON response with "OK" = "{u'Amount': u'210', u'Name': u'b'}"

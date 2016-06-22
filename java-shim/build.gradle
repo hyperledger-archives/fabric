@@ -15,7 +15,7 @@ plugins {
 	id "application"
 }
 
-mainClassName = "example.MapExample"
+mainClassName = "example.SimpleSample"
 
 run {
 	if (project.hasProperty("appArgs")) {
