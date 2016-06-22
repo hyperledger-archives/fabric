@@ -204,10 +204,10 @@ def step_impl(context):
     else:
         fail('chaincodeSpec not in context')
 
-@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}" with "{uuidGenAlg}"')
-def step_impl(context, chaincodeName, functionName, containerName, uuidGenAlg):
+@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}" with "{idGenAlg}"')
+def step_impl(context, chaincodeName, functionName, containerName, idGenAlg):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    invokeChaincode(context, "invoke", functionName, containerName, uuidGenAlg)
+    invokeChaincode(context, "invoke", functionName, containerName, idGenAlg)
 
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}" "{times}" times')
 def step_impl(context, chaincodeName, functionName, containerName, times):
@@ -234,7 +234,7 @@ def step_impl(context, chaincodeName, functionName, containerName):
 def step_impl(context, chaincodeName, functionName, containerName):
     invokeChaincode(context, "query", functionName, containerName)
 
-def invokeChaincode(context, devopsFunc, functionName, containerName, uuidGenAlg=None):
+def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=None):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     # Update hte chaincodeSpec ctorMsg for invoke
     args = []
@@ -248,8 +248,8 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, uuidGenAlg
         "chaincodeSpec" : context.chaincodeSpec
     }
     ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
-    if uuidGenAlg is not None:
-	    chaincodeInvocationSpec['uuidGenerationAlg'] = uuidGenAlg
+    if idGenAlg is not None:
+	    chaincodeInvocationSpec['idGenerationAlg'] = idGenAlg
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
 

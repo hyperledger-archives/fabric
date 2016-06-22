@@ -35,7 +35,7 @@ type alg struct {
 	decoder func(string) ([]byte, error)
 }
 
-var availableUUIDgenAlgs = map[string]alg{
+var availableIDgenAlgs = map[string]alg{
 	"sha256base64": alg{GenerateUUIDfromTxSHAHash, base64.StdEncoding.DecodeString},
 }
 
@@ -107,9 +107,9 @@ func GenerateUUIDfromTxSHAHash(txData []byte) string {
 	return uuidBytesToStr(txHash[0:16])
 }
 
-// GenerateUUIDWithAlg generates a UUID using a custom algorithm
-func GenerateUUIDWithAlg(customUUIDgenAlg string, encodedPayload string) (string, error) {
-	var alg = availableUUIDgenAlgs[customUUIDgenAlg]
+// GenerateIDWithAlg generates an ID using a custom algorithm
+func GenerateIDWithAlg(customIDgenAlg string, encodedPayload string) (string, error) {
+	var alg = availableIDgenAlgs[customIDgenAlg]
 	if alg.hashFun != nil && alg.decoder != nil {
 		var payload, err = alg.decoder(encodedPayload)
 		if err != nil {

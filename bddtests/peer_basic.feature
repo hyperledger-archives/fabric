@@ -317,7 +317,7 @@ Feature: lanching 3 peers
 #    @wip
 #    Arg[0] = a, base64 = 'YQ=='
 #    sha256 = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb'
-	Scenario: chaincode map single peer content generated UUID
+	Scenario: chaincode map single peer content generated ID
 	    Given we compose "docker-compose-1.yml"
 	    When requesting "/chain" from "vp0"
 	    Then I should get a JSON response with "height" = "1"

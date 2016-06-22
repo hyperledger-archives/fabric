@@ -210,18 +210,18 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	}
 
 	// Now create the Transactions message and send to Peer.
-	var customUUIDgenAlg = strings.ToLower(chaincodeInvocationSpec.UuidGenerationAlg)
-	var uuid string
+	var customIDgenAlg = strings.ToLower(chaincodeInvocationSpec.IdGenerationAlg)
+	var id string
 	var generr error
-	if customUUIDgenAlg != "" {
-		uuid, generr = util.GenerateUUIDWithAlg(customUUIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+	if customIDgenAlg != "" {
+		id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
 		if generr != nil {
 			return nil, generr
 		}
 	} else {
-		uuid = util.GenerateUUID()
+		id = util.GenerateUUID()
 	}
-	devopsLogger.Info("Transaction ID: %v", uuid)
+	devopsLogger.Info("Transaction ID: %v", id)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -238,7 +238,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		}
 	}
 
-	transaction, err = d.createExecTx(chaincodeInvocationSpec, attributes, uuid, invoke, sec)
+	transaction, err = d.createExecTx(chaincodeInvocationSpec, attributes, id, invoke, sec)
 	if err != nil {
 		return nil, err
 	}
