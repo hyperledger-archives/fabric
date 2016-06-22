@@ -22,7 +22,9 @@ package discovery
 // Discovery is the interface that consolidates bootstrap peer membership
 // selection and validating peer selection for non-validating peers
 type Discovery interface {
-	AddNode(string) []string // Add an address to the discovery list, return all addresses in the list
-	GetAllNodes() []string   // Return all addresses this peer maintains
-	GetRandomNode() string   // Return a random address for this peer to connect to
+	AddNode(string) bool    // Add an address to the discovery list
+	RemoveNode(string) bool // Remove an address from the discovery list
+	GetAllNodes() []string  // Return all addresses this peer maintains
+	GetRandomNode() string  // Return a random address for this peer to connect to
+	FindNode(string) bool   // Find a node in the discovery list
 }
