@@ -23,23 +23,23 @@ import (
 	d "github.com/hyperledger/fabric/discovery"
 )
 
-func TestDiscovery_GetEmptyNode(t *testing.T) {
-	assertRandomNode(t, "", NewDiscoveryImpl(""))
-}
-
-func TestDiscovery_GetEmptyNodes(t *testing.T) {
+func TestDiscovery_AddFindNode(t *testing.T) {
 	discovery := NewDiscoveryImpl("")
-	nodes := discovery.GetAllNodes()
-	if size := len(nodes); size != 1 || nodes[0] != "" {
-		t.Fatalf("Expected output is not ['']")
+	res := discovery.AddNode("foo")
+	if !res || !discovery.FindNode("foo") {
+		t.Fatal("Unable to add a node to the discovery list")
 	}
 }
 
-func TestDiscovery_GetSinglePeer(t *testing.T) {
-	assertRandomNode(t, "someHost", NewDiscoveryImpl("someHost"))
+func TestDiscovery_RemoveNode(t *testing.T) {
+	discovery := NewDiscoveryImpl("")
+	_ = discovery.AddNode("foo")
+	if !discovery.RemoveNode("foo") || len(discovery.GetAllNodes()) != 0 {
+		t.Fatalf("Unable to remove a node from the discovery list")
+	}
 }
 
-func TestDiscovery_GetAllPeers(t *testing.T) {
+func TestDiscovery_GetAllNodes(t *testing.T) {
 	s := "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
 	discovery := NewDiscoveryImpl(s)
 	nodes := discovery.GetAllNodes()
@@ -57,16 +57,16 @@ func TestDiscovery_GetAllPeers(t *testing.T) {
 	}
 }
 
-func TestDiscovery_GetMulti(t *testing.T) {
-	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl("a,b,c,d,e"))
+func TestDiscovery_ZeroNodes(t *testing.T) {
+	discovery := NewDiscoveryImpl("")
+	nodes := discovery.GetAllNodes()
+	if len(nodes) != 0 {
+		t.Fatalf("Expected empty list, size is %d instead", len(nodes))
+	}
 }
 
-func assertRandomNode(t *testing.T, expected string, discovery d.Discovery) {
-	node := discovery.GetRandomNode()
-
-	if node != expected {
-		t.Fatalf("Node's value should be '%s'", expected)
-	}
+func TestDiscovery_RandomNodes(t *testing.T) {
+	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl("a,b,c,d,e"))
 }
 
 func assertNodeRandomValues(t *testing.T, expected []string, discovery d.Discovery) {

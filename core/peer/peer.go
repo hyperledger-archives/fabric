@@ -126,6 +126,7 @@ type MessageHandlerCoordinator interface {
 	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
 	PeersDiscovered(*pb.PeersMessage) error
 	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
+	Discoverer
 }
 
 // ChatStream interface supported by stream between Peers
@@ -137,6 +138,21 @@ type ChatStream interface {
 // SecurityAccessor interface enables a Peer to hand out the crypto object for Peer
 type SecurityAccessor interface {
 	GetSecHelper() crypto.Peer
+}
+
+// Discoverer interface enables a peer to add/remove/retrieve nodes
+// from its bootstrap and recent nodes discovery lists
+type Discoverer interface {
+	AddBootstrapNode(node string) bool
+	RemoveBootstrapNode(node string) bool
+	GetAllBootstrapNodes() []string
+	GetRandomBootstrapNode() string
+	FindBootstrapNode(node string) bool
+	AddRecentNode(node string) bool
+	RemoveRecentNode(node string) bool
+	GetAllRecentNodes() []string
+	GetRandomRecentNode() string
+	FindRecentNode(node string) bool
 }
 
 var peerLogger = logging.MustGetLogger("peer")
@@ -195,7 +211,8 @@ type PeerImpl struct {
 	secHelper      crypto.Peer
 	engine         Engine
 	isValidator    bool
-	discoverySvc   discovery.Discovery
+	discBootstrap  discovery.Discovery
+	discRecent     discovery.Discovery
 	reconnectOnce  sync.Once
 }
 
@@ -216,7 +233,7 @@ type Engine interface {
 func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory, discInstance discovery.Discovery) (*PeerImpl, error) {
 	peer := new(PeerImpl)
 
-	peer.discoverySvc = discInstance
+	peer.discBootstrap = discInstance
 
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -239,7 +256,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 
-	peer.chatWithSomePeers(peer.discoverySvc.GetAllNodes())
+	peer.chatWithSomePeers(peer.discBootstrap.GetAllNodes())
 	return peer, nil
 }
 
@@ -247,7 +264,7 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory, discInstance discovery.Discovery) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 
-	peer.discoverySvc = discInstance
+	peer.discBootstrap = discInstance
 
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
@@ -276,7 +293,7 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	if peer.handlerFactory == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
-	rootNodes := peer.discoverySvc.GetAllNodes()
+	rootNodes := peer.discBootstrap.GetAllNodes()
 	peer.chatWithSomePeers(rootNodes)
 	return peer, nil
 
@@ -515,11 +532,9 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 
 func (p *PeerImpl) ensureConnected() {
 	// See if rootNode(s) defined, if NOT, simply return
-	if len(p.discoverySvc.GetAllNodes()) == 1 {
-		if len(p.discoverySvc.GetAllNodes()[0]) == 0 {
-			peerLogger.Warning("Touch service stopping, no rootNode(s) defined")
-			return
-		}
+	if len(p.discBootstrap.GetAllNodes()) == 0 {
+		peerLogger.Warning("Touch service stopping, no rootNode(s) defined")
+		return
 	}
 	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
 	tickChan := time.NewTicker(touchPeriod).C
@@ -534,7 +549,7 @@ func (p *PeerImpl) ensureConnected() {
 		if len(peersMsg.Peers) == 0 {
 			// No currently connected peers, going to try to chat with rootnode again if defined
 			peerLogger.Info("Touch service indicates no peers connected, attempting to chat with rootNode(s)")
-			p.chatWithSomePeers(p.discoverySvc.GetAllNodes())
+			p.chatWithSomePeers(p.discBootstrap.GetAllNodes())
 		}
 	}
 
@@ -646,7 +661,7 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 	if p.isValidator {
 		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
-		peerAddress := p.discoverySvc.GetRandomNode()
+		peerAddress := p.discBootstrap.GetRandomNode()
 		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
 	return response
@@ -807,4 +822,67 @@ func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionRes
 	p.ledgerWrapper.RLock()
 	defer p.ledgerWrapper.RUnlock()
 	return p.ledgerWrapper.ledger.GetTransactionResultByUUID(txUuid)
+}
+
+// AddRecentNode adds a node's address to the peer's recent nodes discovery list
+func (p *PeerImpl) AddRecentNode(address string) bool {
+	return p.discRecent.AddNode(address)
+}
+
+// RemoveRecentNode removes a node's address from the peer's recent nodes discovery list
+func (p *PeerImpl) RemoveRecentNode(address string) bool {
+	return p.discRecent.RemoveNode(address)
+}
+
+// GetAllRecentNodes returns all the addresses stored in the peer's recent nodes discovery list
+func (p *PeerImpl) GetAllRecentNodes() []string {
+	return p.discRecent.GetAllNodes()
+}
+
+// GetRandomRecentNode returns a random node from the peer's recent nodes discovery list
+func (p *PeerImpl) GetRandomRecentNode() string {
+	return p.discRecent.GetRandomNode()
+}
+
+// FindRecentNode returns true if the given address is stored in the peer's recent nodes discovery list
+func (p *PeerImpl) FindRecentNode(address string) bool {
+	return p.discRecent.FindNode(address)
+}
+
+// AddBootstrapNode adds a node's address to the peer's recent nodes discovery list
+func (p *PeerImpl) AddBootstrapNode(address string) bool {
+	return p.discBootstrap.AddNode(address)
+}
+
+// RemoveBootstrapNode removes a node's address from the peer's recent nodes discovery list
+func (p *PeerImpl) RemoveBootstrapNode(address string) bool {
+	return p.discBootstrap.RemoveNode(address)
+}
+
+// GetAllBootstrapNodes returns all the addresses stored in the peer's recent nodes discovery list
+func (p *PeerImpl) GetAllBootstrapNodes() []string {
+	return p.discBootstrap.GetAllNodes()
+}
+
+// GetRandomBootstrapNode returns a random node from the peer's recent nodes discovery list
+func (p *PeerImpl) GetRandomBootstrapNode() string {
+	return p.discBootstrap.GetRandomNode()
+}
+
+// FindBootstrapNode returns true if the given address is stored in the peer's recent nodes discovery list
+func (p *PeerImpl) FindBootstrapNode(address string) bool {
+	return p.discBootstrap.FindNode(address)
+}
+
+// GetAllNodes returns all the addresses stored in the peer's recent nodes discovery list
+func (p *PeerImpl) GetAllNodes() []string {
+	return append(p.discBootstrap.GetAllNodes(), p.discRecent.GetAllNodes()...)
+}
+
+// FindNode returns true if the given address is stored in the peer's discovery lists
+func (p *PeerImpl) FindNode(address string) bool {
+	if p.discBootstrap.FindNode(address) || p.discRecent.FindNode(address) {
+		return true
+	}
+	return false
 }

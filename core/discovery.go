@@ -24,31 +24,68 @@ import (
 
 // DiscoveryImpl is an implementation of Discovery
 type DiscoveryImpl struct {
-	nodes  []string
+	nodes  map[string]bool
+	seq    []string
 	random *rand.Rand
 }
 
 // NewDiscoveryImpl is a constructor of a Discovery implementation
 // Accepts as a parameter a single node, or a comma-separated list of nodes with no spaces
-func NewDiscoveryImpl(nodes string) *DiscoveryImpl {
+func NewDiscoveryImpl(addresses string) *DiscoveryImpl {
 	di := DiscoveryImpl{}
-	di.nodes = strings.Split(nodes, ",")
 	di.random = rand.New(rand.NewSource(time.Now().Unix()))
+	di.nodes = make(map[string]bool)
+	di.seq = strings.Split(addresses, ",")
+	if !((len(di.seq) == 1) && (di.seq[0] == "")) {
+		for _, address := range di.seq {
+			di.nodes[address] = true
+		}
+	}
 	return &di
 }
 
-// AddNode adds a node to the peer's discovery list
-func (di *DiscoveryImpl) AddNode(node string) []string {
-	di.nodes = append(di.nodes, node)
-	return di.GetAllNodes()
+// AddNode adds an address to the discovery list
+func (di *DiscoveryImpl) AddNode(address string) bool {
+	if _, ok := di.nodes[address]; !ok {
+		di.seq = append(di.seq, address)
+		di.nodes[address] = true
+	}
+	return di.nodes[address]
 }
 
-// GetAllNodes returns an array of all stored nodes
+// RemoveNode removes an address from the discovery list
+func (di *DiscoveryImpl) RemoveNode(address string) bool {
+	if _, ok := di.nodes[address]; ok {
+		di.nodes[address] = false
+	}
+	return !di.nodes[address]
+}
+
+// GetAllNodes returns an array of all addresses saved in the discovery list
 func (di *DiscoveryImpl) GetAllNodes() []string {
-	return di.nodes
+	var addresses []string
+	for address, valid := range di.nodes {
+		if valid {
+			addresses = append(addresses, address) // TODO Expensive, don't quite like it
+		}
+	}
+	return addresses
 }
 
-// GetRandomNode returns a random bootstrap node
+// GetRandomNode returns a random node
 func (di *DiscoveryImpl) GetRandomNode() string {
-	return di.nodes[di.random.Intn(len(di.nodes))]
+	var randomNode string
+	for {
+		randomNode = di.seq[di.random.Intn(len(di.nodes))]
+		if di.nodes[randomNode] {
+			break
+		}
+	}
+	return randomNode
+}
+
+// FindNode returns true if its address is stored in the discovery list
+func (di *DiscoveryImpl) FindNode(address string) bool {
+	_, ok := di.nodes[address]
+	return ok
 }
