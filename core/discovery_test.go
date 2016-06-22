@@ -17,60 +17,60 @@ limitations under the License.
 package core
 
 import (
-	"strings"
 	"testing"
 
 	d "github.com/hyperledger/fabric/discovery"
 )
 
-func TestDiscovery_AddFindNode(t *testing.T) {
-	discovery := NewDiscoveryImpl("")
-	res := discovery.AddNode("foo")
-	if !res || !discovery.FindNode("foo") {
+func TestAddFindNode(t *testing.T) {
+	disc := NewDiscoveryImpl([]string{})
+	res := disc.AddNode("foo")
+	if !res || !disc.FindNode("foo") {
 		t.Fatal("Unable to add a node to the discovery list")
 	}
 }
 
-func TestDiscovery_RemoveNode(t *testing.T) {
-	discovery := NewDiscoveryImpl("")
-	_ = discovery.AddNode("foo")
-	if !discovery.RemoveNode("foo") || len(discovery.GetAllNodes()) != 0 {
+func TestRemoveNode(t *testing.T) {
+	disc := NewDiscoveryImpl([]string{})
+	_ = disc.AddNode("foo")
+	if !disc.RemoveNode("foo") || len(disc.GetAllNodes()) != 0 {
 		t.Fatalf("Unable to remove a node from the discovery list")
 	}
 }
 
-func TestDiscovery_GetAllNodes(t *testing.T) {
-	s := "a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z"
-	discovery := NewDiscoveryImpl(s)
-	nodes := discovery.GetAllNodes()
+func TestGetAllNodes(t *testing.T) {
+	init := []string{"a", "b", "c", "d"}
+	disc := NewDiscoveryImpl(init)
+	nodes := disc.GetAllNodes()
 
-	expectedArrSize := strings.Count(s, ",") + 1
-	if len(nodes) != expectedArrSize {
-		t.Fatalf("Nodes list length should have been %d but is %d", expectedArrSize, len(nodes))
+	expected := len(init)
+	actual := len(nodes)
+	if actual != expected {
+		t.Fatalf("Nodes list length should have been %d but is %d", expected, actual)
 		return
 	}
 
 	for _, node := range nodes {
-		if !strings.Contains(s, node) {
-			t.Fatalf("%s is not a node in [%s]", node, s)
+		if !inArray(node, init) {
+			t.Fatalf("%s is not a node in %v", node, init)
 		}
 	}
 }
 
-func TestDiscovery_ZeroNodes(t *testing.T) {
-	discovery := NewDiscoveryImpl("")
-	nodes := discovery.GetAllNodes()
+func TestZeroNodes(t *testing.T) {
+	disc := NewDiscoveryImpl([]string{})
+	nodes := disc.GetAllNodes()
 	if len(nodes) != 0 {
 		t.Fatalf("Expected empty list, size is %d instead", len(nodes))
 	}
 }
 
-func TestDiscovery_RandomNodes(t *testing.T) {
-	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl("a,b,c,d,e"))
+func TestRandomNodes(t *testing.T) {
+	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl([]string{"a", "b", "c", "d", "e"}))
 }
 
-func assertNodeRandomValues(t *testing.T, expected []string, discovery d.Discovery) {
-	node := discovery.GetRandomNode()
+func assertNodeRandomValues(t *testing.T, expected []string, disc d.Discovery) {
+	node := disc.GetRandomNode()
 
 	if !inArray(node, expected) {
 		t.Fatalf("Node's value should be one of '%v'", expected)
@@ -78,12 +78,11 @@ func assertNodeRandomValues(t *testing.T, expected []string, discovery d.Discove
 
 	// Now test that a random value is sometimes returned
 	for i := 0; i < 100; i++ {
-		if val := discovery.GetRandomNode(); node != val {
+		if val := disc.GetRandomNode(); node != val {
 			return
 		}
 	}
 	t.Fatalf("Returned value was always %s", node)
-
 }
 
 func inArray(element string, array []string) bool {
