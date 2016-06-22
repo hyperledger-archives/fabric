@@ -24,7 +24,7 @@ The logging level of the `peer` command can be controlled from the command line 
 
     peer node start --logging-level=debug
 	
-The default logging level for each individual `peer` subcommand can also be set in the `core.yaml` file. For example the key `logging.peer` sets the default level for the `peer` subcommmand.
+The default logging level for each individual `peer` subcommand can also be set in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) file. For example the key `logging.peer` sets the default level for the `peer` subcommmand.
 
 Logging severity levels are specified using case-insensitive strings chosen from
 
@@ -38,7 +38,7 @@ A logging level by itself is taken as the overall default. Otherwise, overrides 
 
     <module>[,<module>...]=<level> 
 
-syntax. Examples of <level> specifications (valid for both `--logging-level` and `core.yaml` settings):
+syntax. Examples of <level> specifications (valid for both `--logging-level` and [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) settings):
 
     info                                       - Set default to INFO
     warning:main,db=debug:chaincode=info       - Default WARNING; Override for main,db,chaincode
