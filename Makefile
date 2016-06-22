@@ -201,7 +201,7 @@ build/image/%/.dummy: build/image/src/.dummy build/docker/bin/%
 	@touch $@
 
 .PHONY: protos
-protos:
+protos: gotools
 	./devenv/compile_protos.sh
 
 base-image-clean:
@@ -210,8 +210,8 @@ base-image-clean:
 
 %-image-clean:
 	$(eval TARGET = ${patsubst %-image-clean,%,${@}})
-	-@rm -rf build/image/$(TARGET) ||:
 	-docker rmi -f $(PROJECT_NAME)-$(TARGET)
+	-@rm -rf build/image/$(TARGET) ||:
 
 images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
@@ -231,8 +231,8 @@ node-sdk:
 .PHONY: clean
 clean: images-clean
 	-@rm -rf build ||:
-	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
 dist-clean: clean
 	-@rm -rf /var/hyperledger/* ||:
+	-@rm -f $(GOTOOLS_BIN) ||:
