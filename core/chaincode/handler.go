@@ -264,7 +264,7 @@ func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
 	handler.nextState <- &nextStateInfo{msg, send}
 }
 
-func (handler *Handler) wait() <-chan time.Time {
+func (handler *Handler) waitForKeepaliveTimer() <-chan time.Time {
 	if handler.chaincodeSupport.keepalive > 0 {
 		c := time.After(handler.chaincodeSupport.keepalive)
 		return c
@@ -332,7 +332,7 @@ func (handler *Handler) processStream() error {
 				return err
 			}
 			chaincodeLogger.Debugf("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
-		case <-handler.wait():
+		case <-handler.waitForKeepaliveTimer():
 			if handler.chaincodeSupport.keepalive <= 0 {
 				chaincodeLogger.Errorf("Invalid select: keepalive not on (keepalive=%d)", handler.chaincodeSupport.keepalive)
 				continue
