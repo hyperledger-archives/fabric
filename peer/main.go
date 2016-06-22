@@ -56,6 +56,7 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
+	"github.com/hyperledger/fabric/discovery"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
@@ -464,7 +465,18 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	discInstance := core.NewDiscoveryImpl(viper.GetString("peer.discovery.rootnode"))
+	// init the discovery lists
+	var discBootstrap, discRecent discovery.Discovery
+	rootNodes := strings.Split(viper.GetString("peer.discovery.rootnode"), ",")
+	if !((len(rootNodes) == 1) && (rootNodes[0] == "")) {
+		logger.Debugf("Creating bootstrap discovery list with: %v", rootNodes)
+		discBootstrap = core.NewDiscoveryImpl(rootNodes)
+	} else {
+		logger.Debugf("Creating empty bootstrap discovery list")
+		discBootstrap = core.NewDiscoveryImpl([]string{})
+	}
+	logger.Debugf("Creating empty recent discovery list")
+	discRecent = core.NewDiscoveryImpl([]string{})
 
 	//create the peerServer....
 	if peer.ValidatorEnabled() {
@@ -474,10 +486,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discBootstrap, discRecent)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discBootstrap, discRecent)
 	}
 
 	if err != nil {
@@ -511,11 +523,8 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNodes := discInstance.GetAllNodes()
-
 	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
-		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
+		peerEndpoint.ID, rootNodes, peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.

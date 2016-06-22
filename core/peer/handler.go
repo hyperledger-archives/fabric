@@ -187,8 +187,10 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 		d.registered = true
 		if !d.Coordinator.FindBootstrapNode(d.ToPeerEndpoint.Address) {
 			_ = d.Coordinator.AddRecentNode(d.ToPeerEndpoint.Address)
-			peerLogger.Debugf("Adding %s to recent nodes discovery list: %s", d.ToPeerEndpoint.Address, d.Coordinator.GetAllRecentNodes())
-			// TODO Persist the discovery list
+			err = d.Coordinator.StoreDiscoveryList("recent")
+			if err != nil {
+				peerLogger.Error(err)
+			}
 		}
 		go d.start()
 	}
