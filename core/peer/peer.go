@@ -339,6 +339,14 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 	return peersMessage, nil
 }
 
+func getPeerAddresses(peersMsg *pb.PeersMessage) []string {
+	var addresses []string
+	for _, v := range peersMsg.GetPeers() {
+		addresses = append(addresses, v.Address)
+	}
+	return addresses
+}
+
 // GetRemoteLedger returns the RemoteLedger interface for the remote Peer Endpoint
 func (p *PeerImpl) GetRemoteLedger(receiverHandle *pb.PeerID) (RemoteLedger, error) {
 	p.handlerMap.RLock()
@@ -546,86 +554,61 @@ func (p *PeerImpl) ensureConnected() {
 		if err != nil {
 			peerLogger.Errorf("Error in touch service: %s", err.Error())
 		}
-		if len(peersMsg.Peers) == 0 {
-			// No currently connected peers, going to try to chat with rootnode again if defined
-			peerLogger.Info("Touch service indicates no peers connected, attempting to chat with rootNode(s)")
-			p.chatWithSomePeers(p.discBootstrap.GetAllNodes())
+		if len(peersMsg.Peers) < len(p.GetAllNodes()) {
+			peerLogger.Info("Touch service indicates dropped connections, attempting to reconnect...")
+			delta := util.FindMissingElements(p.GetAllNodes(), getPeerAddresses(peersMsg))
+			p.chatWithSomePeers(delta)
 		}
 	}
 
 }
 
 // chatWithSomePeers initiates chat with 1 or all peers according to whether the node is a validator or not
-func (p *PeerImpl) chatWithSomePeers(peers []string) {
-	// Start the function to ensure we are connected
+func (p *PeerImpl) chatWithSomePeers(addresses []string) {
+	// start the function to ensure we are connected
 	p.reconnectOnce.Do(func() {
 		go p.ensureConnected()
 	})
-
-	peerCountToChatWith := 1
-
-	if p.isValidator {
-		peerCountToChatWith = len(peers)
+	if len(addresses) == 0 {
+		peerLogger.Debug("Starting up the first peer")
+		return // nothing to do
 	}
-
-	chatTokens := make(chan token, peerCountToChatWith)
-	for _, rootNode := range peers {
-		if len(rootNode) == 0 {
-			peerLogger.Debug("Starting up the first peer")
-			return // nothing to do
-		}
-		// Skip ourselves
+	for _, address := range addresses {
 		if pe, err := GetPeerEndpoint(); err == nil {
-			if rootNode == pe.Address {
-				peerLogger.Debugf(fmt.Sprintf("Skipping my own address(%v)", rootNode))
+			if address == pe.Address {
+				peerLogger.Debugf("Skipping own address: %v", address)
 				continue
 			}
 		} else {
-			peerLogger.Errorf("Failed obtaining peer endpoint, %v", err)
+			peerLogger.Errorf("Failed to obtain peer endpoint, %v", err)
 			return
 		}
-
-		go p.chatWithPeer(rootNode, chatTokens)
+		go p.chatWithPeer(address)
 	}
 }
 
-func (p *PeerImpl) chatWithPeer(peerAddress string, chatTokens chan token) error {
-	for {
-		time.Sleep(1 * time.Second)
-
-		// acquire token
-		chatTokens <- token{}
-
-		peerLogger.Debugf("Initiating Chat with peer address: %s", peerAddress)
-		conn, err := NewPeerClientConnectionWithAddress(peerAddress)
-		if err != nil {
-			e := fmt.Errorf("Error creating connection to peer address=%s:  %s", peerAddress, err)
-			peerLogger.Error(e.Error())
-			// relinquish token
-			<-chatTokens
-			continue
-		}
-		serverClient := pb.NewPeerClient(conn)
-		ctx := context.Background()
-		stream, err := serverClient.Chat(ctx)
-		if err != nil {
-			e := fmt.Errorf("Error establishing chat with peer address=%s:  %s", peerAddress, err)
-			peerLogger.Errorf("%s", e.Error())
-			// relinquish token
-			<-chatTokens
-			continue
-		}
-		peerLogger.Debugf("Established Chat with peer address: %s", peerAddress)
-
-		err = p.handleChat(ctx, stream, true)
-		stream.CloseSend()
-		if err != nil {
-			e := fmt.Errorf("Ending chat with peer address=%s due to error:  %s", peerAddress, err)
-			peerLogger.Error(e.Error())
-			return e
-		}
-
+func (p *PeerImpl) chatWithPeer(address string) error {
+	peerLogger.Debugf("Initiating chat with peer address: %s", address)
+	conn, err := NewPeerClientConnectionWithAddress(address)
+	if err != nil {
+		peerLogger.Errorf("Error creating connection to peer address %s: %s", address, err)
+		return err
 	}
+	serverClient := pb.NewPeerClient(conn)
+	ctx := context.Background()
+	stream, err := serverClient.Chat(ctx)
+	if err != nil {
+		peerLogger.Errorf("Error establishing chat with peer address %s: %s", address, err)
+		return err
+	}
+	peerLogger.Debugf("Established chat with peer address: %s", address)
+	err = p.handleChat(ctx, stream, true)
+	stream.CloseSend()
+	if err != nil {
+		peerLogger.Errorf("Ending chat with peer address %s due to error: %s", address, err)
+		return err
+	}
+	return nil
 }
 
 // Chat implementation of the the Chat bidi streaming RPC function
