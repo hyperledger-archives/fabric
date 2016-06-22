@@ -224,8 +224,14 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 				err = fmt.Errorf("Error handling message: %s", err)
 				return
 			}
-			if nsInfo != nil && nsInfo.sendToCC {
-				chaincodeLogger.Debugf("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
+
+			//keepalive messages are PONGs to the fabric's PINGs
+			if (nsInfo != nil && nsInfo.sendToCC) || (in.Type == pb.ChaincodeMessage_KEEPALIVE) {
+				if in.Type == pb.ChaincodeMessage_KEEPALIVE {
+					chaincodeLogger.Debug("Sending KEEPALIVE response")
+				} else {
+					chaincodeLogger.Debugf("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
+				}
 				if err = handler.serialSend(in); err != nil {
 					err = fmt.Errorf("Error sending %s: %s", in.Type.String(), err)
 					return
@@ -832,6 +838,7 @@ func (stub *ChaincodeStub) insertRowInternal(tableName string, row Row, update b
 }
 
 // ------------- ChaincodeEvent API ----------------------
+
 // SetEvent saves the event to be sent when a transaction is made part of a block
 func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
 	stub.chaincodeEvent = &pb.ChaincodeEvent{EventName: name, Payload: payload}

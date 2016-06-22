@@ -307,6 +307,13 @@ func (handler *Handler) processStream() error {
 
 			// we can spin off another Recv again
 			recv = true
+
+			if in.Type == pb.ChaincodeMessage_KEEPALIVE {
+				chaincodeLogger.Debug("Received KEEPALIVE Response")
+				// Received a keep alive message, we don't do anything with it for now
+				// and it does not touch the state machine
+				continue
+			}
 		case nsInfo = <-handler.nextState:
 			in = nsInfo.msg
 			if in == nil {
@@ -315,6 +322,16 @@ func (handler *Handler) processStream() error {
 				return err
 			}
 			chaincodeLogger.Debugf("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
+		case <-time.After(handler.chaincodeSupport.keepalive):
+			//TODO we could use this to hook into container lifecycle (kill the chaincode if not in use, etc)
+			kaerr := handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_KEEPALIVE})
+			if kaerr != nil {
+				chaincodeLogger.Errorf("Error sending keepalive, err=%s", kaerr)
+			} else {
+				chaincodeLogger.Debug("Sent KEEPALIVE request")
+			}
+			//keepalive message kicked in. just continue
+			continue
 		}
 		err = handler.HandleMessage(in)
 		if err != nil {
