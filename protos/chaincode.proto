@@ -136,6 +136,7 @@ message ChaincodeMessage {
         RANGE_QUERY_STATE = 17;
         RANGE_QUERY_STATE_NEXT = 18;
         RANGE_QUERY_STATE_CLOSE = 19;
+        KEEPALIVE = 20;
     }
 
     Type type = 1;
