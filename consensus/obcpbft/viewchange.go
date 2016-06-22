@@ -178,6 +178,8 @@ func (instance *pbftCore) sendViewChange() events.Event {
 
 	instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
 
+	instance.vcResendTimer.Reset(instance.vcResendTimeout, viewChangeResendTimerEvent{})
+
 	return instance.recvViewChange(vc)
 }
 
@@ -244,6 +246,7 @@ func (instance *pbftCore) recvViewChange(vc *ViewChange) events.Event {
 
 	if !instance.activeView && vc.View == instance.view && quorum >= instance.allCorrectReplicasQuorum() {
 		if quorum >= instance.allCorrectReplicasQuorum() {
+			instance.vcResendTimer.Stop()
 			instance.startTimer(instance.lastNewViewTimeout, "new view change")
 			instance.lastNewViewTimeout = 2 * instance.lastNewViewTimeout
 			return viewChangeQuorumEvent{}
@@ -470,8 +473,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 		}
 
 		req, ok := instance.reqStore[d]
-		if !ok {
-			logger.Criticalf("Replica %d is missing request for assigned prepare after fetching, this indicates a serious bug", instance.id)
+		if !ok && d != "" {
+			logger.Criticalf("Replica %d is missing request for seqNo=%d with digest '%s' for assigned prepare after fetching, this indicates a serious bug", instance.id, n, d)
 		}
 		preprep := &PrePrepare{
 			View:           instance.view,

@@ -1769,3 +1769,32 @@ func TestStateNetworkMovesOnDuringSlowStateTransfer(t *testing.T) {
 		t.Fatalf("Expected watermark movement to %d because of state transfer, but low watermark is %d", seqNo, instance.h)
 	}
 }
+
+func TestViewChangeResend(t *testing.T) {
+	viewChangeSent := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		broadcastImpl: func(b []byte) { viewChangeSent = true },
+		signImpl:      func(b []byte) ([]byte, error) { return b, nil },
+		verifyImpl:    func(senderID uint64, signature []byte, message []byte) error { return nil },
+	}, &inertTimerFactory{})
+	instance.activeView = true
+
+	events.SendEvent(instance, viewChangeResendTimerEvent{})
+
+	if !instance.activeView {
+		t.Fatalf("Should not have resent view change resent timer event while in an active view")
+	}
+
+	oldView := uint64(2)
+	instance.activeView = false
+	instance.view = oldView
+	events.SendEvent(instance, viewChangeResendTimerEvent{})
+
+	if instance.activeView {
+		t.Fatalf("Should still be inactive in our view")
+	}
+
+	if instance.view != oldView {
+		t.Fatalf("Should still be waiting for the same view (%d) got %d", oldView, instance.view)
+	}
+}
