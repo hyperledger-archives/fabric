@@ -88,25 +88,30 @@ to build the `peer` and `membersrvc` images. Then switch to the
 to run a simple stress test. This stress test exercises a single peer
 running `NOOPS` consensus.
 
-Currently Sieve is the only PBFT consensus algorithm that is stable enough
-to survive stress testing. The target
+At present the PBFT *batch* algorithm is the only true consensus algorithm
+being suported by the development team. (The *classic* and *sieve* algorithms
+may work for some cases.) The target 
 
-    make stress2s
+    make stress2b
 	
-runs Sieve on a 4-peer network. There is also a pre-canned target
+runs PBFT *batch* on a 4-peer network. 
+
+There is also a pre-canned target
 
     make secure1
 	
-that runs a 4-peer Sieve network with security.
+that runs a 4-peer PBFT *batch* network with security.
 
 The **busywork/counters/Makefile** allows you to define private targets in a
 private makefile, **private.mk**, which is included by the main Makefile. For
-example you might define a modification of the `stress2s` target in
+example you might define a modification of the `stress2b` target in
 **private.mk** to see what happens when the data arrays go from the default 1
 counter (8 bytes) to 1000 counters (8000 bytes):
 
-    .PHONY: stress2s1k
-	stress2s1k:
-            @$(NETWORK) -sieve 4
+    .PHONY: stress2b1k
+	stress2b1k:
+            @CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
+            $(NETWORK) -batch 4
+            @echo "Sleeping 10 seconds to allow peers to interlock"; sleep 10
 	        @$(STRESS2) -size 1000
 	
