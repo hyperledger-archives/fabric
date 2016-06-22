@@ -18,34 +18,35 @@ package core
 
 import (
 	"math/rand"
-	"strings"
+	"sync"
 	"time"
 )
 
 // DiscoveryImpl is an implementation of Discovery
 type DiscoveryImpl struct {
+	sync.RWMutex
 	nodes  map[string]bool
 	seq    []string
 	random *rand.Rand
 }
 
 // NewDiscoveryImpl is a constructor of a Discovery implementation
-// Accepts as a parameter a single node, or a comma-separated list of nodes with no spaces
-func NewDiscoveryImpl(addresses string) *DiscoveryImpl {
+func NewDiscoveryImpl(addresses []string) *DiscoveryImpl {
 	di := DiscoveryImpl{}
-	di.random = rand.New(rand.NewSource(time.Now().Unix()))
 	di.nodes = make(map[string]bool)
-	di.seq = strings.Split(addresses, ",")
-	if !((len(di.seq) == 1) && (di.seq[0] == "")) {
-		for _, address := range di.seq {
-			di.nodes[address] = true
-		}
+	di.seq = addresses
+	for _, address := range di.seq {
+		di.nodes[address] = true
 	}
+	di.random = rand.New(rand.NewSource(time.Now().Unix()))
 	return &di
 }
 
 // AddNode adds an address to the discovery list
 func (di *DiscoveryImpl) AddNode(address string) bool {
+	di.Lock()
+	defer di.Unlock()
+	devopsLogger.Debugf(">>> About to add %v to %v", address, di.seq)
 	if _, ok := di.nodes[address]; !ok {
 		di.seq = append(di.seq, address)
 		di.nodes[address] = true
@@ -55,6 +56,8 @@ func (di *DiscoveryImpl) AddNode(address string) bool {
 
 // RemoveNode removes an address from the discovery list
 func (di *DiscoveryImpl) RemoveNode(address string) bool {
+	di.Lock()
+	defer di.Unlock()
 	if _, ok := di.nodes[address]; ok {
 		di.nodes[address] = false
 	}
@@ -63,6 +66,8 @@ func (di *DiscoveryImpl) RemoveNode(address string) bool {
 
 // GetAllNodes returns an array of all addresses saved in the discovery list
 func (di *DiscoveryImpl) GetAllNodes() []string {
+	di.Lock()
+	defer di.Unlock()
 	var addresses []string
 	for address, valid := range di.nodes {
 		if valid {
@@ -74,6 +79,8 @@ func (di *DiscoveryImpl) GetAllNodes() []string {
 
 // GetRandomNode returns a random node
 func (di *DiscoveryImpl) GetRandomNode() string {
+	di.Lock()
+	defer di.Unlock()
 	var randomNode string
 	for {
 		randomNode = di.seq[di.random.Intn(len(di.nodes))]
@@ -86,6 +93,8 @@ func (di *DiscoveryImpl) GetRandomNode() string {
 
 // FindNode returns true if its address is stored in the discovery list
 func (di *DiscoveryImpl) FindNode(address string) bool {
+	di.Lock()
+	defer di.Unlock()
 	_, ok := di.nodes[address]
 	return ok
 }
