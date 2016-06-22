@@ -316,8 +316,9 @@ chaincode:
 
     #keepalive in seconds. In situations where the communiction goes through a 
     #proxy that does not support keep-alive, this parameter will maintain connection
-    #between peer and chaincode
-    keepalive: 30
+    #between peer and chaincode.
+    #A value <= 0 turns keepalive off
+    keepalive: 0
 
 ###############################################################################
 #
