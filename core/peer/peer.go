@@ -952,7 +952,7 @@ func (p *PeerImpl) StoreDiscoveryList(keySuffix string) error {
 		peerLogger.Error(err)
 		return err
 	}
-	raw, err := proto.Marshal(&pb.PeersAddresses{addresses})
+	raw, err := proto.Marshal(&pb.PeersAddresses{Addresses: addresses})
 	if err != nil {
 		err = fmt.Errorf("Could not persist "+keySuffix+" nodes discovery list: %s", err)
 		peerLogger.Error(err)
