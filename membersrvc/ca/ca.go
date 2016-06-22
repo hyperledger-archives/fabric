@@ -435,7 +435,9 @@ func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte,
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
 
-	Trace.Printf("err %v", err)
+	if err != nil {
+		Trace.Printf("readCertificateByKeyUsage() Error: %v", err)
+	}
 
 	return raw, err
 }
@@ -588,7 +590,7 @@ func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role,
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
 	if err == nil {
-		return "", errors.New("user is already registered")
+		return "", errors.New("User is already registered")
 	}
 
 	_, err = ca.db.Exec("INSERT INTO Users (id, enrollmentId, token, role, metadata, state) VALUES (?, ?, ?, ?, ?, ?)", id, enrollID, tok, role, memberMetadata, 0)
