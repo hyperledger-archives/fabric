@@ -218,6 +218,7 @@ func validateEnrollmentIDParameter(rw web.ResponseWriter, enrollmentID string) b
 // CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST client login...")
+	encoder := json.NewEncoder(rw)
 
 	// Decode the incoming JSON payload
 	var loginSpec pb.Secret
@@ -225,20 +226,15 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 
 	// Check for proper JSON syntax
 	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character.
-		// Otherwise, the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 		// Client must supply payload
 		if err == io.EOF {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
-			restLogger.Error("{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
+			encoder.Encode(restResult{Error: "Payload must contain object Secret with enrollId and enrollSecret fields."})
+			restLogger.Error("Error: Payload must contain object Secret with enrollId and enrollSecret fields.")
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 		}
 
 		return
@@ -247,8 +243,8 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// Check that the enrollId and enrollSecret are not left blank.
 	if (loginSpec.EnrollId == "") || (loginSpec.EnrollSecret == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
-		restLogger.Error("{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
+		encoder.Encode(restResult{Error: "enrollId and enrollSecret may not be blank."})
+		restLogger.Error("Error: enrollId and enrollSecret may not be blank.")
 
 		return
 	}
@@ -265,7 +261,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is already logged in.", loginSpec.EnrollId)})
 		restLogger.Infof("User '%s' is already logged in.\n", loginSpec.EnrollId)
 
 		return
@@ -284,13 +280,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 				// Directory does not exist, create it
 				if err := os.Mkdir(localStore, 0755); err != nil {
 					rw.WriteHeader(http.StatusInternalServerError)
-					fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+					encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
 				// Unexpected error
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
 			}
 		}
@@ -300,19 +296,17 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		err = ioutil.WriteFile(localStore+"loginToken_"+loginSpec.EnrollId, []byte(loginSpec.EnrollId), 0755)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("Login successful for user '%s'.", loginSpec.EnrollId)})
 		restLogger.Infof("Login successful for user '%s'.\n", loginSpec.EnrollId)
 	} else {
-		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
-
 		rw.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", loginErr)
-		restLogger.Errorf("Error on client login: %s", loginErr)
+		encoder.Encode(restResult{Error: string(loginResult.Msg)})
+		restLogger.Errorf("Error on client login: %s", string(loginResult.Msg))
 	}
 
 	return

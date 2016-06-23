@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -80,7 +81,10 @@ type mockDevops struct {
 }
 
 func (d *mockDevops) Login(c context.Context, s *protos.Secret) (*protos.Response, error) {
-	return nil, nil
+	if s.EnrollSecret == "wrong_password" {
+		return &protos.Response{Status: protos.Response_FAILURE, Msg: []byte("Wrong mock password")}, nil
+	}
+	return &protos.Response{Status: protos.Response_SUCCESS}, nil
 }
 
 func (d *mockDevops) Build(c context.Context, cs *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
@@ -290,11 +294,50 @@ func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
 	badBody := performHTTPGet(t, httpServer.URL+"/transactions/with-\"-chars-in-the-URL")
 	badRes := parseRESTResult(t, badBody)
 	if badRes.Error == "" {
-		t.Errorf("Expected a proper error when retrieive transaction with bad UUID")
+		t.Errorf("Expected a proper error when retrieving transaction with bad UUID")
 	}
 }
 
+func TestServerOpenchainREST_API_Register(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	expectError := func(reqBody string, expectedStatus int) {
+		httpResponse, body := performHTTPPost(t, httpServer.URL+"/registrar", []byte(reqBody))
+		if httpResponse.StatusCode != expectedStatus {
+			t.Errorf("Expected an HTTP status code %#v but got %#v", expectedStatus, httpResponse.StatusCode)
+		}
+		res := parseRESTResult(t, body)
+		if res.Error == "" {
+			t.Errorf("Expected a proper error when registering")
+		}
+	}
+
+	expectOK := func(reqBody string) {
+		httpResponse, body := performHTTPPost(t, httpServer.URL+"/registrar", []byte(reqBody))
+		if httpResponse.StatusCode != http.StatusOK {
+			t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+		}
+		res := parseRESTResult(t, body)
+		if res.Error != "" {
+			t.Errorf("Expected no error but got: %v", res.Error)
+		}
+	}
+
+	expectError("", http.StatusBadRequest)
+	expectError("} invalid json ]", http.StatusBadRequest)
+	expectError(`{"enrollId":"user"}`, http.StatusBadRequest)
+	expectError(`{"enrollId":"user","enrollSecret":"wrong_password"}`, http.StatusUnauthorized)
+	expectOK(`{"enrollId":"user","enrollSecret":"password"}`)
+	expectOK(`{"enrollId":"user","enrollSecret":"password"}`) // Already logged-in
+}
+
 func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
 	initGlobalServerOpenchain(t)
 
 	// Start the HTTP REST test server
@@ -311,6 +354,14 @@ func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
 	res = parseRESTResult(t, body)
 	if res.Error != "Invalid enrollment ID parameter" {
 		t.Errorf("Expected an error when retrieving non-existing user, but got: %v", res.Error)
+	}
+
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+	body = performHTTPGet(t, httpServer.URL+"/registrar/myuser")
+	res = parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when retrieving logged-in user, but got: %v", res.Error)
 	}
 }
 
