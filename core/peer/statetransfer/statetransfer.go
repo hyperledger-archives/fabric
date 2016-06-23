@@ -580,6 +580,7 @@ func (sts *coordinatorImpl) blockThread() {
 
 		case blockSyncReq := <-sts.blockSyncReq:
 			sts.syncBlockchainToCheckpoint(blockSyncReq)
+			continue
 		case <-sts.threadExit:
 			logger.Debug("Received request for block transfer thread to exit (1)")
 			return
