@@ -1,4 +1,4 @@
-package shim;
+package org.hyperledger.java.shim;
 
 import protos.Chaincode.ChaincodeMessage;
 

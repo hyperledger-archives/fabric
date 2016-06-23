@@ -1,4 +1,4 @@
-package shim;
+package org.hyperledger.java.shim;
 
 import java.io.File;
 
@@ -9,8 +9,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 
 import com.google.protobuf.ByteString;
-
-import example.SimpleSample;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -105,7 +103,7 @@ public abstract class ChaincodeBase {
 						@Override
 						public void onNext(ChaincodeMessage message) {
 							try {
-								logger.debug(String.format("[%s]Received message %s from shim",
+								logger.debug(String.format("[%s]Received message %s from org.hyperledger.java.shim",
 										Handler.shortUUID(message.getUuid()), message.getType()));
 								handler.handleMessage(message);
 							} catch (Exception e) {
@@ -139,7 +137,7 @@ public abstract class ChaincodeBase {
 			System.exit(-1);
 		}
 
-		// Create the shim handler responsible for all control logic
+		// Create the org.hyperledger.java.shim handler responsible for all control logic
 		handler = new Handler(requestObserver, this);
 
 		// Send the ChaincodeID during register.

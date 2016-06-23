@@ -1,4 +1,4 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
 
 /** Holds the info that get passed as a reference in the callbacks */

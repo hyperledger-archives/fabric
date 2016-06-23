@@ -1,4 +1,4 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
 /**
  * Represents an event when initializing the FSM.

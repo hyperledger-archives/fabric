@@ -1,4 +1,4 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
 /** Key for the transition map */
 public class EventKey {

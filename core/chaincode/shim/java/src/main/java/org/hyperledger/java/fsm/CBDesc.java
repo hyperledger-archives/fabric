@@ -1,4 +1,4 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
 public class CBDesc {
 
