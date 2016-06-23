@@ -53,6 +53,9 @@ general:
         # How long may a view change take
         viewchange: 2s
 
+        # How long to wait for a view change quorum before resending (the same) view change
+        resendviewchange: 2s
+
         # Interval to send "keep-alive" null requests.  Set to 0 to disable.
         nullrequest: 0s
 
