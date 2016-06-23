@@ -219,8 +219,10 @@ var testChaincodePath = <span class="hljs-string">"github.com/chaincode_example0
 				</ul>
 				<pre><code><span class="hljs-attribute">server</span>:
      <span class="hljs-attribute">tls</span>:
-        <span class="hljs-attribute">certfile</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.cert"</span>
-        <span class="hljs-attribute">keyfile</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.priv"</span>
+		<span class="hljs-attribute">cert</span>:
+			<span class="hljs-attribute">file</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.cert"</span>
+        <span class="hljs-attribute">key</span>:
+			<span class="hljs-attribute">file</span>: <span class="hljs-string">"/var/hyperledger/production/.membersrvc/tlsca.priv"</span>
 </code></pre><p>This is needed to instruct the member services on which tls cert and key to use.  </p>
 				<ul>
 					<li>Modify <code>$GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml</code> as follows:</li>
