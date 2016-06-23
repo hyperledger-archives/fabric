@@ -423,7 +423,7 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 	}
 
 	if !hasResults {
-		return nil, errors.New("No certificates for the given Identity were found.")
+		return nil, errors.New("No certificates for the given identity were found.")
 	}
 	return &pb.CertPair{Sign: certs[0], Enc: certs[1]}, err
 }

@@ -326,7 +326,7 @@ func TestReadCertificatePairBadIdentity(t *testing.T) {
 	_, err := ecap.ReadCertificatePair(context.Background(), req)
 
 	if err == nil {
-		t.Error("The query result searching by an Invalid User Identity should have been empty. ")
+		t.Error("The query result searching by an invalid user identity should have been empty. ")
 	}
 
 }
@@ -364,7 +364,7 @@ func TestReadCertificateByInvalidHash(t *testing.T) {
 	_, err := ecap.ReadCertificateByHash(context.Background(), req)
 
 	if err == nil {
-		t.Error("The query result searching by an Invalid Hash value should have been empty. ")
+		t.Error("The query result searching by an invalid hash value should have been empty. ")
 	}
 
 }
