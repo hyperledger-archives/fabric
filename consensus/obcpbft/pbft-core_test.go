@@ -1798,3 +1798,46 @@ func TestViewChangeResend(t *testing.T) {
 		t.Fatalf("Should still be waiting for the same view (%d) got %d", oldView, instance.view)
 	}
 }
+
+// This test is designed to ensure state transfer occurs if our checkpoint does not match a quorum cert
+func TestCheckpointDiffersFromQuorum(t *testing.T) {
+	invalidated := false
+	skipped := false
+	instance := newPbftCore(3, loadConfig(), &omniProto{
+		//broadcastImpl:       func(b []byte) { viewChangeSent = true },
+		//signImpl:            func(b []byte) ([]byte, error) { return b, nil },
+		//verifyImpl:          func(senderID uint64, signature []byte, message []byte) error { return nil },
+		invalidateStateImpl: func() { invalidated = true },
+		skipToImpl:          func(s uint64, id []byte, replicas []uint64) { skipped = true },
+	}, &inertTimerFactory{})
+
+	seqNo := uint64(10)
+
+	badChkpt := &Checkpoint{
+		SequenceNumber: 10,
+		Id:             base64.StdEncoding.EncodeToString([]byte("WRONG")),
+		ReplicaId:      0,
+	}
+	instance.chkpts[seqNo] = badChkpt.Id // This is done via the exec path, shortcut it here
+	events.SendEvent(instance, badChkpt)
+
+	for i := uint64(1); i <= 3; i++ {
+		events.SendEvent(instance, &Checkpoint{
+			SequenceNumber: 10,
+			Id:             base64.StdEncoding.EncodeToString([]byte("CORRECT")),
+			ReplicaId:      i,
+		})
+	}
+
+	if instance.h != 10 {
+		t.Fatalf("Replica should have moved its watermarks but did not")
+	}
+
+	if !instance.skipInProgress {
+		t.Fatalf("Replica should be attempting state transfer")
+	}
+
+	if !invalidated || !skipped {
+		t.Fatalf("Replica should have invalidated its state and skipped")
+	}
+}
