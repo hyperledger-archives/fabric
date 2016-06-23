@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -388,6 +389,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 	// Generate nonce for TCertIndex
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
 	rand.Reader.Read(nonce[:8])
+	binary.LittleEndian.PutUint64(nonce[8:], uint64(in.Ts.Seconds))
 
 	mac := hmac.New(primitives.GetDefaultHash(), tcap.tca.hmacKey)
 	raw, _ = x509.MarshalPKIXPublicKey(pub)
