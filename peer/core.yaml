@@ -307,8 +307,6 @@ chaincode:
         # TODO Consider moving java installation from common provision shell script to here
         Dockerfile:  |
             from hyperledger/fabric-baseimage
-            # TODO JAVA_HOME set here, consider using update-java-alternatives
-            ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
 
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
