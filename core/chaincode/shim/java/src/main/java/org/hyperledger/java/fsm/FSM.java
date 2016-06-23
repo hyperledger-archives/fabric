@@ -1,15 +1,15 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
 import java.util.HashMap;
 import java.util.HashSet;
 
-import fsm.exceptions.AsyncException;
-import fsm.exceptions.CancelledException;
-import fsm.exceptions.InTrasistionException;
-import fsm.exceptions.InvalidEventException;
-import fsm.exceptions.NoTransitionException;
-import fsm.exceptions.NotInTransitionException;
-import fsm.exceptions.UnknownEventException;
+import org.hyperledger.java.fsm.exceptions.AsyncException;
+import org.hyperledger.java.fsm.exceptions.CancelledException;
+import org.hyperledger.java.fsm.exceptions.InTrasistionException;
+import org.hyperledger.java.fsm.exceptions.InvalidEventException;
+import org.hyperledger.java.fsm.exceptions.NoTransitionException;
+import org.hyperledger.java.fsm.exceptions.NotInTransitionException;
+import org.hyperledger.java.fsm.exceptions.UnknownEventException;
 
 public class FSM {
 

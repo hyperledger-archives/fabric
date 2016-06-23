@@ -1,4 +1,4 @@
-package fsm.exceptions;
+package org.hyperledger.java.fsm.exceptions;
 
 public class UnknownEventException extends Exception {
 

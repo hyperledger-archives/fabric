@@ -17,11 +17,11 @@ specific language governing permissions and limitations
 under the License.
  */
 
-package shim;
+package org.hyperledger.java.shim;
 
-import static fsm.CallbackType.AFTER_EVENT;
-import static fsm.CallbackType.BEFORE_EVENT;
-import static fsm.CallbackType.ENTER_STATE;
+import static org.hyperledger.java.fsm.CallbackType.AFTER_EVENT;
+import static org.hyperledger.java.fsm.CallbackType.BEFORE_EVENT;
+import static org.hyperledger.java.fsm.CallbackType.ENTER_STATE;
 import static protos.Chaincode.ChaincodeMessage.Type.COMPLETED;
 import static protos.Chaincode.ChaincodeMessage.Type.DEL_STATE;
 import static protos.Chaincode.ChaincodeMessage.Type.ERROR;
@@ -45,13 +45,13 @@ import java.util.HashMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
 
-import fsm.CBDesc;
-import fsm.Event;
-import fsm.EventDesc;
-import fsm.FSM;
-import fsm.exceptions.CancelledException;
-import fsm.exceptions.NoTransitionException;
-import helper.Channel;
+import org.hyperledger.java.fsm.CBDesc;
+import org.hyperledger.java.fsm.Event;
+import org.hyperledger.java.fsm.EventDesc;
+import org.hyperledger.java.fsm.FSM;
+import org.hyperledger.java.fsm.exceptions.CancelledException;
+import org.hyperledger.java.fsm.exceptions.NoTransitionException;
+import org.hyperledger.java.helper.Channel;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import io.grpc.stub.StreamObserver;
@@ -902,13 +902,13 @@ public class Handler {
 		}
 	}
 
-	// handleMessage message handles loop for shim side of chaincode/validator stream.
+	// handleMessage message handles loop for org.hyperledger.java.shim side of chaincode/validator stream.
 	public synchronized void handleMessage(ChaincodeMessage message) throws Exception {
 		logger.debug(String.format("[%s]Handling ChaincodeMessage of type: %s(state:%s)",
 				shortUUID(message), message.getType(), fsm.current()));
 
 		if (fsm.eventCannotOccur(message.getType().toString())) {
-			String errStr = String.format("[%s]Chaincode handler fsm cannot handle message (%s) with payload size (%d) while in state: %s",
+			String errStr = String.format("[%s]Chaincode handler org.hyperledger.java.fsm cannot handle message (%s) with payload size (%d) while in state: %s",
 					message.getUuid(), message.getType(), message.getPayload().size(), fsm.current());
 			ByteString payload = ByteString.copyFromUtf8(errStr);
 			ChaincodeMessage errormessage = ChaincodeMessage.newBuilder()

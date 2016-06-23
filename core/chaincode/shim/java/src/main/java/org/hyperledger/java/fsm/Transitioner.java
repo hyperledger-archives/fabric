@@ -1,6 +1,6 @@
-package fsm;
+package org.hyperledger.java.fsm;
 
-import fsm.exceptions.NotInTransitionException;
+import org.hyperledger.java.fsm.exceptions.NotInTransitionException;
 
 public class Transitioner {
 	

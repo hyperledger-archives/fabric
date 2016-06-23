@@ -1,4 +1,4 @@
-package helper;
+package org.hyperledger.java.helper;
 
 import java.io.Closeable;
 import java.util.HashSet;

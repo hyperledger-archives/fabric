@@ -1,6 +1,4 @@
-package shim;
-
-import java.util.HashMap;
+package org.hyperledger.java.shim;
 
 import com.google.protobuf.ByteString;
 
