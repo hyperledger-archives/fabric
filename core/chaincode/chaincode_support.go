@@ -304,7 +304,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLa
 			fmt.Sprintf("/usr/bin/gradle run -p /root -PappArgs=[\"-a\",\"%s\",\"-i\",\"%s\"]"+
 				" -x processResources -x classes", chaincodeSupport.peerAddress, cID.Name),
 			" ")
-		chaincodeLogger.Debug("Executable is gradle run on chaincode ID %s", cID.Name)
+		chaincodeLogger.Debugf("Executable is gradle run on chaincode ID %s", cID.Name)
 	default:
 		return nil, nil, fmt.Errorf("Unknown chaincodeType: %s", cLang)
 	}
