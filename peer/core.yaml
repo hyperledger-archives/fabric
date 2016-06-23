@@ -257,10 +257,17 @@ vm:
         # NetworkMode Sets the networking mode for the container. Supported standard values are: `host`(default),`bridge`,`ipvlan`,`none`
         # dns A list of DNS servers for the container to use.
         # note: not support customize for `Privileged` 
+        # LogConfig sets the logging driver (Type) and related options (Config) for Docker
+        # you can refer https://docs.docker.com/engine/admin/logging/overview/ for more detail configruation.
         hostConfig:
             NetworkMode: host
             Dns:
                # - 192.168.0.1
+            LogConfig:
+                Type: json-file
+                Config:
+                    max-size: "50m"
+                    max-file: "5"
             
 ###############################################################################
 #
