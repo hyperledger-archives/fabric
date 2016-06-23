@@ -32,10 +32,6 @@ func TestMain(m *testing.M) {
 
 func TestJava_BuildImage(t *testing.T) {
 
-	if os.Getenv("VAGRANT") == "" {
-		t.Skip("skipping test; only supported within vagrant")
-	}
-
 	vm, err := container.NewVM()
 	if err != nil {
 		t.Fail()
