@@ -134,9 +134,6 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 		return op.leaderProcReq(req)
 	}
 
-	op.reqStore.storeOutstanding(req)
-	op.startTimerIfOutstandingRequests()
-
 	return nil
 }
 
