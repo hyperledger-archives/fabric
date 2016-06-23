@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -129,6 +130,21 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 		s.peerTLSSvrHostOrd = viper.GetString("peer.tls.serverhostoverride")
 	}
 
+	kadef := 0
+	if ka := viper.GetString("chaincode.keepalive"); ka == "" {
+		s.keepalive = time.Duration(kadef) * time.Second
+	} else {
+		t, terr := strconv.Atoi(ka)
+		if terr != nil {
+			chaincodeLogger.Errorf("Invalid keepalive value %s (%s) defaulting to %d", ka, terr, kadef)
+			t = kadef
+		} else if t <= 0 {
+			chaincodeLogger.Debugf("Turn off keepalive(value %s)", ka)
+			t = kadef
+		}
+		s.keepalive = time.Duration(t) * time.Second
+	}
+
 	return s
 }
 
@@ -153,6 +169,7 @@ type ChaincodeSupport struct {
 	peerTLSCertFile      string
 	peerTLSKeyFile       string
 	peerTLSSvrHostOrd    string
+	keepalive            time.Duration
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.

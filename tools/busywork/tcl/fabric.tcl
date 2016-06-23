@@ -266,6 +266,64 @@ proc ::fabric::query {i_peer i_user i_chaincodeName i_fn i_args {i_retry 0}} {
 
 
 ############################################################################
+# height i_peer {i_retry 0}
+
+# Call the REST /chain API, returning the block height
+
+proc ::fabric::height {i_peer {i_retry 0}} {
+
+    for {set retry $i_retry} {$retry >= 0} {incr retry -1} {
+
+        if {[catch {http::geturl http://$i_peer/chain} token]} {
+            if {$retry > 0} {
+                if {$retry == $i_retry} {
+                    warn fabric \
+                        "$i_peer /chain: Retrying after catastrophic HTTP error"
+                }
+                http::cleanup $token
+                continue
+            }
+            errorExit \
+                "$i_peer /chain: ::http::geturl failed " \
+                "with $i_retry retries : $token"
+        }
+    
+        if {[http::ncode $token] != 200} {
+            
+            # Failure
+            
+            if {$retry > 0} {
+                if {$retry == $i_retry} {
+                    warn fabric \
+                        "$i_peer /chain: Retrying after HTTP error return"
+                }
+                http::cleanup $token
+                continue
+            }
+            
+            err fabric \
+                "$i_peer /chain; REST API call failed with $i_retry retries"
+            httpErrorExit $token
+        }
+        
+        if {[catch {json::json2dict [http::data $token]} parse]} {
+            err fabric "$i_peer /chain: JSON response does not parse: $parse"
+            httpErrorExit $token
+        }
+
+        if {[catch {dict get $parse height} height]} {
+            err fabric \
+                "$i_peer /chain: HTTP response does not contain a height: " \
+                $height
+            httpErrorExit $token
+        }
+
+        return $height
+    }
+}
+
+
+############################################################################
 # checkForLocalDockerChaincodes i_nPeers i_chaincodeNames
 
 # Given a system with i_nPeers peers, e.g., a Docker compose setup, return 1 if

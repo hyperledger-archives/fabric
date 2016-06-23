@@ -105,8 +105,8 @@ func main() {
 	runtime.GOMAXPROCS(viper.GetInt("server.gomaxprocs"))
 
 	var opts []grpc.ServerOption
-	if viper.GetString("server.tls.certfile") != "" {
-		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
+	if viper.GetString("server.tls.cert.file") != "" {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.cert.file"), viper.GetString("server.tls.key.file"))
 		if err != nil {
 			panic(err)
 		}

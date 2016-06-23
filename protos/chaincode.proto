@@ -95,8 +95,14 @@ message ChaincodeDeploymentSpec {
 message ChaincodeInvocationSpec {
 
     ChaincodeSpec chaincodeSpec = 1;
-    //ChaincodeInput message = 2;
-
+    // This field can contain a user-specified ID generation algorithm
+    // If supplied, this will be used to generate a ID
+    // If not supplied (left empty), a random UUID will be generated
+    // The algorithm consists of two parts:
+    //  1, a hash function
+    //  2, a decoding used to decode user (string) input to bytes
+    // Currently, SHA256 with BASE64 is supported (e.g. idGenerationAlg='sha256base64')
+    string idGenerationAlg = 2;
 }
 
 // This structure contain transaction data that we send to the chaincode
@@ -136,6 +142,7 @@ message ChaincodeMessage {
         RANGE_QUERY_STATE = 17;
         RANGE_QUERY_STATE_NEXT = 18;
         RANGE_QUERY_STATE_CLOSE = 19;
+        KEEPALIVE = 20;
     }
 
     Type type = 1;
