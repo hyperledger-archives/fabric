@@ -28,3 +28,6 @@ pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couc
 
 # Install Tcl prerequisites for busywork
 apt-get install --yes tcl tclx tcllib
+
+# Install NPM for the SDK
+apt-get install --yes npm
