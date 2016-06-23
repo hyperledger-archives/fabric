@@ -473,8 +473,8 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 		}
 
 		req, ok := instance.reqStore[d]
-		if !ok {
-			logger.Criticalf("Replica %d is missing request for assigned prepare after fetching, this indicates a serious bug", instance.id)
+		if !ok && d != "" {
+			logger.Criticalf("Replica %d is missing request for seqNo=%d with digest '%s' for assigned prepare after fetching, this indicates a serious bug", instance.id, n, d)
 		}
 		preprep := &PrePrepare{
 			View:           instance.view,
