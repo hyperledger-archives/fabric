@@ -18,16 +18,15 @@ package obcpbft
 
 import (
 	"fmt"
+	"google/protobuf"
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
-
-	"google/protobuf"
+	"github.com/op/go-logging"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 

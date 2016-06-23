@@ -27,9 +27,9 @@ import (
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
+	"github.com/op/go-logging"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
