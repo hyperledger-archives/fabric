@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
+[![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=v0.5-developer-preview)](https://travis-ci.org/hyperledger/fabric)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/fabric)](https://goreportcard.com/report/github.com/hyperledger/fabric)
 [![GoDoc](https://godoc.org/github.com/hyperledger/fabric?status.svg)](https://godoc.org/github.com/hyperledger/fabric)
 
