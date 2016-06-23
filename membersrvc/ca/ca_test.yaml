@@ -6,8 +6,10 @@ server:
         port: ":50951"
 
         tls:
-                certfile: ".ca/tlsca.cert"
-                keyfile: ".ca/tlsca.priv"
+                cert:
+                    file: ".ca/tlsca.cert"
+                key:
+                    file: ".ca/tlsca.priv"
 
 ###############################################################################
 #

@@ -152,8 +152,9 @@ proc ::busywork::networkToArray {i_array {i_prefix {}}} {
     foreach peer [dict get $dict peers] {
         foreach {key plural} $plurals {
             set val [dict get $peer $key]
+            set id [dict get $peer id]
             lappend a($i_prefix\peer.$plural) $val
-            set a($i_prefix\peer.$key) $val
+            set a($i_prefix\peer.$id.$key) $val
         }
     }
 
@@ -341,6 +342,18 @@ proc ::busywork::dockerEndpoint {{i_tls 0}} {
 #     If > 0, then failing HTTP requests will be retried at most this many
 #     times.
 #
+# -idleWait <duration> : 10ms
+#
+#     There seems to be a bug somewhere, and this is a workaround for that
+#     bug. It seems that when we are "following" the log file, we are seeing
+#     the log file both readable from the context of Tcl fileevent, and also
+#     showing EOF status. This causes the waitUUIDs routine to consume large
+#     amounts of non-productive CPU time when transaction rates drop due to
+#     consensus, because of continous "readable" events firing. The -idleWait
+#     timer is used whenver we observe a read of the log file that does not
+#     return at least 1 full line. After this failed read we wait -idleWait
+#     before allowing the next "readable" event to fire.
+
 # -timestamp | -noTimestamp : -noTimestamp
 #
 #     If -timestamp is specified, then error logs will be timestamped.
@@ -361,6 +374,7 @@ oo::class create ::busywork::Logger {
     variable d_peers
     variable d_fabricLogger
     variable d_keepLog
+    variable d_idleWait
     variable d_retry
     variable d_verbose
     variable d_timestamp
@@ -377,6 +391,7 @@ oo::class create ::busywork::Logger {
             {key     -file                         file       {}  p_file}
             {bool    {-keepLog -noKeepLog}         d_keepLog   0}
             {key     -retry                        d_retry     0}
+            {key     -idlewait                     d_idleWait  10ms}
             {bool    {-timestamp -noTimestamp}     d_timestamp 0}
             {bool    {-killOnError -noKillOnError} killOnError 0}
             {key     -verbose                      d_verbose   1}
@@ -394,6 +409,7 @@ oo::class create ::busywork::Logger {
             set d_logFile [busywork::home]/fabricLog
         }
         exec touch $d_logFile
+        set d_idleWait [durationToMs $d_idleWait]
 
         set command "[busywork::bin]/fabricLogger -file $d_logFile"
         set command "$command -follow -followPoll 10ms -retry $d_retry"
@@ -547,9 +563,16 @@ oo::define ::busywork::Logger {
     # Process the readable log file
     method waitUUIDsProcess {} {
 
+        set got 0
         while {1} {
 
-            if {![$d_gets gets]} break
+            if {![$d_gets gets]} {
+                if {!$got} {
+                    after $d_idleWait
+                }
+                break
+            }
+            set got 1
             set line [$d_gets line]
 
             if {[lindex $line 0] eq $d_code} {
