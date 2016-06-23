@@ -115,6 +115,26 @@ func (d *mockDevops) Query(c context.Context, cis *protos.ChaincodeInvocationSpe
 	return nil, fmt.Errorf("Unknown query function")
 }
 
+func (d *mockDevops) EXP_GetApplicationTCert(ctx context.Context, secret *protos.Secret) (*protos.Response, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) EXP_PrepareForTx(ctx context.Context, secret *protos.Secret) (*protos.Response, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) EXP_ProduceSigma(ctx context.Context, sigmaInput *protos.SigmaInput) (*protos.Response, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding *protos.ExecuteWithBinding) (*protos.Response, error) {
+	return nil, nil
+}
+
+func (d *mockDevops) GetTransactionResult(ctx context.Context, txRequest *protos.TransactionRequest) (*protos.Response, error) {
+	return nil, nil
+}
+
 func initGlobalServerOpenchain(t *testing.T) {
 	var err error
 	serverOpenchain, err = NewOpenchainServerWithPeerInfo(new(peerInfo))
