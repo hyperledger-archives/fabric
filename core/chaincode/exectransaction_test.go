@@ -469,6 +469,9 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	//TLS is on by default. This is the ONLY test that does NOT use TLS
 	viper.Set("peer.tls.enabled", false)
 
+	//turn OFF keepalive. All other tests use keepalive
+	viper.Set("peer.chaincode.keepalive", "0")
+
 	if viper.GetBool("peer.tls.enabled") {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
