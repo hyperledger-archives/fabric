@@ -46,7 +46,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
 # SUBDIRS are components that have their own Makefiles that we can invoke
-SUBDIRS = gotools
+SUBDIRS = gotools sdk/node
 SUBDIRS:=$(strip $(SUBDIRS))
 
 # Make our baseimage depend on any changes to images/base or scripts/provision
@@ -195,17 +195,10 @@ base-image-clean:
 
 images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
-.PHONY: node-sdk
-node-sdk:
-	cp ./protos/*.proto ./sdk/node/lib/protos
-	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
-	cd ./sdk/node && tsc
-	cd ./sdk/node && ./makedoc.sh
+node-sdk: sdk/node
 
-.PHONY: node-sdk-unit-tests
-node-sdk-unit-tests: node-sdk
-	@./sdk/node/bin/run-unit-tests.sh
+node-sdk-unit-tests:
+	cd sdk/node && $(MAKE) unit-tests
 
 .PHONY: $(SUBDIRS:=-clean)
 $(SUBDIRS:=-clean):
