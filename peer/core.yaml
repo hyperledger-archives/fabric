@@ -25,6 +25,11 @@ rest:
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
+    validPatterns:
+
+        # Valid enrollment ID pattern in URLs: At least one character long, and
+        # all characters are A-Z, a-z, 0-9 or _.
+        enrollmentID: '^\w+$'
 
 ###############################################################################
 #

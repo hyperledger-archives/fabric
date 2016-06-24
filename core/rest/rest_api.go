@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -182,6 +183,37 @@ func getRESTFilePath() string {
 	return localStore
 }
 
+// isEnrollmentIDValid returns true if the given enrollmentID matches the valid
+// pattern defined in the configuration.
+func isEnrollmentIDValid(enrollmentID string) (bool, error) {
+	pattern := viper.GetString("rest.validPatterns.enrollmentID")
+	if pattern == "" {
+		return false, errors.New("Missing configuration key rest.validPatterns.enrollmentID")
+	}
+	return regexp.MatchString(pattern, enrollmentID)
+}
+
+// validateEnrollmentIDParameter checks whether the given enrollmentID is
+// valid: if valid, returns true and does nothing; if not, writes the HTTP
+// error response and returns false.
+func validateEnrollmentIDParameter(rw web.ResponseWriter, enrollmentID string) bool {
+	validID, err := isEnrollmentIDValid(enrollmentID)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(rw).Encode(restResult{Error: err.Error()})
+		restLogger.Errorf("Error when validating enrollment ID: %s", err)
+		return false
+	}
+	if !validID {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(restResult{Error: "Invalid enrollment ID parameter"})
+		restLogger.Errorf("Invalid enrollment ID parameter '%s'.\n", enrollmentID)
+		return false
+	}
+
+	return true
+}
+
 // Register confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
@@ -218,6 +250,10 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		fmt.Fprintf(rw, "{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
 		restLogger.Error("{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
 
+		return
+	}
+
+	if !validateEnrollmentIDParameter(rw, loginSpec.EnrollId) {
 		return
 	}
 
@@ -288,6 +324,10 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
@@ -302,8 +342,6 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 		fmt.Fprintf(rw, "{\"Error\": \"User %s must log in.\"}", enrollmentID)
 		restLogger.Infof("User '%s' must log in.\n", enrollmentID)
 	}
-
-	return
 }
 
 // DeleteEnrollmentID removes the login token of the specified user from the
@@ -313,6 +351,10 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
@@ -367,6 +409,10 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	restLogger.Debugf("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
 
@@ -452,6 +498,10 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	restLogger.Debugf("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
 
