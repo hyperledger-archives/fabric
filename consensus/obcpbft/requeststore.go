@@ -16,46 +16,40 @@ limitations under the License.
 
 package obcpbft
 
-import (
-	"reflect"
-	"sort"
-	"time"
-)
+import "container/list"
 
-type orderedRequests []*Request
+type requestContainer struct {
+	key string
+	req *Request
+}
+
+type orderedRequests struct {
+	order    list.List
+	presence map[string]*list.Element
+}
 
 func (a *orderedRequests) Len() int {
-	return len(*a)
+	return a.order.Len()
 }
-func (a *orderedRequests) Swap(i, j int) {
-	(*a)[i], (*a)[j] = (*a)[j], (*a)[i]
+
+func (a *orderedRequests) wrapRequest(req *Request) requestContainer {
+	return requestContainer{
+		key: hashReq(req),
+		req: req,
+	}
 }
-func (a *orderedRequests) Less(i, j int) bool {
-	if (*a)[i].Timestamp == nil {
-		// a[i] has no timestamp, handle it later, TODO, eventually this should be an error
-		return false
-	}
 
-	if (*a)[j].Timestamp == nil {
-		// a[j] has no timestamp, handle it later, TODO, eventually this should be an error
-		return true
-	}
-
-	iTime := time.Unix((*a)[i].Timestamp.Seconds, int64((*a)[i].Timestamp.Nanos))
-	jTime := time.Unix((*a)[j].Timestamp.Seconds, int64((*a)[j].Timestamp.Nanos))
-
-	return jTime.After(iTime)
+func (a *orderedRequests) has(key string) bool {
+	_, ok := a.presence[key]
+	return ok
 }
 
 func (a *orderedRequests) add(request *Request) {
-	for _, req := range *a {
-		if reflect.DeepEqual(req, request) {
-			return
-		}
+	rc := a.wrapRequest(request)
+	if !a.has(rc.key) {
+		e := a.order.PushBack(rc)
+		a.presence[rc.key] = e
 	}
-
-	*a = append(*a, request)
-	sort.Sort(a)
 }
 
 func (a *orderedRequests) adds(requests []*Request) {
@@ -65,22 +59,14 @@ func (a *orderedRequests) adds(requests []*Request) {
 }
 
 func (a *orderedRequests) remove(request *Request) bool {
-	if len(*a) == 0 {
+	rc := a.wrapRequest(request)
+	e, ok := a.presence[rc.key]
+	if !ok {
 		return false
 	}
-	defer sort.Sort(a)
-	var lastReq *Request
-	for i, req := range *a {
-		(*a)[i] = lastReq
-		if reflect.DeepEqual(req, request) {
-			*a = (*a)[1:]
-			return true
-		}
-		lastReq = req
-	}
-	// This isn't the most efficient, but this should be a degenerate case
-	(*a)[0] = lastReq
-	return false
+	a.order.Remove(e)
+	delete(a.presence, rc.key)
+	return true
 }
 
 func (a *orderedRequests) removes(requests []*Request) bool {
@@ -95,7 +81,8 @@ func (a *orderedRequests) removes(requests []*Request) bool {
 }
 
 func (a *orderedRequests) empty() {
-	*a = nil
+	a.order.Init()
+	a.presence = make(map[string]*list.Element)
 }
 
 type requestStore struct {
@@ -105,10 +92,15 @@ type requestStore struct {
 
 // newRequestStore creates a new requestStore.
 func newRequestStore() *requestStore {
-	return &requestStore{
+	rs := &requestStore{
 		outstandingRequests: &orderedRequests{},
 		pendingRequests:     &orderedRequests{},
 	}
+	// initialize data structures
+	rs.outstandingRequests.empty()
+	rs.pendingRequests.empty()
+
+	return rs
 }
 
 // storeOutstanding adds a request to the outstanding request list
@@ -133,28 +125,23 @@ func (rs *requestStore) remove(request *Request) (outstanding, pending bool) {
 	return
 }
 
-// getNextNonPending returns up to the next n outstanding, but not pending requests
+// hasNonPending returns up to the next n outstanding, but not pending requests
 func (rs *requestStore) hasNonPending() bool {
-	return len(*(rs.outstandingRequests)) > len(*(rs.pendingRequests))
+	return rs.outstandingRequests.Len() > rs.pendingRequests.Len()
 }
 
 // getNextNonPending returns up to the next n outstanding, but not pending requests
-func (rs *requestStore) getNextNonPending(n int) []*Request {
-	result := make([]*Request, n)
-	i := 0
-outer:
-	for _, oreq := range *(rs.outstandingRequests) {
-		if i == n {
+func (rs *requestStore) getNextNonPending(n int) (result []*Request) {
+	for oreqc := rs.outstandingRequests.order.Front(); oreqc != nil; oreqc = oreqc.Next() {
+		oreq := oreqc.Value.(requestContainer)
+		if rs.pendingRequests.has(oreq.key) {
+			continue
+		}
+		result = append(result, oreq.req)
+		if len(result) == n {
 			break
 		}
-		for _, preq := range *(rs.pendingRequests) {
-			if reflect.DeepEqual(preq, oreq) {
-				continue outer
-			}
-		}
-		result[i] = oreq
-		i++
 	}
 
-	return result[:i]
+	return result
 }
