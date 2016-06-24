@@ -414,6 +414,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 
 	restLogger.Debugf("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
 
+	encoder := json.NewEncoder(rw)
+
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
 		if restLogger.IsEnabledFor(logging.DEBUG) {
@@ -424,8 +426,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -434,8 +436,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		handler, err := sec.GetEnrollmentCertificateHandler()
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -443,8 +445,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -455,8 +457,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate is not nil
 		if certDER == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate is nil.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate is nil.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate is nil."})
+			restLogger.Errorf("Error: Enrollment certificate is nil.")
 
 			return
 		}
@@ -464,8 +466,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate has non-zero length
 		if len(certDER) == 0 {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate length is 0.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate length is 0.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate length is 0."})
+			restLogger.Errorf("Error: Enrollment certificate length is 0.")
 
 			return
 		}
@@ -480,13 +482,13 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		crypto.CloseClient(sec)
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
+		encoder.Encode(restResult{OK: urlEncodedCert})
 		restLogger.Debugf("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}
