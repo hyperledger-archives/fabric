@@ -258,3 +258,18 @@ func TestViewChangeOnPrimarySilence(t *testing.T) {
 		t.Fatalf("Should have caused a view change")
 	}
 }
+
+func TestClearBatchStoreOnViewChange(t *testing.T) {
+	b := newObcBatch(1, loadConfig(), &omniProto{})
+	defer b.Close()
+
+	b.batchStore = []*Request{&Request{}}
+
+	// Send a request, which will be ignored, triggering view change
+	b.manager.Queue() <- viewChangedEvent{}
+	b.manager.Queue() <- nil
+
+	if len(b.batchStore) != 0 {
+		t.Fatalf("Should have cleared the batch store on view change")
+	}
+}

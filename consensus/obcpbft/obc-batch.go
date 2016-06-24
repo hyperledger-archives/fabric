@@ -208,8 +208,7 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			continue
 		}
 
-		// TODO, this is a really and inefficient way to do this, but because reqs aren't comparable, they cannot be retrieved from the map directly
-		logger.Debugf("Batch replica %d executing request with transaction %s from outstandingReqs", op.pbft.id, tx.Uuid)
+		logger.Debugf("Batch replica %d executing request with transaction %s from outstandingReqs, seqNo=%d", op.pbft.id, tx.Uuid, seqNo)
 
 		if outstanding, pending := op.reqStore.remove(req); !outstanding || !pending {
 			logger.Debugf("Batch replica %d missing transaction %s outstanding=%v, pending=%v", op.pbft.id, tx.Uuid, outstanding, pending)
@@ -413,6 +412,7 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		op.startTimerIfOutstandingRequests()
 		return res
 	case viewChangedEvent:
+		op.batchStore = nil
 		// Outstanding reqs doesn't make sense for batch, as all the requests in a batch may be processed
 		// in a different batch, but PBFT core can't see through the opaque structure to see this
 		// so, on view change, clear it out
@@ -505,9 +505,9 @@ func (op *obcBatch) getManager() events.Manager {
 }
 
 func (op *obcBatch) startTimerIfOutstandingRequests() {
-	if op.pbft.skipInProgress || op.pbft.currentExec != nil {
+	if op.pbft.skipInProgress || op.pbft.currentExec != nil || !op.pbft.activeView {
 		// Do not start view change timer if some background event is in progress
-		logger.Debugf("Replica %d not starting timer because skip in progress or current exec", op.pbft.id)
+		logger.Debugf("Replica %d not starting timer because skip in progress or current exec or in view change", op.pbft.id)
 		return
 	}
 
