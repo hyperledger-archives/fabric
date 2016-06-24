@@ -718,7 +718,7 @@ func buildKeyString(tableName string, keys []Column) (string, error) {
 		case *Column_Int64:
 			keyString = strconv.FormatInt(key.GetInt64(), 10)
 		case *Column_Uint32:
-			keyString = strconv.FormatUint(uint64(key.GetInt32()), 10)
+			keyString = strconv.FormatUint(uint64(key.GetUint32()), 10)
 		case *Column_Uint64:
 			keyString = strconv.FormatUint(key.GetUint64(), 10)
 		case *Column_Bytes:
