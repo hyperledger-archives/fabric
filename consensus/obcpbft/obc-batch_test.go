@@ -134,14 +134,8 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 	for i, b := range bs {
 		b.manager.Queue() <- nil
 		count := b.reqStore.outstandingRequests.Len()
-		if i == 0 {
-			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store: %v", b.reqStore.outstandingRequests)
-			}
-		} else {
-			if count != 1 {
-				t.Errorf("Batch backup %d should have the request in its store", i)
-			}
+		if count != 1 {
+			t.Errorf("Batch backup %d should have the request in its store", i)
 		}
 	}
 }
@@ -190,6 +184,8 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		}
 	}
 
+	tmp := uint64(1)
+	b.pbft.currentExec = &tmp
 	events.SendEvent(b, committedEvent{})
 	execute()
 
