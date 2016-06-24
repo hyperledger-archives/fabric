@@ -312,16 +312,54 @@ func TestReadCertificatePair(t *testing.T) {
 }
 
 func TestReadCertificatePairBadIdentity(t *testing.T) {
-	t.SkipNow() //need to fix error
 	ecap := &ECAP{eca}
 
 	req := &pb.ECertReadReq{Id: &pb.Identity{Id: "badUser"}}
 
 	_, err := ecap.ReadCertificatePair(context.Background(), req)
 
+	if err == nil {
+		t.Error("The query result searching by an invalid user identity should have been empty. ")
+	}
+
+}
+
+func TestReadCertificateByHash(t *testing.T) {
+	ecap := &ECAP{eca}
+
+	req := &pb.ECertReadReq{Id: &pb.Identity{Id: testUser.enrollID}}
+
+	cert, err := ecap.ReadCertificatePair(context.Background(), req)
+
 	if err != nil {
 		t.Fatalf("Failed to read certificate pair: [%s]", err.Error())
 	}
+
+	hash := primitives.NewHash()
+	raw, _ := proto.Marshal(cert)
+	hash.Write(raw)
+
+	hashReq := &pb.Hash{Hash: hash.Sum(nil)}
+
+	certByHash, _ := ecap.ReadCertificateByHash(context.Background(), hashReq)
+
+	if certByHash == nil {
+		t.Error("A. ")
+	}
+
+}
+
+func TestReadCertificateByInvalidHash(t *testing.T) {
+	ecap := &ECAP{eca}
+
+	req := &pb.Hash{Hash: nil}
+
+	_, err := ecap.ReadCertificateByHash(context.Background(), req)
+
+	if err == nil {
+		t.Error("The query result searching by an invalid hash value should have been empty. ")
+	}
+
 }
 
 func TestReadUserSet(t *testing.T) {

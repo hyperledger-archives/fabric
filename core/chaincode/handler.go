@@ -264,6 +264,16 @@ func (handler *Handler) triggerNextState(msg *pb.ChaincodeMessage, send bool) {
 	handler.nextState <- &nextStateInfo{msg, send}
 }
 
+func (handler *Handler) waitForKeepaliveTimer() <-chan time.Time {
+	if handler.chaincodeSupport.keepalive > 0 {
+		c := time.After(handler.chaincodeSupport.keepalive)
+		return c
+	}
+	//no one will signal this channel, listner blocks forever
+	c := make(chan time.Time, 1)
+	return c
+}
+
 func (handler *Handler) processStream() error {
 	defer handler.deregister()
 	msgAvail := make(chan *pb.ChaincodeMessage)
@@ -307,6 +317,13 @@ func (handler *Handler) processStream() error {
 
 			// we can spin off another Recv again
 			recv = true
+
+			if in.Type == pb.ChaincodeMessage_KEEPALIVE {
+				chaincodeLogger.Debug("Received KEEPALIVE Response")
+				// Received a keep alive message, we don't do anything with it for now
+				// and it does not touch the state machine
+				continue
+			}
 		case nsInfo = <-handler.nextState:
 			in = nsInfo.msg
 			if in == nil {
@@ -315,12 +332,29 @@ func (handler *Handler) processStream() error {
 				return err
 			}
 			chaincodeLogger.Debugf("[%s]Move state message %s", shortuuid(in.Uuid), in.Type.String())
+		case <-handler.waitForKeepaliveTimer():
+			if handler.chaincodeSupport.keepalive <= 0 {
+				chaincodeLogger.Errorf("Invalid select: keepalive not on (keepalive=%d)", handler.chaincodeSupport.keepalive)
+				continue
+			}
+
+			//TODO we could use this to hook into container lifecycle (kill the chaincode if not in use, etc)
+			kaerr := handler.serialSend(&pb.ChaincodeMessage{Type: pb.ChaincodeMessage_KEEPALIVE})
+			if kaerr != nil {
+				chaincodeLogger.Errorf("Error sending keepalive, err=%s", kaerr)
+			} else {
+				chaincodeLogger.Debug("Sent KEEPALIVE request")
+			}
+			//keepalive message kicked in. just continue
+			continue
 		}
+
 		err = handler.HandleMessage(in)
 		if err != nil {
 			chaincodeLogger.Errorf("[%s]Error handling message, ending stream: %s", shortuuid(in.Uuid), err)
 			return fmt.Errorf("Error handling message, ending stream: %s", err)
 		}
+
 		if nsInfo != nil && nsInfo.sendToCC {
 			chaincodeLogger.Debugf("[%s]sending state message %s", shortuuid(in.Uuid), in.Type.String())
 			if err = handler.serialSend(in); err != nil {

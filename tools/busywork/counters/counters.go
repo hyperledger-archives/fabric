@@ -192,12 +192,12 @@ func (c *counters) incDec(stub *shim.ChaincodeStub, args []string, incr int) (va
 		count := c.count[name]
 		counters := arrays[name]
 		offset[name] = offset[name] * uint64(incr)
-		new := count + offset[name]
 		c.debugf("incDec : Array %s has count %d and offset %d", name, count, offset[name])
 		for i, v := range counters {
 			if c.checkCounters && (v != count) {
 				c.criticalf("incDec : Element %s[%d] has value %d; Expected %d", name, i, v, count)
 			}
+			new := v + offset[name]
 			c.debugf("incDec : %s[%d] <- %d", name, i, new)
 			counters[i] = new
 		}
