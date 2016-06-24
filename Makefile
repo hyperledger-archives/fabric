@@ -197,7 +197,7 @@ images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
 node-sdk: sdk/node
 
-node-sdk-unit-tests:
+node-sdk-unit-tests: peer membersrvc
 	cd sdk/node && $(MAKE) unit-tests
 
 .PHONY: $(SUBDIRS:=-clean)
