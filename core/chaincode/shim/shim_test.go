@@ -17,7 +17,7 @@ limitations under the License.
 package shim
 
 import (
-        "os"
+	"os"
 	"testing"
 
 	"github.com/op/go-logging"
@@ -96,7 +96,7 @@ func TestShimLogging(t *testing.T) {
 // TestChaincodeLogging tests the logging APIs for chaincodes.
 func TestChaincodeLogging(t *testing.T) {
 
-        // From start() - We can't call start() from this test
+	// From start() - We can't call start() from this test
 	format := logging.MustStringFormatter("%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, format)
