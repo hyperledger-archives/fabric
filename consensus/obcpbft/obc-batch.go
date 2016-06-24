@@ -127,6 +127,7 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 
 	op.logAddTxFromRequest(req)
 	op.reqStore.storeOutstanding(req)
+	op.startTimerIfOutstandingRequests()
 
 	// if we believe we are the leader, then process this request
 	leader := op.pbft.primary(op.pbft.view)
