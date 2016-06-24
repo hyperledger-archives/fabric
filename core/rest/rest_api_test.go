@@ -59,6 +59,23 @@ func performHTTPPost(t *testing.T, url string, requestBody []byte) (*http.Respon
 	return response, body
 }
 
+func performHTTPDelete(t *testing.T, url string) []byte {
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		t.Fatalf("Error building a DELETE request")
+	}
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Error attempt to DELETE %s: %v", url, err)
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatalf("Error reading HTTP resposne body: %v", err)
+	}
+	return body
+}
+
 func parseRESTResult(t *testing.T, body []byte) restResult {
 	var res restResult
 	err := json.Unmarshal(body, &res)
@@ -362,6 +379,29 @@ func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
 	res = parseRESTResult(t, body)
 	if res.OK == "" || res.Error != "" {
 		t.Errorf("Expected no error when retrieving logged-in user, but got: %v", res.Error)
+	}
+}
+
+func TestServerOpenchainREST_API_DeleteEnrollmentID(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPDelete(t, httpServer.URL+"/registrar/NON_EXISTING_USER")
+	res := parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when deleting non logged-in user, but got: %v", res.Error)
+	}
+
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+	body = performHTTPDelete(t, httpServer.URL+"/registrar/myuser")
+	res = parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when deleting a logged-in user, but got: %v", res.Error)
 	}
 }
 

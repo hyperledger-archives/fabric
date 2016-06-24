@@ -367,10 +367,12 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	_, err1 := os.Stat(loginTok)
 	_, err2 := os.Stat(cryptoDir)
 
+	encoder := json.NewEncoder(rw)
+
 	// If the user is not logged in, nothing to delete. Return OK.
 	if os.IsNotExist(err1) && os.IsNotExist(err2) {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is not logged in.\"}", enrollmentID)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is not logged in.", enrollmentID)})
 		restLogger.Infof("User '%s' is not logged in.\n", enrollmentID)
 
 		return
@@ -379,8 +381,8 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's login token
 	if err := os.RemoveAll(loginTok); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login token for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login token for user %s: %s", enrollmentID, err)
 
 		return
 	}
@@ -388,14 +390,14 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's cert and key directory
 	if err := os.RemoveAll(cryptoDir); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login directory for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login directory for user %s: %s", enrollmentID, err)
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Deleted login token and directory for user %s.\"}", enrollmentID)
+	encoder.Encode(restResult{OK: fmt.Sprintf("Deleted login token and directory for user %s.", enrollmentID)})
 	restLogger.Infof("Deleted login token and directory for user %s.\n", enrollmentID)
 
 	return
