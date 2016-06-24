@@ -50,6 +50,8 @@ type obcBatch struct {
 
 	reqStore *requestStore // Holds the outstanding and pending requests
 
+	deduplicator *deduplicator
+
 	persistForward
 }
 
@@ -104,6 +106,8 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.batchTimer = etf.CreateTimer()
 
 	op.reqStore = newRequestStore()
+
+	op.deduplicator = newDeduplicator()
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan) // TODO remove eventually
@@ -213,6 +217,8 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			logger.Debugf("Batch replica %d missing transaction %s outstanding=%v, pending=%v", op.pbft.id, tx.Uuid, outstanding, pending)
 		}
 		txs = append(txs, tx)
+
+		op.deduplicator.Execute(req)
 	}
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
@@ -310,6 +316,11 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if req := batchMsg.GetRequest(); req != nil {
+		if !op.deduplicator.IsNew(req) {
+			logger.Warningf("Replica %d ignoring request as it is too old", op.pbft.id)
+			return nil
+		}
+
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
 			return op.leaderProcReq(req)
 		}
