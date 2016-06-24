@@ -371,12 +371,6 @@ chaincode:
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
-    java:
-
-        # This is the basis for the Java Dockerfile
-        Dockerfile:  |
-            from openblockchain/javashim
-
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
     startuptimeout: 1000

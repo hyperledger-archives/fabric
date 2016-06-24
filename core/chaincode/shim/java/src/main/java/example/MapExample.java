@@ -1,7 +1,7 @@
 package example;
 
-import shim.ChaincodeBase;
-import shim.ChaincodeStub;
+import org.hyperledger.java.shim.ChaincodeBase;
+import org.hyperledger.java.shim.ChaincodeStub;
 
 public class MapExample extends ChaincodeBase {
 
