@@ -101,6 +101,16 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	logger.Infof("PBFT Batch size = %d", op.batchSize)
 	logger.Infof("PBFT Batch timeout = %v", op.batchTimeout)
 
+	if op.batchTimeout >= op.pbft.requestTimeout {
+		op.pbft.requestTimeout = 3 * op.batchTimeout / 2
+		logger.Warningf("Configured request timeout must be greater than batch timeout, setting to %v", op.pbft.requestTimeout)
+	}
+
+	if op.pbft.requestTimeout >= op.pbft.nullRequestTimeout && op.pbft.nullRequestTimeout != 0 {
+		op.pbft.nullRequestTimeout = 3 * op.pbft.requestTimeout / 2
+		logger.Warningf("Configured null request timeout must be greater than request timeout, setting to %v", op.pbft.nullRequestTimeout)
+	}
+
 	op.incomingChan = make(chan *batchMessage)
 
 	op.batchTimer = etf.CreateTimer()
