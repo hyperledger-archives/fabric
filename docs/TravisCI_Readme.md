@@ -61,7 +61,7 @@ slack:<Slack account name>:<User Slack Token> ex: slack:openchain:<user slack to
       - other@example.com
     on_success: [always|never|change] # default: change
     on_failure: [always|never|change] # default: always
-  ```
+```
 
 Now you have completed with Travis CI setup process. If you make any changes in your code and push code to remote repository, Travis CI automatically starts the build process and shows you the build results on your notification settings (Slack, email and on GitHub Readme.md).
 
