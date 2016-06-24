@@ -125,7 +125,7 @@ func (rs *requestStore) remove(request *Request) (outstanding, pending bool) {
 	return
 }
 
-// getNextNonPending returns up to the next n outstanding, but not pending requests
+// hasNonPending returns up to the next n outstanding, but not pending requests
 func (rs *requestStore) hasNonPending() bool {
 	return rs.outstandingRequests.Len() > rs.pendingRequests.Len()
 }
