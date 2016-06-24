@@ -45,7 +45,7 @@ general:
 
         # Send a pre-prepare if there are pending requests, batchsize isn't reached yet,
         # and this much time has elapsed since the current batch was formed
-        batch: 2s
+        batch: 1s
 
         # How long may a request take between reception and execution
         request: 2s
