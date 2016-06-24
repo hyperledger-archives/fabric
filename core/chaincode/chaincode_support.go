@@ -28,12 +28,13 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
+	"strings"
+
 	"github.com/hyperledger/fabric/core/container"
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
-	"strings"
 )
 
 // ChainName is the name of the chain to which this chaincode support belongs to.
