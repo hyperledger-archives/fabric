@@ -39,7 +39,7 @@ func TestJava_BuildImage(t *testing.T) {
 		return
 	}
 
-	chaincodePath := "/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java"
+	chaincodePath := "../../../shim/java"
 	//TODO find a better way to launch example java chaincode
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_JAVA, ChaincodeID: &pb.ChaincodeID{Path: chaincodePath}, CtorMsg: &pb.ChaincodeInput{Function: "f"}}
 	if _, err := vm.BuildChaincodeContainer(spec); err != nil {

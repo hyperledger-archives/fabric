@@ -16,7 +16,7 @@ Feature: Chaincode02 example
       Given we compose "docker-compose-1.yml"
       When requesting "/chain" from "vp0"
       Then I should get a JSON response with "height" = "1"
-      	    When I deploy lang chaincode "/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java" of "JAVA" with ctor "init" to "vp0"
+      	    When I deploy lang chaincode "core/chaincode/shim/java" of "JAVA" with ctor "init" to "vp0"
       		     | arg1 |  arg2 | arg3 | arg4 |
       		     |  a   |  100  |  b   |  200 |
       	    Then I should have received a chaincode name
