@@ -13,50 +13,59 @@ Note: This guide generally assumes you have followed the development environment
 
     vagrant ssh
 
-Build and run the peer process. To enable security and privacy after setting `security.enabled` and `security.privacy` settings to `true`.
+4. Build and run the peer process. To enable security and privacy after setting `security.enabled` and `security.privacy` settings to `true`.
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
     peer node start
 
-4. Change to Java shim root folder,
+5. Change to Java shim root folder,
 
 	cd $GOPATH/src/github.com/hyperledger/fabric/core/chaincode/shim/java
 
  and run 'gradle build'
 
-5. The following steps is for deploying chaincode in non-dev mode.
+6. The following steps is for deploying chaincode in non-dev mode.
 
-** Deploy the chaincode,
-peer chaincode deploy -l java -n map -p /opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
-PS. This may take a few minutes depending on the environment as it deploys the chaincode in the container,
+	* Deploy the chaincode,
+```
+	peer chaincode deploy -l java -n map -p /opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
+```
 
-6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9
-This command will give the 'name' for this chaincode, and use this value in all the further commands with the -n (name) parameter
+`6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9`
 
-** Invoke a transfer transaction,
-/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode invoke -l java \
--n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
--c '{"Function": "transfer", "Args": ["a","b", "20"]}'
-
-c7dde1d7-fae5-4b68-9ab1-928d61d1e346
-
-** Query the values of a and b after the transfer
-/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode query -l java \
--n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
--c '{"Function": "query", "Args": ["a"]}'
-{"Name":"a","Amount":"80"}
+		* This command will give the 'name' for this chaincode, and use this value in all the further commands with the -n (name) parameter
 
 
-/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode query -l java \
--n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
--c '{"Function": "query", "Args": ["b"]}'
-{"Name":"b","Amount":"220"}
+		* PS. This may take a few minutes depending on the environment as it deploys the chaincode in the container,
 
-6. To develop your own chaincodes, simply extend the Chaincode class (demonstrated in the SimpleSample Example under the examples package)
+* Invoke a transfer transaction,
+
+```
+	/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode invoke -l java \
+	-n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
+	-c '{"Function": "transfer", "Args": ["a","b", "20"]}'
+```
+`c7dde1d7-fae5-4b68-9ab1-928d61d1e346`
+
+* Query the values of a and b after the transfer
+
+```
+	/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode query -l java \
+	-n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
+	-c '{"Function": "query", "Args": ["a"]}'
+	{"Name":"a","Amount":"80"}
 
 
-#### Note: The same steps can be used for deploying and testing the chaincode in development mode after starting the peer in dev mode using the command
+	/opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java$ peer chaincode query -l java \
+	-n 6d9a704d95284593fe802a5de89f84e86fb975f00830bc6488713f9441b835cf32d9cd07b087b90e5cb57a88360f90a4de39521a5595545ad689cd64791679e9 \
+	-c '{"Function": "query", "Args": ["b"]}'
+	{"Name":"b","Amount":"220"}
+```
+
+* To develop your own chaincodes, simply extend the Chaincode class (demonstrated in the SimpleSample Example under the examples package)
+
+
+##### Note: The same steps can be used for deploying and testing the chaincode in development mode after starting the peer in dev mode using the command
 
     peer node start --peer-chaincodedev
-
