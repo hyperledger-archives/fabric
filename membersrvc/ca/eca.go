@@ -410,9 +410,11 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 	rows, err := ecap.eca.readCertificates(in.Id.Id)
 	defer rows.Close()
 
+	hasResults := false
 	var certs [][]byte
 	if err == nil {
 		for rows.Next() {
+			hasResults = true
 			var raw []byte
 			err = rows.Scan(&raw)
 			certs = append(certs, raw)
@@ -420,6 +422,9 @@ func (ecap *ECAP) ReadCertificatePair(ctx context.Context, in *pb.ECertReadReq) 
 		err = rows.Err()
 	}
 
+	if !hasResults {
+		return nil, errors.New("No certificates for the given identity were found.")
+	}
 	return &pb.CertPair{Sign: certs[0], Enc: certs[1]}, err
 }
 
