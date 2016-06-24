@@ -167,6 +167,12 @@ func TestAssetManagement(t *testing.T) {
 	if !reflect.DeepEqual(theOnwerIs, bobAccount) {
 		t.Fatal("Bob is not the owner of Picasso")
 	}
+
+	// Check who is the owner of an asset that doesn't exist
+	_, err = whoIsTheOwner("Klee")
+	if err == nil {
+		t.Fatal("This asset doesn't exist. Querying should fail.")
+	}
 }
 
 func deploy(admCert crypto.CertificateHandler) error {
