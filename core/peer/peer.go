@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,8 +54,6 @@ type Peer interface {
 type BlocksRetriever interface {
 	RequestBlocks(*pb.SyncBlockRange) (<-chan *pb.SyncBlocks, error)
 }
-
-type token struct{}
 
 // StateRetriever interface for retrieving state deltas, etc.
 type StateRetriever interface {
@@ -197,9 +196,9 @@ type PeerImpl struct {
 	secHelper      crypto.Peer
 	engine         Engine
 	isValidator    bool
-	discBootstrap  discovery.Discovery
-	discRecent     discovery.Discovery
 	reconnectOnce  sync.Once
+	discHelper     discovery.Discovery
+	discPersist    bool
 }
 
 // TransactionProccesor responsible for processing of Transactions
@@ -216,9 +215,9 @@ type Engine interface {
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory, discBootstrap discovery.Discovery, discRecent discovery.Discovery) (*PeerImpl, error) {
+func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory, discInstance discovery.Discovery) (*PeerImpl, error) {
 	peer := new(PeerImpl)
-	peer.InitDiscovery(discBootstrap, discRecent)
+	peerNodes := peer.initDiscovery(discInstance)
 
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -241,14 +240,15 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 	}
 	peer.ledgerWrapper = &ledgerWrapper{ledger: ledgerPtr}
 
-	peer.chatWithSomePeers(peer.GetAllNodes())
+	peer.chatWithSomePeers(peerNodes)
 	return peer, nil
 }
 
 // NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory, discBootstrap discovery.Discovery, discRecent discovery.Discovery) (peer *PeerImpl, err error) {
+func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory, discInstance discovery.Discovery) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
-	peer.InitDiscovery(discBootstrap, discRecent)
+	peerNodes := peer.initDiscovery(discInstance)
+	peerLogger.Debugf(">>> peerNodes (%d): %v", len(peerNodes), peerNodes)
 
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
@@ -277,7 +277,8 @@ func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactor
 	if peer.handlerFactory == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
 	}
-	peer.chatWithSomePeers(peer.GetAllNodes())
+
+	peer.chatWithSomePeers(peerNodes)
 	return peer, nil
 
 }
@@ -304,38 +305,6 @@ func (p *PeerImpl) ProcessTransaction(ctx context.Context, tx *pb.Transaction) (
 
 	}
 	return p.ExecuteTransaction(tx), err
-}
-
-// InitDiscovery load the addresses from discovery lists previously saved to disk,
-// and adds them to the current discovery lists
-func (p *PeerImpl) InitDiscovery(discBootstrap discovery.Discovery, discRecent discovery.Discovery) {
-	var err error
-	var nodes []string
-	p.discBootstrap = discBootstrap
-	p.discRecent = discRecent
-	// load any previously saved bootstrap nodes
-	nodes, err = p.LoadDiscoveryList("bootstrap")
-	if err != nil {
-		peerLogger.Errorf("%s", err)
-	}
-	for _, node := range nodes {
-		_ = p.AddBootstrapNode(node)
-	}
-	// persist the bootstrap list
-	err = p.StoreDiscoveryList("bootstrap")
-	if err != nil {
-		peerLogger.Errorf("%s", err)
-	}
-	// load any previously saved recent nodes
-	nodes, err = p.LoadDiscoveryList("recent")
-	if err != nil {
-		peerLogger.Errorf("%s", err)
-	}
-	for _, node := range nodes {
-		_ = p.AddRecentNode(node)
-	}
-	// no need to persist the recent nodes list
-	// we haven't added anything new yet
 }
 
 // GetPeers returns the currently registered PeerEndpoints
@@ -556,7 +525,7 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 func (p *PeerImpl) ensureConnected() {
 	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
 	tickChan := time.NewTicker(touchPeriod).C
-	peerLogger.Debug("Starting Peer reconnect service, with touchPeriod = %s", touchPeriod)
+	peerLogger.Debugf("Starting Peer reconnect service (touch service), with period = %s", touchPeriod)
 	for {
 		// Simply loop and check if need to reconnect
 		<-tickChan
@@ -564,17 +533,17 @@ func (p *PeerImpl) ensureConnected() {
 		if err != nil {
 			peerLogger.Errorf("Error in touch service: %s", err.Error())
 		}
-		allNodes := p.GetAllNodes()
+		allNodes := p.discHelper.GetAllNodes()
 		if len(peersMsg.Peers) < len(allNodes) {
-			peerLogger.Info("Touch service indicates dropped connections, attempting to reconnect...")
-			peerLogger.Debugf(">> CurrentPeers: %v", getPeerAddresses(peersMsg))
-			peerLogger.Debugf(">> RecentPeers: %v", allNodes)
+			peerLogger.Warning("Touch service indicates dropped connections, attempting to reconnect...")
+			peerLogger.Debugf(">>> Connected: %v", getPeerAddresses(peersMsg))
+			peerLogger.Debugf(">>> Discovery: %v", allNodes)
 			delta := util.FindMissingElements(allNodes, getPeerAddresses(peersMsg))
 			p.chatWithSomePeers(delta)
 		} else {
-			peerLogger.Debugf(">> Touch service indicates no dropped connections")
-			peerLogger.Debugf(">> CurrentPeers: %v", getPeerAddresses(peersMsg))
-			peerLogger.Debugf(">> RecentPeers: %v", allNodes)
+			peerLogger.Info("Touch service indicates no dropped connections")
+			peerLogger.Debugf(">>> Connected: %v", getPeerAddresses(peersMsg))
+			peerLogger.Debugf(">>> Discovery: %v", allNodes)
 		}
 	}
 
@@ -587,7 +556,7 @@ func (p *PeerImpl) chatWithSomePeers(addresses []string) {
 		go p.ensureConnected()
 	})
 	if len(addresses) == 0 {
-		peerLogger.Debug("Starting up the first peer")
+		peerLogger.Debug("Starting up the first peer of a new network")
 		return // nothing to do
 	}
 	for _, address := range addresses {
@@ -661,7 +630,7 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 	if p.isValidator {
 		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
-		peerAddress := p.discBootstrap.GetRandomNode()
+		peerAddress := p.discHelper.GetRandomNode()
 		response = p.SendTransactionsToPeer(peerAddress, transaction)
 	}
 	return response
@@ -824,6 +793,33 @@ func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionRes
 	return p.ledgerWrapper.ledger.GetTransactionResultByUUID(txUuid)
 }
 
+// initDiscovery load the addresses from the discovery list previously saved to disk and adds them to the current discovery list
+func (p *PeerImpl) initDiscovery(discInstance discovery.Discovery) []string {
+	p.discHelper = discInstance
+	p.discPersist = viper.GetBool("peer.discovery.persist")
+	if !p.discPersist {
+		peerLogger.Warning("Discovery list will not be persisted to disk")
+	}
+	addresses, err := p.LoadDiscoveryList() // load any previously saved addresses
+	if err != nil {
+		peerLogger.Errorf("%s", err)
+	}
+	for _, address := range addresses { // add them to the current discovery list
+		_ = p.discHelper.AddNode(address)
+	}
+	peerLogger.Debugf("Retrieved discovery list from disk: %v", addresses)
+	// parse the config file, ENV flags, etc.
+	rootNodes := strings.Split(viper.GetString("peer.discovery.rootnode"), ",")
+	if !(len(rootNodes) == 1 && strings.Compare(rootNodes[0], "") == 0) {
+		addresses = append(rootNodes, p.discHelper.GetAllNodes()...)
+	}
+	return addresses
+}
+
+// =============================================================================
+// Persistor
+// =============================================================================
+
 // Persistor enables a peer to persist and restore data to the database
 // TODO Move over the persist package from consensus down to the peer level
 type Persistor interface {
@@ -831,166 +827,74 @@ type Persistor interface {
 	Load(key string) ([]byte, error)
 }
 
-// Store allows a peer to persist the given key,value pair to the database
+// Store enables a peer to persist the given key,value pair to the database
 func (p *PeerImpl) Store(key string, value []byte) error {
 	db := db.GetDBHandle()
 	return db.Put(db.PersistCF, []byte(key), value)
 }
 
-// Load allows a peer to read the value that corresponds to the given database key
+// Load enables a peer to read the value that corresponds to the given database key
 func (p *PeerImpl) Load(key string) ([]byte, error) {
 	db := db.GetDBHandle()
 	return db.Get(db.PersistCF, []byte(key))
 }
 
-// Discoverer enables a peer to manage its discovery lists
+// =============================================================================
+// Discoverer
+// =============================================================================
+
+// Discoverer enables a peer to access/persist/restore its discovery list
 type Discoverer interface {
-	GetAllNodes() []string
-	FindNode(address string) bool
-	BootstrapDiscoverer
-	RecentDiscoverer
+	DiscoveryAccessor
 	DiscoveryPersistor
 }
 
-// BootstrapDiscoverer enables a peer to add/remove/retrieve nodes to/from its bootstrap discovery list
-type BootstrapDiscoverer interface {
-	AddBootstrapNode(address string) bool
-	RemoveBootstrapNode(address string) bool
-	GetAllBootstrapNodes() []string
-	GetRandomBootstrapNode() string
-	FindBootstrapNode(address string) bool
+// DiscoveryAccessor enables a peer to hand out its discovery object
+type DiscoveryAccessor interface {
+	GetDiscHelper() discovery.Discovery
 }
 
-// RecentDiscoverer enables a peer to add/remove/retrieve nodes to/from its recent discovery list
-type RecentDiscoverer interface {
-	AddRecentNode(address string) bool
-	RemoveRecentNode(address string) bool
-	GetAllRecentNodes() []string
-	GetRandomRecentNode() string
-	FindRecentNode(address string) bool
+// GetDiscHelper enables a peer to retrieve its discovery object
+func (p *PeerImpl) GetDiscHelper() discovery.Discovery {
+	return p.discHelper
 }
 
-// DiscoveryPersistor enables a peer to persist and restore discovery lists to the database
+// DiscoveryPersistor enables a peer to persist/restore its discovery list to/from the database
 type DiscoveryPersistor interface {
-	StoreDiscoveryList(keySuffix string) error
-	LoadDiscoveryList(keySuffix string) ([]string, error)
+	LoadDiscoveryList() ([]string, error)
+	StoreDiscoveryList() error
 }
 
-// =============================================================================
-// BootstrapDiscoverer-specific methods
-// =============================================================================
-
-// AddBootstrapNode adds a node's address to the peer's recent nodes discovery list
-func (p *PeerImpl) AddBootstrapNode(address string) bool {
-	return p.discBootstrap.AddNode(address)
-}
-
-// RemoveBootstrapNode removes a node's address from the peer's recent nodes discovery list
-func (p *PeerImpl) RemoveBootstrapNode(address string) bool {
-	return p.discBootstrap.RemoveNode(address)
-}
-
-// GetAllBootstrapNodes returns all the addresses stored in the peer's recent nodes discovery list
-func (p *PeerImpl) GetAllBootstrapNodes() []string {
-	return p.discBootstrap.GetAllNodes()
-}
-
-// GetRandomBootstrapNode returns a random node from the peer's recent nodes discovery list
-func (p *PeerImpl) GetRandomBootstrapNode() string {
-	return p.discBootstrap.GetRandomNode()
-}
-
-// FindBootstrapNode returns true if the given address is stored in the peer's recent nodes discovery list
-func (p *PeerImpl) FindBootstrapNode(address string) bool {
-	return p.discBootstrap.FindNode(address)
-}
-
-// =============================================================================
-// RecentDiscoverer-specific methods
-// =============================================================================
-
-// AddRecentNode adds a node's address to the peer's recent nodes discovery list
-func (p *PeerImpl) AddRecentNode(address string) bool {
-	return p.discRecent.AddNode(address)
-}
-
-// RemoveRecentNode removes a node's address from the peer's recent nodes discovery list
-func (p *PeerImpl) RemoveRecentNode(address string) bool {
-	return p.discRecent.RemoveNode(address)
-}
-
-// GetAllRecentNodes returns all the addresses stored in the peer's recent nodes discovery list
-func (p *PeerImpl) GetAllRecentNodes() []string {
-	return p.discRecent.GetAllNodes()
-}
-
-// GetRandomRecentNode returns a random node from the peer's recent nodes discovery list
-func (p *PeerImpl) GetRandomRecentNode() string {
-	return p.discRecent.GetRandomNode()
-}
-
-// FindRecentNode returns true if the given address is stored in the peer's recent nodes discovery list
-func (p *PeerImpl) FindRecentNode(address string) bool {
-	return p.discRecent.FindNode(address)
-}
-
-// =============================================================================
-// DiscoveryPersistor-specific methods
-// =============================================================================
-
-// StoreDiscoveryList allows a peer to persist a discovery list to the database
-func (p *PeerImpl) StoreDiscoveryList(keySuffix string) error {
-	var err error
-	var addresses []string
-	switch keySuffix {
-	case "bootstrap":
-		addresses = p.GetAllBootstrapNodes()
-	case "recent":
-		addresses = p.GetAllRecentNodes()
-	default:
-		err = fmt.Errorf("Unable to retrieve discovery list, wrong key suffix given: %s", keySuffix)
-		peerLogger.Error(err)
-		return err
+// StoreDiscoveryList enables a peer to persist the discovery list to the database
+func (p *PeerImpl) StoreDiscoveryList() error {
+	if !p.discPersist {
+		return nil
 	}
+	var err error
+	addresses := p.discHelper.GetAllNodes()
 	raw, err := proto.Marshal(&pb.PeersAddresses{Addresses: addresses})
 	if err != nil {
-		err = fmt.Errorf("Could not persist "+keySuffix+" nodes discovery list: %s", err)
+		err = fmt.Errorf("Could not marshal discovery list message: %s", err)
 		peerLogger.Error(err)
 		return err
 	}
-	return p.Store("discovery."+keySuffix, raw)
+	return p.Store("discovery", raw)
 }
 
-// LoadDiscoveryList allows a peer to load a discovery list from the database
-func (p *PeerImpl) LoadDiscoveryList(keySuffix string) ([]string, error) {
+// LoadDiscoveryList enables a peer to load the discovery list from the database
+func (p *PeerImpl) LoadDiscoveryList() ([]string, error) {
 	var err error
-	packed, err := p.Load("discovery." + keySuffix)
+	packed, err := p.Load("discovery")
 	if err != nil {
-		err = fmt.Errorf("Unable to load discovery list of "+keySuffix+" nodes from DB: %s", err)
+		err = fmt.Errorf("Unable to load discovery list from DB: %s", err)
+		peerLogger.Error(err)
+		return nil, err
+	}
+	addresses := &pb.PeersAddresses{}
+	err = proto.Unmarshal(packed, addresses)
+	if err != nil {
+		err = fmt.Errorf("Could not unmarshal discovery list message: %s", err)
 		peerLogger.Error(err)
 	}
-	nodes := &pb.PeersAddresses{}
-	err = proto.Unmarshal(packed, nodes)
-	if err != nil {
-		err = fmt.Errorf("Could not unmarshal discovery list of "+keySuffix+" nodes: %s", err)
-		peerLogger.Error(err)
-	}
-	return nodes.Addresses, err
-}
-
-// =============================================================================
-// Discoverer-specific methods
-// =============================================================================
-
-// GetAllNodes returns all the addresses stored in the peer's recent nodes discovery list
-func (p *PeerImpl) GetAllNodes() []string {
-	return append(p.discBootstrap.GetAllNodes(), p.discRecent.GetAllNodes()...)
-}
-
-// FindNode returns true if the given address is stored in the peer's discovery lists
-func (p *PeerImpl) FindNode(address string) bool {
-	if p.discBootstrap.FindNode(address) || p.discRecent.FindNode(address) {
-		return true
-	}
-	return false
+	return addresses.Addresses, err
 }
