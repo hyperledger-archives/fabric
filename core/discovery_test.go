@@ -22,8 +22,16 @@ import (
 	d "github.com/hyperledger/fabric/discovery"
 )
 
+func TestZeroNodes(t *testing.T) {
+	disc := NewDiscoveryImpl()
+	nodes := disc.GetAllNodes()
+	if len(nodes) != 0 {
+		t.Fatalf("Expected empty list, got a list of size %d instead", len(nodes))
+	}
+}
+
 func TestAddFindNode(t *testing.T) {
-	disc := NewDiscoveryImpl([]string{})
+	disc := NewDiscoveryImpl()
 	res := disc.AddNode("foo")
 	if !res || !disc.FindNode("foo") {
 		t.Fatal("Unable to add a node to the discovery list")
@@ -31,7 +39,7 @@ func TestAddFindNode(t *testing.T) {
 }
 
 func TestRemoveNode(t *testing.T) {
-	disc := NewDiscoveryImpl([]string{})
+	disc := NewDiscoveryImpl()
 	_ = disc.AddNode("foo")
 	if !disc.RemoveNode("foo") || len(disc.GetAllNodes()) != 0 {
 		t.Fatalf("Unable to remove a node from the discovery list")
@@ -39,11 +47,14 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestGetAllNodes(t *testing.T) {
-	init := []string{"a", "b", "c", "d"}
-	disc := NewDiscoveryImpl(init)
+	initList := []string{"a", "b", "c", "d"}
+	disc := NewDiscoveryImpl()
+	for i := range initList {
+		_ = disc.AddNode(initList[i])
+	}
 	nodes := disc.GetAllNodes()
 
-	expected := len(init)
+	expected := len(initList)
 	actual := len(nodes)
 	if actual != expected {
 		t.Fatalf("Nodes list length should have been %d but is %d", expected, actual)
@@ -51,38 +62,19 @@ func TestGetAllNodes(t *testing.T) {
 	}
 
 	for _, node := range nodes {
-		if !inArray(node, init) {
-			t.Fatalf("%s is not a node in %v", node, init)
+		if !inArray(node, initList) {
+			t.Fatalf("%s is found in the discovery list but not in the initial list %v", node, initList)
 		}
-	}
-}
-
-func TestZeroNodes(t *testing.T) {
-	disc := NewDiscoveryImpl([]string{})
-	nodes := disc.GetAllNodes()
-	if len(nodes) != 0 {
-		t.Fatalf("Expected empty list, size is %d instead", len(nodes))
 	}
 }
 
 func TestRandomNodes(t *testing.T) {
-	assertNodeRandomValues(t, []string{"a", "b", "c", "d", "e"}, NewDiscoveryImpl([]string{"a", "b", "c", "d", "e"}))
-}
-
-func assertNodeRandomValues(t *testing.T, expected []string, disc d.Discovery) {
-	node := disc.GetRandomNode()
-
-	if !inArray(node, expected) {
-		t.Fatalf("Node's value should be one of '%v'", expected)
+	initList := []string{"a", "b", "c", "d"}
+	disc := NewDiscoveryImpl()
+	for i := range initList {
+		_ = disc.AddNode(initList[i])
 	}
-
-	// Now test that a random value is sometimes returned
-	for i := 0; i < 100; i++ {
-		if val := disc.GetRandomNode(); node != val {
-			return
-		}
-	}
-	t.Fatalf("Returned value was always %s", node)
+	assertNodeRandomValues(t, initList, disc)
 }
 
 func inArray(element string, array []string) bool {
@@ -92,4 +84,20 @@ func inArray(element string, array []string) bool {
 		}
 	}
 	return false
+}
+
+func assertNodeRandomValues(t *testing.T, expected []string, disc d.Discovery) {
+	node := disc.GetRandomNode()
+
+	if !inArray(node, expected) {
+		t.Fatalf("%s is found in the discovery list but not in the initial list %v", node, expected)
+	}
+
+	// Now test that a random value is sometimes returned
+	for i := 0; i < 100; i++ {
+		if val := disc.GetRandomNode(); node != val {
+			return
+		}
+	}
+	t.Fatalf("Returned value was always %s", node)
 }

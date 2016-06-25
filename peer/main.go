@@ -56,7 +56,6 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
-	"github.com/hyperledger/fabric/discovery"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
@@ -465,20 +464,10 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	// init the discovery lists
-	var discBootstrap, discRecent discovery.Discovery
-	rootNodes := strings.Split(viper.GetString("peer.discovery.rootnode"), ",")
-	if !((len(rootNodes) == 1) && (rootNodes[0] == "")) {
-		logger.Debugf("Creating bootstrap discovery list with: %v", rootNodes)
-		discBootstrap = core.NewDiscoveryImpl(rootNodes)
-	} else {
-		logger.Debugf("Creating empty bootstrap discovery list")
-		discBootstrap = core.NewDiscoveryImpl([]string{})
-	}
-	logger.Debugf("Creating empty recent discovery list")
-	discRecent = core.NewDiscoveryImpl([]string{})
+	// Initialize the discovery service
+	discInstance := core.NewDiscoveryImpl()
 
-	//create the peerServer....
+	// Create the peerServer
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
 		makeGenesisError := genesis.MakeGenesis()
@@ -486,10 +475,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discBootstrap, discRecent)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discBootstrap, discRecent)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
 	}
 
 	if err != nil {
@@ -499,7 +488,6 @@ func serve(args []string) error {
 	}
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -523,8 +511,8 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
-		peerEndpoint.ID, rootNodes, peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
+	logger.Infof("Starting peer with ID=%s, network ID=%s, address=%s, rootnodes=%v, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, viper.GetString("peer.discovery.rootnode"), peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -553,7 +541,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	//start the event hub server
+	// Start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
 	}

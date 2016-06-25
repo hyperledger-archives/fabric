@@ -20,7 +20,15 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/op/go-logging"
 )
+
+var discLogger *logging.Logger
+
+func init() {
+	discLogger = logging.MustGetLogger("core/discovery")
+}
 
 // DiscoveryImpl is an implementation of Discovery
 type DiscoveryImpl struct {
@@ -31,13 +39,9 @@ type DiscoveryImpl struct {
 }
 
 // NewDiscoveryImpl is a constructor of a Discovery implementation
-func NewDiscoveryImpl(addresses []string) *DiscoveryImpl {
+func NewDiscoveryImpl() *DiscoveryImpl {
 	di := DiscoveryImpl{}
 	di.nodes = make(map[string]bool)
-	di.seq = addresses
-	for _, address := range di.seq {
-		di.nodes[address] = true
-	}
 	di.random = rand.New(rand.NewSource(time.Now().Unix()))
 	return &di
 }
@@ -46,7 +50,7 @@ func NewDiscoveryImpl(addresses []string) *DiscoveryImpl {
 func (di *DiscoveryImpl) AddNode(address string) bool {
 	di.Lock()
 	defer di.Unlock()
-	devopsLogger.Debugf(">>> About to add %v to %v", address, di.seq)
+	discLogger.Debugf("About to add %v to %v", address, di.seq)
 	if _, ok := di.nodes[address]; !ok {
 		di.seq = append(di.seq, address)
 		di.nodes[address] = true

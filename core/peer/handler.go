@@ -185,9 +185,12 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	} else {
 		// Registered successfully
 		d.registered = true
-		if !d.Coordinator.FindBootstrapNode(d.ToPeerEndpoint.Address) {
-			_ = d.Coordinator.AddRecentNode(d.ToPeerEndpoint.Address)
-			err = d.Coordinator.StoreDiscoveryList("recent")
+		otherPeer := d.ToPeerEndpoint.Address
+		if !d.Coordinator.GetDiscHelper().FindNode(otherPeer) {
+			if ok := d.Coordinator.GetDiscHelper().AddNode(otherPeer); !ok {
+				peerLogger.Warningf("Unable to add peer %v to discovery list", otherPeer)
+			}
+			err = d.Coordinator.StoreDiscoveryList()
 			if err != nil {
 				peerLogger.Error(err)
 			}
