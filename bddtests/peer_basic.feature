@@ -1,12 +1,14 @@
 #
-# Test Hyperledger Peers
+# Test Fabric Peers
 #
 # Tags that can be used and will affect test internals:
 #  @doNotDecompose will NOT decompose the named compose_yaml after scenario ends.  Useful for setting up environment and reviewing after scenario.
 #  @chaincodeImagesUpToDate use this if all scenarios chaincode images are up to date, and do NOT require building.  BE SURE!!!
 
 #@chaincodeImagesUpToDate
-Feature:  run a Fabric-based network
+Feature: Network of Peers
+    As a Fabric developer
+    I want to run a network of peers
 
 #    @wip
   Scenario: Peers list test, single peer issue #827
@@ -1155,8 +1157,8 @@ Scenario: chaincode example02 with 4 peers, two stopped
     Then I should get a JSON response from peers with "OK" = "0"
         | vp0  | vp1 | vp3 |
 
-# @doNotDecompose
 @issue_1874b
+#@doNotDecompose
 Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
     Given we compose "docker-compose-4-consensus-batch.yml"
     And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
@@ -1217,3 +1219,58 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
         | vp0  | vp1 | vp2 |
     Then I should get a JSON response from peers with "OK" = "0"
         | vp0  | vp1 | vp2 |
+
+@issue_1874c
+#@doNotDecompose
+    Scenario: chaincode example02 with 4 peers, two stopped, bring back both
+    Given we compose "docker-compose-4-consensus-batch.yml"
+    And I register with CA supplying username "binhn" and secret "7avZQLwcUe9q" on peers:
+            | vp0  |
+    And I use the following credentials for querying peers:
+            | peer |   username  |    secret    |
+            | vp0  |  test_user0 | MS9qrN8hFjlE |
+            | vp1  |  test_user1 | jGlNl6ImkuDo |
+            | vp2  |  test_user2 | zMflqOKezFiA |
+            | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+    When requesting "/chain" from "vp0"
+    Then I should get a JSON response with "height" = "1"
+
+    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02" with ctor "init" to "vp0"
+            | arg1 |  arg2 | arg3 | arg4 |
+            |  a   |  100  |  b   |  200 |
+    Then I should have received a chaincode name
+    Then I wait up to "60" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 |
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 | vp3 |
+    Then I should get a JSON response from peers with "OK" = "100"
+            | vp0  | vp1 | vp2 | vp3 |
+
+    Given I stop peers:
+            | vp1 | vp2 |
+
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "1" times
+            |arg1|arg2|arg3|
+            | a  | b  | 10 |
+    Then I should have received a transactionID
+
+    Given I start peers:
+            | vp1 | vp2 |
+    And I wait "15" seconds
+
+    When I invoke chaincode "example2" function name "invoke" on "vp0" "8" times
+            |arg1|arg2|arg3|
+            | a  | b  | 10 |
+    Then I should have received a transactionID
+    Then I wait up to "60" seconds for transaction to be committed to peers:
+            | vp0  | vp1 | vp2 | vp3 |
+
+    Then I wait "30" seconds
+    # For the view to change to "vp3" or "vp1"
+
+    When I query chaincode "example2" function name "query" with value "a" on peers:
+            | vp0  | vp1 | vp2 | vp3 |
+    Then I should get a JSON response from peers with "OK" = "10"
+            | vp0  | vp1 | vp2 | vp3 |
