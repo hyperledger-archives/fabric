@@ -20,24 +20,16 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/op/go-logging"
 )
-
-var logger *logging.Logger
-
-func init() {
-	logger = logging.MustGetLogger("discovery")
-}
 
 // Discovery is the interface that consolidates bootstrap peer membership
 // selection and validating peer selection for non-validating peers
 type Discovery interface {
-	AddNode(string) bool    // Add an address to the discovery list
-	RemoveNode(string) bool // Remove an address from the discovery list
-	GetAllNodes() []string  // Return all addresses this peer maintains
-	GetRandomNode() string  // Return a random address for this peer to connect to
-	FindNode(string) bool   // Find a node in the discovery list
+	AddNode(string) bool           // Add an address to the discovery list
+	RemoveNode(string) bool        // Remove an address from the discovery list
+	GetAllNodes() []string         // Return all addresses this peer maintains
+	GetRandomNodes(n int) []string // Return n random addresses for this peer to connect to
+	FindNode(string) bool          // Find a node in the discovery list
 }
 
 // DiscoveryImpl is an implementation of Discovery
@@ -60,7 +52,6 @@ func NewDiscoveryImpl() *DiscoveryImpl {
 func (di *DiscoveryImpl) AddNode(address string) bool {
 	di.Lock()
 	defer di.Unlock()
-	logger.Debugf("About to add %v to %v", address, di.seq)
 	if _, ok := di.nodes[address]; !ok {
 		di.seq = append(di.seq, address)
 		di.nodes[address] = true
@@ -91,18 +82,22 @@ func (di *DiscoveryImpl) GetAllNodes() []string {
 	return addresses
 }
 
-// GetRandomNode returns a random node
-func (di *DiscoveryImpl) GetRandomNode() string {
+// GetRandomNodes returns n random nodes
+func (di *DiscoveryImpl) GetRandomNodes(n int) []string {
+	var pick string
+	randomNodes := make([]string, n)
 	di.Lock()
 	defer di.Unlock()
-	var randomNode string
-	for {
-		randomNode = di.seq[di.random.Intn(len(di.nodes))]
-		if di.nodes[randomNode] {
-			break
+	for i := 0; i < n; i++ {
+		for {
+			pick = di.seq[di.random.Intn(len(di.nodes))]
+			if di.nodes[pick] {
+				break
+			}
 		}
+		randomNodes[i] = pick
 	}
-	return randomNode
+	return randomNodes
 }
 
 // FindNode returns true if its address is stored in the discovery list

@@ -18,6 +18,8 @@ package util
 
 import (
 	"bytes"
+	"math/rand"
+	"strings"
 	"testing"
 	"time"
 )
@@ -77,8 +79,25 @@ func TestFindMissingElements(t *testing.T) {
 		t.Fatalf("Got %v, expected %v", actualDelta, expectedDelta)
 	}
 	for i := range expectedDelta {
-		if expectedDelta[i] != actualDelta[i] {
+		if strings.Compare(expectedDelta[i], actualDelta[i]) != 0 {
 			t.Fatalf("Got %v, expected %v", actualDelta, expectedDelta)
 		}
 	}
+}
+
+func TestShuffle(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	given := []string{"a", "b", "c", "d"}
+	shuffled := Shuffle(given)
+	if len(shuffled) != len(given) {
+		t.Fatalf("Expected a slice of length %d, got %d instead", len(given), len(shuffled))
+	}
+	for i := 0; i < 100; i++ {
+		for j := 0; j < len(given); j++ {
+			if shuffled[j] != given[j] {
+				return
+			}
+		}
+	}
+	t.Fatalf("Returned slice %v has not been randomized; it is identical to the original slice %v)", shuffled, given)
 }

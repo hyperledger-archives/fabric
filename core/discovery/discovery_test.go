@@ -20,6 +20,15 @@ import (
 	"testing"
 )
 
+func inArray(element string, array []string) bool {
+	for _, val := range array {
+		if val == element {
+			return true
+		}
+	}
+	return false
+}
+
 func TestZeroNodes(t *testing.T) {
 	disc := NewDiscoveryImpl()
 	nodes := disc.GetAllNodes()
@@ -72,30 +81,23 @@ func TestRandomNodes(t *testing.T) {
 	for i := range initList {
 		_ = disc.AddNode(initList[i])
 	}
-	assertNodeRandomValues(t, initList, disc)
-}
-
-func inArray(element string, array []string) bool {
-	for _, val := range array {
-		if val == element {
-			return true
-		}
+	expectedCount := 2
+	randomSet := disc.GetRandomNodes(expectedCount)
+	actualCount := len(randomSet)
+	if actualCount != expectedCount {
+		t.Fatalf("Expected %d random nodes, got %d instead", expectedCount, actualCount)
 	}
-	return false
-}
-
-func assertNodeRandomValues(t *testing.T, expected []string, disc Discovery) {
-	node := disc.GetRandomNode()
-
-	if !inArray(node, expected) {
-		t.Fatalf("%s is found in the discovery list but not in the initial list %v", node, expected)
+	for _, node := range randomSet {
+		if !inArray(node, initList) {
+			t.Fatalf("%s was randomly picked from the discovery list but is not in the initial list %v", node, initList)
+		}
 	}
 
 	// Now test that a random value is sometimes returned
 	for i := 0; i < 100; i++ {
-		if val := disc.GetRandomNode(); node != val {
+		if anotherSet := disc.GetRandomNodes(1); anotherSet[0] != randomSet[0] {
 			return
 		}
 	}
-	t.Fatalf("Returned value was always %s", node)
+	t.Fatalf("Random returned value is always %s", randomSet[0])
 }
