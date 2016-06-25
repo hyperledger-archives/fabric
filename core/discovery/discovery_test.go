@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package core
+package discovery
 
 import (
 	"testing"
-
-	d "github.com/hyperledger/fabric/discovery"
 )
 
 func TestZeroNodes(t *testing.T) {
@@ -86,7 +84,7 @@ func inArray(element string, array []string) bool {
 	return false
 }
 
-func assertNodeRandomValues(t *testing.T, expected []string, disc d.Discovery) {
+func assertNodeRandomValues(t *testing.T, expected []string, disc Discovery) {
 	node := disc.GetRandomNode()
 
 	if !inArray(node, expected) {

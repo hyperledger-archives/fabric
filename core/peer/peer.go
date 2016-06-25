@@ -36,11 +36,11 @@ import (
 	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/db"
+	"github.com/hyperledger/fabric/core/discovery"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/hyperledger/fabric/core/util"
-	"github.com/hyperledger/fabric/discovery"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -215,9 +215,9 @@ type Engine interface {
 }
 
 // NewPeerWithHandler returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory, discInstance discovery.Discovery) (*PeerImpl, error) {
+func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFactory) (*PeerImpl, error) {
 	peer := new(PeerImpl)
-	peerNodes := peer.initDiscovery(discInstance)
+	peerNodes := peer.initDiscovery()
 
 	if handlerFact == nil {
 		return nil, errors.New("Cannot supply nil handler factory")
@@ -245,9 +245,9 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 }
 
 // NewPeerWithEngine returns a Peer which uses the supplied handler factory function for creating new handlers on new Chat service invocations.
-func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory, discInstance discovery.Discovery) (peer *PeerImpl, err error) {
+func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
-	peerNodes := peer.initDiscovery(discInstance)
+	peerNodes := peer.initDiscovery()
 	peerLogger.Debugf(">>> peerNodes (%d): %v", len(peerNodes), peerNodes)
 
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
@@ -794,8 +794,8 @@ func (p *PeerImpl) GetTransactionResultByUUID(txUuid string) (*pb.TransactionRes
 }
 
 // initDiscovery load the addresses from the discovery list previously saved to disk and adds them to the current discovery list
-func (p *PeerImpl) initDiscovery(discInstance discovery.Discovery) []string {
-	p.discHelper = discInstance
+func (p *PeerImpl) initDiscovery() []string {
+	p.discHelper = discovery.NewDiscoveryImpl()
 	p.discPersist = viper.GetBool("peer.discovery.persist")
 	if !p.discPersist {
 		peerLogger.Warning("Discovery list will not be persisted to disk")
