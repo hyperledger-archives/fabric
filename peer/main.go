@@ -254,7 +254,6 @@ func main() {
 	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
 	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer.discovery.enabled", flags.Lookup("peer-discovery-enabled"))
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
@@ -464,9 +463,6 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	// Initialize the discovery service
-	discInstance := core.NewDiscoveryImpl()
-
 	// Create the peerServer
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
@@ -475,10 +471,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
