@@ -524,6 +524,7 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 
 func (p *PeerImpl) ensureConnected() {
 	touchPeriod := viper.GetDuration("peer.discovery.touchPeriod")
+	touchMaxNodes := viper.GetInt("peer.discovery.touchMaxNodes")
 	tickChan := time.NewTicker(touchPeriod).C
 	peerLogger.Debugf("Starting Peer reconnect service (touch service), with period = %s", touchPeriod)
 	for {
@@ -539,6 +540,10 @@ func (p *PeerImpl) ensureConnected() {
 			peerLogger.Debugf(">>> Connected: %v", getPeerAddresses(peersMsg))
 			peerLogger.Debugf(">>> Discovery: %v", allNodes)
 			delta := util.FindMissingElements(allNodes, getPeerAddresses(peersMsg))
+			if len(delta) > touchMaxNodes {
+				delta = util.Shuffle(delta)
+				delta = delta[:touchMaxNodes]
+			}
 			p.chatWithSomePeers(delta)
 		} else {
 			peerLogger.Info("Touch service indicates no dropped connections")
@@ -630,8 +635,8 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 	if p.isValidator {
 		response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
-		peerAddress := p.discHelper.GetRandomNode()
-		response = p.SendTransactionsToPeer(peerAddress, transaction)
+		peerAddresses := p.discHelper.GetRandomNodes(1)
+		response = p.SendTransactionsToPeer(peerAddresses[0], transaction)
 	}
 	return response
 }
