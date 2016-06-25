@@ -248,7 +248,6 @@ func NewPeerWithHandler(secHelperFunc func() crypto.Peer, handlerFact HandlerFac
 func NewPeerWithEngine(secHelperFunc func() crypto.Peer, engFactory EngineFactory) (peer *PeerImpl, err error) {
 	peer = new(PeerImpl)
 	peerNodes := peer.initDiscovery()
-	peerLogger.Debugf(">>> peerNodes (%d): %v", len(peerNodes), peerNodes)
 
 	peer.handlerMap = &handlerMap{m: make(map[pb.PeerID]MessageHandler)}
 
@@ -537,8 +536,6 @@ func (p *PeerImpl) ensureConnected() {
 		allNodes := p.discHelper.GetAllNodes()
 		if len(peersMsg.Peers) < len(allNodes) {
 			peerLogger.Warning("Touch service indicates dropped connections, attempting to reconnect...")
-			peerLogger.Debugf(">>> Connected: %v", getPeerAddresses(peersMsg))
-			peerLogger.Debugf(">>> Discovery: %v", allNodes)
 			delta := util.FindMissingElements(allNodes, getPeerAddresses(peersMsg))
 			if len(delta) > touchMaxNodes {
 				delta = util.Shuffle(delta)
@@ -547,9 +544,9 @@ func (p *PeerImpl) ensureConnected() {
 			p.chatWithSomePeers(delta)
 		} else {
 			peerLogger.Info("Touch service indicates no dropped connections")
-			peerLogger.Debugf(">>> Connected: %v", getPeerAddresses(peersMsg))
-			peerLogger.Debugf(">>> Discovery: %v", allNodes)
 		}
+		peerLogger.Debugf("Connected to: %v", getPeerAddresses(peersMsg))
+		peerLogger.Debugf("Discovery knows about: %v", allNodes)
 	}
 
 }
