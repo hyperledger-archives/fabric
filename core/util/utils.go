@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	mathRand "math/rand"
 	"strings"
 	"time"
 
@@ -139,15 +138,4 @@ all:
 		delta = append(delta, v1)
 	}
 	return
-}
-
-// Shuffle shuffles a given string slice
-func Shuffle(a []string) []string {
-	b := make([]string, len(a))
-	copy(b, a)
-	for i := range b {
-		j := mathRand.Intn(i + 1)
-		b[i], b[j] = b[j], b[i]
-	}
-	return b
 }

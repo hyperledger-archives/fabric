@@ -534,12 +534,11 @@ func (p *PeerImpl) ensureConnected() {
 		if err != nil {
 			peerLogger.Errorf("Error in touch service: %s", err.Error())
 		}
-		allNodes := p.discHelper.GetAllNodes()
+		allNodes := p.discHelper.GetAllNodes() // these will always be returned in random order
 		if len(peersMsg.Peers) < len(allNodes) {
 			peerLogger.Warning("Touch service indicates dropped connections, attempting to reconnect...")
 			delta := util.FindMissingElements(allNodes, getPeerAddresses(peersMsg))
 			if len(delta) > touchMaxNodes {
-				delta = util.Shuffle(delta)
 				delta = delta[:touchMaxNodes]
 			}
 			p.chatWithSomePeers(delta)
