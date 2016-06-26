@@ -16,18 +16,7 @@ limitations under the License.
 
 package discovery
 
-import (
-	"testing"
-)
-
-func inArray(element string, array []string) bool {
-	for _, val := range array {
-		if val == element {
-			return true
-		}
-	}
-	return false
-}
+import "testing"
 
 func TestZeroNodes(t *testing.T) {
 	disc := NewDiscoveryImpl()
@@ -79,7 +68,7 @@ func TestGetAllNodes(t *testing.T) {
 }
 
 func TestRandomNodes(t *testing.T) {
-	initList := []string{"a", "b", "c", "d"}
+	initList := []string{"a", "b", "c", "d", "e"}
 	disc := NewDiscoveryImpl()
 	for i := range initList {
 		_ = disc.AddNode(initList[i])
@@ -96,7 +85,24 @@ func TestRandomNodes(t *testing.T) {
 		}
 	}
 
-	// Now test that a random value is sometimes returned
+	// Does the random array contain duplicate values? And does it pick nodes that were previously removed?
+	removedElement := "d"
+	_ = disc.RemoveNode(removedElement)
+	for i := 0; i < 5; i++ {
+		trackDuplicates := make(map[string]bool)
+		anotherRandomSet := disc.GetRandomNodes(expectedCount)
+		if inArray(removedElement, anotherRandomSet) {
+			t.Fatalf("Random array %v contains element %v that was removed", anotherRandomSet, removedElement)
+		}
+		for _, v := range anotherRandomSet {
+			if _, ok := trackDuplicates[v]; ok {
+				t.Fatalf("Random array contains duplicate values: %v", anotherRandomSet)
+			}
+			trackDuplicates[v] = true
+		}
+	}
+
+	// Do we get a random element?
 	for i := 0; i < 100; i++ {
 		if anotherSet := disc.GetRandomNodes(1); anotherSet[0] != randomSet[0] {
 			return

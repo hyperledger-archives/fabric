@@ -92,7 +92,7 @@ func (di *DiscoveryImpl) GetRandomNodes(n int) []string {
 	for i := 0; i < n; i++ {
 		for {
 			pick = di.seq[di.random.Intn(len(di.nodes))]
-			if di.nodes[pick] {
+			if di.nodes[pick] && !inArray(pick, randomNodes) {
 				break
 			}
 		}
@@ -107,4 +107,13 @@ func (di *DiscoveryImpl) FindNode(address string) bool {
 	defer di.Unlock()
 	_, ok := di.nodes[address]
 	return ok
+}
+
+func inArray(element string, array []string) bool {
+	for _, val := range array {
+		if val == element {
+			return true
+		}
+	}
+	return false
 }
