@@ -65,8 +65,9 @@ func (di *DiscoveryImpl) RemoveNode(address string) bool {
 	defer di.Unlock()
 	if _, ok := di.nodes[address]; ok {
 		di.nodes[address] = false
+		return true
 	}
-	return !di.nodes[address]
+	return false
 }
 
 // GetAllNodes returns an array of all addresses saved in the discovery list
