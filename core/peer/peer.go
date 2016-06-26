@@ -323,9 +323,10 @@ func (p *PeerImpl) GetPeers() (*pb.PeersMessage, error) {
 }
 
 func getPeerAddresses(peersMsg *pb.PeersMessage) []string {
-	var addresses []string
-	for _, v := range peersMsg.GetPeers() {
-		addresses = append(addresses, v.Address)
+	count := len(peersMsg.GetPeers())
+	addresses := make([]string, count)
+	for i, v := range peersMsg.GetPeers() {
+		addresses[i] = v.Address
 	}
 	return addresses
 }
