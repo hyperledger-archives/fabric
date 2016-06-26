@@ -51,6 +51,9 @@ func TestRemoveNode(t *testing.T) {
 	if !disc.RemoveNode("foo") || len(disc.GetAllNodes()) != 0 {
 		t.Fatalf("Unable to remove a node from the discovery list")
 	}
+	if disc.RemoveNode("bar") {
+		t.Fatalf("Remove operation should have failed, element is not present in the list")
+	}
 }
 
 func TestGetAllNodes(t *testing.T) {
