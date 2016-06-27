@@ -139,56 +139,6 @@ message batch_message {
     }
 }
 
-// sieve
-
-message sieve_message {
-    oneof payload {
-        request request = 1;      // only processed at leader
-        execute execute = 2;
-        verify verify = 3;
-        bytes pbft_message = 4;
-        request complaint = 5;    // like request, but processed everywhere
-    }
-}
-
-message execute {
-    uint64 view = 1;
-    uint64 block_number = 2;
-    request request = 3;
-    uint64 replica_id = 4;
-}
-
-message verify {
-    uint64 view = 1;
-    uint64 block_number = 2;
-    string request_digest = 3;
-    bytes result_digest = 4;
-    uint64 replica_id = 5;
-    bytes signature = 6;
-}
-
-message sieve_pbft_message {
-    oneof payload {
-        verify_set verify_set = 1;
-        flush flush = 2;
-    }
-}
-
-message verify_set {
-    uint64 view = 1;
-    uint64 block_number = 2;
-    string request_digest = 3;
-    repeated verify dset = 4;
-    uint64 replica_id = 5;
-    bytes signature = 6;
-}
-
-message flush {
-    uint64 view = 1;
-    uint64 replica_id = 2;
-    bytes signature = 3;
-}
-
 // consensus metadata
 
 message metadata {
