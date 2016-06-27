@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"net"
 	"os"
@@ -34,8 +35,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
-	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -254,7 +253,6 @@ func main() {
 	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
 	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
 	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer.discovery.enabled", flags.Lookup("peer-discovery-enabled"))
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
@@ -463,9 +461,7 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
-
-	//create the peerServer....
+	// Create the peerServer
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
 		makeGenesisError := genesis.MakeGenesis()
@@ -473,10 +469,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
@@ -486,7 +482,6 @@ func serve(args []string) error {
 	}
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -510,11 +505,8 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNodes := discInstance.GetRootNodes()
-
-	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
-		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
+	logger.Infof("Starting peer with ID=%s, network ID=%s, address=%s, rootnodes=%v, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, viper.GetString("peer.discovery.rootnode"), peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -543,7 +535,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	//start the event hub server
+	// Start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
 	}
