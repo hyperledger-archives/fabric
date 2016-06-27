@@ -113,3 +113,5 @@ func main() {
 	...
 }
 ```
+
+The default logging level for `shim` logs can also be set in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) file. For example the key `shim.logging.shim` sets the default level for the `shim` logs.

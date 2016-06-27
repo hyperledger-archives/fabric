@@ -30,6 +30,8 @@ import (
 
 	gp "google/protobuf"
 
+	"path/filepath"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/ecdsa"
@@ -82,12 +84,30 @@ func Start(cc Chaincode) error {
 	format := logging.MustStringFormatter("%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, format)
-	logging.SetBackend(backendFormatter).SetLevel(logging.Level(shimLoggingLevel), "shim")
+	logging.SetBackend(backendFormatter)
 
 	viper.SetEnvPrefix("CORE")
 	viper.AutomaticEnv()
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName("core") // name of config file (without extension)
+	viper.AddConfigPath(filepath.Dir(os.Args[0]))
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
+	level, err := LogLevel(viper.GetString("shim.logging.shim"))
+	if err == nil {
+		// No error, use the setting
+		SetLoggingLevel(level)
+		chaincodeLogger.Infof("Log level recognized '%s', set to %s", viper.GetString("shim.logging.shim"),
+			logging.GetLevel("shim"))
+	} else {
+		SetLoggingLevel(LogInfo)
+		chaincodeLogger.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("shim.logging.shim"),
+			logging.GetLevel("shim"), err)
+	}
 
 	flag.StringVar(&peerAddress, "peer.address", "", "peer address")
 
@@ -121,7 +141,24 @@ func Start(cc Chaincode) error {
 // StartInProc is an entry point for system chaincodes bootstrap. It is not an
 // API for chaincodes.
 func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.ChaincodeMessage, send chan<- *pb.ChaincodeMessage) error {
-	logging.SetLevel(logging.DEBUG, "chaincode")
+	viper.SetConfigName("core") // name of config file (without extension)
+	viper.AddConfigPath(filepath.Dir(os.Args[0]))
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	}
+
+	level, err := logging.LogLevel(viper.GetString("shim.logging.chaincode"))
+	if err == nil {
+		// No error, use the setting
+		logging.SetLevel(level, "chaincode")
+		chaincodeLogger.Infof("Log level recognized '%s', set to %s", viper.GetString("shim.logging.chaincode"),
+			logging.GetLevel("chaincode"))
+	} else {
+		logging.SetLevel(logging.DEBUG, "chaincode")
+		chaincodeLogger.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("shim.logging.chaincode"),
+			logging.GetLevel("chaincode"), err)
+	}
 	chaincodeLogger.Debugf("in proc %v", args)
 
 	var chaincodename string
@@ -137,7 +174,7 @@ func StartInProc(env []string, args []string, cc Chaincode, recv <-chan *pb.Chai
 	}
 	chaincodeLogger.Debugf("starting chat with peer using name=%s", chaincodename)
 	stream := newInProcStream(recv, send)
-	err := chatWithPeer(chaincodename, stream, cc)
+	err = chatWithPeer(chaincodename, stream, cc)
 	return err
 }
 
@@ -147,7 +184,7 @@ func getPeerAddress() string {
 	}
 
 	if peerAddress = viper.GetString("peer.address"); peerAddress == "" {
-		chaincodeLogger.Fatalf("peer.address not configured, can't connect to peer")
+		chaincodeLogger.Criticalf("peer.address not configured, can't connect to peer")
 	}
 
 	return peerAddress
@@ -205,7 +242,7 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 					return
 				} else if in == nil {
 					err = fmt.Errorf("Received nil message, ending chaincode stream")
-					chaincodeLogger.Debug("Received nil message, ending chaincode stream")
+					chaincodeLogger.Debugf("Received nil message, ending chaincode stream")
 					return
 				}
 				chaincodeLogger.Debugf("[%s]Received message %s from shim", shortuuid(in.Uuid), in.Type.String())
@@ -228,7 +265,7 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 			//keepalive messages are PONGs to the fabric's PINGs
 			if (nsInfo != nil && nsInfo.sendToCC) || (in.Type == pb.ChaincodeMessage_KEEPALIVE) {
 				if in.Type == pb.ChaincodeMessage_KEEPALIVE {
-					chaincodeLogger.Debug("Sending KEEPALIVE response")
+					chaincodeLogger.Debugf("Sending KEEPALIVE response")
 				} else {
 					chaincodeLogger.Debugf("[%s]send state message %s", shortuuid(in.Uuid), in.Type.String())
 				}

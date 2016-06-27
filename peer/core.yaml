@@ -458,3 +458,16 @@ statetransfer:
 
         # How long may transferring the complete state take
         fullstate: 60s
+
+################################################################################
+#
+#   SECTION: SHIM -- Applied to the chaincode `shim` interface
+#
+################################################################################
+shim:
+    # log-level of chaincode.
+    # Valid logging levels are case-insensitive strings chosen from
+    #     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
+    logging:
+        shim: debug
+        chaincode: debug
