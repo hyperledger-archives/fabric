@@ -53,32 +53,51 @@ function registrarTest(cb) {
    // Create and configure the test chain
    //
    var chain = hlc.newChain("testChain");
+   var expect="";
+   var found="";
+
    chain.setKeyValStore(hlc.newFileKeyValStore(keyValStorePath));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       if (err) return cb(err);
       chain.setRegistrar(admin);
       // Register and enroll webAdmin
-      registerAndEnroll("webAdmin", {roles:['client']}, chain, function(err,webAdmin) {
+      registerAndEnroll("webAdmin", "client", {roles:['client']}, chain, function(err,webAdmin) {
          if (err) return cb(err);
          chain.setRegistrar(webAdmin);
-         registerAndEnroll("webUser", null, chain, function(err, webUser) {
+         registerAndEnroll("webUser", "client", null, chain, function(err, webUser) {
             if (err) return cb(err);
-            chain.setRegistrar(webUser);
-            registerAndEnroll("webUser2", null, chain, function(err) {
-               if (!err) return cb(Error("webUser should not be allowed to register a client"));
-               return cb();
+            registerAndEnroll("auditor", "auditor", null, chain, function(err, auditor) {
+               if (!err) return cb(err);
+               expect="webAdmin may not register member of type auditor";
+               found = (err.toString()).match(expect);
+               if (!(found==expect)) cb(err);
+               registerAndEnroll("validator", "validator", null, chain, function(err, validator) {
+                  if (!err) return cb(err);
+                  expect="webAdmin may not register member of type validator";
+                  found = (err.toString()).match(expect);
+                  if (!(found==expect)) cb(err);
+                  chain.setRegistrar(webUser);
+                  registerAndEnroll("webUser2", "client", null, chain, function(err) {
+                     if (!err) return cb(Error("webUser should not be allowed to register a client"));
+                     expect="webUser may not register member of type client";
+                     found = (err.toString()).match(expect);
+                     if (!(found==expect)) cb(err);
+                     return cb();
+                  });
+               });
             });
          });
       });
    });
 }
 
-// Register and enroll user 'name' with registrar info 'registrar' for chain 'chain'
-function registerAndEnroll(name, registrar, chain, cb) {
+// Register and enroll user 'name' with role 'r' with registrar info 'registrar' for chain 'chain'
+function registerAndEnroll(name, r, registrar, chain, cb) {
     console.log("registerAndEnroll %s",name);
     // User is not enrolled yet, so perform both registration and enrollment
     var registrationRequest = {
+         roles: [ r ],
          enrollmentID: name,
          account: "bank_a",
          affiliation: "00001",
