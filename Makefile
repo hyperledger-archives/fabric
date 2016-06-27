@@ -215,7 +215,7 @@ base-image-clean:
 images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
 .PHONY: node-sdk
-node-sdk:
+node-sdk: peer membersrvc
 	cp ./protos/*.proto ./sdk/node/lib/protos
 	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
 	cd ./sdk/node && sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
