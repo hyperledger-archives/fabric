@@ -50,6 +50,8 @@ type obcBatch struct {
 
 	reqStore *requestStore // Holds the outstanding and pending requests
 
+	deduplicator *deduplicator
+
 	persistForward
 }
 
@@ -104,6 +106,8 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	op.batchTimer = etf.CreateTimer()
 
 	op.reqStore = newRequestStore()
+
+	op.deduplicator = newDeduplicator()
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan) // TODO remove eventually
@@ -213,6 +217,8 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			logger.Debugf("Batch replica %d missing transaction %s outstanding=%v, pending=%v", op.pbft.id, tx.Uuid, outstanding, pending)
 		}
 		txs = append(txs, tx)
+
+		op.deduplicator.Execute(req)
 	}
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
@@ -310,11 +316,16 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if req := batchMsg.GetRequest(); req != nil {
+		if !op.deduplicator.IsNew(req) {
+			logger.Warningf("Replica %d ignoring request as it is too old", op.pbft.id)
+			return nil
+		}
+
+		op.logAddTxFromRequest(req)
+		op.reqStore.storeOutstanding(req)
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
 			return op.leaderProcReq(req)
 		}
-		op.logAddTxFromRequest(req)
-		op.reqStore.storeOutstanding(req)
 		op.startTimerIfOutstandingRequests()
 		return nil
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
@@ -398,6 +409,11 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		if op.pbft.activeView && (len(op.batchStore) > 0) {
 			return op.sendBatch()
 		}
+	case *Commit:
+		// TODO, this is extremely hacky, but should go away when batch and core are merged
+		res := op.pbft.ProcessEvent(event)
+		op.startTimerIfOutstandingRequests()
+		return res
 	case viewChangedEvent:
 		// Outstanding reqs doesn't make sense for batch, as all the requests in a batch may be processed
 		// in a different batch, but PBFT core can't see through the opaque structure to see this
@@ -407,6 +423,11 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 		logger.Debugf("Replica %d batch thread recognizing new view", op.pbft.id)
 		if op.batchTimerActive {
 			op.stopBatchTimer()
+		}
+
+		if op.pbft.skipInProgress {
+			// If we're the new primary, but we're in state transfer, we can't trust ourself not to duplicate things
+			op.reqStore.outstandingRequests.empty()
 		}
 
 		op.reqStore.pendingRequests.empty()
@@ -488,11 +509,13 @@ func (op *obcBatch) getManager() events.Manager {
 func (op *obcBatch) startTimerIfOutstandingRequests() {
 	if op.pbft.skipInProgress || op.pbft.currentExec != nil {
 		// Do not start view change timer if some background event is in progress
+		logger.Debugf("Replica %d not starting timer because skip in progress or current exec", op.pbft.id)
 		return
 	}
 
 	if !op.reqStore.hasNonPending() {
 		// Only start a timer if we are aware of outstanding requests
+		logger.Debugf("Replica %d not starting timer because all outstanding requests are pending", op.pbft.id)
 		return
 	}
 	op.pbft.softStartTimer(op.pbft.requestTimeout, "Batch outstanding requests")

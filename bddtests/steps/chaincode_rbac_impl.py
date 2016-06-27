@@ -9,6 +9,7 @@ import sys, requests, json
 
 import bdd_test_util
 
+import bdd_grpc_util
 from grpc.beta import implementations
 
 import fabric_pb2
@@ -21,11 +22,11 @@ LAST_REQUESTED_TCERT="lastRequestedTCert"
 @when(u'user "{enrollId}" requests a new application TCert')
 def step_impl(context, enrollId):
 	assert 'users' in context, "users not found in context. Did you register a user?"
-	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
+	(channel, userRegistration) = bdd_grpc_util.getGRPCChannelAndUser(context, enrollId)
 	
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
-	secret = userRegistration.getSecret()
+	secret =  bdd_grpc_util.getSecretForUserRegistration(userRegistration)
 	response = stub.EXP_GetApplicationTCert(secret,2)
 	assert response.status == fabric_pb2.Response.SUCCESS, 'Failure getting TCert from {0}, for user "{1}":  {2}'.format(userRegistration.composeService,enrollId, response.msg)
 	tcert = response.msg
@@ -50,7 +51,7 @@ def step_impl(context, enrollId, tagName):
 
 @when(u'user "{enrollId}" deploys chaincode "{chaincodePath}" aliased as "{ccAlias}" with ctor "{ctor}" and args')
 def step_impl(context, enrollId, chaincodePath, ccAlias, ctor):
-	bdd_test_util.deployChaincode(context, enrollId, chaincodePath, ccAlias, ctor)
+	bdd_grpc_util.deployChaincode(context, enrollId, chaincodePath, ccAlias, ctor)
 
 
 @when(u'user "{enrollId}" gives stored value "{tagName}" to "{recipientEnrollId}"')
@@ -68,12 +69,12 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 	assert 'users' in context, "users not found in context. Did you register a user?"
 	assert 'compose_containers' in context, "compose_containers not found in context"
 
-	(channel, userRegistration) = bdd_test_util.getGRPCChannelAndUser(context, enrollId)
+	(channel, userRegistration) = bdd_grpc_util.getGRPCChannelAndUser(context, enrollId)
 
 	stub = devops_pb2.beta_create_Devops_stub(channel)
 
 	# First get binding with EXP_PrepareForTx
-	secret = userRegistration.getSecret()
+	secret = bdd_grpc_util.getSecretForUserRegistration(userRegistration)
 	response = stub.EXP_PrepareForTx(secret,2)
 	assert response.status == fabric_pb2.Response.SUCCESS, 'Failure getting Binding from {0}, for user "{1}":  {2}'.format(userRegistration.composeService,enrollId, response.msg)
 	binding = response.msg
@@ -112,18 +113,18 @@ def step_impl(context, enrollId, assignerAppTCert, role, assigneeAppTCert):
 def step_impl(context, enrollId, msg):
 	assert 'users' in context, "users not found in context. Did you register a user?"
 	assert 'compose_containers' in context, "compose_containers not found in context"
-	txResult = bdd_test_util.getTxResult(context, enrollId)
+	txResult = bdd_grpc_util.getTxResult(context, enrollId)
 	assert txResult.errorCode > 0, "Expected failure (errorCode > 0), instead found errorCode={0}".format(txResult.errorCode)
 	assert msg in txResult.error, "Expected error to contain'{0}', instead found '{1}".format(msg, txResult.error)
 
 @then(u'"{enrollId}"\'s last transaction should have succeeded')
 def step_impl(context, enrollId):
-	txResult = bdd_test_util.getTxResult(context, enrollId)
+	txResult = bdd_grpc_util.getTxResult(context, enrollId)
 	assert txResult.errorCode == 0, "Expected success (errorCode == 0), instead found errorCode={0}, error={1}".format(txResult.errorCode, txResult.error)
 
 @when(u'user "{enrollId}" invokes chaincode "{ccAlias}" function name "{functionName}" with args')
 def step_impl(context, enrollId, ccAlias, functionName):
-	response = bdd_test_util.invokeChaincode(context, enrollId, ccAlias, functionName)
+	response = bdd_grpc_util.invokeChaincode(context, enrollId, ccAlias, functionName)
 	context.response = response
 	context.transactionID = response.msg
 	#assert response.status == fabric_pb2.Response.SUCCESS, 'Failure invoking chaincode {0} on {1}, for user "{2}":  {3}'.format(ccAlias, userRegistration.composeService,enrollId, response.msg)
@@ -132,6 +133,6 @@ def step_impl(context, enrollId, ccAlias, functionName):
 def step_impl(context, enrollId, ccAlias, tagName):
 	# Retrieve the userRegistration from the context
 	userRegistration = bdd_test_util.getUserRegistration(context, enrollId)
-	deployedCcSpec = bdd_test_util.getDeployment(context, ccAlias)
+	deployedCcSpec = bdd_grpc_util.getDeployment(context, ccAlias)
 	assert deployedCcSpec != None, "Deployment NOT found for chaincode alias '{0}'".format(ccAlias)
 	userRegistration.tags[tagName] = deployedCcSpec.chaincodeID.name
