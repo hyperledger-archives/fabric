@@ -17,6 +17,7 @@ limitations under the License.
 package shim
 
 import (
+	"os"
 	"testing"
 
 	"github.com/op/go-logging"
@@ -94,14 +95,30 @@ func TestShimLogging(t *testing.T) {
 
 // TestChaincodeLogging tests the logging APIs for chaincodes.
 func TestChaincodeLogging(t *testing.T) {
+
+	// From start() - We can't call start() from this test
+	format := logging.MustStringFormatter("%{time:15:04:05.000} [%{module}] %{level:.4s} : %{message}")
+	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	logging.SetBackend(backendFormatter).SetLevel(logging.Level(shimLoggingLevel), "shim")
+
 	foo := NewLogger("foo")
 	bar := NewLogger("bar")
-	foo.Debugf("Foo is debugging %d", 10)
-	bar.Infof("Bar in informational %d", "yes")
+
+	foo.Debugf("Foo is debugging: %d", 10)
+	bar.Infof("Bar is informational? %s.", "Yes")
 	foo.Noticef("NOTE NOTE NOTE")
-	bar.Warningf("Danger Danger %s %s", "Will", "Robinson")
-	foo.Errorf("I'm sorry Dave, I'm afraid I can't do that")
-	bar.Criticalf("PI is not equal to 3.14, we computed it as %f", 4.13)
+	bar.Warningf("Danger, Danger %s %s", "Will", "Robinson!")
+	foo.Errorf("I'm sorry Dave, I'm afraid I can't do that.")
+	bar.Criticalf("PI is not equal to 3.14, we computed it as %.2f", 4.13)
+
+	bar.Debug("Foo is debugging:", 10)
+	foo.Info("Bar is informational?", "Yes.")
+	bar.Notice("NOTE NOTE NOTE")
+	foo.Warning("Danger, Danger", "Will", "Robinson!")
+	bar.Error("I'm sorry Dave, I'm afraid I can't do that.")
+	foo.Critical("PI is not equal to", 3.14, ", we computed it as", 4.13)
+
 	foo.SetLevel(LogWarning)
 	if foo.IsEnabledFor(LogDebug) {
 		t.Errorf("'foo' should not be enabled for LogDebug")
