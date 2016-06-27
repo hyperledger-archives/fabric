@@ -139,5 +139,9 @@ func (ec *EventsClient) Start() error {
 
 //Stop terminates connection with event hub
 func (ec *EventsClient) Stop() error {
+	if ec.stream == nil {
+		// in case the steam/chat server has not been established earlier, we assume that it's closed, successfully
+		return nil
+	}
 	return ec.stream.CloseSend()
 }

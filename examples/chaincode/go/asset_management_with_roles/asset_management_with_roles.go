@@ -260,7 +260,7 @@ func (t *AssetManagementChaincode) Query(stub *shim.ChaincodeStub, function stri
 	}
 
 	if len(row.Columns) == 0 {
-		jsonResp := "{\"Error\":\"Failed retrieving owner for " + asset + ". Error " + err.Error() + ". \"}"
+		jsonResp := "{\"Error\":\"Failed retrieving owner for " + asset + ". \"}"
 		return nil, errors.New(jsonResp)
 	}
 

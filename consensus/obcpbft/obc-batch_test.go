@@ -94,7 +94,7 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 
 	b.manager.Queue() <- nil
 
-	if len(*(b.reqStore.outstandingRequests)) != 0 {
+	if b.reqStore.outstandingRequests.Len() != 0 {
 		t.Fatalf("Should not have any requests outstanding after completing state transfer")
 	}
 }
@@ -133,15 +133,9 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 
 	for i, b := range bs {
 		b.manager.Queue() <- nil
-		count := len(*(b.reqStore.outstandingRequests))
-		if i == 0 {
-			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store: %v", b.reqStore.outstandingRequests)
-			}
-		} else {
-			if count != 1 {
-				t.Errorf("Batch backup %d should have the request in its store", i)
-			}
+		count := b.reqStore.outstandingRequests.Len()
+		if count != 1 {
+			t.Errorf("Batch backup %d should have the request in its store", i)
 		}
 	}
 }
@@ -190,10 +184,12 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		}
 	}
 
+	tmp := uint64(1)
+	b.pbft.currentExec = &tmp
 	events.SendEvent(b, committedEvent{})
 	execute()
 
-	if len(*(b.reqStore.outstandingRequests)) != 0 {
+	if b.reqStore.outstandingRequests.Len() != 0 {
 		t.Fatalf("All requests should have been executed and deleted after exec")
 	}
 

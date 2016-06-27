@@ -44,14 +44,10 @@ type User struct {
 }
 
 var (
-	ecaFiles  = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
-	testAdmin = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
-	testUser  = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	testUser2 = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	//testPeer        = User{enrollID: "testPeer", role: 2}
-	//testPeer2       = User{enrollID: "testPeer", role: 2}
-	//testValidator   = User{enrollID: "testValidator", role: 4}
-	//testValidator2  = User{enrollID: "testValidator", role: 4}
+	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
+	testAdmin   = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
+	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
 	testAuditor = User{enrollID: "testAuditor", role: 8}
 )
 
@@ -60,8 +56,7 @@ func enrollUser(user *User) error {
 
 	ecap := &ECAP{eca}
 
-	//Phase 1 of the protocol
-	//generate crypto material
+	// Phase 1 of the protocol: Generate crypto material
 	signPriv, err := primitives.NewECDSAKey()
 	user.enrollPrivKey = signPriv
 	if err != nil {
@@ -131,7 +126,7 @@ func enrollUser(user *User) error {
 		return err
 	}
 
-	//verify we got vaild crypto material back
+	// Verify we got valid crypto material back
 	x509SignCert, err := primitives.DERToX509Certificate(resp.Certs.Sign)
 	if err != nil {
 		return err
@@ -175,7 +170,7 @@ func registerUser(registrar User, user *User) error {
 
 	r, s, err := ecdsa.Sign(rand.Reader, registrar.enrollPrivKey, hash.Sum(nil))
 	if err != nil {
-		msg := "Failed to register user.  Error signing request: " + err.Error()
+		msg := "Failed to register user. Error (ECDSA) signing request: " + err.Error()
 		return errors.New(msg)
 	}
 	R, _ := r.MarshalText()
@@ -187,15 +182,14 @@ func registerUser(registrar User, user *User) error {
 		return err
 	}
 
-	if token != nil {
-		//need the token for later tests
-		user.enrollPwd = token.Tok
-	} else {
+	if token == nil {
 		return errors.New("Failed to obtain token")
 	}
 
-	return nil
+	//need the token for later tests
+	user.enrollPwd = token.Tok
 
+	return nil
 }
 
 //check that the ECA was created / initialized
@@ -203,23 +197,22 @@ func TestNewECA(t *testing.T) {
 
 	//initialization was handled in TestMain
 	//check to see if ECA exists
-	if eca != nil {
+	if eca == nil {
+		t.Fatal("Failed to create ECA")
+	}
 
-		missing := 0
-		//check to see that the expected files were created
-		for _, file := range ecaFiles {
-			if _, err := os.Stat(eca.CA.path + "/" + file); err != nil {
-				missing++
-				t.Logf("failed to find file [%s]", file)
-			}
+	missing := 0
+
+	//check to see that the expected files were created
+	for _, file := range ecaFiles {
+		if _, err := os.Stat(eca.CA.path + "/" + file); err != nil {
+			missing++
+			t.Logf("Failed to find file: [%s]", file)
 		}
+	}
 
-		if missing > 0 {
-			t.FailNow()
-		}
-
-	} else {
-		t.Error("Failed to create ECA")
+	if missing > 0 {
+		t.Fail()
 	}
 }
 
@@ -232,7 +225,7 @@ func TestCreateCertificatePairAdmin(t *testing.T) {
 	err := enrollUser(&testAdmin)
 
 	if err != nil {
-		t.Errorf("Failed to enroll testAdmin: [%s]", err.Error())
+		t.Fatalf("Failed to enroll testAdmin: [%s]", err.Error())
 	}
 }
 
@@ -242,7 +235,7 @@ func TestRegisterUser(t *testing.T) {
 	err := registerUser(testAdmin, &testUser)
 
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 
 }
@@ -253,7 +246,7 @@ func TestCreateCertificatePairTestUser(t *testing.T) {
 	err := enrollUser(&testUser)
 
 	if err != nil {
-		t.Errorf("Failed to enroll testUser: [%s]", err.Error())
+		t.Fatalf("Failed to enroll testUser: [%s]", err.Error())
 	}
 }
 
@@ -262,8 +255,12 @@ func TestRegisterDuplicateUser(t *testing.T) {
 
 	err := registerUser(testAdmin, &testUser)
 
-	if err.Error() != "user is already registered" {
-		t.Errorf("Expected error was not returned when registering user twice: [%s]", err.Error())
+	if err == nil {
+		t.Fatal("Expected an error when registering the same user twice")
+	}
+
+	if err.Error() != "User is already registered" {
+		t.Fatalf("Expected error was not returned when registering user twice: [%s]", err.Error())
 	}
 }
 
@@ -274,7 +271,7 @@ func TestRegisterAuditor(t *testing.T) {
 	err := registerUser(testAdmin, &testAuditor)
 
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 }
 
@@ -287,21 +284,18 @@ func TestRegisterUserNonRegistrar(t *testing.T) {
 	err := registerUser(testUser, &testUser2)
 
 	if err == nil {
-		t.Error("User without registrar metadata should not be able to register a new user")
-	} else {
-		t.Log(err.Error())
+		t.Fatal("User without registrar metadata should not be able to register a new user")
 	}
+	t.Logf("Expected an error and indeed received: [%s]", err.Error())
 }
 
 func TestReadCACertificate(t *testing.T) {
-
 	ecap := &ECAP{eca}
 	_, err := ecap.ReadCACertificate(context.Background(), &pb.Empty{})
 
 	if err != nil {
-		t.Errorf("Failed to read ECA CA certificate: [%s]", err.Error())
+		t.Fatalf("Failed to read the CA certificate of the ECA: [%s]: ", err.Error())
 	}
-
 }
 
 func TestReadCertificatePair(t *testing.T) {
@@ -313,21 +307,57 @@ func TestReadCertificatePair(t *testing.T) {
 	_, err := ecap.ReadCertificatePair(context.Background(), req)
 
 	if err != nil {
-		t.Errorf("Failed to read certificate pair: [%s]", err.Error())
+		t.Fatalf("Failed to read certificate pair: [%s]", err.Error())
 	}
-
 }
 
 func TestReadCertificatePairBadIdentity(t *testing.T) {
-	t.SkipNow() //need to fix error
 	ecap := &ECAP{eca}
 
 	req := &pb.ECertReadReq{Id: &pb.Identity{Id: "badUser"}}
 
 	_, err := ecap.ReadCertificatePair(context.Background(), req)
 
+	if err == nil {
+		t.Error("The query result searching by an invalid user identity should have been empty. ")
+	}
+
+}
+
+func TestReadCertificateByHash(t *testing.T) {
+	ecap := &ECAP{eca}
+
+	req := &pb.ECertReadReq{Id: &pb.Identity{Id: testUser.enrollID}}
+
+	cert, err := ecap.ReadCertificatePair(context.Background(), req)
+
 	if err != nil {
-		t.Errorf("Failed to read certificate pair: [%s]", err.Error())
+		t.Fatalf("Failed to read certificate pair: [%s]", err.Error())
+	}
+
+	hash := primitives.NewHash()
+	raw, _ := proto.Marshal(cert)
+	hash.Write(raw)
+
+	hashReq := &pb.Hash{Hash: hash.Sum(nil)}
+
+	certByHash, _ := ecap.ReadCertificateByHash(context.Background(), hashReq)
+
+	if certByHash == nil {
+		t.Error("A. ")
+	}
+
+}
+
+func TestReadCertificateByInvalidHash(t *testing.T) {
+	ecap := &ECAP{eca}
+
+	req := &pb.Hash{Hash: nil}
+
+	_, err := ecap.ReadCertificateByHash(context.Background(), req)
+
+	if err == nil {
+		t.Error("The query result searching by an invalid hash value should have been empty. ")
 	}
 
 }
@@ -338,7 +368,7 @@ func TestReadUserSet(t *testing.T) {
 	err := enrollUser(&testAuditor)
 
 	if err != nil {
-		t.Errorf("Failed to read user set: [%s]", err.Error())
+		t.Fatalf("Failed to read user set [%s]", err.Error())
 	}
 
 	ecaa := &ECAA{eca}
@@ -355,7 +385,7 @@ func TestReadUserSet(t *testing.T) {
 
 	r, s, err := ecdsa.Sign(rand.Reader, testAuditor.enrollPrivKey, hash.Sum(nil))
 	if err != nil {
-		t.Errorf("Failed signing [%s].", err.Error())
+		t.Fatalf("Failed (ECDSA) signing [%s]", err.Error())
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
@@ -364,11 +394,9 @@ func TestReadUserSet(t *testing.T) {
 	resp, err := ecaa.ReadUserSet(context.Background(), req)
 
 	if err != nil {
-		t.Errorf("Failed to read user set: [%s]", err.Error())
+		t.Fatalf("Failed to read user set [%s]", err.Error())
 	}
-
-	t.Logf("number of users: [%d]", len(resp.Users))
-
+	t.Log("number of users: ", len(resp.Users))
 }
 
 func TestReadUserSetNonAuditor(t *testing.T) {
@@ -387,7 +415,7 @@ func TestReadUserSetNonAuditor(t *testing.T) {
 
 	r, s, err := ecdsa.Sign(rand.Reader, testUser.enrollPrivKey, hash.Sum(nil))
 	if err != nil {
-		t.Errorf("Failed signing [%s].", err.Error())
+		t.Fatalf("Failed (ECDSA) signing [%s]", err.Error())
 	}
 	R, _ := r.MarshalText()
 	S, _ := s.MarshalText()
@@ -396,7 +424,7 @@ func TestReadUserSetNonAuditor(t *testing.T) {
 	_, err = ecaa.ReadUserSet(context.Background(), req)
 
 	if err == nil {
-		t.Error("Only auditors should be able to call ReadUserSet")
+		t.Fatal("Only auditors should be able to call ReadUserSet")
 	}
 
 }
@@ -416,7 +444,7 @@ func TestCreateCertificatePairBadIdentity(t *testing.T) {
 	_, err := ecap.CreateCertificatePair(context.Background(), req)
 	if err.Error() != "Identity lookup error: sql: no rows in result set" {
 		t.Log(err.Error())
-		t.Error("Expected error was not returned for bad identity")
+		t.Fatal("The expected error of 'Identity lookup error: sql: no rows in result set' was not returned for bad identity")
 	}
 }
 
@@ -434,7 +462,7 @@ func TestCreateCertificatePairBadToken(t *testing.T) {
 
 	_, err := ecap.CreateCertificatePair(context.Background(), req)
 	if err.Error() != "Identity or token does not match." {
-		t.Error("Expected error was not returned for bad password")
+		t.Fatal("Expected error was not returned for bad password")
 	}
 }
 
@@ -444,7 +472,7 @@ func TestRevokeCertificatePair(t *testing.T) {
 
 	_, err := ecap.RevokeCertificatePair(context.Background(), &pb.ECertRevokeReq{})
 	if err.Error() != "ECAP:RevokeCertificate method not (yet) implemented" {
-		t.Errorf("Expected error was not returned: [%s]", err.Error())
+		t.Fatalf("Expected error was not returned: [%s]", err.Error())
 	}
 }
 
@@ -454,7 +482,7 @@ func TestRevokeCertificate(t *testing.T) {
 
 	_, err := ecaa.RevokeCertificate(context.Background(), &pb.ECertRevokeReq{})
 	if err.Error() != "ECAA:RevokeCertificate method not (yet) implemented" {
-		t.Errorf("Expected error was not returned: [%s]", err.Error())
+		t.Fatalf("Expected error was not returned: [%s]", err.Error())
 	}
 }
 
@@ -463,6 +491,6 @@ func TestPublishCRL(t *testing.T) {
 
 	_, err := ecaa.PublishCRL(context.Background(), &pb.ECertCRLReq{})
 	if err.Error() != "ECAA:PublishCRL method not (yet) implemented" {
-		t.Errorf("Expected error was not returned: [%s]", err.Error())
+		t.Fatalf("Expected error was not returned: [%s]", err.Error())
 	}
 }

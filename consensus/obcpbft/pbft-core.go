@@ -69,6 +69,9 @@ type pbftMessageEvent pbftMessage
 // viewChangedEvent is sent when the view change timer expires
 type viewChangedEvent struct{}
 
+// viewChangeResendTimerEvent is sent when the view change resend timer expires
+type viewChangeResendTimerEvent struct{}
+
 // returnRequestEvent is sent by pbft when we are forwarded a request
 type returnRequestEvent *Request
 
@@ -146,8 +149,10 @@ type pbftCore struct {
 
 	currentExec        *uint64             // currently executing request
 	timerActive        bool                // is the timer running?
+	vcResendTimer      events.Timer        // timer triggering resend of a view change
 	newViewTimer       events.Timer        // timeout triggering a view change
 	requestTimeout     time.Duration       // progress timeout for requests
+	vcResendTimeout    time.Duration       // timeout before resending view change
 	newViewTimeout     time.Duration       // progress timeout for new views
 	newViewTimerReason string              // what triggered the timer
 	lastNewViewTimeout time.Duration       // last timeout we used during this view change
@@ -219,6 +224,7 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events
 	instance.consumer = consumer
 
 	instance.newViewTimer = etf.CreateTimer()
+	instance.vcResendTimer = etf.CreateTimer()
 	instance.nullRequestTimer = etf.CreateTimer()
 
 	instance.N = config.GetInt("general.N")
@@ -239,6 +245,10 @@ func newPbftCore(id uint64, config *viper.Viper, consumer innerStack, etf events
 	instance.byzantine = config.GetBool("general.byzantine")
 
 	instance.requestTimeout, err = time.ParseDuration(config.GetString("general.timeout.request"))
+	if err != nil {
+		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
+	}
+	instance.vcResendTimeout, err = time.ParseDuration(config.GetString("general.timeout.resendviewchange"))
 	if err != nil {
 		panic(fmt.Errorf("Cannot parse request timeout: %s", err))
 	}
@@ -393,6 +403,14 @@ func (instance *pbftCore) ProcessEvent(e events.Event) events.Event {
 		return instance.processNewView()
 	case viewChangedEvent:
 		// No-op, processed by plugins if needed
+	case viewChangeResendTimerEvent:
+		if instance.activeView {
+			logger.Warningf("Replica %d had its view change resend timer expire but it's in an active view, this is benign but may indicate a bug", instance.id)
+			return nil
+		}
+		logger.Debugf("Replica %d view change resend timer expired before view change quorum was reached, resending", instance.id)
+		instance.view-- // sending the view change increments this
+		return instance.sendViewChange()
 	default:
 		logger.Warningf("Replica %d received an unknown message type %T", instance.id, et)
 	}
@@ -1204,7 +1222,8 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	// we have reached this checkpoint
 	// Note, this is not divergent from the paper, as the paper requires that
 	// the quorum certificate must contain 2f+1 messages, including its own
-	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
+	chkptID, ok := instance.chkpts[chkpt.SequenceNumber]
+	if !ok {
 		logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
 			instance.id, chkpt.SequenceNumber, chkpt.Id)
 		if instance.skipInProgress {
@@ -1221,6 +1240,11 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 
 	logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.Id)
+
+	if chkptID != chkpt.Id {
+		logger.Criticalf("Replica %d generated a checkpoint of %s, but a quorum of the network agrees on %s.  This is almost definitely non-deterministic chaincode.", instance.id, chkptID, chkpt.Id)
+		instance.stateTransfer(nil)
+	}
 
 	instance.moveWatermarks(chkpt.SequenceNumber)
 
