@@ -53,7 +53,7 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 	}
 
 	peer := newPeer()
-	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD); err != nil {
+	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD, nil); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Errorf("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
@@ -87,7 +87,7 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 	}
 
 	peer := newPeer()
-	if err := peer.init(NodePeer, name, pwd); err != nil {
+	if err := peer.init(NodePeer, name, pwd, nil); err != nil {
 		log.Errorf("Failed peer initialization [%s]: [%s]", name, err)
 
 		return nil, err
@@ -129,7 +129,7 @@ func CloseAllPeers() (bool, []error) {
 // Private Methods
 
 func newPeer() *peerImpl {
-	return &peerImpl{&nodeImpl{}, sync.RWMutex{}, nil, false}
+	return &peerImpl{&nodeImpl{}, sync.RWMutex{}, nil}
 }
 
 func closePeerInternal(peer Peer, force bool) error {

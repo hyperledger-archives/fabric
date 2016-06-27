@@ -27,6 +27,7 @@ import (
 // Public Struct
 
 type nodeImpl struct {
+	isRegistered  bool
 	isInitialized bool
 
 	// Node type
@@ -63,6 +64,9 @@ type nodeImpl struct {
 	eciesSPI primitives.AsymmetricCipherSPI
 }
 
+type registerFunc func(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error
+type initalizationFunc func(eType NodeType, name string, pwd []byte) error
+
 func (node *nodeImpl) GetType() NodeType {
 	return node.eType
 }
@@ -71,44 +75,67 @@ func (node *nodeImpl) GetName() string {
 	return node.conf.name
 }
 
-func (node *nodeImpl) isRegistered() bool {
-	missing, _ := utils.FileMissing(node.conf.getRawsPath(), node.conf.getEnrollmentIDFilename())
-
-	return !missing
+func (node *nodeImpl) IsInitialized() bool {
+	return node.isInitialized
 }
 
-func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
-	if node.isInitialized {
+func (node *nodeImpl) setInitialized() {
+	node.isInitialized = true
+}
+
+func (node *nodeImpl) IsRegistered() bool {
+	return node.isRegistered
+}
+
+func (node *nodeImpl) setRegistered() {
+	node.isRegistered = true
+}
+
+func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string, regFunc registerFunc) error {
+	if node.IsRegistered() {
+		return utils.ErrAlreadyRegistered
+	}
+	if node.IsInitialized() {
 		return utils.ErrAlreadyInitialized
 	}
 
+	err := node.nodeRegister(eType, name, pwd, enrollID, enrollPWD)
+	if err != nil {
+		return err
+	}
+
+	if regFunc != nil {
+		err = regFunc(eType, name, pwd, enrollID, enrollPWD)
+		if err != nil {
+			return err
+		}
+	}
+
+	node.setRegistered()
+	node.Debugf("Registration of node [%s] with name [%s] completed", eType, name)
+
+	return nil
+}
+
+func (node *nodeImpl) nodeRegister(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	// Set entity type
 	node.eType = eType
 
 	// Init Conf
 	if err := node.initConfiguration(name); err != nil {
 		node.Errorf("Failed initiliazing configuration [%s]: [%s].", enrollID, err)
-
 		return err
 	}
-
-	// Start registration
-	if node.isRegistered() {
-		return utils.ErrAlreadyRegistered
-	}
-
-	node.Debugf("Registering node [%s]...", enrollID)
 
 	// Initialize keystore
 	err := node.initKeyStore(pwd)
 	if err != nil {
-		if err != utils.ErrKeyStoreAlreadyInitialized {
+		if err == utils.ErrKeyStoreAlreadyInitialized {
 			node.Error("Keystore already initialized.")
 		} else {
 			node.Errorf("Failed initiliazing keystore [%s].", err.Error())
-
-			return err
 		}
+		return err
 	}
 
 	// Register crypto engine
@@ -118,57 +145,59 @@ func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID
 		return err
 	}
 
-	node.Debugf("Registering node [%s]...done!", enrollID)
+	return nil
+}
+
+func (node *nodeImpl) init(eType NodeType, name string, pwd []byte, initFunc initalizationFunc) error {
+
+	if node.IsInitialized() {
+		return utils.ErrAlreadyInitialized
+	}
+
+	err := node.nodeInit(eType, name, pwd)
+	if err != nil {
+		return err
+	}
+
+	if initFunc != nil {
+		err = initFunc(eType, name, pwd)
+		if err != nil {
+			return err
+		}
+	}
+
+	node.setInitialized()
 
 	return nil
 }
 
-func (node *nodeImpl) init(eType NodeType, name string, pwd []byte) error {
-	if node.isInitialized {
-		node.Error("Already initializaed.")
-
-		return utils.ErrAlreadyInitialized
-	}
-
+func (node *nodeImpl) nodeInit(eType NodeType, name string, pwd []byte) error {
 	// Set entity type
 	node.eType = eType
 
 	// Init Conf
 	if err := node.initConfiguration(name); err != nil {
+		node.Errorf("Failed initiliazing configuration: [%s]", err)
 		return err
 	}
 
-	if !node.isRegistered() {
-		node.Error("Not registered yet.")
-
-		return utils.ErrRegistrationRequired
-	}
-
 	// Initialize keystore
-	node.Debug("Init keystore...")
 	err := node.initKeyStore(pwd)
 	if err != nil {
-		if err != utils.ErrKeyStoreAlreadyInitialized {
+		if err == utils.ErrKeyStoreAlreadyInitialized {
 			node.Error("Keystore already initialized.")
 		} else {
 			node.Errorf("Failed initiliazing keystore [%s].", err.Error())
-
-			return err
 		}
+		return err
 	}
-	node.Debug("Init keystore...done.")
 
 	// Init crypto engine
 	err = node.initCryptoEngine()
 	if err != nil {
-		node.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
+		node.Errorf("Failed initiliazing crypto engine [%s]. %s", err.Error(), utils.ErrRegistrationRequired.Error())
 		return err
 	}
-
-	// Initialisation complete
-	node.isInitialized = true
-
-	node.Debug("Initialization...done.")
 
 	return nil
 }
