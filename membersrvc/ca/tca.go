@@ -434,7 +434,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
 
 		// Compute encrypted TCertIndex
-		encryptedTidx, err := CBCEncrypt(extKey, tidx)
+		encryptedTidx, err := primitives.CBCPKCS7Encrypt(extKey, tidx)
 		if err != nil {
 			return nil, err
 		}
@@ -524,7 +524,7 @@ func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCe
 	enrollmentID := []byte(enrollmentCert.Subject.CommonName)
 	enrollmentID = append(enrollmentID, Padding...)
 
-	encEnrollmentID, err := CBCEncrypt(enrollmentIDKey, enrollmentID)
+	encEnrollmentID, err := primitives.CBCPKCS7Encrypt(enrollmentIDKey, enrollmentID)
 	if err != nil {
 		return nil, nil, err
 	}
