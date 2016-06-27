@@ -30,7 +30,8 @@ make peer
 
 To see what commands are available, simply execute the following commands:
 ```
-$ peer
+cd $GOPATH/src/github.com/hyperledger/fabric/build/bin
+./peer
 ```
 
 You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](../../peer/main.go) and the build creates the `peer` executable).
@@ -48,6 +49,7 @@ You should see some output similar to below (**NOTE**: The root command below is
     Flags:
       -h, --help[=false]: help for peer
           --logging-level="": Default logging level and overrides, see core.yaml for full syntax
+          --test.coverprofile="coverage.cov": Done
 
 
     Use "peer [command] --help" for more information about a command.
