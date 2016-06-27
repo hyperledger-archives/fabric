@@ -51,8 +51,8 @@ export declare class Crypto {
     hmac(key: any, bytes: any): any[];
     hmacAESTruncated(key: any, bytes: any): any[];
     hash(bytes: any): any;
-    private checkSecurityLevel();
-    private checkHashFunction();
+    private checkSecurityLevel(securityLevel);
+    private checkHashFunction(hashAlgorithm);
     private initialize();
     /** HKDF with the specified hash function.
      * @param {bitArray} ikm The input keying material.
