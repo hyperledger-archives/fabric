@@ -447,9 +447,7 @@ Feature: Network of Peers
     Examples: Consensus Options
         |          ComposeFile                     |   WaitTime   |
         |   docker-compose-4-consensus-noops.yml   |      60      |
-#       |   docker-compose-4-consensus-classic.yml |      60      |
         |   docker-compose-4-consensus-batch.yml   |      60      |
-#       |   docker-compose-4-consensus-sieve.yml   |      60      |
 
 
     #@doNotDecompose
@@ -531,9 +529,7 @@ Feature: Network of Peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
-#       |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 
 #    @doNotDecompose
@@ -658,9 +654,7 @@ Feature: Network of Peers
 
    Examples: Consensus Options
        |          ComposeFile                       |   WaitTime   |
-#      |   docker-compose-4-consensus-classic.yml   |      60      |
        |   docker-compose-4-consensus-batch.yml     |      60      |
-#      |   docker-compose-4-consensus-sieve.yml     |      60      |
 
 #@doNotDecompose
 #@wip
@@ -719,9 +713,7 @@ Feature: Network of Peers
 
  Examples: Consensus Options
      |          ComposeFile                       |   WaitTime   |
-#    |   docker-compose-4-consensus-classic.yml   |      60      |
      |   docker-compose-4-consensus-batch.yml     |      60      |
-#    |   docker-compose-4-consensus-sieve.yml     |      60      |
 
      #@doNotDecompose
      #@wip
@@ -763,9 +755,7 @@ Feature: Network of Peers
 
       Examples: Consensus Options
           |                                  ComposeFile                                               |   WaitTime   |
-#          |   docker-compose-4-consensus-classic.yml  docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
           |   docker-compose-4-consensus-batch.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
-#          |   docker-compose-4-consensus-sieve.yml    docker-compose-4-consensus-vp3-byzantine.yml     |      60      |
 
 
   #@doNotDecompose
@@ -861,9 +851,7 @@ Feature: Network of Peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
-        #|   docker-compose-4-consensus-sieve.yml     |      60      | // TODO, this is known to be broken, pending a fix
 
 
 
@@ -935,7 +923,6 @@ Feature: Network of Peers
 
     Examples: Consensus Options
         |          ComposeFile                       |   WaitTime   |
-#       |   docker-compose-4-consensus-classic.yml   |      60      |
         |   docker-compose-4-consensus-batch.yml     |      60      |
 
 #    @doNotDecompose
@@ -1030,9 +1017,7 @@ Feature: Network of Peers
                | vp1 | vp2 | vp3 |
             Examples: Consensus Options
                |          ComposeFile                       |   WaitTime   |
-              #    |   docker-compose-4-consensus-classic.yml   |      60      |
                |   docker-compose-4-consensus-batch.yml     |      60      |
-              #    |   docker-compose-4-consensus-sieve.yml     |      60
 
   #@doNotDecompose
   #@wip

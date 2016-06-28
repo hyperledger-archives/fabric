@@ -45,14 +45,27 @@ Optional arguments, with defaults after the colon:
     taken from the environmnent, or if not present there, defaults to
     ~/.busywork.
 
+-interface <interface> : 0.0.0.0
+
+    Use the -interface option to explicitly name an interface to use for the
+    peer network connections. The default is to run locally using all
+    interfaces, which is equivalent to '-interface 0.0.0.0'.  This option may
+    be useful when creating a network on one system, and then targeting the
+    system from busywork client drivers or tools from another system. In this
+    case the $BUSYWORK_HOME/network file created by this script can be copied
+    to the client system and the peer targeting information will be
+    correct. Example:
+
+        userModeNetwork -interface `hostname` 4
+
 -security | -noSecurity : -noSecurity
 
     Either run with or without secrurity enabled. The default is to run
     without security. If -security is enabled then the network will include
     the 'membersrvc' server. Peer login credentials are obtained from the
-    fabric/membersrvc.yanml file.
+    fabric/membersrvc.yaml file.
 
--noops | -batch | -classic | -sieve : -batch
+-noops | -batch : -batch
 
     Use one of these options to select the consensus mode. The default
     consensus mode is PBFT 'batch' mode. Note that consensus modes other than
@@ -116,18 +129,16 @@ Optional arguments, with defaults after the colon:
 ############################################################################
 
 array set CONSENSUS_TO_PLUGIN {
-    -noops noops -batch pbft -classic pbft -sieve pbft
+    -noops noops -batch pbft
 }
 
 array set CONSENSUS_TO_MODE {
-    -noops noops -batch batch -classic classic -sieve sieve
+    -noops noops -batch batch
 }
 
 array set CONSENSUS_TO_PRETTY {
     -noops NOOPS
     -batch "PBFT Batch"
-    -classic "PBFT Classic"
-    -sieve "PBFT Sieve"
 }
 
 
@@ -179,14 +190,15 @@ setLoggingPrefix network
 
 set options {
 
-    {enum {-h -help --help}               parms(help)          0      p_help}
-    {key  -home                           parms(home)          {}           }
-    {bool {-security -noSecurity}         parms(security)      0            }
-    {enum {-noops -batch -classic -sieve} parms(consensus)     -batch       }
-    {bool {-profile -noProfile}           parms(profile)       1            }
+    {enum {-h -help --help}               parms(help)          0  p_help}
+    {key  -home                           parms(home)          {}}
+    {key  -interface                      parms(interface)     {} p_interface}
+    {bool {-security -noSecurity}         parms(security)      0}
+    {enum {-noops -batch}                 parms(consensus)     -batch}
+    {bool {-profile -noProfile}           parms(profile)       1}
     {enum {-pristine -clean -dirty}       parms(clean)         -pristine}
     {key  -startupWait                    parms(startupWait)   10s}
-    {key  -scriptLogging                  parms(scriptLogging) note   }
+    {key  -scriptLogging                  parms(scriptLogging) note}
     {key  -peerLogging                    parms(peerLogging)   warning}
     {bool -stdio                          parms(stdio)         0}
 }
@@ -272,14 +284,17 @@ set nServers [parms nPeers]
 if {[parms security]} {
     incr nServers
 }
+if {$p_interface} {
+    set interface "-myaddr [parms interface]"
+} else {
+    set interface {}
+}
 set peerMap \
     [mapeach peer [range $nServers] {
         set portMap \
             [mapeach port [range $PORTS_PER_PEER] {
-                set sock [socket -server ignore 0]
-                set sockInfo \
-                    [dict get \
-                         [eval dict create [chan configure $sock -sockname]]]
+                set sock [eval socket -server ignore $interface 0]
+                set sockInfo [chan configure $sock -sockname]
                 #      {<tcl socket> <host name> <TCP port>}
                 return [list $sock [first $sockInfo] [third $sockInfo]]
             }]

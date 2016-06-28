@@ -44,7 +44,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
           - Topology (SVP, MVP, Multichain)
           - Protocol (Messages, Ledger, Chaincode, Consensus, Events)
           - Security (Business Security, User Security, Transaction Security, App. ACL, Wallet, Network Security (TLS))
-          - PBFT (Core PBFT, PI, Sieve)
+          - PBFT Consensus Plugin
           - API (REST service, REST API, CLI)
           - Application Model (Composition, Sample)
           - Future (Systems Integration, Performance & Scalability, Consensus Plugins, Additional Languages)

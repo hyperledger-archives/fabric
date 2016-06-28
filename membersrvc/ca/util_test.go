@@ -17,55 +17,34 @@ limitations under the License.
 package ca
 
 import (
-	"crypto/rand"
+	"reflect"
 	"testing"
+
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 )
 
-func TestCBCEncryptCBCDecrypt(t *testing.T) {
+func TestRandomString(t *testing.T) {
 
-	key := make([]byte, 32)
-	rand.Reader.Read(key)
-
-	var msg = []byte("a message to be encrypted")
-
-	encrypted, encErr := CBCEncrypt(key, msg)
-
-	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+	rand := randomString(100)
+	if rand == "" {
+		t.Error("The randomString function must return a non nil value.")
 	}
 
-	decrypted, dErr := CBCDecrypt(key, encrypted)
-
-	if dErr != nil {
-		t.Fatalf("Error encrypting message %v", dErr)
+	if reflect.TypeOf(rand).String() != "string" {
+		t.Error("The randomString function must returns a string type value.")
 	}
-
-	if string(msg[:]) != string(decrypted[:]) {
-		t.Fatalf("Encryption->Decryption with same key should result in original message")
-	}
-
 }
 
-func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
+func TestMemberRoleToStringNone(t *testing.T) {
 
-	defer func() {
-		recover()
-	}()
+	var role, err = MemberRoleToString(pb.Role_NONE)
 
-	key := make([]byte, 32)
-	rand.Reader.Read(key)
+	if err != nil {
+		t.Errorf("Error converting member role to string, result: %s", role)
+	}
 
-	decryptionKey := make([]byte, 32)
-	copy(decryptionKey, key[:])
-	decryptionKey[0] = key[0] + 1
-
-	var msg = []byte("a message to be encrypted")
-
-	encrypted, _ := CBCEncrypt(key, msg)
-	decrypted, _ := CBCDecrypt(decryptionKey, encrypted)
-
-	if string(msg[:]) == string(decrypted[:]) {
-		t.Fatalf("Encryption->Decryption with different keys shouldn't return original message")
+	if role != pb.Role_name[int32(pb.Role_NONE)] {
+		t.Errorf("The role string returned should have been %s", "NONE")
 	}
 
 }
