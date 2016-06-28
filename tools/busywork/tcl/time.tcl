@@ -89,7 +89,7 @@ proc waitFor {i_timeout i_script {i_poll 0}} {
     set poll [durationToMs $i_poll]
 
     if {$timeout < 0} {
-        while {![uplevel $script]} {
+        while {![uplevel $i_script]} {
             if {$poll != 0} {after $poll}
         }
         return 0

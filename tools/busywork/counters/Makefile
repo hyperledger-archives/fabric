@@ -21,22 +21,21 @@ stress1
     A single validating peer with NOOPS consensus and no security. 64 clients
     each drive 1000 transactions into a single array without interlock.
 
-stress2 stress2b stress2c stress2s
+stress2 stress2n stress2b
 
     NB: We are currently trying to work around issues in this test case, it is
     not being run exactly as described below, and does not run successfully
-    with every consensus mode.
+    with PBFT consensus.
 
     A Docker-compose network of 4 validating peers running PBFT without
     security. Send 10,000 transactions into a single array as a single burst,
     using only the first peer, with one interlock at the end of the
-    burst. Individual PBFT protocols are either (b)atch, (c)lassic or (s)ieve.
+    burst. Consensus protocols are NOOPS (stress2n) or PBFT Batch (stress2b).
 
 secure1
 
     A 4-node setup with security. Security-mode is so slow that this is not a
-    very stressful test. Currently Sieve is the only PBFT protocol that works,
-    so that's what we use.
+    very stressful test. This test uses PBFT batch mode.
 
 
 ############################################################################
@@ -61,7 +60,6 @@ NETWORK = ../bin/userModeNetwork
 stress1: 
 	@$(NETWORK) -noops 1
 	@./driver \
-		-security \
 		-clients 64 \
 		-transactions 1000 \
 		-peerBurst 1000 \
@@ -72,36 +70,41 @@ stress1:
 # We're using all peers here, once buffers increase we can go back to 1
 # This will eventually be more stressful
 
-.PHONY: stress2 stress2b stress2c stress2s
+.PHONY: stress2 stress2n stress2b
 STRESS2 = ./driver \
 		-transactions 10000 \
 		-peerBurst 100 \
 		-interlock \
+		-interlockTimeout 5m \
 		-keepLog \
 		-checkAgreement -dupCheck
 
+STRESS2_CONFIG = \
+	@CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s
+
+stress2n: 
+	@$(STRESS2_CONFIG) \
+	$(NETWORK) -noops 4
+	@echo "makefile: Sleeping 10 seconds to allow peers to interlock"
+	@sleep 10
+	@$(STRESS2)
+
 stress2b: 
-	@CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
+	@$(STRESS2_CONFIG) \
 	$(NETWORK) -batch 4
-	@echo "Sleeping 10 seconds to allow peers to interlock"; sleep 10
+	@echo "makefile: Sleeping 10 seconds to allow peers to interlock"
+	@sleep 10
 	@$(STRESS2)
 
-stress2c: 
-	@$(NETWORK) -classic 4
-	@$(STRESS2)
-
-stress2s: 
-	@$(NETWORK) -sieve 4
-	@$(STRESS2)
-
-stress2: stress2b stress2c stress2s
+stress2: stress2n stress2b
 
 
 .PHONY: secure1
 secure1:
 	@CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
 	$(NETWORK) -batch -security 4
-	@echo "Sleeping 10 seconds to allow peers to interlock"; sleep 10
+	@echo "makefile: Sleeping 10 seconds to allow peers to interlock"
+	@sleep 10	
 	@./driver \
 		-transactions 100 \
 		-peerBurst 10 \

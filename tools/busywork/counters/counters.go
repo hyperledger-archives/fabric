@@ -356,6 +356,8 @@ func (c *counters) Query(stub *shim.ChaincodeStub, function string, args []strin
 	switch function {
 	case "parms":
 		return c.queryParms(stub, args)
+	case "ping":
+		return []byte(c.id), nil
 	case "status":
 		return c.status(stub, args)
 	default:

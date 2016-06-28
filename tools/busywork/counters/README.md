@@ -134,21 +134,6 @@ increments.
 
 ## Query Methods
 
-### `parms ?... <parm> ...?`
-
-This query is used to uniquely re-parameterize individual instances of the
-chaincode. The new/modified parameters will only apply to the chaincode
-associated with the peer that handles the query. Only the following parameters
-are allowed to be modified at runtime:
-
-- `-id <id>`
-
-Examples:
-
-    -id cc0x
-	
-The return value of this query is an empty string.
-	
 ### `status ?... <name> ...?`
 
 Return the status of 0 or more counter arrays. The status is returned as a
@@ -179,6 +164,25 @@ transactions actually executed by the peer) will not match the actual count
 obtained from the state. There is no reason for the expected and actual array
 lengths not to match, however.
 
+### `ping`
+
+This query always succeeds by returning the chaincode ID.
+
+### `parms ?... <parm> ...?`
+
+This query is used to uniquely re-parameterize individual instances of the
+chaincode. The new/modified parameters will only apply to the chaincode
+associated with the peer that handles the query. Only the following parameters
+are allowed to be modified at runtime:
+
+- `-id <id>`
+
+Examples:
+
+    -id cc0x
+	
+The return value of this query is an empty string.
+	
 
   
   
