@@ -3168,6 +3168,7 @@ peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_comman
 ## 7. Application Model
 
 ### 7.1 Composition of an Application
+
 <table>
 <col>
 <col>
@@ -3190,17 +3191,22 @@ For example, a Bluemix PaaS application using Node.js might have a Web front-end
 </tr>
 </table>
 
-### 7.2 7.2 Sample Application
+### 7.2 Sample Application
 
 
 ## 8. Future Directions
+
 ### 8.1 Enterprise Integration
+
 ### 8.2 Performance and Scalability
+
 ### 8.3 Additional Consensus Plugins
+
 ### 8.4 Additional Languages
 
 
 ## 9. References
+
 - [1] Miguel Castro, Barbara Liskov: Practical Byzantine fault tolerance and proactive recovery. ACM Trans. Comput. Syst. 20(4): 398-461 (2002)
 
 - [2] Christian Cachin, Rachid Guerraoui, Luís E. T. Rodrigues: Introduction to Reliable and Secure Distributed Programming (2. ed.). Springer 2011, ISBN 978-3-642-15259-7, pp. I-XIX, 1-367
