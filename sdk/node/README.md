@@ -2,6 +2,10 @@
 
 The Hyperledger Fabric Client SDK (HFC) provides a powerful and easy to use API to interact with a Hyperledger Fabric blockchain.
 
+To install `hfc` from npm simply execute the following command:
+
+    npm install -g hfc
+
 The sections in this document are as follows:
 
 * The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
@@ -131,12 +135,6 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
    });
 }
 ```
-
-### Installing hfc from npm
-
-To install `hfc` from npm simply execute the following command.
-
-    npm install -g hfc
 
 ### Chaincode Deployment Directory structure
 
