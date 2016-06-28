@@ -99,7 +99,7 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	}
 	b.StopTimer()
 
-	//varify value persisted
+	//verify value persisted
 	value, _ = ledger.GetState(chaincode, *key, true)
 	size := ledger.GetBlockchainSize()
 	b.Logf("Value size=%d, Blockchain height=%d", len(value), size)
