@@ -48,6 +48,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
             ::http::geturl http://$i_peer/devops/$i_method -query $i_query
         } token]} {
             if {$i_retry < 0} {
+                http::cleanup $token
                 error "http::geturl failed"
             }
             if {$retry > 0} {
@@ -73,6 +74,7 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
 
         if {[http::ncode $token] != 200} {
             if {$i_retry < 0} {
+                http::cleanup $token
                 error "http::ncode != 200"
             }
             if {$retry > 0} {
