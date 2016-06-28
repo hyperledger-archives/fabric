@@ -178,6 +178,20 @@ func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID
 func (peer *peerImpl) init(eType NodeType, id string, pwd []byte, initFunc initalizationFunc) error {
 
 	peerInitFunc := func(eType NodeType, name string, pwd []byte) error {
+		// Initialize keystore
+		peer.Debug("Init keystore...")
+		err := peer.initKeyStore()
+		if err != nil {
+			if err != utils.ErrKeyStoreAlreadyInitialized {
+				peer.Error("Keystore already initialized.")
+			} else {
+				peer.Errorf("Failed initiliazing keystore [%s].", err)
+
+				return err
+			}
+		}
+		peer.Debug("Init keystore...done.")
+
 		// EnrollCerts
 		peer.nodeEnrollmentCertificates = make(map[string]*x509.Certificate)
 

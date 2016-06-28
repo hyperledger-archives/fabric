@@ -92,32 +92,6 @@ func (node *nodeImpl) setRegistered() {
 }
 
 func (node *nodeImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string, regFunc registerFunc) error {
-	if node.IsRegistered() {
-		return utils.ErrAlreadyRegistered
-	}
-	if node.IsInitialized() {
-		return utils.ErrAlreadyInitialized
-	}
-
-	err := node.nodeRegister(eType, name, pwd, enrollID, enrollPWD)
-	if err != nil {
-		return err
-	}
-
-	if regFunc != nil {
-		err = regFunc(eType, name, pwd, enrollID, enrollPWD)
-		if err != nil {
-			return err
-		}
-	}
-
-	node.setRegistered()
-	node.Debugf("Registration of node [%s] with name [%s] completed", eType, name)
-
-	return nil
-}
-
-func (node *nodeImpl) nodeRegister(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	// Set entity type
 	node.eType = eType
 
@@ -138,8 +112,34 @@ func (node *nodeImpl) nodeRegister(eType NodeType, name string, pwd []byte, enro
 		return err
 	}
 
+	if node.IsRegistered() {
+		return utils.ErrAlreadyRegistered
+	}
+	if node.IsInitialized() {
+		return utils.ErrAlreadyInitialized
+	}
+
+	err = node.nodeRegister(eType, name, pwd, enrollID, enrollPWD)
+	if err != nil {
+		return err
+	}
+
+	if regFunc != nil {
+		err = regFunc(eType, name, pwd, enrollID, enrollPWD)
+		if err != nil {
+			return err
+		}
+	}
+
+	node.setRegistered()
+	node.Debugf("Registration of node [%s] with name [%s] completed", eType, name)
+
+	return nil
+}
+
+func (node *nodeImpl) nodeRegister(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
 	// Register crypto engine
-	err = node.registerCryptoEngine(enrollID, enrollPWD)
+	err := node.registerCryptoEngine(enrollID, enrollPWD)
 	if err != nil {
 		node.Errorf("Failed registering node crypto engine [%s].", err.Error())
 		return err
@@ -149,29 +149,6 @@ func (node *nodeImpl) nodeRegister(eType NodeType, name string, pwd []byte, enro
 }
 
 func (node *nodeImpl) init(eType NodeType, name string, pwd []byte, initFunc initalizationFunc) error {
-
-	if node.IsInitialized() {
-		return utils.ErrAlreadyInitialized
-	}
-
-	err := node.nodeInit(eType, name, pwd)
-	if err != nil {
-		return err
-	}
-
-	if initFunc != nil {
-		err = initFunc(eType, name, pwd)
-		if err != nil {
-			return err
-		}
-	}
-
-	node.setInitialized()
-
-	return nil
-}
-
-func (node *nodeImpl) nodeInit(eType NodeType, name string, pwd []byte) error {
 	// Set entity type
 	node.eType = eType
 
@@ -192,8 +169,30 @@ func (node *nodeImpl) nodeInit(eType NodeType, name string, pwd []byte) error {
 		return err
 	}
 
+	if node.IsInitialized() {
+		return utils.ErrAlreadyInitialized
+	}
+
+	err = node.nodeInit(eType, name, pwd)
+	if err != nil {
+		return err
+	}
+
+	if initFunc != nil {
+		err = initFunc(eType, name, pwd)
+		if err != nil {
+			return err
+		}
+	}
+
+	node.setInitialized()
+
+	return nil
+}
+
+func (node *nodeImpl) nodeInit(eType NodeType, name string, pwd []byte) error {
 	// Init crypto engine
-	err = node.initCryptoEngine()
+	err := node.initCryptoEngine()
 	if err != nil {
 		node.Errorf("Failed initiliazing crypto engine [%s]. %s", err.Error(), utils.ErrRegistrationRequired.Error())
 		return err

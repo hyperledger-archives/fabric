@@ -204,7 +204,19 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 }
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
-	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD, nil); err != nil {
+
+	clentRegFunc := func(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
+		client.Info("Register crypto engine...")
+		err = client.registerCryptoEngine()
+		if err != nil {
+			client.Errorf("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
+			return nil
+		}
+		client.Info("Register crypto engine...done.")
+		return nil
+	}
+
+	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD, clentRegFunc); err != nil {
 		client.Errorf("Failed registering client [%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -213,7 +225,32 @@ func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD st
 }
 
 func (client *clientImpl) init(id string, pwd []byte) error {
-	if err := client.nodeImpl.init(NodeClient, id, pwd, nil); err != nil {
+
+	clientInitFunc := func(eType NodeType, name string, pwd []byte) error {
+		// Initialize keystore
+		client.Debug("Init keystore...")
+		err := client.initKeyStore()
+		if err != nil {
+			if err != utils.ErrKeyStoreAlreadyInitialized {
+				client.Error("Keystore already initialized.")
+			} else {
+				client.Errorf("Failed initiliazing keystore [%s].", err.Error())
+
+				return err
+			}
+		}
+		client.Debug("Init keystore...done.")
+
+		// Init crypto engine
+		err = client.initCryptoEngine()
+		if err != nil {
+			client.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
+			return err
+		}
+		return nil
+	}
+
+	if err := client.nodeImpl.init(NodeClient, id, pwd, clientInitFunc); err != nil {
 		return err
 	}
 	return nil

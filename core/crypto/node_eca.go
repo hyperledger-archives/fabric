@@ -42,6 +42,11 @@ var (
 )
 
 func (node *nodeImpl) retrieveECACertsChain(userID string) error {
+	missing, _ := node.ks.certMissing(node.conf.getECACertsChainFilename())
+	if !missing {
+		return nil
+	}
+
 	// Retrieve ECA certificate and verify it
 	ecaCertRaw, err := node.getECACertificate()
 	if err != nil {
@@ -76,6 +81,11 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
+	missing, _ := node.ks.certMissing(node.conf.getEnrollmentCertFilename())
+	if !missing {
+		return nil
+	}
+
 	key, enrollCertRaw, enrollChainKey, err := node.getEnrollmentCertificateFromECA(enrollID, enrollPWD)
 	if err != nil {
 		node.Errorf("Failed getting enrollment certificate [id=%s]: [%s]", enrollID, err)

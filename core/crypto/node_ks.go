@@ -254,6 +254,10 @@ func (ks *keyStore) storeCert(alias string, der []byte) error {
 	return nil
 }
 
+func (ks *keyStore) certMissing(alias string) (bool, error) {
+	return utils.FileMissing(ks.node.conf.getRawsPath(), alias)
+}
+
 func (ks *keyStore) loadCert(alias string) ([]byte, error) {
 	path := ks.node.conf.getPathForAlias(alias)
 	ks.node.Debugf("Loading certificate [%s] at [%s]...", alias, path)

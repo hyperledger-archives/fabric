@@ -34,6 +34,11 @@ import (
 )
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
+	missing, _ := node.ks.certMissing(node.conf.getTLSCertFilename())
+	if !missing {
+		return nil
+	}
+
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
 		node.Errorf("Failed getting tls certificate [id=%s] %s", id, err)
