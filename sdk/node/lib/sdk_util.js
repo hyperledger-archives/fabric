@@ -28,7 +28,7 @@ var uuid = require('node-uuid');
 var path = require("path");
 var zlib = require("zlib");
 var debugModule = require('debug');
-var debug = debugModule('hlc'); // 'hlc' stands for 'HyperLedger Client'
+var debug = debugModule('hfc'); // 'hfc' stands for 'HyperLedger Fabric Client'
 //
 // Load required crypto stuff.
 //
