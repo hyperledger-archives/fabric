@@ -360,6 +360,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 	var err error
 	var id = in.Id.Id
 	var timestamp = in.Ts.Seconds
+	const TCERT_SUBJECT_COMMON_NAME_VALUE string = "Transaction Certificate"
 
 	if in.Attributes != nil && viper.GetBool("aca.enabled") {
 		attrs, err = tcap.requestAttributes(id, raw, in.Attributes)
@@ -444,7 +445,7 @@ func (tcap *TCAP) createCertificateSet(ctx context.Context, raw []byte, in *pb.T
 			return nil, err
 		}
 
-		spec := NewDefaultPeriodCertificateSpec(id, tcertid, &txPub, x509.KeyUsageDigitalSignature, extensions...)
+		spec := NewDefaultPeriodCertificateSpecWithCommonName(id, TCERT_SUBJECT_COMMON_NAME_VALUE, tcertid, &txPub, x509.KeyUsageDigitalSignature, extensions...)
 		if raw, err = tcap.tca.createCertificateFromSpec(spec, timestamp, kdfKey, false); err != nil {
 			Error.Println(err)
 			return nil, err

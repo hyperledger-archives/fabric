@@ -183,7 +183,7 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	return nil
 }
 
-// RollbackTxBatch - Descards all the state changes that may have taken place during the execution of
+// RollbackTxBatch - Discards all the state changes that may have taken place during the execution of
 // current transaction-batch
 func (ledger *Ledger) RollbackTxBatch(id interface{}) error {
 	ledgerLogger.Debugf("RollbackTxBatch for id = [%s]", id)
@@ -247,7 +247,7 @@ func (ledger *Ledger) SetState(chaincodeID string, key string, value []byte) err
 	return ledger.state.Set(chaincodeID, key, value)
 }
 
-// DeleteState tracks the deletion of state for chaincodeID and key. Does not immideatly writes to DB
+// DeleteState tracks the deletion of state for chaincodeID and key. Does not immediately writes to DB
 func (ledger *Ledger) DeleteState(chaincodeID string, key string) error {
 	return ledger.state.Delete(chaincodeID, key)
 }
@@ -271,7 +271,7 @@ func (ledger *Ledger) SetStateMultipleKeys(chaincodeID string, kvs map[string][]
 
 // GetStateSnapshot returns a point-in-time view of the global state for the current block. This
 // should be used when transferring the state from one peer to another peer. You must call
-// stateSnapshot.Release() once you are done with the snapsnot to free up resources.
+// stateSnapshot.Release() once you are done with the snapshot to free up resources.
 func (ledger *Ledger) GetStateSnapshot() (*state.StateSnapshot, error) {
 	dbSnapshot := db.GetDBHandle().GetSnapshot()
 	blockHeight, err := fetchBlockchainSizeFromSnapshot(dbSnapshot)
@@ -396,17 +396,17 @@ func (ledger *Ledger) PutRawBlock(block *protos.Block, blockNumber uint64) error
 	return nil
 }
 
-// VerifyChain will verify the integrety of the blockchain. This is accomplished
+// VerifyChain will verify the integrity of the blockchain. This is accomplished
 // by ensuring that the previous block hash stored in each block matches
 // the actual hash of the previous block in the chain. The return value is the
 // block number of lowest block in the range which can be verified as valid.
 // The first block is assumed to be valid, and an error is only returned if the
 // first block does not exist, or some other sort of irrecoverable ledger error
 // such as the first block failing to hash is encountered.
-// For example, if VerifyChain(0, 99) is called and prevous hash values stored
+// For example, if VerifyChain(0, 99) is called and previous hash values stored
 // in blocks 8, 32, and 42 do not match the actual hashes of respective previous
 // block 42 would be the return value from this function.
-// highBlock is the high block in the chain to include in verofication. If you
+// highBlock is the high block in the chain to include in verification. If you
 // wish to verify the entire chain, use ledger.GetBlockchainSize() - 1.
 // lowBlock is the low block in the chain to include in verification. If
 // you wish to verify the entire chain, use 0 for the genesis block.
