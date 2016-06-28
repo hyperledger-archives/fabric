@@ -371,6 +371,14 @@ func (m *PeersMessage) GetPeers() []*PeerEndpoint {
 	return nil
 }
 
+type PeersAddresses struct {
+	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *PeersAddresses) Reset()         { *m = PeersAddresses{} }
+func (m *PeersAddresses) String() string { return proto.CompactTextString(m) }
+func (*PeersAddresses) ProtoMessage()    {}
+
 type HelloMessage struct {
 	PeerEndpoint   *PeerEndpoint   `protobuf:"bytes,1,opt,name=peerEndpoint" json:"peerEndpoint,omitempty"`
 	BlockchainInfo *BlockchainInfo `protobuf:"bytes,2,opt,name=blockchainInfo" json:"blockchainInfo,omitempty"`
