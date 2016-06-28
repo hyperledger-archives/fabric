@@ -670,26 +670,27 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResult{Error: "Block id must be an integer (uint64)."})
-	} else {
-		// Retrieve Block from blockchain
-		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
-
-		// Check for error
-		if err != nil || block == nil {
-			// Failure
-			switch {
-			case err == ErrNotFound || block == nil:
-				rw.WriteHeader(http.StatusNotFound)
-			default:
-				rw.WriteHeader(http.StatusInternalServerError)
-			}
-			encoder.Encode(restResult{Error: err.Error()})
-		} else {
-			// Success
-			rw.WriteHeader(http.StatusOK)
-			encoder.Encode(block)
-		}
+		return
 	}
+
+	// Retrieve Block from blockchain
+	block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
+
+	if (err == ErrNotFound) || (err == nil && block == nil) {
+		rw.WriteHeader(http.StatusNotFound)
+		encoder.Encode(restResult{Error: ErrNotFound.Error()})
+		return
+	}
+
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		encoder.Encode(restResult{Error: err.Error()})
+		return
+	}
+
+	// Success
+	rw.WriteHeader(http.StatusOK)
+	encoder.Encode(block)
 }
 
 // GetTransactionByUUID returns a transaction matching the specified UUID
