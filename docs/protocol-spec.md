@@ -1,4 +1,4 @@
-﻿# Protocol Specification
+# Protocol Specification
 
 ## Preface
 This document is the protocol specification for a permissioned blockchain implementation for industry use-cases. It is not intended to be a complete explanation of the implementation, but rather a description of the interfaces and relationships between components in the system and the application.
