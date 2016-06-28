@@ -239,6 +239,14 @@ func TestServerOpenchainREST_API_GetBlockByNumber(t *testing.T) {
 	if res.Error == "" {
 		t.Errorf("Expected an error when URL doesn't have a number, but got none")
 	}
+
+	// Add a fake block number 9 and try to fetch non-existing block 6
+	ledger.PutRawBlock(&block0, 9)
+	body = performHTTPGet(t, httpServer.URL+"/chain/blocks/6")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when block doesn't exist, but got none")
+	}
 }
 
 func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
