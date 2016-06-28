@@ -62,6 +62,10 @@ behave_tests behave_tests_with_logs
     test suites ('test'). Use 'behave_tests_with_logs' if you want logs from
     the Docker containers.
 
+busyTest
+
+    Run a simple test of the 'busy' script.
+
 
 ############################################################################
 # 'Clean' routines. Note: Docker does not understand that "rm -f" usually
