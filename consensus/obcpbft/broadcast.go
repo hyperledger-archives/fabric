@@ -59,8 +59,13 @@ func newBroadcaster(self uint64, N int, f int, c communicator) *broadcaster {
 			continue
 		}
 		chans[uint64(i)] = make(chan *sendRequest, queueSize)
+	}
+
+	// We do not start the go routines in the above loop to avoid concurrent map read/writes
+	for i := 0; i < N; i++ {
 		go b.drainer(uint64(i))
 	}
+
 	return b
 }
 
@@ -103,16 +108,17 @@ func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, successLastTim
 
 func (b *broadcaster) drainer(dest uint64) {
 	successLastTime := false
+	destChan := b.msgChans[dest] // Avoid doing the map lookup every send
 
 	for {
 		select {
-		case send := <-b.msgChans[dest]:
+		case send := <-destChan:
 			successLastTime = b.drainerSend(dest, send, successLastTime)
 		case <-b.closedCh:
 			for {
 				// Drain the message channel to free calling waiters before we shut down
 				select {
-				case send := <-b.msgChans[dest]:
+				case send := <-destChan:
 					send.done <- false
 					b.closed.Done()
 				default:

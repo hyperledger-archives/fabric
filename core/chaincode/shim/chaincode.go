@@ -847,10 +847,33 @@ func (stub *ChaincodeStub) SetEvent(name string, payload []byte) error {
 
 // ------------- Logging Control and Chaincode Loggers ---------------
 
-// These facilities allow a Go language chaincode to control the logging level
-// of its shim and to create its own consistent logging objects, without any
-// knowledge of the underlying implementation or any other package
-// requirements.
+// As independent programs, Go language chaincodes can use any logging
+// methodology they choose, from simple fmt.Printf() to os.Stdout, to
+// decorated logs created by the author's favorite logging package. The
+// chaincode "shim" interface, however, is defined by the Hyperledger fabric
+// and implements its own logging methodology. This methodology currently
+// includes severity-based logging control and a standard way of decorating
+// the logs.
+//
+// The facilities defined here allow a Go language chaincode to control the
+// logging level of its shim, and to create its own logs formatted
+// consistently with, and temporally interleaved with the shim logs without
+// any knowledge of the underlying implementation of the shim, and without any
+// other package requirements. The lack of package requirements is especially
+// important because even if the chaincode happened to explicitly use the same
+// logging package as the shim, unless the chaincode is physically included as
+// part of the hyperledger fabric source code tree it could actually end up
+// using a distinct binary instance of the logging package, with different
+// formats and severity levels than the binary package used by the shim.
+//
+// Another approach that might have been taken, and could potentially be taken
+// in the future, would be for the chaincode to supply a logging object for
+// the shim to use, rather than the other way around as implemented
+// here. There would be some complexities associated with that approach, so
+// for the moment we have chosen the simpler implementation below. The shim
+// provides one or more abstract logging objects for the chaincode to use via
+// the NewLogger() API, and allows the chaincode to control the severity level
+// of shim logs using the SetLoggingLevel() API.
 
 // LoggingLevel is an enumerated type of severity levels that control
 // chaincode logging.
@@ -896,10 +919,10 @@ type ChaincodeLogger struct {
 }
 
 // NewLogger allows a Go language chaincode to create one or more logging
-// objects whose logs will be consistent with, and interleaved with, logs
-// created by the shim interface. The logs created by this object can be
-// distinguished from shim logs by the name provided, which will aoppear in the
-// logs.
+// objects whose logs will be formatted consistently with, and temporally
+// interleaved with the logs created by the shim interface. The logs created
+// by this object can be distinguished from shim logs by the name provided,
+// which will appear in the logs.
 func NewLogger(name string) *ChaincodeLogger {
 	return &ChaincodeLogger{logging.MustGetLogger(name)}
 }
@@ -915,6 +938,41 @@ func (c *ChaincodeLogger) SetLevel(level LoggingLevel) {
 // given logging level.
 func (c *ChaincodeLogger) IsEnabledFor(level LoggingLevel) bool {
 	return c.logger.IsEnabledFor(logging.Level(level))
+}
+
+// Debug logs will only appear if the ChaincodeLogger LoggingLevel is set to
+// LogDebug.
+func (c *ChaincodeLogger) Debug(args ...interface{}) {
+	c.logger.Debug(args...)
+}
+
+// Info logs will appear if the ChaincodeLogger LoggingLevel is set to
+// LogInfo or LogDebug.
+func (c *ChaincodeLogger) Info(args ...interface{}) {
+	c.logger.Info(args...)
+}
+
+// Notice logs will appear if the ChaincodeLogger LoggingLevel is set to
+// LogNotice, LogInfo or LogDebug.
+func (c *ChaincodeLogger) Notice(args ...interface{}) {
+	c.logger.Notice(args...)
+}
+
+// Warning logs will appear if the ChaincodeLogger LoggingLevel is set to
+// LogWarning, LogNotice, LogInfo or LogDebug.
+func (c *ChaincodeLogger) Warning(args ...interface{}) {
+	c.logger.Warning(args...)
+}
+
+// Error logs will appear if the ChaincodeLogger LoggingLevel is set to
+// LogError, LogWarning, LogNotice, LogInfo or LogDebug.
+func (c *ChaincodeLogger) Error(args ...interface{}) {
+	c.logger.Error(args...)
+}
+
+// Critical logs always appear; They can not be disabled.
+func (c *ChaincodeLogger) Critical(args ...interface{}) {
+	c.logger.Critical(args...)
 }
 
 // Debugf logs will only appear if the ChaincodeLogger LoggingLevel is set to

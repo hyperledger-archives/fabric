@@ -45,9 +45,9 @@ general:
 
         # Send a pre-prepare if there are pending requests, batchsize isn't reached yet,
         # and this much time has elapsed since the current batch was formed
-        batch: 2s
+        batch: 1s
 
-        # How long may a request take between reception and execution
+        # How long may a request take between reception and execution, must be greater than the batch timeout
         request: 2s
 
         # How long may a view change take
@@ -56,7 +56,7 @@ general:
         # How long to wait for a view change quorum before resending (the same) view change
         resendviewchange: 2s
 
-        # Interval to send "keep-alive" null requests.  Set to 0 to disable.
+        # Interval to send "keep-alive" null requests.  Set to 0 to disable. If enabled, must be greater than request timeout
         nullrequest: 0s
 
 ################################################################################

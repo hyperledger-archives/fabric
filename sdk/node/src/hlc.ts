@@ -2552,7 +2552,7 @@ function rolesToMask(roles?:string[]):number {
     let mask:number = 0;
     if (roles) {
         for (let role in roles) {
-            switch (role) {
+            switch (roles[role]) {
                 case 'client':
                     mask |= 1;
                     break;       // Client mask
