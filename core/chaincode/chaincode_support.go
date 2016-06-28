@@ -291,11 +291,7 @@ func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID, cLa
 		envs = append(envs, "CORE_PEER_TLS_ENABLED=false")
 	}
 	switch cLang {
-	case pb.ChaincodeSpec_GOLANG:
-		//chaincode executable will be same as the name of the chaincode
-		args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
-		chaincodeLogger.Debugf("Executable is %s", args[0])
-	case pb.ChaincodeSpec_CAR:
+	case pb.ChaincodeSpec_GOLANG, pb.ChaincodeSpec_CAR:
 		//chaincode executable will be same as the name of the chaincode
 		args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}
 		chaincodeLogger.Debugf("Executable is %s", args[0])
