@@ -323,8 +323,6 @@ func (mock *MockLedger) simulateStateTransfer(info *protos.BlockchainInfo, peers
 
 		if nil != err {
 			n--
-			// To accommodate Sieve, it's possible to ask for a block that hasn't been committed yet
-			// because Sieve must broadcast the verify set before it is committed
 			fmt.Printf("TEST LEDGER: Block not ready yet")
 			time.Sleep(100 * time.Millisecond)
 			p++
