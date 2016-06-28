@@ -74,26 +74,36 @@ Note: This guide generally assumes you have followed the development environment
     gradle build
 ```
 4. Run the SimpleSample chaincode using the `gradle run`
+
 5. Open the third Vagrant terminal to run init and invoke on the chaincode
 
 
+
+    peer chaincode deploy -l java -n SimpleSample -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
 ```
-peer chaincode deploy -l java -n SimpleSample -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
 2016/06/28 19:10:15 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
 19:10:15.461 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
 SimpleSample
+```
+    peer chaincode invoke -l java -n SimpleSample -c '{"Function": "transfer", "Args": ["a", "b", "10"]}'
 
-peer chaincode invoke -l java -n SimpleSample -c '{"Function": "transfer", "Args": ["a", "b", "10"]}'
+```
 2016/06/28 19:11:13 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
 19:11:13.553 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
 978ff89e-e4ef-43da-a9f8-625f2f6f04e5
-
-peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["a"]}'
+```
+    peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["a"]}'
+```
 2016/06/28 19:12:19 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
 19:12:19.289 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
 {"Name":"a","Amount":"90"}
-peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["b"]}'
+```
+    peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["b"]}'
+```
 2016/06/28 19:12:25 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
 19:12:25.667 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
 {"Name":"b","Amount":"210"}
 ```
+
+
+
