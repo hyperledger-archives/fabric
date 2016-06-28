@@ -34,8 +34,7 @@ import (
 )
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
-	missing, _ := node.ks.certMissing(node.conf.getTLSCertFilename())
-	if !missing {
+	if !node.ks.certMissing(node.conf.getTLSCertFilename()) {
 		return nil
 	}
 

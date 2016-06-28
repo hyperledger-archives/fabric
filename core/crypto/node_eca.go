@@ -42,8 +42,7 @@ var (
 )
 
 func (node *nodeImpl) retrieveECACertsChain(userID string) error {
-	missing, _ := node.ks.certMissing(node.conf.getECACertsChainFilename())
-	if !missing {
+	if !node.ks.certMissing(node.conf.getECACertsChainFilename()) {
 		return nil
 	}
 
@@ -81,8 +80,7 @@ func (node *nodeImpl) retrieveECACertsChain(userID string) error {
 }
 
 func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
-	missing, _ := node.ks.certMissing(node.conf.getEnrollmentCertFilename())
-	if !missing {
+	if !node.ks.certMissing(node.conf.getEnrollmentCertFilename()) {
 		return nil
 	}
 

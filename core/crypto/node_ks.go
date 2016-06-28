@@ -254,8 +254,8 @@ func (ks *keyStore) storeCert(alias string, der []byte) error {
 	return nil
 }
 
-func (ks *keyStore) certMissing(alias string) (bool, error) {
-	return utils.FileMissing(ks.node.conf.getRawsPath(), alias)
+func (ks *keyStore) certMissing(alias string) bool {
+	return !ks.isAliasSet(alias)
 }
 
 func (ks *keyStore) loadCert(alias string) ([]byte, error) {
