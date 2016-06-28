@@ -242,18 +242,7 @@ func main() {
 
 	// Set the flags on the node start command.
 	flags := nodeStartCmd.Flags()
-	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
-	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
-	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
-	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
-
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
-
-	viper.BindPFlag("peer.tls.enabled", flags.Lookup("peer-tls-enabled"))
-	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
-	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
@@ -273,7 +262,7 @@ func main() {
 	nodeCmd.AddCommand(nodeStartCmd)
 	nodeCmd.AddCommand(nodeStatusCmd)
 
-	nodeStopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
+	nodeStopCmd.Flags().StringVar(&stopPidFile, "stop-peer-pid-file", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
 	nodeCmd.AddCommand(nodeStopCmd)
 
 	mainCmd.AddCommand(nodeCmd)
