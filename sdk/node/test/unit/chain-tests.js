@@ -18,7 +18,7 @@
  * © Copyright IBM Corp. 2016
  */
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -27,7 +27,7 @@ var fs = require('fs');
 //  Create a test chain
 //
 
-var chain = hlc.newChain("testChain");
+var chain = hfc.newChain("testChain");
 
 var registrar = {
     name: 'WebAppAdmin',
@@ -47,7 +47,7 @@ var registrar = {
 // to be used to authenticate the member services certificate.
 //
 
-chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
 if (fs.existsSync("tlsca.cert")) {
     chain.setMemberServicesUrl("grpcs://localhost:50051", fs.readFileSync('tlsca.cert'));
 } else {

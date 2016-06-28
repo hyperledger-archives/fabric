@@ -22,7 +22,7 @@
  * Simple asset management use case where authentication is performed
  * with the help of TCerts only (use-case 1) or attributes only (use-case 2).*/
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -49,8 +49,8 @@ var testChaincodeID;
 //
 //  Create and configure a test chain
 //
-var chain = hlc.newChain("testChain");
-chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+var chain = hfc.newChain("testChain");
+chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
 

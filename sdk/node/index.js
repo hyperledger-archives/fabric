@@ -17,4 +17,4 @@
  * Licensed Materials - Property of IBM
  * © Copyright IBM Corp. 2016
  */
-module.exports = require('./lib/hlc');
+module.exports = require('./lib/hfc');
