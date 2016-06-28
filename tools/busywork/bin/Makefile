@@ -170,7 +170,7 @@ peer_image:
 ############################################################################
 # Testing
 
-.PHONY: test go_tests behave_tests behave_tests_with_logs
+.PHONY: test go_tests behave_tests behave_tests_with_logs busyTest
 
 go_tests: nosec_noops_1
 	cd $(GOPATH)/src/github.com/hyperledger/fabric; \
@@ -187,6 +187,8 @@ behave_tests_with_logs: fabric_reset
 
 test: go_tests behave_tests
 
+busyTest:
+	./busyTest
 
 ############################################################################
 # "Clean" routines
