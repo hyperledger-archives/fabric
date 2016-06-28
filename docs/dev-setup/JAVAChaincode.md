@@ -13,19 +13,13 @@ Note: This guide generally assumes you have followed the development environment
 
     vagrant ssh
 
-4. Build and run the peer process. To enable security and privacy after setting `security.enabled` and `security.privacy` settings to `true`.
+4. Build and run the peer process. 
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
     peer node start
 
-5. Change to Java shim root folder,
-
-	cd $GOPATH/src/github.com/hyperledger/fabric/core/chaincode/shim/java
-
- and run 'gradle build'
-
-6. The following steps is for deploying chaincode in non-dev mode.
+5. The following steps is for deploying chaincode in non-dev mode.
 
 	* Deploy the chaincode,
 ```
@@ -66,6 +60,40 @@ Note: This guide generally assumes you have followed the development environment
 * To develop your own chaincodes, simply extend the Chaincode class (demonstrated in the SimpleSample Example under the examples package)
 
 
-##### Note: The same steps can be used for deploying and testing the chaincode in development mode after starting the peer in dev mode using the command
-
+## Java chaincode deployment in DEV Mode
+1. Follow the step 1 to 3 as above,
+2. Build and run the peer process
+```    
+    cd $GOPATH/src/github.com/hyperledger/fabric
+    make peer
     peer node start --peer-chaincodedev
+```
+3. Open the second Vagrant terminal, and change to Java shim root folder and run gradle build,
+```
+    cd $GOPATH/src/github.com/hyperledger/fabric/core/chaincode/shim/java
+    gradle build
+```
+4. Run the SimpleSample chaincode using the `gradle run`
+5. Open the third Vagrant terminal to run init and invoke on the chaincode
+
+
+```
+peer chaincode deploy -l java -n SimpleSample -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
+2016/06/28 19:10:15 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
+19:10:15.461 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
+SimpleSample
+
+peer chaincode invoke -l java -n SimpleSample -c '{"Function": "transfer", "Args": ["a", "b", "10"]}'
+2016/06/28 19:11:13 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
+19:11:13.553 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
+978ff89e-e4ef-43da-a9f8-625f2f6f04e5
+
+peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["a"]}'
+2016/06/28 19:12:19 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
+19:12:19.289 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
+{"Name":"a","Amount":"90"}
+peer chaincode query -l java -n SimpleSample -c '{"Function": "query", "Args": ["b"]}'
+2016/06/28 19:12:25 Load docker HostConfig: %+v &{[] [] []  [] false map[] [] false [] [] [] [] host    { 0} [] { map[]} false []  0 0 0 false 0    0 0 0 []}
+19:12:25.667 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
+{"Name":"b","Amount":"210"}
+```
