@@ -112,8 +112,8 @@ func deploySysCC(ctx context.Context, spec *protos.ChaincodeSpec) error {
 }
 
 func isWhitelisted(syscc *SystemChaincode) bool {
-    chaincodes := viper.GetStringMapString("chaincode.system")
-    val, ok := chaincodes[syscc.Name]
-    enabled := val == "enable" || val == "true" || val == "yes"
-    return ok && enabled
+	chaincodes := viper.GetStringMapString("chaincode.system")
+	val, ok := chaincodes[syscc.Name]
+	enabled := val == "enable" || val == "true" || val == "yes"
+	return ok && enabled
 }
