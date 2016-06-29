@@ -48,14 +48,15 @@ func (t *SampleSysCC) Invoke(stub *shim.ChaincodeStub, function string, args []s
 	key = args[0]
 	val = args[1]
 
-	_, err := stub.GetState(key)
-	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get val for " + key + "\"}"
-		return nil, errors.New(jsonResp)
-	}
+	/*
+		_, err := stub.GetState(key)
+		if err != nil {
+			jsonResp := "{\"Error\":\"Failed to get val for " + key + "\"}"
+			return nil, errors.New(jsonResp)
+		}*/
 
 	// Write the state to the ledger
-	err = stub.PutState(key, []byte(val))
+	err := stub.PutState(key, []byte(val))
 	if err != nil {
 		return nil, err
 	}

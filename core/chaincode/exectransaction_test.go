@@ -1211,7 +1211,7 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 		return
 	}
 
-	if strings.Index(err.Error(), "Nil amount for c") < 0 {
+	if strings.Index(err.Error(), "Failed to get state for c") < 0 {
 		t.Fail()
 		t.Logf("Unexpected error %s", err)
 		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec1})
