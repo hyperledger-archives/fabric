@@ -1432,6 +1432,143 @@ func TestGetEvent(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// Test the invocation of a transaction.
+func TestPutAndGetForEmptyKeyValue(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	url := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example_put_get_state"
+	chaincodeID := &pb.ChaincodeID{Path: url}
+
+	f := "init"
+	argsDeploy := []string{"Key", ""}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: chaincodeID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsDeploy}}
+	_, err = deploy(ctxt, spec)
+	chaincodeName := spec.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error deploying <%s>: %s", chaincodeName, err)
+	}
+
+	time.Sleep(time.Second)
+
+	f = "query"
+	argsQuery := []string{"Key"}
+	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: chaincodeID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsQuery}}
+	_, _, retValue, err := invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+
+	if err != nil {
+		t.Fail()
+		t.Logf("Error invoking transaction: %s", err)
+	} else {
+		//Protobuf again converts []byte{} to nil :)
+		fmt.Printf("Invoke test passed. Expected value [] and got value: (%v) isNil?:%v cap:%v \n", retValue, (retValue == nil), cap(retValue))
+		t.Logf("Invoke test passed")
+	}
+
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: chaincodeID}})
+
+	closeListenerAndSleep(lis)
+}
+
+// Test the invocation of a transaction.
+func TestQueryForNonExistentKey(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:40303"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	url := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example_put_get_state"
+	chaincodeID := &pb.ChaincodeID{Path: url}
+
+	f := "init"
+	argsDeploy := []string{"Key", ""}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: chaincodeID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsDeploy}}
+	_, err = deploy(ctxt, spec)
+	chaincodeName := spec.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error deploying <%s>: %s", chaincodeName, err)
+	}
+
+	time.Sleep(time.Second)
+
+	f = "query"
+	argsQuery := []string{"KeyDoesNotExist"}
+	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: chaincodeID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsQuery}}
+	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+
+	//Expecting failure
+	if err != nil {
+		t.Logf("Test for NonExistentKey Passed. Expecting error and got error: %s", err)
+	} else {
+		t.Fail()
+		t.Logf("Test for NonExistentKey Failed. Expecting error to be thrown")
+	}
+
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: &pb.ChaincodeSpec{ChaincodeID: chaincodeID}})
+
+	closeListenerAndSleep(lis)
+}
+
 func TestMain(m *testing.M) {
 	SetupTestConfig()
 	os.Exit(m.Run())

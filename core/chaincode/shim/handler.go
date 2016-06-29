@@ -33,6 +33,12 @@ type PeerChaincodeStream interface {
 	CloseSend() error
 }
 
+// KeyNotFound Error in State
+var (
+	// ErrKeyNotFoundInState if the specified key cannot be found
+	ErrKeyNotFoundInState = errors.New("chaincode: Key not found in state")
+)
+
 type nextStateInfo struct {
 	msg      *pb.ChaincodeMessage
 	sendToCC bool
@@ -460,8 +466,15 @@ func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) 
 
 	if responseMsg.Type.String() == pb.ChaincodeMessage_RESPONSE.String() {
 		// Success response
-		chaincodeLogger.Debugf("[%s]GetState received payload %s", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
-		return responseMsg.Payload, nil
+		if responseMsg.Payload == nil {
+			chaincodeLogger.Debugf("[%s]Queried key (%s) does not exist in the state", shortuuid(responseMsg.Uuid), key)
+			return nil, ErrKeyNotFoundInState
+		} else {
+			// Stripping NUL byte which got appended by peer
+			responseMsg.Payload = responseMsg.Payload[0 : len(responseMsg.Payload)-1]
+			chaincodeLogger.Debugf("[%s]GetState received payload %s", shortuuid(responseMsg.Uuid), pb.ChaincodeMessage_RESPONSE)
+			return responseMsg.Payload, nil
+		}
 	}
 	if responseMsg.Type.String() == pb.ChaincodeMessage_ERROR.String() {
 		// Error response

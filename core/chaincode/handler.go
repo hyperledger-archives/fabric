@@ -638,8 +638,16 @@ func (handler *Handler) handleGetState(msg *pb.ChaincodeMessage) {
 			// Decrypt the data if the confidential is enabled
 			if res, err = handler.decrypt(msg.Uuid, res); err == nil {
 				// Send response msg back to chaincode. GetState will not trigger event
+
+				// Padding or appending NUL to response, which will be stripped off on the shim side
+				//Not using append as it doubles the capacity
+				lengthOfAppendedResponse := len(res) + 1
+				var appendedResponse = make([]byte, lengthOfAppendedResponse)
+				copy(appendedResponse, res)
+				appendedResponse[lengthOfAppendedResponse-1] = 0
+
 				chaincodeLogger.Debugf("[%s]Got state. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_RESPONSE)
-				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: res, Uuid: msg.Uuid}
+				serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_RESPONSE, Payload: appendedResponse, Uuid: msg.Uuid}
 			} else {
 				// Send err msg back to chaincode.
 				chaincodeLogger.Errorf("[%s]Got error (%s) while decrypting. Sending %s", shortuuid(msg.Uuid), err, pb.ChaincodeMessage_ERROR)
@@ -1032,6 +1040,11 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 				chaincodeLogger.Debugf("[%s]Unable to decipher payload. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
 				triggerNextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid}
 				return
+			}
+
+			//Protobuf converts empty bytes from shim to nil, converting back to empty bytes
+			if putStateInfo.Value == nil {
+				putStateInfo.Value = []byte{}
 			}
 
 			var pVal []byte
