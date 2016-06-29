@@ -29,12 +29,6 @@ var fs = require('fs');
 
 var chain = hlc.newChain("testChain");
 
-var registrar = {
-    name: 'WebAppAdmin',
-    secret: 'DJY27pEnl16d'
-};
-
-
 //
 // Configure the test chain
 //
@@ -113,8 +107,8 @@ function getUser(name, cb) {
         if (err) return cb(err);
         if (user.isEnrolled()) return cb(null,user);
         // User is not enrolled yet, so perform both registration and enrollment
+        // The chain registrar is already set inside 'Set chain registrar' test
         var registrationRequest = {
-            registrar: registrar.user,
             enrollmentID: name,
             account: "bank_a",
             affiliation: "00001"
