@@ -27,8 +27,7 @@ package protos;
 enum EventType {
         REGISTER = 0;
         BLOCK = 1;
-	GENERIC = 2;
-	CHAINCODE = 3;
+	CHAINCODE = 2;
 }
 
 //ChaincodeReg is used for registering chaincode Interests
@@ -36,7 +35,6 @@ enum EventType {
 message ChaincodeReg {
     string chaincodeID = 1;
     string eventName = 2;
-    bool anyTransaction = 3;
 }
 
 message Interest {
@@ -57,14 +55,6 @@ message Register {
     repeated Interest events = 1;
 }
 
-//---------- producer events ---------
-//Generic is used for encoding payload as JSON or raw bytes
-//string type - "generic"
-message Generic {
-    string eventType = 1;
-    bytes payload = 2;
-}
-
 //Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
@@ -77,8 +67,7 @@ message Event {
 
         //producer events
         Block block = 2;
-        Generic generic = 3;
-        ChaincodeEvent chaincodeEvent = 4;
+        ChaincodeEvent chaincodeEvent = 3;
     }
 }
 

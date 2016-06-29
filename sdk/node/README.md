@@ -1,25 +1,29 @@
-#Hyperledger Client SDK for Node.js
+#Hyperledger Fabric Client SDK for Node.js
 
-The Hyperledger Client SDK (HLC) provides a powerful and easy to use API to interact with a Hyperledger blockchain.
+The Hyperledger Fabric Client SDK (HFC) provides a powerful and easy to use API to interact with a Hyperledger Fabric blockchain.
+
+To install `hfc` from npm simply execute the following command:
+
+    npm install -g hfc
 
 The sections in this document are as follows:
 
-* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HLC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
+* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
 
 * The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
 
-* The [Going Deeper](#going-deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the reference documentation. The top-level class is `Chain`.
+* The [Going Deeper](#going-deeper) section discusses HFC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the reference documentation. The top-level class is `Chain`.
 
    WARNING: To view the reference documentation correctly, you first need to [build the SDK](#building-the-client-sdk) and then open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
 
-   `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
+   `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hfc_.html`
 
-   `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hlc_.chain.html`
+   `file:///YOUR-FABRIC-DIR/sdk/node/doc/classes/_hfc_.chain.html`
 
 * The [Future Work](#future-work) section describes some upcoming work to be done.
 
 ## Getting Started
-This purpose of this section is to help you quickly get a feel for HLC and how you may use it.  It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
+This purpose of this section is to help you quickly get a feel for HFC and how you may use it.  It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
 
 ### Some basic terminology
 First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
@@ -29,7 +33,7 @@ Think of **registration** as *issuing a user invitation* to join a blockchain.  
 Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the `Member.enroll` method.
 
 ### Learn by example
-The best way to quickly learn HLC is by example.
+The best way to quickly learn HFC is by example.
 
 The following example demonstrates a typical web app.  The web app authenticates a user and then transacts on a blockchain on behalf of that user.
 
@@ -44,20 +48,20 @@ The following example demonstrates a typical web app.  The web app authenticates
  */
 
 // To include the package from your hyperledger fabric directory:
-//    var hlc = require("myFabricDir/sdk/node");
+//    var hfc = require("myFabricDir/sdk/node");
 // To include the package from npm:
-//      var hlc = require('hlc');
-var hlc = require('hlc');
+//      var hfc = require('hfc');
+var hfc = require('hfc');
 
 // Create a client chain.
 // The name can be anything as it is only used internally.
-var chain = hlc.newChain("targetChain");
+var chain = hfc.newChain("targetChain");
 
 // Configure the KeyValStore which is used to store sensitive keys
 // as so it is important to secure this storage.
 // The FileKeyValStore is a simple file-based KeyValStore, but you
 // can easily implement your own to store whereever you want.
-chain.setKeyValStore( hlc.newFileKeyValStore('/tmp/keyValStore') );
+chain.setKeyValStore( hfc.newFileKeyValStore('/tmp/keyValStore') );
 
 // Set the URL for member services
 chain.setMemberServicesUrl("grpc://localhost:50051");
@@ -131,12 +135,6 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
    });
 }
 ```
-
-### Installing hlc from npm
-
-To install `hlc` from npm simply execute the following command.
-
-    npm install -g hlc
 
 ### Chaincode Deployment Directory structure
 
@@ -219,10 +217,25 @@ This is needed to allow the peer to connect to the member services using TLS, ot
 
 *Note:* If you cleanup the folder `/var/hyperledger/production` then don't forget to copy again the *tlsca.cert* file as described above.
 
-## Running the SDK unit tests
-HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The unit [test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
+#### Setting up the testing environment
+From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
-To run the unit tests, execute the following commands.
+    vagrant ssh
+
+Build the <b>Certificate Authority (CA)</b> server with the commands below:
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc
+    go build
+
+Next, enable the security and privacy settings on the peer by setting `security.enabled` and `security.privacy` settings to `true` inside the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml). Then build the peer with the following steps.
+
+Build the peer process with the commands below.
+
+    cd $GOPATH/src/github.com/hyperledger/fabric/peer
+    go build
+
+### Running the SDK unit tests
+HFC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). To run the unit tests, execute the following commands.
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make node-sdk-unit-tests
@@ -256,28 +269,28 @@ To address this, remove any stored crypto material from the CA server by followi
 ## Going Deeper
 
 #### Pluggability
-HLC was designed to support two pluggable components:
+HFC was designed to support two pluggable components:
 
 1. Pluggable key value store which is used to retrieve and store keys associated with a member.  The key value store is used to store sensitive private keys, so care must be taken to properly protect access.
 
 2. Pluggable member service which is used to register and enroll members.  Member services enables hyperledger to be a permissioned blockchain, providing security services such as anonymity, unlinkability of transactions, and confidentiality
 
-#### HLC objects and reference documentation
-HLC is written primarily in typescript and is object-oriented.  The source can be found in the `fabric/sdk/node/src` directory.
+#### HFC objects and reference documentation
+HFC is written primarily in typescript and is object-oriented.  The source can be found in the `fabric/sdk/node/src` directory.
 
-To go deeper, you can view the reference documentation in your browser by opening the [reference documentation](doc/modules/_hlc_.html) and clicking on **"hlc"** on the right-hand side under **"Globals"**. This will work after you have built the SDK per the instruction [here](#building-the-client-sdk).
+To go deeper, you can view the reference documentation in your browser by opening the [reference documentation](doc/modules/_hfc_.html) and clicking on **"hfc"** on the right-hand side under **"Globals"**. This will work after you have built the SDK per the instruction [here](#building-the-client-sdk).
 
-The following is a high-level description of the HLC objects (classes and interfaces) to help guide you through the object hierarchy.
+The following is a high-level description of the HFC objects (classes and interfaces) to help guide you through the object hierarchy.
 
-* The main top-level class is [Chain](doc/classes/_hlc_.chain.html). It is the client's representation of a chain.  HLC allows you to interact with multiple chains and to share a single [KeyValStore](doc/interfaces/_hlc_.keyvalstore.html) and [MemberServices](doc/interfaces/_hlc_.memberservices.html) object with multiple Chain objects as needed.  For each chain, you add one or more [Peer](doc/classes/_hlc_.peer.html) objects which represents the endpoint(s) to which HLC connects to transact on the chain.
+* The main top-level class is [Chain](doc/classes/_hfc_.chain.html). It is the client's representation of a chain.  HFC allows you to interact with multiple chains and to share a single [KeyValStore](doc/interfaces/_hfc_.keyvalstore.html) and [MemberServices](doc/interfaces/_hfc_.memberservices.html) object with multiple Chain objects as needed.  For each chain, you add one or more [Peer](doc/classes/_hfc_.peer.html) objects which represents the endpoint(s) to which HFC connects to transact on the chain.
 
-* The [KeyValStore](doc/interfaces/_hlc_.keyvalstore.html) is a very simple interface which HLC uses to store and retrieve all persistent data.  This data includes private keys, so it is very important to keep this storage secure.  The default implementation is a simple file-based version found in the [FileKeyValStore](doc/classes/_hlc_.filekeyvalstore.html) class.
+* The [KeyValStore](doc/interfaces/_hfc_.keyvalstore.html) is a very simple interface which HFC uses to store and retrieve all persistent data.  This data includes private keys, so it is very important to keep this storage secure.  The default implementation is a simple file-based version found in the [FileKeyValStore](doc/classes/_hfc_.filekeyvalstore.html) class.
 
-* The [MemberServices](doc/interfaces/_hlc_.memberservices.html) interface is implemented by the [MemberServicesImpl](doc/classes/_hlc_.memberservicesimpl.html) class and provides security and identity related features such as privacy, unlinkability, and confidentiality.  This implementation issues *ECerts* (enrollment certificates) and *TCerts* (transaction certificates).  ECerts are for enrollment identity and TCerts are for transactions.
+* The [MemberServices](doc/interfaces/_hfc_.memberservices.html) interface is implemented by the [MemberServicesImpl](doc/classes/_hfc_.memberservicesimpl.html) class and provides security and identity related features such as privacy, unlinkability, and confidentiality.  This implementation issues *ECerts* (enrollment certificates) and *TCerts* (transaction certificates).  ECerts are for enrollment identity and TCerts are for transactions.
 
-* The [Member](doc/classes/_hlc_.member.html) class most often represents an end user who transacts on the chain, but it may also represent other types of members such as peers.  From the Member class, you can *register* and *enroll* members or users.  This interacts with the [MemberServices](doc/interfaces/_hlc_.memberservices.html) object.  You can also deploy, query, and invoke chaincode directly, which interacts with the [Peer](doc/classes/_hlc_.peer.html).  The implementation for deploy, query and invoke simply creates a temporary [TransactionContext](doc/classes/_hlc_.transactioncontext.html) object and delegates the work to it.
+* The [Member](doc/classes/_hfc_.member.html) class most often represents an end user who transacts on the chain, but it may also represent other types of members such as peers.  From the Member class, you can *register* and *enroll* members or users.  This interacts with the [MemberServices](doc/interfaces/_hfc_.memberservices.html) object.  You can also deploy, query, and invoke chaincode directly, which interacts with the [Peer](doc/classes/_hfc_.peer.html).  The implementation for deploy, query and invoke simply creates a temporary [TransactionContext](doc/classes/_hfc_.transactioncontext.html) object and delegates the work to it.
 
-* The [TransactionContext](doc/classes/_hlc_.transactioncontext.html) class implements the bulk of the deploy, invoke, and query logic.  It interacts with MemberServices to get a TCert to perform these operations.  Note that there is a one-to-one relationship between TCert and TransactionContext; in other words, a single TransactionContext will always use the same TCert.  If you want to issue multiple transactions with the same TCert, then you can get a [TransactionContext](doc/classes/_hlc_.transactioncontext.html) object from a [Member](doc/classes/_hlc_.member.html) object directly and issue multiple deploy, invoke, or query operations on it.  Note however that if you do this, these transactions are linkable, which means someone could tell that they came from the same user, though not know which user.  For this reason, you will typically just call deploy, invoke, and query on the User or Member object.
+* The [TransactionContext](doc/classes/_hfc_.transactioncontext.html) class implements the bulk of the deploy, invoke, and query logic.  It interacts with MemberServices to get a TCert to perform these operations.  Note that there is a one-to-one relationship between TCert and TransactionContext; in other words, a single TransactionContext will always use the same TCert.  If you want to issue multiple transactions with the same TCert, then you can get a [TransactionContext](doc/classes/_hfc_.transactioncontext.html) object from a [Member](doc/classes/_hfc_.member.html) object directly and issue multiple deploy, invoke, or query operations on it.  Note however that if you do this, these transactions are linkable, which means someone could tell that they came from the same user, though not know which user.  For this reason, you will typically just call deploy, invoke, and query on the User or Member object.
 
 ## Future Work
 The following is a list of known remaining work to be done.
@@ -288,4 +301,4 @@ The following is a list of known remaining work to be done.
 
 * Implement events appropriately, both custom and non-custom.  The 'complete' event for `deploy` and `invoke` is currently implemented by simply waiting a set number of seconds (5 for invoke, 20 for deploy).  It needs to receive a complete event from the server with the result of the transaction and make this available to the caller. This has not yet been implemented.
 
-* Support SHA2.  HLC currently supports SHA3.
+* Support SHA2.  HFC currently supports SHA3.
