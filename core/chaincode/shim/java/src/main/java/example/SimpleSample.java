@@ -97,10 +97,10 @@ public class SimpleSample extends ChaincodeBase {
 			valA = Integer.parseInt(am);
 		}catch(NumberFormatException e ){
 			e.printStackTrace();
-			return "{\"Error\":\"Expecting integer value for ammount \"}";		
+			return "{\"Error\":\"Expecting integer value for amount \"}";
 		}		
 		if(valA>valFrom)
-			return "{\"Error\":\"Insuficient asset holding value for requested transfer ammount \"}";		
+			return "{\"Error\":\"Insufficient asset holding value for requested transfer amount \"}";
 		valFrom = valFrom-valA;
 		valTo = valTo+valA;
 		System.out.println("Transfer "+fromName+">"+toName+" am='"+am+"' new values='"+valFrom+"','"+ valTo+"'");
