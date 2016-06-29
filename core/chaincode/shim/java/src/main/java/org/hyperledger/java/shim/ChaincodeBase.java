@@ -175,8 +175,13 @@ public abstract class ChaincodeBase {
 				NextStateInfo nsInfo = handler.nextState.take();
 				ChaincodeMessage message = nsInfo.message;
 				handler.handleMessage(message);
-				if (nsInfo.sendToCC) {
-					logger.debug("["+Handler.shortUUID(message.getUuid())+"]Send state message "+ message.getType());
+				//keepalive messages are PONGs to the fabric's PINGs
+				if (nsInfo.sendToCC || message.getType() == Type.KEEPALIVE) {
+					if (message.getType() == Type.KEEPALIVE){
+						logger.debug("Sending KEEPALIVE response");
+					}else {
+						logger.debug("[" + Handler.shortUUID(message.getUuid()) + "]Send state message " + message.getType());
+					}
 					handler.serialSend(message);
 				}
 			} catch (Exception e) {

@@ -904,6 +904,15 @@ public class Handler {
 
 	// handleMessage message handles loop for org.hyperledger.java.shim side of chaincode/validator stream.
 	public synchronized void handleMessage(ChaincodeMessage message) throws Exception {
+
+
+		if (message.getType() == ChaincodeMessage.Type.KEEPALIVE){
+			logger.debug(String.format("[%s] Recieved KEEPALIVE message, do nothing",
+					shortUUID(message)));
+			// Received a keep alive message, we don't do anything with it for now
+			// and it does not touch the state machine
+				return;
+		}
 		logger.debug(String.format("[%s]Handling ChaincodeMessage of type: %s(state:%s)",
 				shortUUID(message), message.getType(), fsm.current()));
 

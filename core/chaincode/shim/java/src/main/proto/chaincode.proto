@@ -1,26 +1,24 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 syntax = "proto3";
 
 package protos;
 
+import "chaincodeevent.proto";
 import "google/protobuf/timestamp.proto";
 
 
@@ -28,42 +26,6 @@ import "google/protobuf/timestamp.proto";
 enum ConfidentialityLevel {
     PUBLIC = 0;
     CONFIDENTIAL = 1;
-}
-
-message ColumnDefinition {
-	string name = 1;
-	enum Type {
-    STRING = 0;
-		INT32 = 1;
-		INT64 = 2;
-		UINT32 = 3;
-		UINT64 = 4;
-		BYTES = 5;
-		BOOL = 6;
-  }
-	Type type = 2;
-	bool key = 3;
-}
-
-message Table {
-    string name = 1;
-    repeated ColumnDefinition columnDefinitions = 2;
-}
-
-message Column {
-	oneof value {
-    string string = 1;
-    int32 int32 = 2;
-		int64 int64 = 3;
-		uint32 uint32 = 4;
-		uint64 uint64 = 5;
-		bytes bytes = 6;
-		bool bool = 7;
-  }
-}
-
-message Row {
-	repeated Column columns = 1;
 }
 
 
@@ -99,7 +61,8 @@ message ChaincodeSpec {
         UNDEFINED = 0;
         GOLANG = 1;
         NODE = 2;
-    	JAVA = 3;
+        CAR = 3;
+        JAVA = 4;
     }
 
     Type type = 1;
@@ -109,16 +72,23 @@ message ChaincodeSpec {
     string secureContext = 5;
     ConfidentialityLevel confidentialityLevel = 6;
     bytes metadata = 7;
+    repeated string attributes = 8;
 }
 
 // Specify the deployment of a chaincode.
 // TODO: Define `codePackage`.
 message ChaincodeDeploymentSpec {
 
+    enum ExecutionEnvironment {
+        DOCKER = 0;
+        SYSTEM = 1;
+    }
+
     ChaincodeSpec chaincodeSpec = 1;
     // Controls when the chaincode becomes executable.
     google.protobuf.Timestamp effectiveDate = 2;
     bytes codePackage = 3;
+    ExecutionEnvironment execEnv=  4;
 
 }
 
@@ -126,10 +96,20 @@ message ChaincodeDeploymentSpec {
 message ChaincodeInvocationSpec {
 
     ChaincodeSpec chaincodeSpec = 1;
-    //ChaincodeInput message = 2;
-
+    // This field can contain a user-specified ID generation algorithm
+    // If supplied, this will be used to generate a ID
+    // If not supplied (left empty), a random UUID will be generated
+    // The algorithm consists of two parts:
+    //  1, a hash function
+    //  2, a decoding used to decode user (string) input to bytes
+    // Currently, SHA256 with BASE64 is supported (e.g. idGenerationAlg='sha256base64')
+    string idGenerationAlg = 2;
 }
 
+// This structure contain transaction data that we send to the chaincode
+// container shim and allow the chaincode to access through the shim interface.
+// TODO: Consider remove this message and just pass the transaction object
+// to the shim and/or allow the chaincode to query transactions.
 message ChaincodeSecurityContext {
     bytes callerCert = 1;
     bytes callerSign = 2;
@@ -137,6 +117,7 @@ message ChaincodeSecurityContext {
     bytes binding = 4;
     bytes metadata = 5;
     bytes parentMetadata = 6;
+    google.protobuf.Timestamp txTimestamp = 7; // transaction timestamp
 }
 
 message ChaincodeMessage {
@@ -162,6 +143,7 @@ message ChaincodeMessage {
         RANGE_QUERY_STATE = 17;
         RANGE_QUERY_STATE_NEXT = 18;
         RANGE_QUERY_STATE_CLOSE = 19;
+        KEEPALIVE = 20;
     }
 
     Type type = 1;
@@ -169,6 +151,11 @@ message ChaincodeMessage {
     bytes payload = 3;
     string uuid = 4;
     ChaincodeSecurityContext securityContext = 5;
+
+    //event emmited by chaincode. Used only with Init or Invoke.
+    // This event is then stored (currently)
+    //with Block.NonHashData.TransactionResult
+    ChaincodeEvent chaincodeEvent = 6;
 }
 
 message PutStateInfo {
