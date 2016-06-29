@@ -78,6 +78,7 @@ var Crypto = (function () {
      * @params securityLevel The security level
      */
     Crypto.prototype.setSecurityLevel = function (securityLevel) {
+        this.checkSecurityLevel(securityLevel);
         this.securityLevel = securityLevel;
         this.initialize();
     };
@@ -93,6 +94,7 @@ var Crypto = (function () {
      * @params hashAlgorithm The hash algorithm ('SHA2' or 'SHA3')
      */
     Crypto.prototype.setHashAlgorithm = function (hashAlgorithm) {
+        this.checkHashFunction(hashAlgorithm);
         this.hashAlgorithm = hashAlgorithm;
         this.initialize();
     };
@@ -315,20 +317,20 @@ var Crypto = (function () {
         debug('bytes: ', JSON.stringify(bytes));
         return this.hashFunction(bytes);
     };
-    Crypto.prototype.checkSecurityLevel = function () {
-        if (this.securityLevel != 256 && this.securityLevel != 384)
+    Crypto.prototype.checkSecurityLevel = function (securityLevel) {
+        if (securityLevel != 256 && securityLevel != 384)
             throw new Error("Illegal level: " + this.securityLevel + " - must be either 256 or 384");
     };
-    Crypto.prototype.checkHashFunction = function () {
-        if (!_isString(this.hashAlgorithm))
-            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
-        this.hashAlgorithm = this.hashAlgorithm.toUpperCase();
-        if (this.hashAlgorithm != SHA2 && this.hashAlgorithm != SHA3)
-            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
+    Crypto.prototype.checkHashFunction = function (hashAlgorithm) {
+        if (!_isString(hashAlgorithm))
+            throw new Error("Illegal Hash function family: " + hashAlgorithm + " - must be either SHA2 or SHA3");
+        hashAlgorithm = hashAlgorithm.toUpperCase();
+        if (hashAlgorithm != SHA2 && hashAlgorithm != SHA3)
+            throw new Error("Illegal Hash function family: " + hashAlgorithm + " - must be either SHA2 or SHA3");
     };
     Crypto.prototype.initialize = function () {
-        this.checkSecurityLevel();
-        this.checkHashFunction();
+        this.checkSecurityLevel(this.securityLevel);
+        this.checkHashFunction(this.hashAlgorithm);
         this.suite = this.hashAlgorithm.toLowerCase() + '-' + this.securityLevel;
         if (this.securityLevel == CURVE_P_256_Size) {
             this.curveName = "secp256r1";

@@ -239,6 +239,14 @@ func TestServerOpenchainREST_API_GetBlockByNumber(t *testing.T) {
 	if res.Error == "" {
 		t.Errorf("Expected an error when URL doesn't have a number, but got none")
 	}
+
+	// Add a fake block number 9 and try to fetch non-existing block 6
+	ledger.PutRawBlock(&block0, 9)
+	body = performHTTPGet(t, httpServer.URL+"/chain/blocks/6")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when block doesn't exist, but got none")
+	}
 }
 
 func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
@@ -293,18 +301,17 @@ func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
 	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
 	defer httpServer.Close()
 
-	body := performHTTPGet(t, httpServer.URL+"/registrar/NON-EXISTING-USER")
+	body := performHTTPGet(t, httpServer.URL+"/registrar/NON_EXISTING_USER")
 	res := parseRESTResult(t, body)
-	if res.Error == "" {
-		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	if res.Error != "User NON_EXISTING_USER must log in." {
+		t.Errorf("Expected an error when retrieving non-existing user, but got: %v", res.Error)
 	}
 
 	body = performHTTPGet(t, httpServer.URL+"/registrar/BAD-\"-CHARS")
 	res = parseRESTResult(t, body)
-	if res.Error == "" {
-		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	if res.Error != "Invalid enrollment ID parameter" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got: %v", res.Error)
 	}
-
 }
 
 func TestServerOpenchainREST_API_GetPeers(t *testing.T) {

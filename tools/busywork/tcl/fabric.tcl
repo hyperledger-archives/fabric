@@ -35,19 +35,29 @@ namespace eval ::fabric {}
 # is never retried. We currently do not implememnt retry backoffs - it's
 # pedal-to-the-metal.
 
+# If i_retry is less than 0 on entry, then this is a special flag that the
+# caller is expecting HTTP failures, and does not want diagnostics or error
+# exits. If the HTTP access fails then the call will exit with Tcl error{} and
+# the caller will presumably catch{} the error and do whatever is appropriate.
+
 proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
 
-    for {set retry $i_retry} {$retry >= 0} {incr retry -1} {
+    for {set retry [math:::max $i_retry 0]} {$retry >= 0} {incr retry -1} {
 
         if {[catch {
             ::http::geturl http://$i_peer/devops/$i_method -query $i_query
         } token]} {
+            if {$i_retry < 0} {
+                http::cleanup $token
+                error "http::geturl failed"
+            }
             if {$retry > 0} {
                 if {$retry == $i_retry} {
                     warn fabric \
                         "fabric::devops/$i_method $i_peer : " \
                         "Retrying after catastrophic HTTP error"
                 }
+                http::cleanup $token
                 continue
             }
             if {($retry == 0) && ($i_retry != 0)} {
@@ -56,12 +66,17 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
                     "Retry limit ($i_retry) hit after " \
                     "catastrophic HTTP error : Aborting"
             }
+            http::cleanup $token
             errorExit \
                 "fabric::devops/$i_method $i_peer : ::http::geturl failed\n" \
                 $::errorInfo
         }
 
         if {[http::ncode $token] != 200} {
+            if {$i_retry < 0} {
+                http::cleanup $token
+                error "http::ncode != 200"
+            }
             if {$retry > 0} {
                 if {$retry == $i_retry} {
                     warn fabric \
@@ -74,14 +89,13 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
                         "Retry limit ($i_retry) hit after " \
                         "HTTP error return : Aborting"
                 }
+                http::cleanup $token
                 continue
             }
-            err err \
+            err fabric \
                 "FABRIC '$i_method' transaction to $i_peer failed " \
                 "with ncode = '[http::ncode $token]'; Aborting\n"
-            err err "Full dump of HTTP response below:"
-            foreach {k v} [array get $token] {err err "    $k $v"}
-            exit 1
+            httpErrorExit $token
         }
 
         set response [http::data $token]
@@ -102,18 +116,17 @@ proc ::fabric::devops {i_peer i_method i_query {i_retry 0}} {
             }
         }
         }]
-        http::cleanup $token
 
         if {$err} {
-            err err \
+            err fabric \
                 "FABRIC '$i_method' response from $i_peer " \
                 "is malformed/unexpected"
-            err err "Chaincode : $i_chaincode"
-            err err "Full response below:"
-            err err $response
-            exit 1
+            httpErrorExit $token
         }
-        if {$retry != $i_retry} {
+
+        http::cleanup $token
+
+        if {($i_retry >= 0) && ($retry != $i_retry)} {
             note fabric \
                 "fabric::devops/$i_method $i_peer : " \
                 "Success after [expr {$i_retry - $retry}] HTTP retries"
@@ -166,6 +179,8 @@ proc ::fabric::deploy {i_peer i_user i_chaincode i_fn i_args {i_retry 0}} {
 # Issue a "deploy" transaction for a pre-started chaincode in development
 # mode. Here, the i_chaincode is a user-specified name. All of the other
 # arguments are otherwise the same as for deploy{}.
+
+# See ::fabric::devops{} for a discussion of the 'i_retry' parameter.
 
 proc ::fabric::devModeDeploy {i_peer i_user i_chaincode i_fn i_args {i_retry 0}} {
 

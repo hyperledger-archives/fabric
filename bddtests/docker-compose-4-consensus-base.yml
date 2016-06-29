@@ -13,22 +13,6 @@ vpBase:
     # The checkpoint interval in sequence numbers
     - CORE_PBFT_GENERAL_K=2
 
-vpSieve:
-  extends:
-    service: vpBase
-  environment:
-    - CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft
-    - CORE_PBFT_GENERAL_TIMEOUT_REQUEST=10s
-    - CORE_PBFT_GENERAL_MODE=sieve
-
-vpClassic:
-  extends:
-    service: vpBase
-  environment:
-    - CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft
-    - CORE_PBFT_GENERAL_TIMEOUT_REQUEST=10s
-    - CORE_PBFT_GENERAL_MODE=classic
-
 vpBatch:
   extends:
     service: vpBase

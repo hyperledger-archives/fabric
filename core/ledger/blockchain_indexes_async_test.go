@@ -81,7 +81,7 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 
 	defer func() {
 		// first stop and then set the error to nil.
-		// Otherwise stop may hang (waiting for cathing up the index with the committing block)
+		// Otherwise stop may hang (waiting for catching up the index with the committing block)
 		testBlockchainWrapper.blockchain.indexer.stop()
 		asyncIndexer.indexerState.setError(nil)
 	}()

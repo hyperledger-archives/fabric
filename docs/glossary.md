@@ -415,7 +415,7 @@ The main module on a node that is responsible to process transactions, deploy an
 <tr>
 <td width="20%"><b>Consensus</b></td>
 <td>
-The default consensus algorithm of Hyperledger fabric is called Sieve. It is a new algorithm, enhancing the “classic” PBFT mechanism in that it allows validating nodes to do a best effort in identifying non-deterministic transactions.
+The default consensus algorithm of Hyperledger fabric is an implementation of PBFT.
 </td>
 </tr>
 </table>
