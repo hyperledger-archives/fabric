@@ -53,6 +53,8 @@ func TestCreateDB(t *testing.T) {
 
 func TestOpenDB_DirDoesNotExist(t *testing.T) {
 	openchainDB := Create()
+	deleteTestDBPath()
+
 	defer deleteTestDBPath()
 	defer openchainDB.Close()
 	defer func() {
@@ -76,30 +78,6 @@ func TestOpenDB_NonEmptyDirExists(t *testing.T) {
 		}
 	}()
 	openchainDB.Open()
-}
-
-func TestGetDB_DirDoesNotExist(t *testing.T) {
-	defer deleteTestDBPath()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Failed to open DB: %s", r)
-		}
-	}()
-	openchainDB := GetDBHandle()
-
-	defer openchainDB.Close()
-}
-
-func TestGetDB_NonEmptyDirExists(t *testing.T) {
-	createNonEmptyTestDBPath()
-	defer deleteTestDBPath()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("dbPath is already exists. DB open should throw error")
-		}
-	}()
-	openchainDB := GetDBHandle()
-	defer openchainDB.Close()
 }
 
 func TestWriteAndRead(t *testing.T) {
