@@ -68,6 +68,12 @@ type restResult struct {
 	Error string `json:",omitempty"`
 }
 
+// tcertsResult defines the response payload for the GetTransactionCert REST
+// interface request.
+type tcertsResult struct {
+	OK []string
+}
+
 // rpcRequest defines the JSON RPC 2.0 request payload for the /chaincode endpoint.
 type rpcRequest struct {
 	Jsonrpc *string           `json:"jsonrpc,omitempty"`
@@ -505,6 +511,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 
 	restLogger.Debugf("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
 
+	encoder := json.NewEncoder(rw)
+
 	// Parse out the count query parameter
 	req.ParseForm()
 	queryParams := req.Form
@@ -521,8 +529,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Check for count parameter being a non-negative integer
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
-			restLogger.Error("{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
+			encoder.Encode(restResult{Error: "Count query parameter must be a non-negative integer."})
+			restLogger.Errorf("Error: Count query parameter must be a non-negative integer.")
 
 			return
 		}
@@ -548,8 +556,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -560,8 +568,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		handler, err := sec.GetTCertificateHandlerNext(attributes...)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -569,8 +577,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -585,8 +593,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate is not nil
 			if certDER == nil {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate is nil.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate is nil.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate is nil."})
+				restLogger.Errorf("Error: Transaction certificate is nil.")
 
 				return
 			}
@@ -594,8 +602,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate has non-zero length
 			if len(certDER) == 0 {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate length is 0.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate length is 0.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate length is 0."})
+				restLogger.Errorf("Error: Transaction certificate length is 0.")
 
 				return
 			}
@@ -613,24 +621,14 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Close the security client
 		crypto.CloseClient(sec)
 
-		// Construct a JSON formatted response
-		jsonResponse, err := json.Marshal(tcertArray)
-		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error marshalling TCert array\": \"%s\"}", err)
-
-			return
-		}
-
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
+		encoder.Encode(tcertsResult{OK: tcertArray})
 		restLogger.Debugf("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}

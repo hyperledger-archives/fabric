@@ -426,6 +426,27 @@ func TestServerOpenchainREST_API_GetEnrollmentCert(t *testing.T) {
 	}
 }
 
+func TestServerOpenchainREST_API_GetTransactionCert(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPGet(t, httpServer.URL+"/registrar/NON_EXISTING_USER/tcert")
+	res := parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+
+	body = performHTTPGet(t, httpServer.URL+"/registrar/BAD-\"-CHARS/tcert")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+}
+
 func TestServerOpenchainREST_API_GetPeers(t *testing.T) {
 	initGlobalServerOpenchain(t)
 
