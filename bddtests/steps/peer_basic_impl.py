@@ -65,7 +65,7 @@ def parseComposeOutput(context):
     for containerName in containerNames:
     	output, error, returncode = \
         	bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_success=True)
-        #print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
+        print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
         ipAddress = output.splitlines()[0]
 
         # Get the environment array
