@@ -138,7 +138,7 @@ SWEEP1 = \
 		-transactions $$((32768 / $$clients)) \
 		-peerBurst 8 \
 		-netBurst 8 \
-		-interlock \
+		-interlock -interlockTimeout 5m \
 		-keepLog \
 		-convergeWait 5m -convergePoll 5s \
 		-checkAgreement -dupCheck
@@ -172,7 +172,7 @@ SWEEP2 = \
 		-transactions $$((64 / $$clients)) \
 		-peerBurst 16 \
 		-netBurst 16 \
-		-interlock \
+		-interlock -interlockTimeout 5m \
 		-keepLog \
 		-convergeWait 5m -convergePoll 5s \
 		-checkAgreement -dupCheck
