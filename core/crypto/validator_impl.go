@@ -163,10 +163,10 @@ func (validator *validatorImpl) initCryptoEngine() (err error) {
 		nil, validator.enrollChainKey.(*ecdsa.PrivateKey),
 	)
 	if err != nil {
-		return err
+		return
 	}
 
-	return nil
+	return
 }
 
 func (validator *validatorImpl) close() error {
