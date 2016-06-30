@@ -39,17 +39,20 @@ sweep1b sweep1n
     chaincode with one array. Sweep the number of clients from 1 to 64 by
     powers-of-2, sending a constant 32K transactions into the network
     targeting all peers in short bursts, each client interlocking every 64
-    transactions.  Consensus protocols are PBFT Batch (sweep1b) or NOOPS
+    transactions. Consensus protocols are PBFT Batch (sweep1b) or NOOPS
     (sweep1n).
 
 sweep2b sweep2n
+
+    *** Note: The 'sweep2b' target does not work at present. These targets ***
+    *** may be modified or removed in the future.                          ***
 
     A user-mode network of 4 validating peers running without security. Four
     chaincodes, each managing 128 arrays. The median array size here is 64
     counters or 512 bytes. Sweep the number of clients from 1 to 64 by
     powers-of-2, sending a constant 32K transactions into the network
     targeting all peers in moderate bursts, each client interlocking every 256
-    transactions.  Consensus protocols are PBFT Batch (sweep2b) or NOOPS
+    transactions. Consensus protocols are PBFT Batch (sweep2b) or NOOPS
     (sweep2n).
 
 
