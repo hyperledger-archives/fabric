@@ -250,7 +250,7 @@ Test if the asset management chaincode can be succsessfully deployed
 
  
 
-<b>Workflow
+<b>Workflow</b>
 
  
 
@@ -290,7 +290,7 @@ TestAuthorization tests attribute based role access control by making sure that 
 
  
 
-<b>Workflow
+<b>Workflow</b>
 
  
 
@@ -326,7 +326,7 @@ TestAssigningAssets tests the ```assign``` method by making sure authorized user
 
  
 
-<b>Workflow
+<b>Workflow</b>
 
  
 
@@ -387,7 +387,7 @@ bobCert1, err := bob.GetTCertificateHandlerNext("role", "account1", "contactInfo
 Test the ability for asset owners to transfer their assets to other owners.
  
 
-<b>Workflow
+<b>Workflow</b>
 
 
 1) Create a new TCert for Alice. The number of account IDs to be embedded into this TCert depends on the total amount of assets Alice needs to transfer. That is, the sum of account balances of account IDs included in this TCert must be greater than the total amount that Alice will transfer to Bob in this transaction 
