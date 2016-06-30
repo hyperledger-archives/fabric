@@ -39,9 +39,9 @@ import (
 // architecture that support concurrency. For now it is handy to put it here;
 // in the future a different way of exposing the shim might be preferred.
 type counters struct {
-	logger      *shim.ChaincodeLogger // Our logger
-	id          string                // Chaincode ID
-	stub        *shim.ChaincodeStub	  // The stub
+	logger *shim.ChaincodeLogger // Our logger
+	id     string                // Chaincode ID
+	stub   *shim.ChaincodeStub   // The stub
 }
 
 // newCounters is a "constructor" for counters objects
@@ -121,7 +121,7 @@ func (c *counters) putUint64(name string, x uint64) {
 
 // getArray gets an array from the state and does a few basic consistency
 // checks.
-func (c *counters) getArray (name string) []uint64 {
+func (c *counters) getArray(name string) []uint64 {
 	b, err := c.stub.GetState(name)
 	if err != nil {
 		c.criticalf("getArray: GetState() for array '%s' failed: %s", name, err)
