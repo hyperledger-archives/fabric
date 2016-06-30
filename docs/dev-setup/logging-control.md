@@ -99,7 +99,9 @@ Go language chaincodes can also control the logging level of the chaincode `shim
 
 The default logging level for the shim is `LogDebug`.
 
-Below is a simple example of how a chaincode might create a private logging object logging at the `LogInfo` level, and also control the amount of logging provided by the `shim` based on an environment variable.
+The default logging level for Go language chaincodes can also be set in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) file. For example the key `chaincode.logging.shim` sets the default level of the chaincode `shim` interface .
+
+Below is a simple example of how a chaincode might create a private logging object logging at the `LogInfo` level, and also control the amount of logging provided by the `shim` based on [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) and an environment variable.
 
 ```
 var logger = shim.NewLogger("myChaincode")
@@ -107,7 +109,10 @@ var logger = shim.NewLogger("myChaincode")
 func main() {
 
 	logger.SetLevel(shim.LogInfo)
-
+	
+	logLevel, _ := shim.LogLevel(viper.GetString("chaincode.logging.shim"))
+	shim.SetLoggingLevel(logLevel)
+	
 	logLevel, _ := shim.LogLevel(os.Getenv("SHIM_LOGGING_LEVEL"))
 	shim.SetLoggingLevel(logLevel)
 	...
