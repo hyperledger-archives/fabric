@@ -12,7 +12,7 @@ The *Asset Management 02* chaincode demonstrates two sample usages of leveraging
 
  
 
-<b>Multiple Account IDs per user: 
+<b>Multiple Account IDs per user:</b> 
 
  
 
@@ -20,7 +20,7 @@ With tcert-attribute support, users can select which attribute to include inside
 
  
 
-<b>Attribute Based Access Control:
+<b>Attribute Based Access Control:</b>
 
  
 
