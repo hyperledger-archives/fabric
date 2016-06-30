@@ -96,7 +96,8 @@ supported by the development team. The targets
 	
 both test 4-peer PBFT *batch* networks. The `stress2b` test is a single run
 with a single client. The `sweep1b` test sweeps a test setup over a range of
-from 1 to 64 clients.
+from 1 to 64 clients. At present the `sweep1b` target appears to work in
+server environments, but fails in Vagrant/laptop environments.
 
 There is also a pre-canned target
 

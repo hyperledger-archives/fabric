@@ -35,6 +35,9 @@ secure1
 
 sweep1b sweep1n
 
+    *** Note: The 'sweep1b' target currently appears to work in large server ***
+    *** environments but not in Vagrant/laptop environments                  ***
+
     A user-mode network of 4 validating peers running without security. One
     chaincode with one array. Sweep the number of clients from 1 to 64 by
     powers-of-2, sending a constant 32K transactions into the network
