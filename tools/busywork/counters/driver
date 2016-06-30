@@ -314,6 +314,14 @@ Optional parameters. Default values are given after the colon:
 -timestamp | -noTimestamp : -noTimestamp
 
     If -timestamp is selected, the logs from this script will be timestamped.
+
+-traceInterlock : N/A
+
+    This is a debugging flag. If set, a timestamped trace of the interlock
+    operations of the clients is produced. Clients "interlock" after each
+    network burst if -interlock is selected, waiting until all transactions of
+    the burst are seen as having been committed to the blockchain.
+
 }
 
 ############################################################################
@@ -368,6 +376,7 @@ set options {
     {key     -retry                parms(retry)             0}
     {key     -args                 parms(args)              {}}
     {bool    {-timestamp -noTimestamp} parms(timestamp)     0}
+    {bool    -traceInterlock       parms(traceInterlock)    0}
 }
 
 mapKeywordArgs $argv $options parms(explicitPeers)
@@ -821,13 +830,14 @@ oo::class create LimitedRandomBag {
 proc clientRoutine {i_logger} {
 
     clearAtExitHandlers
-    setLoggingPrefix client[parms client]
+    setLoggingPrefix client[format %3d [parms client]]
 
     $i_logger reset
 
     set peerBag [RandomBag new [parms peers]]
     set keyBag [LimitedRandomBag new [parms arrayKeys] [parms transactions]]
     set uuids {}
+    set tx 0
 
     while {1} {
 
@@ -839,10 +849,22 @@ proc clientRoutine {i_logger} {
             lappend netBurst $peerBurst
         }
 
-        if {[parms interlock]} {
+        if {[parms interlock] && ![null $uuids]} {
+
+            if {[parms traceInterlock]} {
+                set nTx [llength $uuids]
+                set range "$tx - [expr {$tx + $nTx} - 1]"
+                note {} "[timestamp]: Start Interlock: $range"
+                incr tx $nTx
+            }
 
             set unmatched \
                 [$i_logger waitUUIDs invoke $uuids [parms interlockTimeout]]
+
+            if {[parms traceInterlock]} {
+                note {} "[timestamp]: End   Interlock: $range"
+            }
+
             if {$unmatched ne {}} {
                 err err "Interlock timed out; Aborting"
                 err err "Unmatched UUIDs below"
