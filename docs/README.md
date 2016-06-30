@@ -115,3 +115,18 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Deploy Transaction
      - Execute Transaction
      - Chaincode Execution
+
+### Release Notes
+* [Fabric Releases](Fabric-Releases.md)
+* [Current API Changes](Sprint-Release-Notes.md)
+* [Release Process](Release-Process.md)
+
+### Proposals
+* [Fabric Next: Big Picture](Fabric-Next.md)
+* [Next Consensus Architecture Proposal](Next-Consensus-Architecture-Proposal.md)
+* [Next Ledger Architecture Proposal](Next-Ledger-Architecture-Proposal.md)
+* [Client SDK Specification](Client-SDK-Specification.md)
+* [Access Control Specification](Access-Control-Specification.md)
+* [Custom Events](Custom-Events-High-level-specification.md)
+* [System Chaincode](System-Chaincode-Specification.md)
+
