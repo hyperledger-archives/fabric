@@ -1038,7 +1038,7 @@ Feature: Network of Peers
 
       Given I start peers:
             | vp0  |
-      And I wait "5" seconds
+      And I wait "10" seconds
 
       When requesting "/network/peers" from "vp1"
       Then I should get a JSON response with array "peers" contains "2" elements
