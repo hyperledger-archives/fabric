@@ -9,6 +9,7 @@ It is generated from these files:
 	api.proto
 	chaincodeevent.proto
 	chaincode.proto
+	consensus.proto
 	devops.proto
 	events.proto
 	fabric.proto
@@ -31,6 +32,14 @@ It has these top-level messages:
 	RangeQueryStateClose
 	RangeQueryStateKeyValue
 	RangeQueryStateResponse
+	TransactionProposal
+	VerDep
+	VarWrite
+	ProposalResponse
+	TransactionValid
+	Broadcast
+	Deliver
+	Result
 	Secret
 	SigmaInput
 	ExecuteWithBinding
@@ -51,6 +60,7 @@ It has these top-level messages:
 	PeerID
 	PeerEndpoint
 	PeersMessage
+	PeersAddresses
 	HelloMessage
 	Message
 	Response

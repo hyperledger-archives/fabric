@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package protos;
+
+service Consensus {
+    rpc Chat(stream Broadcast) returns (stream Deliver) {}
+}
+
+service Endorser {
+    rpc Propose(TransactionProposal) returns (ProposalResponse) {}
+}
+
+message TransactionProposal {
+    enum TxContentType {
+        TRANSPARENT = 0;
+        OPAQUE = 1;
+        COMMITMENT = 2;
+        NONE = 3;
+    }
+
+    string submitingPeerID = 1;
+    string clientID = 2;
+    string chaincodeID = 3;
+    TxContentType txContentType = 4;
+    bytes txContent = 5;
+    VerDep versionDependencies = 6;
+}
+
+message VerDep {
+    repeated string readSet = 1;
+    repeated VarWrite writeSet = 2;
+}
+
+message VarWrite {
+    string name = 1;
+    bytes value = 2;
+}
+
+message ProposalResponse {
+    enum TransactionInvalid {
+        INCORRECT_STATE = 0;
+        STALE_VERSION = 1;
+        REJECTED = 2;
+    }
+
+    oneof Response {
+        TransactionValid valid = 2;
+        TransactionInvalid invalid = 3;
+    }
+}
+
+message TransactionValid {
+    bytes endorsingSignature = 1;
+}
+
+message Broadcast {
+    TransactionProposal proposal = 1;
+    repeated bytes endorsements = 2;
+}
+
+message Deliver {
+    uint64 seqNo = 1;
+    bytes prevHash = 2;
+    Broadcast blob = 3;
+}
+
+message Result {
+    bool success = 1;
+}
+
