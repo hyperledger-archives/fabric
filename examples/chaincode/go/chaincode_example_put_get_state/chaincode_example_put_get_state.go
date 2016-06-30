@@ -54,23 +54,22 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
-//Invoke sets key to a value
+//Invoke tries to set key value to nil
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	var key string
-	var value string
 	var err error
 
-	if len(args) != 2 {
+	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting a key and value")
 	}
 
 	key = args[0]
-	value = args[1]
 
-	// Write the state to the ledger
-	err = stub.PutState(key, []byte(value))
+	// Try to write nil state to the ledger
+	err = stub.PutState(key, nil)
 	if err != nil {
+		fmt.Printf("Error on insert nil value for key. Error Desc:%v \n", err.Error())
 		return nil, err
 	}
 
