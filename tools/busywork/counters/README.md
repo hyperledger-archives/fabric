@@ -58,17 +58,6 @@ values, interpreted as detailed for the individual keys below.
   interface. See the `-loggingLevel` option for details on the `<level>`
   argument. The default level for *shim* logging is WARNING.
   
-- `-checkCounters=<bool>` : The `<bool>` value defaults to `false`.  When
-   `false`, the chaincode does not check for consistency of the array state
-   before incrementing and decrementing. This setting is required in most
-   cases because if a peer "falls behind" the other peers it may get its state
-   by a state transfer, and not by actually executing transactions. The `true`
-   setting will likely only work (and *should* work) with NOOPS consensus.
-  
-- `-checkStatus=<bool>` : The `<bool>` value defaults to `true`. This is a
-  debugging flag only. See **counters.go**, `status()` function for the
-  semantics when this flag is set to `false`.
-  
 Examples:
 
     parms -id cc0 -loggingLevel debug
@@ -156,17 +145,15 @@ Examples:
 	status a b c  # Assume lengths 1, 2, 3 and counts 10, 20, 30
 	--> "1 1 10 10 2 2 20 20 3 3 30 30"
 
-It is an error to name an array that has not been created. This query *does
-not* signal an error if the expected and actual values do not match. As
-mentioned above with the `parms -checkCounters` option, if state transfer has
-taken place on a peer then the expected count (which records the number of
-transactions actually executed by the peer) will not match the actual count
-obtained from the state. There is no reason for the expected and actual array
-lengths not to match, however.
+It is an error to name an array that has not been created. 
 
-### `ping`
-
-This query always succeeds by returning the chaincode ID.
+The `<expectedLength>` is obtained from the database. This query *does not*
+signal an error if the expected and actual values do not match. The
+`<expectedCount>` and `<actualCount>` will currently always be equal, and
+correspond to the value held in the first element of the array. The
+implementation of state transfer does not allow the chaincode to independently
+track the expected counter value, so correctness checking of the count will
+need to be performed by the environment.
 
 ### `parms ?... <parm> ...?`
 
@@ -183,6 +170,11 @@ Examples:
 	
 The return value of this query is an empty string.
 	
+### `ping`
+
+This query always succeeds by returning the chaincode ID, as most recently set
+by the `parms` invocation or query.
+
 
   
   

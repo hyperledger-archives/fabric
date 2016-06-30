@@ -219,13 +219,16 @@ Optional parameters. Default values are given after the colon:
     completes within each timeout period. 
 
 -convergeWait <duration> : 10s
+-convergePoll <duration> : 1s
 
     If the run is in -interlock mode, then the run will not finish until at
     least one peer has recorded every transaction. However due to delays and
     state transfer, there may be lagging peers that have not finished yet. In
     this case we do "strong reads" of the block height of every node, and do
     not start checking until there is 100% consensus on the block
-    height. These checks must converge within the -convergeWait time.
+    height. These checks must converge within the -convergeWait time. The
+    network is polled (and the current status printed) every -convergePoll
+    interval. 
 
 -finalWait <duration> : 10s    
 
@@ -353,6 +356,7 @@ set options {
     {key     -interlockTimeout     parms(interlockTimeout)  60s}
     {key     {-interlockProgress -interlockAbsolute} parms(interlockProgress) 0}
     {key     -convergeWait         parms(convergeWait)      10s}
+    {key     -convergePoll         parms(convergePoll)      1s}
     {key     -finalWait            parms(finalWait)         10s}
     {bool    {-keepLog -noKeepLog} parms(keepLog)           0}
     {bool    {-force -noForce}     parms(force)             0}
@@ -945,9 +949,11 @@ if {$errors && ![parms force]} {
 
 # Finally, check the results for correctness. For the most accurate completed
 # transaction rates you need to -interlock, as it is likely that not all
-# invocations have been commited at this point if -interlock is not specified.
+# invocations have been commited at this point if -interlock is not
+# specified. We can't interlock NOOPS because the blockchains are not required
+# to be identical.
 
-if {[parms interlock]} {
+if {[parms interlock] && ![parms noops]} {
 
     # For interlocked runs, do "strong reads" of the block height until
     # consensus is reached.
@@ -963,8 +969,11 @@ if {[parms interlock]} {
         return [expr {[llength $heights] == 1}]
     }
     
-    note {} "Waiting up to [parms finalWait] for block-height consensus"
-    if {[waitFor [parms convergeWait] strongReadBlockHeight 1s]} {
+    note {} \
+        "Waiting up to [parms convergeWait] for block-height consensus, " \
+        "polling every [parms convergePoll]"
+    if {[waitFor \
+             [parms convergeWait] strongReadBlockHeight [parms convergePoll]]} {
         if {![parms force]} {
             set errors 1
             errorExit "Aborting due to block-height consensus timeout"
