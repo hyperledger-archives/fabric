@@ -320,6 +320,17 @@ chaincode:
     # A value <= 0 turns keepalive off
     keepalive: 0
 
+    # Valid logging levels are case-insensitive strings chosen from
+
+    #     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
+
+    # Default logging levels are specified here for shim APIs, system chaincodes(scc),
+    # and user-provided chaincodes(ucc)
+    logging:
+        shim: warning
+        scc: warning
+        ucc: warning
+
 ###############################################################################
 #
 ###############################################################################
@@ -458,16 +469,3 @@ statetransfer:
 
         # How long may transferring the complete state take
         fullstate: 60s
-
-################################################################################
-#
-#   SECTION: SHIM -- Applied to the chaincode `shim` interface
-#
-################################################################################
-shim:
-    # log-level of chaincode.
-    # Valid logging levels are case-insensitive strings chosen from
-    #     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
-    logging:
-        shim: debug
-        chaincode: debug
