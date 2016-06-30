@@ -78,15 +78,7 @@ unit-test: peer-image gotools
 .PHONY: images
 images: $(patsubst %,build/image/%/.dummy, $(IMAGES))
 
-build/behave/.grpc-dummy:
-	sudo pip install -q 'grpcio==0.13.1'
-	mkdir -p build/behave
-	touch build/behave/.grpc-dummy
-
-behave-grpc: build/behave/.grpc-dummy
-
-
-behave-deps: images peer behave-grpc
+behave-deps: images peer
 behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
@@ -96,7 +88,6 @@ linter: gotools
 	@echo "Running go vet"
 	go vet ./consensus/...
 	go vet ./core/...
-	go vet ./discovery/...
 	go vet ./events/...
 	go vet ./examples/...
 	go vet ./membersrvc/...

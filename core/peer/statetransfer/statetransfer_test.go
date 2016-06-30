@@ -240,9 +240,14 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 	}, t)
 	ml.PutBlock(0, SimpleGetBlock(0))
 
-	sts := newTestStateTransfer(ml, mrls)
+	sts := NewCoordinatorImpl(newPartialStack(ml, mrls)).(*coordinatorImpl)
 	sts.maxStateDeltas = 0
-	defer sts.Stop()
+
+	done := make(chan struct{})
+	go func() {
+		sts.blockThread()
+		close(done)
+	}()
 
 	if err := executeStateTransfer(sts, ml, 7, 10, mrls); nil != err {
 		t.Fatalf("Without deltas case: %s", err)
@@ -252,8 +257,10 @@ func TestCatchupWithoutDeltas(t *testing.T) {
 		t.Fatalf("State delta retrieval should not occur during this test")
 	}
 
+	sts.Stop()
+
 	select {
-	case <-sts.blockThreadIdleChan:
+	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatalf("Timed out waiting for block sync to complete")
 	}
@@ -576,31 +583,6 @@ func TestCatchupCorruptChains(t *testing.T) {
 	}()
 	if err := executeBlockRecoveryWithPanic(ml, 10, mrls); nil != err {
 		t.Fatalf("TestCatchupCorruptChains short chain failure: %s", err)
-	}
-}
-
-func TestIdle(t *testing.T) {
-	mrls := createRemoteLedgers(0, 1)
-
-	ml := NewMockLedger(nil, nil, t)
-	ml.PutBlock(0, SimpleGetBlock(0))
-	sts := newTestStateTransfer(ml, mrls)
-	defer sts.Stop()
-
-	idle := make(chan struct{})
-	go func() {
-		sts.blockUntilIdle()
-		idle <- struct{}{}
-	}()
-
-	select {
-	case <-idle:
-	case <-time.After(2 * time.Second):
-		t.Fatalf("Timed out waiting for state transfer to become idle")
-	}
-
-	if !sts.blockThreadIdle {
-		t.Fatalf("State transfer unblocked from idle but did not remain that way")
 	}
 }
 

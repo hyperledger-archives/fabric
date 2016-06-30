@@ -21,28 +21,26 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"math/big"
 	"strconv"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	"google/protobuf"
 )
 
 var (
@@ -69,16 +67,6 @@ type TCA struct {
 	hmacKey    []byte
 	rootPreKey []byte
 	preKeys    map[string][]byte
-}
-
-// TCAP serves the public GRPC interface of the TCA.
-type TCAP struct {
-	tca *TCA
-}
-
-// TCAA serves the administrator GRPC interface of the TCA.
-type TCAA struct {
-	tca *TCA
 }
 
 // TCertSet contains relevant information of a set of tcerts
@@ -500,123 +488,4 @@ func (tca *TCA) persistCertificateSet(enrollmentID string, timestamp int64, nonc
 
 func (tca *TCA) retrieveCertificateSets(enrollmentID string) (*sql.Rows, error) {
 	return tca.db.Query("SELECT enrollmentID, timestamp, nonce, kdfkey FROM TCertificateSets WHERE enrollmentID=?", enrollmentID)
-}
-
-// Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).
-func (tcap *TCAP) generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Certificate, attrs []*pb.ACAAttribute) ([]pkix.Extension, []byte, error) {
-	// For each TCert we need to store and retrieve to the user the list of Ks used to encrypt the EnrollmentID and the attributes.
-	extensions := make([]pkix.Extension, len(attrs))
-
-	// Compute preK_1 to encrypt attributes and enrollment ID
-	preK1, err := tcap.tca.getPreKFrom(enrollmentCert)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	mac := hmac.New(primitives.GetDefaultHash(), preK1)
-	mac.Write(tcertid.Bytes())
-	preK0 := mac.Sum(nil)
-
-	// Compute encrypted EnrollmentID
-	mac = hmac.New(primitives.GetDefaultHash(), preK0)
-	mac.Write([]byte("enrollmentID"))
-	enrollmentIDKey := mac.Sum(nil)[:32]
-
-	enrollmentID := []byte(enrollmentCert.Subject.CommonName)
-	enrollmentID = append(enrollmentID, Padding...)
-
-	encEnrollmentID, err := CBCEncrypt(enrollmentIDKey, enrollmentID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	attributeIdentifierIndex := 9
-	count := 0
-	attrsHeader := make(map[string]int)
-	// Encrypt and append attrs to the extensions slice
-	for _, a := range attrs {
-		count++
-
-		value := []byte(a.AttributeValue)
-
-		//Save the position of the attribute extension on the header.
-		attrsHeader[a.AttributeName] = count
-
-		if isEnabledAttributesEncryption() {
-			value, err = attributes.EncryptAttributeValuePK0(preK0, a.AttributeName, value)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-
-		// Generate an ObjectIdentifier for the extension holding the attribute
-		TCertEncAttributes := asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifierIndex + count}
-
-		// Add the attribute extension to the extensions array
-		extensions[count-1] = pkix.Extension{Id: TCertEncAttributes, Critical: false, Value: value}
-	}
-
-	// Append the TCertIndex to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
-
-	// Append the encrypted EnrollmentID to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
-
-	// Append the attributes header if there was attributes to include in the TCert
-	if len(attrs) > 0 {
-		headerValue, err := attributes.BuildAttributesHeader(attrsHeader)
-		if err != nil {
-			return nil, nil, err
-		}
-		if isEnabledAttributesEncryption() {
-			headerValue, err = attributes.EncryptAttributeValuePK0(preK0, attributes.HeaderAttributeName, headerValue)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-		extensions = append(extensions, pkix.Extension{Id: TCertAttributesHeaders, Critical: false, Value: headerValue})
-	}
-
-	return extensions, preK0, nil
-}
-
-// RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
-func (tcap *TCAP) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc TCAP:RevokeCertificate")
-
-	return nil, errors.New("not yet implemented")
-}
-
-// RevokeCertificateSet revokes a certificate set from the TCA.  Not yet implemented.
-func (tcap *TCAP) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc TCAP:RevokeCertificateSet")
-
-	return nil, errors.New("not yet implemented")
-}
-
-// RevokeCertificate revokes a certificate from the TCA.  Not yet implemented.
-func (tcaa *TCAA) RevokeCertificate(context.Context, *pb.TCertRevokeReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc TCAA:RevokeCertificate")
-
-	return nil, errors.New("not yet implemented")
-}
-
-// RevokeCertificateSet revokes a certificate set from the TCA.  Not yet implemented.
-func (tcaa *TCAA) RevokeCertificateSet(context.Context, *pb.TCertRevokeSetReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc TCAA:RevokeCertificateSet")
-
-	return nil, errors.New("not yet implemented")
-}
-
-// PublishCRL requests the creation of a certificate revocation list from the TCA.  Not yet implemented.
-func (tcaa *TCAA) PublishCRL(context.Context, *pb.TCertCRLReq) (*pb.CAStatus, error) {
-	Trace.Println("grpc TCAA:CreateCRL")
-
-	return nil, errors.New("not yet implemented")
-}
-
-func isEnabledAttributesEncryption() bool {
-	//TODO this code is commented because attributes encryption is not yet implemented.
-	//return viper.GetBool("tca.attribute-encryption.enabled")
-	return false
 }

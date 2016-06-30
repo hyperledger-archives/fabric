@@ -6,11 +6,11 @@ The sections in this document are as follows:
 
 * The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HLC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
 
-* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and to run the unit tests.  Looking at the unit tests will also help you learn more of the APIs by example, including asset management and confidentiality.
+* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and how to [run the unit tests](#running-unit-tests).  Looking at the implementation of the unit tests will also help you learn more about the APIs by example, including asset management and confidentiality.
 
 * The [Going Deeper](#going-deeper) section discusses HLC's pluggability or extensibility design.  It also describes the main object hierarchy to help you get started in navigating the reference documentation. The top-level class is `Chain`.
 
-   WARNING: To view the reference documentation correctly, you first need to [build the SDK](#building-the-client-sdk) and then open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
+   WARNING: To view the reference documentation correctly, you first need to build the SDK and confirm functionality by [running the unit tests](#running-unit-tests).  Subsequently open the following URLs directly in your browser.  Be sure to replace YOUR-FABRIC-DIR with the path to your fabric directory.
 
    `file:///YOUR-FABRIC-DIR/sdk/node/doc/modules/_hlc_.html`
 
@@ -132,13 +132,15 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
 }
 ```
 
+## Getting Set Up
+
 ### Installing hlc from npm
 
 To install `hlc` from npm simply execute the following command.
 
     npm install -g hlc
 
-### Chaincode Deployment Directory structure
+### Chaincode Deployment Directory Structure
 
 To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. These instructions will demonstrate how to properly set up the directory structure to deploy *chaincode_example02* in network mode.
 
@@ -221,7 +223,7 @@ This is needed to allow the peer to connect to the member services using TLS, ot
 
 *Note:* If you cleanup the folder `/var/hyperledger/production` then don't forget to copy again the *tlsca.cert* file as described above.
 
-## Running the SDK unit tests
+## Running Unit Tests
 HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The unit [test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
 
 To run the unit tests, execute the following commands.

@@ -186,3 +186,89 @@ func TestBroadcastUnicast(t *testing.T) {
 		t.Errorf("broadcast did not send to dest peer: %v", sent)
 	}
 }
+
+type mockFailComm struct {
+	mockComm
+	done chan struct{}
+}
+
+func (m *mockFailComm) Unicast(msg *pb.Message, dest *pb.PeerID) error {
+	return fmt.Errorf("always fails on purpose")
+}
+
+func TestBroadcastAllFail(t *testing.T) {
+	m := &mockFailComm{
+		mockComm: mockComm{
+			self:  1,
+			n:     4,
+			msgCh: make(chan mockMsg),
+		},
+		done: make(chan struct{}),
+	}
+
+	b := newBroadcaster(1, 4, 1, m)
+
+	maxc := 20
+	for c := 0; c < maxc; c++ {
+		b.Broadcast(&pb.Message{Payload: []byte(fmt.Sprintf("%d", c))})
+	}
+
+	done := make(chan struct{})
+	go func() {
+		close(m.done)
+		b.Close() // If the broadcasts are still trying (despite all the failures), this call blocks until the timeout
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return
+	case <-time.After(time.Second):
+		t.Fatal("Could not successfully close broadcaster, after 1 second")
+	}
+}
+
+type mockIndefinitelyStuckComm struct {
+	mockComm
+	done chan struct{}
+}
+
+func (m *mockIndefinitelyStuckComm) Unicast(msg *pb.Message, dest *pb.PeerID) error {
+	if dest.Name == "vp0" {
+		<-m.done
+	}
+	return fmt.Errorf("Always failing, on purpose, with vp0 stuck")
+}
+
+func TestBroadcastIndefinitelyStuck(t *testing.T) {
+	m := &mockIndefinitelyStuckComm{
+		mockComm: mockComm{
+			self:  1,
+			n:     4,
+			msgCh: make(chan mockMsg),
+		},
+		done: make(chan struct{}),
+	}
+
+	b := newBroadcaster(1, 4, 1, m)
+
+	broadcastDone := make(chan struct{})
+
+	go func() {
+		maxc := 3
+		for c := 0; c < maxc; c++ {
+			b.Broadcast(&pb.Message{Payload: []byte(fmt.Sprintf("%d", c))})
+		}
+		close(broadcastDone)
+	}()
+
+	select {
+	case <-broadcastDone:
+		// Success
+	case <-time.After(10 * time.Second):
+		t.Errorf("Got blocked for too long")
+	}
+
+	close(m.done)
+	b.Close()
+}

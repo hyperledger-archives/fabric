@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"net"
 	"os"
@@ -34,8 +35,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
-	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -243,19 +242,7 @@ func main() {
 
 	// Set the flags on the node start command.
 	flags := nodeStartCmd.Flags()
-	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
-	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
-	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
-	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
-
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
-
-	viper.BindPFlag("peer.tls.enabled", flags.Lookup("peer-tls-enabled"))
-	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
-	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer.discovery.enabled", flags.Lookup("peer-discovery-enabled"))
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
@@ -275,7 +262,7 @@ func main() {
 	nodeCmd.AddCommand(nodeStartCmd)
 	nodeCmd.AddCommand(nodeStatusCmd)
 
-	nodeStopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
+	nodeStopCmd.Flags().StringVar(&stopPidFile, "stop-peer-pid-file", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
 	nodeCmd.AddCommand(nodeStopCmd)
 
 	mainCmd.AddCommand(nodeCmd)
@@ -465,9 +452,7 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
-
-	//create the peerServer....
+	// Create the peerServer
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
 		makeGenesisError := genesis.MakeGenesis()
@@ -475,10 +460,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
@@ -488,7 +473,6 @@ func serve(args []string) error {
 	}
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -512,11 +496,8 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNodes := discInstance.GetRootNodes()
-
-	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
-		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
+	logger.Infof("Starting peer with ID=%s, network ID=%s, address=%s, rootnodes=%v, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, viper.GetString("peer.discovery.rootnode"), peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -545,7 +526,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	//start the event hub server
+	// Start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
 	}

@@ -21,6 +21,7 @@
 
 package require fabric
 package require json
+package require json::write
 package require math
 package require Tclx
 package require utils
@@ -170,6 +171,134 @@ proc ::busywork::networkToArray {i_array {i_prefix {}}} {
 
 
 ############################################################################
+# ::busywork::chaincodesToArray i_array {i_prefix {}}
+
+# Load and parse the $BUSYWORK_HOME/chaincodes file into keys in the i_array
+# provided by the caller. The procedure uses the normal Tcl 'error' exit only
+# in the event of being unable to read the network file. Other errors invoke
+# the 'errorExit' procedure.
+
+# This procedure uses "." as a separator for hierarchical keys, so normally
+# the optional prefix should also end in ".".
+
+# This routine is typically called from busywork scripts as
+
+#     busywork::chaincodesToArray ::parms chaincodes.
+
+# to add chaincode data to the global ::parms array.  In the following we
+# assume chaincodesToArray has been called like this to illustrate its
+# operation.
+
+# Entries in the chaincodes file are tagged with a user-given chaincode
+# ID. A list of all of these IDs will be stored as the 'chaincodes.ids'
+# key. For each ID $id in that list, the following keys will also be stored:
+#
+#     chaincodes.$id.name     # Chaincode name (hash)
+#     chaincodes.$id.path     # Chaincode path
+#     chaincodes.$id.function # Chaincode initialization function
+#     chaincodes.$id.parms    # Chaincode initialization parameters
+#
+# Lists of all names, paths etc. will also be stored as the keys
+#
+#     chaincodes.name chaincodes.path chaincodes.function chaincodes.parms
+
+proc ::busywork::chaincodesToArray {i_array {i_prefix {}}} {
+
+    upvar $i_array a
+
+    set chaincodesFile $::env(BUSYWORK_HOME)/chaincodes
+    if {[catch {open $chaincodesFile r} chaincodes]} {
+        error "Can't open $chaincodesFile for reading : $chaincodes"
+    }
+    if {[catch {::json::json2dict [read $chaincodes]} dict]} {
+        errorExit "Error parsing $chaincodesFile : $::errorCode"
+    }
+    close $chaincodes
+
+    # The top-level keys are the user chaincode IDs
+
+    foreach {id struct} $dict {
+
+        lappend a($i_prefix\ids) $id
+
+        foreach {key val} $struct {
+            set a($i_prefix$id.$key) $val
+            lappend a($i_prefix$key) $val
+        }
+    }
+}
+
+
+############################################################################
+# ::busywork::addChaincode i_id i_name i_path i_function i_args
+
+# Rewrite the JSON-formatted $BUSYWORK_HOME/chaincodes file based on a new
+# chaincode deployment. If the file does not exist it will be created. The
+# optional i_lockfile is a file to use as a lock on the chaincodes file, and
+# we will wait forever for the lock, polling every second.
+
+set ::busywork::CHAINCODE_FIELDS {}
+array unset ::busywork::CHAINCODE_FIELD_IS_ARRAY
+foreach {field isArray} {name 0 path 0 function 0 args 1} {
+    lappend ::busywork::CHAINCODE_FIELDS $field
+    set ::busywork::CHAINCODE_FIELD_IS_ARRAY($field) $isArray
+}
+
+proc ::busywork::addChaincode \
+    {i_id i_name i_path i_function i_args {i_lockFile {}}} {
+
+    ::json::write indented 1
+    ::json::write aligned 1
+
+    # If the file is extant, read it into the array 'a'. Otherwise initialize
+    # 'a'. 
+
+    set file $::env(BUSYWORK_HOME)/chaincodes
+    if {[file exists $file]} {
+        if {[catch {chaincodesToArray a ""} why]} {
+            errorExit "$file exists but can't be accessed: $why"
+        }
+    } else {
+        set a(ids) {}
+    }
+
+    # Add the new information
+
+    lappend a(ids) $i_id
+    foreach field $busywork::CHAINCODE_FIELDS {
+        set a($i_id.$field) [set i_${field}]
+    }
+
+    # Reformat as JSON. Need to work hard to maintain double quotes in arrays.
+    
+    set top {}
+    foreach id $a(ids) {
+        set struct {}
+        foreach field $busywork::CHAINCODE_FIELDS {
+            if {$::busywork::CHAINCODE_FIELD_IS_ARRAY($field)} {
+                lappend struct $field \
+                    [eval ::json::write array \
+                         [mapeach x $a($id.$field) {
+                             return "\"$x\""
+                         }]]
+            } else {
+                lappend struct $field [::json::write string $a($id.$field)]
+            }
+        }
+        lappend top $id [eval ::json::write object $struct]
+    }
+
+    # (Re-)create the file
+
+    if {[catch {open $file w} stream]} {
+        errorExit "Can't open $file for writing: $stream"
+    }
+    puts $stream [eval ::json::write object $top]
+    close $stream
+}
+
+
+############################################################################
 # ::busywork::usersAndPasswordsToArray i_array {i_prefix {}}
 
 # Load and parse the fabric/membersrvc/membersrvc.yaml file into keys in the
@@ -309,6 +438,69 @@ proc ::busywork::dockerEndpoint {{i_tls 0}} {
 
 
 ############################################################################
+# ::busywork::peersFromSpec i_spec
+
+# This procedure implements a standard way for busywork utilities to process
+# specifications of subsets of peers.  The peers to target are named by the
+# peer ids as they appear in the busywork 'network' file. Peers names can be
+# given as a whitespace separated list or a comma-separated token.
+# "Globbing-style" multi-peer abbreviations can also be used (implmented by
+# the Tcl 'string match' command), but be aware that abbreviations must be
+# entered in quotes to avoid globbing by the shell.  Examples of peer
+# specifications:
+# 
+#    "*"           # Apply command to all peers
+#    vp0           # Target vp0 only
+#    vp0,vp1       # Target vp0 and vp1 only
+#    "vp0 vp1"     # Same as above
+#    "vp[01]"      # Also same as above
+#    "vp[0-1]"     # Ditto
+#    "vp0 vp1,vp2" # If you insist, this works too!
+# 
+# Note that to help gaurd against typos, the script will fail if there are any
+# duplicate peer names in the peer specification, or if any peer specification
+# does not match at least one peer, or if the peer specification is empty.
+#
+# The return value is the final list of peer names.
+
+proc ::busywork::peersFromSpec {i_spec} {
+
+    if {[null $i_spec]} {
+        errorExit "No peers specified"
+    }
+
+    networkToArray network ""
+    set validPeers $network(peer.ids)
+
+    set specs {}
+    foreach subSpec [split $i_spec ,] {
+        set specs [concat $specs $subSpec]
+    }
+
+    set peers {}
+    foreach spec $specs {
+        foreach peer $validPeers {
+            if {[string match $spec $peer]} {
+                lappend peers $peer
+            }
+        }
+    }
+
+    set dups [duplicates $peers]
+    if {![null $dups]} {
+        errorExit "Duplicated peers: $dups"
+    }
+
+    set invalidPeers [setDifference $peers $validPeers]
+    if {![null $invalidPeers]} {
+        errorExit "Invalid peers: $invalidPeers"
+    }
+
+    return $peers
+}
+
+
+############################################################################
 ############################################################################
 # ::busywork::Logger ?... args ...?
 
@@ -342,6 +534,12 @@ proc ::busywork::dockerEndpoint {{i_tls 0}} {
 #     If > 0, then failing HTTP requests will be retried at most this many
 #     times.
 #
+# -from <first>[:<last>] : All blocks, following from 0
+#
+#     This parameter can be used to restrict the scope of the logging. See the
+#     fabricLogger utility for details, keeping in mind that the Logger object
+#     always starts the associated fabricLogger in -follow mode.
+#
 # -idleWait <duration> : 10ms
 #
 #     There seems to be a bug somewhere, and this is a workaround for that
@@ -353,7 +551,7 @@ proc ::busywork::dockerEndpoint {{i_tls 0}} {
 #     timer is used whenver we observe a read of the log file that does not
 #     return at least 1 full line. After this failed read we wait -idleWait
 #     before allowing the next "readable" event to fire.
-
+#
 # -timestamp | -noTimestamp : -noTimestamp
 #
 #     If -timestamp is specified, then error logs will be timestamped.
@@ -391,6 +589,7 @@ oo::class create ::busywork::Logger {
             {key     -file                         file       {}  p_file}
             {bool    {-keepLog -noKeepLog}         d_keepLog   0}
             {key     -retry                        d_retry     0}
+            {key     -from                         from        {} p_from}
             {key     -idlewait                     d_idleWait  10ms}
             {bool    {-timestamp -noTimestamp}     d_timestamp 0}
             {bool    {-killOnError -noKillOnError} killOnError 0}
@@ -400,10 +599,10 @@ oo::class create ::busywork::Logger {
         mapKeywordArgs $args $options
 
         if {$p_file} {
-            if {$p_file eq "/tmp/"} {
+            if {$file eq "/tmp/"} {
                 set d_logFile [exec mktemp -t fabricLog.XXXXX]
             } else {
-                set d_logfile $file
+                set d_logFile $file
             }
         } else {
             set d_logFile [busywork::home]/fabricLog
@@ -421,6 +620,9 @@ oo::class create ::busywork::Logger {
         }
         if {$killOnError} {
             set command "$command -killOnError [pid]"
+        }
+        if {$p_from} {
+            set command "$command -from $from"
         }
         set command [concat $command $d_peers]
 

@@ -1,0 +1,55 @@
+site_name: Hyperledger Fabric
+site_url: http://hyperledger-fabric.readthedocs.io
+theme: readthedocs
+repo_url: https://github.com/hyperledger/fabric
+site_description: 'Welcome to the Hyperledger fabric documentation'
+
+markdown_extensions:
+# Convert ASCII dashes, quotes to HTML entity
+- smarty
+
+pages:
+- HOME: index.md
+- Getting Started: README.md
+- TravisCI Readme: TravisCI_Readme.md
+- Glossary: glossary.md
+- Protocol Spec: protocol-spec.md
+
+- API:
+  - ChainCode APIs: API/ChaincodeAPI.md
+  - CoreAPI: API/CoreAPI.md
+  - MemberServicesAPI: API/MemberServicesAPI.md 
+  - SandboxSetup: API/SandboxSetup.md
+
+- FAQ:
+  - ChainCodeFAQ: FAQ/chaincode_FAQ.md
+  - ConfidentialityFAQ: FAQ/confidentiality_FAQ.md
+  - ConsensusFAQ: FAQ/consensus_FAQ.md
+  - Identity ManagementFAQ: FAQ/identity_management_FAQ.md
+  - UsageFAQ: FAQ/usage_FAQ.md
+
+- Biz:
+  - Usecase: biz/usecases.md
+
+- Dev setup:
+  - CA Setup: dev-setup/ca-setup.md
+  - Devenv: dev-setup/devenv.md
+  - Devnet Setup: dev-setup/devnet-setup.md
+  - Install: dev-setup/install.md
+  - Logging Control: dev-setup/logging-control.md
+
+- Tech:
+  - Application ACL: tech/application-ACL.md
+  - Attributes: tech/attributes.md
+  - Best Practices: tech/best-practices.md
+
+markdown_extensions:
+  - extra
+  - tables
+  - toc
+  - fenced_code
+  - mdx_math:
+      enable_dollar_delimiter: True #for use of inline $..$  
+  - footnotes
+
+copyright: Copyright &copy; 2016 <a href="https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt">IBM Corp.</a> <br></br>Contributed to the Hyperledger Project under the Apache Software License 2.0

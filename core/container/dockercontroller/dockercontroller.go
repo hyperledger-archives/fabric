@@ -53,7 +53,7 @@ func init() {
 	// not support customize
 	hostConfig.Privileged = false
 
-	dockerLogger.Debug("Load docker HostConfig: %+v", hostConfig)
+	dockerLogger.Debugf("Load docker HostConfig: %+v", hostConfig)
 }
 
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {

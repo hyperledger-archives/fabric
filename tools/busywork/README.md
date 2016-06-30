@@ -89,8 +89,7 @@ to run a simple stress test. This stress test exercises a single peer
 running `NOOPS` consensus.
 
 At present the PBFT *batch* algorithm is the only true consensus algorithm
-being suported by the development team. (The *classic* and *sieve* algorithms
-may work for some cases.) The target 
+being suported by the development team. The target 
 
     make stress2b
 	
@@ -112,6 +111,65 @@ counter (8 bytes) to 1000 counters (8000 bytes):
 	stress2b1k:
             @CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
             $(NETWORK) -batch 4
-            @echo "Sleeping 10 seconds to allow peers to interlock"; sleep 10
+            @echo "makefile: Sleeping 10 seconds to allow peers to interlock"
+			sleep 10
 	        @$(STRESS2) -size 1000
 	
+## Running Peers and Clients on Separate Machines
+
+All of the current **busywork** make targets create peer networks and clients
+drivers on the same system. With a little extra work it is possible to run
+**busywork** tools and client drivers targeting arbitrary peer networks. The
+key is that the **busywork** tools and client drivers read the
+[`$BUSYWORK_HOME/network`](bin/README.md#network) and
+[`$BUSYWORK_HOME/chaincodes`](bin/README.md#chaincodes) files to understand
+the peer network configuration.  As long as you or your network setup script
+create a suitable `network` file, and you then place that file in the
+`$BUSYWORK_HOME` directory of the client machine, things will work - subject
+to a few simple considerations discussed below.
+
+### Network Setup Notes
+
+If you want to set up a remote network using the
+[`userModeNetwork`](bin/userModeNetwork) script, then you will probably want
+to use the `-interface` option on the script so that the generated `network`
+file will be usable on the client system. For example,
+
+    userModeNetwork -interface `hostname` -batch 4
+	
+will create a `network` file where all of the network interfaces are assigned
+based on the host name of the system. Assuming this host system is accesible
+from the cliant machine you can then simply copy the `network` file from
+host to client machine.
+
+### Client Driver Notes
+
+First, when running a client driver like the `busywork/counters/driver` script,
+you must pass the `-remote` option to the script. This squashes the default
+network watchdog process, which assumes the network is running on the local
+machine. 
+
+A broader issue may be that **busywork** tests are normally one-shot tests
+that start from a clean state, run, check the results, and are done. If
+setting up the peer network is time-consuming, you may want to "re-use" the
+peer network for multiple tests. This is possible in several different ways as
+explained below.
+
+Normally a client driver like the `busywork/counters/driver` script deploys
+chaincodes and then exercises them, every time it runs. However the script
+also includes a `-noDeploy` option that can be used once chaincodes have
+already been deployed in the network by an initial test. In this case the
+script looks at the `$BUSYWORK_HOME/chaincodes` file to determine which
+chaincodes are already available for targeting. All of the correctness
+checking is designed to work under these circumstances.
+
+There is also nothing to prevent running multiple copies of a client driver
+against a single network, other then name collisions that will occur if
+multiple drivers deploy the same chaincodes with the same parameters. The 
+`busywork/counters/driver` now includes the `-ccPrefix` option that allows
+each of multiple client drivers to manipulate chaincodes unique to that
+driver. 
+
+There is currently no support for having multiple client drivers targeting the
+same set of chaincodes (e.g., using `-noDeploy`). The blockchain will
+function, but the corrcetness checks will currently fail.

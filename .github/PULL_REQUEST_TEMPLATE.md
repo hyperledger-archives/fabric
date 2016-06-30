@@ -21,6 +21,6 @@ Fixes #
 - [] I have either added unit tests to cover my changes or this change requires no new tests.
 - [] I have run [golint](https://github.com/golang/lint) and have fixed valid warnings in code I have added or modified. This tool generates false positives so you may choose to ignore some warnings. The goal is clean, consistent, and readable code.
 
-The continuous integration build process will run [make checks](https://github.com/hyperledger/fabric/blob/master/Makefile#L22) to confirm that tests pass and that code quality meets minimum standards. You may optionally run this locally as PRs will not be accepted until they pass.
+<!-- The continuous integration build process will run [make checks](https://github.com/hyperledger/fabric/blob/master/Makefile#L22) to confirm that tests pass and that code quality meets minimum standards. You may optionally run this locally as PRs will not be accepted until they pass. -->
 
 Signed-off-by:

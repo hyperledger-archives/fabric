@@ -73,6 +73,13 @@ to the `LogLevel` API.
 Formatted logging at various severity levels is provided by the functions
 
 ```
+(c *ChaincodeLogger) Debug(args ...interface{})
+(c *ChaincodeLogger) Info(args ...interface{})
+(c *ChaincodeLogger) Notice(args ...interface{})
+(c *ChaincodeLogger) Warning(args ...interface{})
+(c *ChaincodeLogger) Error(args ...interface{})
+(c *ChaincodeLogger) Critical(args ...interface{})
+
 (c *ChaincodeLogger) Debugf(format string, args ...interface{})
 (c *ChaincodeLogger) Infof(format string, args ...interface{})
 (c *ChaincodeLogger) Noticef(format string, args ...interface{})
@@ -81,7 +88,10 @@ Formatted logging at various severity levels is provided by the functions
 (c *ChaincodeLogger) Criticalf(format string, args ...interface{})
 ```
 
+The `f` forms of the logging APIs provide for precise control over the formatting of the logs. The non-`f` forms of the APIs currently insert a space between the printed representations of the arguments, and arbitrarily choose the formats to use.
+
 In the current implementation, the logs produced by the `shim` and a `ChaincodeLogger` are timestamped, marked with the logger *name* and severity level, and written to `stderr`. Note that logging level control is currently based on the *name* provided when the `ChaincodeLogger` is created. To avoid ambiguities, all `ChaincodeLogger` should be given unique names other than "shim". The logger *name* will appear in all log messages created by the logger. The `shim` logs as "shim".
+
 
 Go language chaincodes can also control the logging level of the chaincode `shim` interface through the `SetLoggingLevel` API.
 

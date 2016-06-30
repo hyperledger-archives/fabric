@@ -126,13 +126,16 @@ service Peer {
     rpc ProcessTransaction(Transaction) returns (Response) {}
 
 }
+
 message PeerAddress {
     string host = 1;
     int32 port = 2;
 }
+
 message PeerID {
     string name = 1;
 }
+
 message PeerEndpoint {
     PeerID ID = 1;
     string address = 2;
@@ -144,13 +147,20 @@ message PeerEndpoint {
     Type type = 3;
     bytes pkiID = 4;
 }
+
 message PeersMessage {
     repeated PeerEndpoint peers = 1;
 }
+
+message PeersAddresses {
+    repeated string addresses = 1;
+}
+
 message HelloMessage {
   PeerEndpoint peerEndpoint = 1;
   BlockchainInfo blockchainInfo = 2;
 }
+
 message Message {
     enum Type {
         UNDEFINED = 0;
@@ -180,6 +190,7 @@ message Message {
     bytes payload = 3;
     bytes signature = 4;
 }
+
 message Response {
     enum StatusCode {
         UNDEFINED = 0;
@@ -189,6 +200,7 @@ message Response {
     StatusCode status = 1;
     bytes msg = 2;
 }
+
 // BlockState is the payload of Message.SYNC_BLOCK_ADDED. When a VP
 // commits a new block to the ledger, it will notify its connected NVPs of the
 // block and the delta state. The NVP may call the ledger APIs to apply the
@@ -198,6 +210,7 @@ message BlockState {
     Block block = 1;
     bytes stateDelta = 2;
 }
+
 // SyncBlockRange is the payload of Message.SYNC_GET_BLOCKS, where
 // start and end indicate the starting and ending blocks inclusively. The order
 // in which blocks are returned is defined by the start and end values. For
@@ -208,6 +221,7 @@ message SyncBlockRange {
     uint64 start = 2;
     uint64 end = 3;
 }
+
 // SyncBlocks is the payload of Message.SYNC_BLOCKS, where the range
 // indicates the blocks responded to the request SYNC_GET_BLOCKS
 message SyncBlocks {

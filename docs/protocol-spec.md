@@ -1,4 +1,4 @@
-﻿# Protocol Specification
+# Protocol Specification
 
 ## Preface
 This document is the protocol specification for a permissioned blockchain implementation for industry use-cases. It is not intended to be a complete explanation of the implementation, but rather a description of the interfaces and relationships between components in the system and the application.
@@ -119,8 +119,6 @@ ________________________________________________________
 #### 5. Byzantine Consensus
    - 5.1 Overview
    - 5.2 Core PBFT
-   - 5.3 Inner Consensus Programming Interface
-   - 5.4 Sieve Consensus
 
 #### 6. Application Programming Interface
    - 6.1 REST Service
@@ -801,7 +799,7 @@ Currently, consensus framework consists of 3 packages `consensus`, `controller`,
 
 There are 2 consensus plugins provided: `pbft` and `noops`:
 
--  `obcpbft` package contains consensus plugin that implements *PBFT* [1] and *Sieve* consensus protocols. See section 5 for more detail.
+-  `obcpbft` package contains consensus plugin that implements the *PBFT* [1] consensus protocol. See section 5 for more detail.
 -  `noops` is a ''dummy'' consensus plugin for development and test purposes. It doesn't perform consensus but processes all consensus messages. It also serves as a good simple sample to start learning how to code a consensus plugin.
 
 
@@ -2342,23 +2340,10 @@ One can notice that both deployment and invocation transactions consist of two s
 ## 5. Byzantine Consensus
 The ``obcpbft`` package is an implementation of the seminal [PBFT](http://dl.acm.org/citation.cfm?id=571640 "PBFT") consensus protocol [1], which provides consensus among validators despite a threshold of validators acting as _Byzantine_, i.e., being malicious or failing in an unpredictable manner. In the default configuration, PBFT tolerates up to t<n/3 Byzantine validators.
 
-Besides providing a reference implementation of the PBFT consensus protocol, ``obcpbft`` plugin contains also implementation of the novel _Sieve_ consensus protocol. Basically the idea behind Sieve is to provide a fabric-level protection from _non-deterministic_ transactions, which PBFT and similar existing protocols do not offer. ``obcpbft`` is easily configured to use either the classic PBFT or Sieve.  
-
-In the default configuration, both PBFT and Sieve are designed to run on at least *3t+1* validators (replicas), tolerating up to *t* potentially faulty (including malicious, or *Byzantine*) replicas.
+In the default configuration, PBFT is designed to run on at least *3t+1* validators (replicas), tolerating up to *t* potentially faulty (including malicious, or *Byzantine*) replicas.
 
 ### 5.1 Overview
-The `obcpbft` plugin provides a modular implementation of the `CPI` interface which can be configured to run PBFT or Sieve consensus protocol. The modularity comes from the fact that, internally, `obcpbft` defines the `innerCPI`  interface (i.e., the _inner consensus programming interface_), that currently resides in `pbft-core.go`.
-
-The `innerCPI` interface defines all
-interactions between the inner PBFT consensus (called here *core PBFT* and implemented in `pbft-core.go`) and the outer consensus that uses the core PBFT.  This outer consensus is called *consumer* within core PBFT. `obcpbft` package contains implementations of several core PBFT consumers:
-
-  - `obc-classic.go`, a shim around core PBFT that implements the `innerCPI` interface and calls into the `CPI` interface;
-  - `obc-batch.go`, an `obc-classic` variant that adds batching capabilities to PBFT; and  
-  - `obc-sieve.go`, a core PBFT consumer that implements Sieve consensus protocol and `innerCPI` interface, calling into the `CPI interface`.
-
-In short, besides calls to send messages to other peers (`innerCPI.broadcast` and `innerCPI.unicast`), the `innerCPI` interface defines indications that the core consensus protocol (core PBFT) exports to the consumer. These indications are modeled after a classical *total order (atomic) broadcast* API [2], with `innerCPI.execute` call being used to signal the atomic delivery of a message. Classical total order broadcast is augmented with *external validity* checks [2] (`innerCPI.verify`) and a functionality similar to the unreliable eventual leader failure detector &Omega; [3] (`innerCPI.viewChange`).
-
-Besides `innerCPI`, core PBFT is defined by a set of calls into core PBFT. The most important call into core PBFT is `request` which is effectively used to invoke a total order broadcast primitive [2]. In the following, we first overview calls into core PBFT and then detail the ``innerCPI`` interface. Then, we briefly describe Sieve consensus protocol which will be specified and described in more details elsewhere.  
+The `obcpbft` plugin provides an implementation of the PBFT consensus protocol.
 
 ### 5.2 Core PBFT Functions
 The following functions control for parallelism using a non-recursive lock and can therefore be invoked from multiple threads in parallel. However, the functions typically run to completion and may invoke functions from the CPI passed in.  Care must be taken to prevent livelocks.
@@ -2384,140 +2369,6 @@ The arguments `consumer` and `ledger` pass in interfaces that are used
 to query the application state and invoke application requests once
 they have been totally ordered.  See the respective sections below for
 these interfaces.
-
-
-#### 5.2.2 request
-
-Signature:
-
-```
-func (pbft *pbftCore) request(msgPayload []byte) error
-```
-
-The `request` method takes an opaque request payload and introduces this request into the total order consensus.  This payload will be passed to the CPI `execute` function on all correct, up-to-date replicas once PBFT processing is complete.  The `request` method does not wait for execution before returning; `request` merely submits the request into the consensus.
-
-PBFT does not support submission of the same request multiple times, i.e. a nonce is required if the same conceptual request has to be executed multiple times.  However, PBFT does not reliably prevent replay of requests; a nonce or sequence number can be used by the application to prevent against replays by a Byzantine client.
-
-In rare cases, a `request` may be dropped by the network, and it will never `execute`; if the consumer cannot tolerate this, the consumer needs to implement retries itself.
-
-#### 5.2.3 receive
-
-Signature:
-
-```
-func (pbft *pbftCore) receive(msgPayload []byte) error
-```
-
-The `receive` method takes an opaque message payload, which another instance passed to the `broadcast` or `unicast` CPI functions.  All communication is expected to ensure integrity and provide authentication; e.g. by the use of TLS.  Note that currently authentication is not yet used.  Once authentication is provided, the function signature of `receive` should include the id of the sending node.
-
-See also the discussion below regarding `innerCPI.broadcast` and `innerCPI.unicast`.
-
-
-#### 5.2.4 close
-
-Signature:
-
-```
-func (pbft *pbftCore) close()
-```
-
-The `close` method terminates all background operations. This interface is mostly exposed for testing, because during operation of the fabric, there is never a need to terminate the PBFT instance.
-
-### 5.3 Inner Consensus Programming Interface
-
-The consumer application provides the inner consensus programming interface to core PBFT.  PBFT will call these functions to query state and signal events.
-
-Definition:
-
-```
-type innerCPI interface {
-	broadcast(msgPayload []byte)
-	unicast(msgPayload []byte, receiverID uint64) (err error)
-	validate(txRaw []byte) error
-	execute(txRaw []byte, rawMetadata []byte)
-	viewChange(curView uint64)
-}
-```
-
-#### 5.3.1 broadcast
-
-Signature:
-
-```
-func (cpi innerCPI) broadcast(msgPayload []byte)
-```
-
-The `broadcast` function takes an opaque payload and delivers it to all other replicas via their `receive` method.  Messages may be lost or reordered.  See also the section on `receive` call coming into core PBFT.
-
-#### 5.3.2 unicast
-
-Signature:
-
-```
-func (cpi innerCPI) unicast(msgPayload []byte, receiverID uint64) (err error)
-```
-
-The `unicast` function is similar to `broadcast`, but takes a destination replica id.
-
-#### 5.3.3 validate
-
-Signature:
-
-```
-func (cpi innerCPI) validate(txRaw []byte) error
-```
-The `validate` function is invoked whenever PBFT receives a new request, either locally via `request`, or via consensus messages.  The argument of `validate` is the opaque request that was provided to the PBFT `request` method.  If `validate` returns a non-`nil` error, the local replica will discard the request and behave as if it had never received the request.
-
-The `validate` function can be used for syntactic validation of application requests (i.e., *external validity* checks [2]).  Care must be taken not to introduce non-determinism when validating requests; i.e. the validation must not use any state, e.g., if different replicas receive `validate` calls in different sequence, also with respect to `execute`.  If non-determinism occurs during validation, the behavior of different replicas may diverge, which may lead to dropped requests or complete malfunction of the consensus.
-
-#### 5.3.4 execute
-
-Signature:
-
-```
-func (cpi innerCPI) execute(txRaw []byte, opts ...interface{})
-```
-
-PBFT will invoke the `execute` function when a request has been successfully totally ordered by the consensus protocol.  The argument passed to `execute` is the opaque request, as it has been previously passed to `request`.  All correct, up-to-date replicas will receive the same sequence of `execute` calls.  The application must be deterministic when processing the request.  Any non-determinism will lead to the state on replicas diverging, which is considered a byzantine behavior.
-
-See also the discussion above on request replays in the `request` section.
-
-#### 5.3.5 viewChange
-
-Signature:
-
-```
-func (cpi innerCPI) viewChange(curView uint64)
-```
-
-The `viewChange` function is called by PBFT to signal a successful transition to a new view (and with it, a new primary).  This information is right now only of interest to the *Sieve* consensus algorithm, which uses PBFT leader election to avoid having to implement its own.
-
-Assuming a fixed number of replicas, it is simple to map curView uint64 to replica ID using modulo arithmetic. Having this in mind, with core PBFT implementation, assuming eventual synchrony [4], it is straightforward to argue that the functionality of the `viewChange` call allows simple implementation of the *eventual leader* unreliable failure detector &Omega; [3].  
-
-### 5.4 Sieve Consensus protocol
-
-The design goal of Sieve is to augment PBFT consensus protocol with two main design goals:
-
-- Enabling *consensus on the output state of replicas*, in addition to the consensus on the input state provided by PBFT. To achieve this, Sieve adopts the Execute-Verify (Eve) pattern introduced in [5].
-
-- Because the fabric allows execution of arbitrary chaincode, such chaincode may introduce *non-deterministic* transactions. Although non-deterministic transaction should in principle be disallowed by, e.g., careful inspection of chaincode, using domain specific languages (DSLs), or by otherwise enforcing determinism, the design goal of Sieve is to provide a separate *consensus fabric-level* protection against *non-deterministic* transactions that can be used in combination with the above mentioned approaches.
-
-	To this end, Sieve detects and *sieves out non-deterministic transactions* (that manifest themselves as such). Hence, Sieve does not require all input transactions to consensus (i.e., the replicated state machine) to be deterministic. This feature of Sieve is new and has not been implemented by any existing Byzantine fault tolerant consensus protocols.
-
-A protocol achieving the above two goals should not be designed and implemented from scratch, and should reuse existing PBFT implementation, lowering code complexity and simplifying reasoning about a new consensus protocol. To this end, inspired by [6], Sieve is designed using a modular approach, reusing the core PBFT component of `obcpbft`.
-
-Although the details of Sieve will appear elsewhere [7], we briefly outline some design and implementation aspects below.
-
-In a nutshell, Sieve requires replicas to deterministically agree on the output of the execution of a request.  If the request was deterministic in the first place, all correct replicas will have obtained the same output, and they can agree on this very result. However, if a request happens to produce divergent outputs at correct replicas, Sieve may  detect this divergent condition, and the replicas will agree to discard the result of the request, thereby retaining determinism.
-
-Notice that, as discussed further below, Sieve allows false negatives, i.e., execution of *non-deterministic* requests that execute with the same result at a sufficient number of replicas. However, Sieve allows no false positives and any discarded request is certainly non-deterministic.
-
-The Sieve protocol uses core PBFT to agree on whether to accept or discard a request.  Execution of requests to Sieve is coordinated by a *leader*, which maps to the current PBFT primary (leveraging `innerCPI.viewchange` notification from core PBFT) .  Upon a new request, the leader will instruct all replicas to tentatively execute the request.  Every replica then reports the tentative result (i.e. application state) back to the leader.  The leader collects these *verify* reports in a *verify-set*, which unambiguously determines whether the request should be accepted or discarded.  This verify-set is then passed through the total order of core PBFT.
-
-When core PBFT executes this verify-set, all correct replicas will act in the same way.  If the verify-set proves that execution diverged between correct replicas, the request is considered non-deterministic, and the replicas will roll back the tentative execution and restore the original application state.  If all correct replicas obtained the same result for the tentative execution, the replicas accept the execution and commit the tentative application state.
-
-Under adverse conditions, a request that diverged between correct replicas may appear like a deterministic request (we speak of *false negative* in Sieve detection of non-determinstic requests).  Nevertheless, Sieve requires at least one correct replica to obtain a certain outcome state in order for that state to be committed. Correct replicas that possibly observe diverging execution will discard their result and synchronize their state to match the agreed-upon execution.
-
 
 ## 6. Application Programming Interface
 
@@ -3168,6 +3019,7 @@ peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_comman
 ## 7. Application Model
 
 ### 7.1 Composition of an Application
+
 <table>
 <col>
 <col>
@@ -3190,17 +3042,22 @@ For example, a Bluemix PaaS application using Node.js might have a Web front-end
 </tr>
 </table>
 
-### 7.2 7.2 Sample Application
+### 7.2 Sample Application
 
 
 ## 8. Future Directions
+
 ### 8.1 Enterprise Integration
+
 ### 8.2 Performance and Scalability
+
 ### 8.3 Additional Consensus Plugins
+
 ### 8.4 Additional Languages
 
 
 ## 9. References
+
 - [1] Miguel Castro, Barbara Liskov: Practical Byzantine fault tolerance and proactive recovery. ACM Trans. Comput. Syst. 20(4): 398-461 (2002)
 
 - [2] Christian Cachin, Rachid Guerraoui, Luís E. T. Rodrigues: Introduction to Reliable and Secure Distributed Programming (2. ed.). Springer 2011, ISBN 978-3-642-15259-7, pp. I-XIX, 1-367

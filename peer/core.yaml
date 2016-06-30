@@ -25,6 +25,11 @@ rest:
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
+    validPatterns:
+
+        # Valid enrollment ID pattern in URLs: At least one character long, and
+        # all characters are A-Z, a-z, 0-9 or _.
+        enrollmentID: '^\w+$'
 
 ###############################################################################
 #
@@ -151,7 +156,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        
+
     # TLS Settings for p2p communications
     tls:
         enabled:  false
@@ -201,17 +206,6 @@ peer:
         # be stored in DB and persisted between restarts
         persist:    true
 
-        # if peer discovery is off
-        # the peer window will show
-        # only what retrieved by active
-        # peer [true/false]
-        enabled:    true
-
-        # number of workers that
-        # tast the peers for being
-        # online [1..10]
-        workers: 8
-
         # the period in seconds with which the discovery
         # tries to reconnect to successful nodes
         # 0 means the nodes are not reconnected
@@ -256,7 +250,7 @@ vm:
         # If you have your own ipam & dns-server for cluster you can use them to create container efficient.
         # NetworkMode Sets the networking mode for the container. Supported standard values are: `host`(default),`bridge`,`ipvlan`,`none`
         # dns A list of DNS servers for the container to use.
-        # note: not support customize for `Privileged` 
+        # note: not support customize for `Privileged`
         # LogConfig sets the logging driver (Type) and related options (Config) for Docker
         # you can refer https://docs.docker.com/engine/admin/logging/overview/ for more detail configruation.
         hostConfig:
@@ -268,7 +262,6 @@ vm:
                 Config:
                     max-size: "50m"
                     max-file: "5"
-            
 ###############################################################################
 #
 #    Chaincode section
@@ -321,7 +314,7 @@ chaincode:
     # the image
     installpath: /opt/gopath/bin/
 
-    # keepalive in seconds. In situations where the communiction goes through a 
+    # keepalive in seconds. In situations where the communiction goes through a
     # proxy that does not support keep-alive, this parameter will maintain connection
     # between peer and chaincode.
     # A value <= 0 turns keepalive off

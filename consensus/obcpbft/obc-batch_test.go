@@ -134,14 +134,8 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 	for i, b := range bs {
 		b.manager.Queue() <- nil
 		count := b.reqStore.outstandingRequests.Len()
-		if i == 0 {
-			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store: %v", b.reqStore.outstandingRequests)
-			}
-		} else {
-			if count != 1 {
-				t.Errorf("Batch backup %d should have the request in its store", i)
-			}
+		if count != 1 {
+			t.Errorf("Batch backup %d should have the request in its store", i)
 		}
 	}
 }
@@ -190,6 +184,8 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		}
 	}
 
+	tmp := uint64(1)
+	b.pbft.currentExec = &tmp
 	events.SendEvent(b, committedEvent{})
 	execute()
 
@@ -356,5 +352,20 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 		if !obc.pbft.activeView || obc.pbft.view != 0 {
 			t.Errorf("Replica %d not active in view 0, is %v %d", ce.id, obc.pbft.activeView, obc.pbft.view)
 		}
+	}
+}
+
+func TestClearBatchStoreOnViewChange(t *testing.T) {
+	b := newObcBatch(1, loadConfig(), &omniProto{})
+	defer b.Close()
+
+	b.batchStore = []*Request{&Request{}}
+
+	// Send a request, which will be ignored, triggering view change
+	b.manager.Queue() <- viewChangedEvent{}
+	b.manager.Queue() <- nil
+
+	if len(b.batchStore) != 0 {
+		t.Fatalf("Should have cleared the batch store on view change")
 	}
 }

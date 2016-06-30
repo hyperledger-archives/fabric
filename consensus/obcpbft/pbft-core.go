@@ -1222,7 +1222,8 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 	// we have reached this checkpoint
 	// Note, this is not divergent from the paper, as the paper requires that
 	// the quorum certificate must contain 2f+1 messages, including its own
-	if _, ok := instance.chkpts[chkpt.SequenceNumber]; !ok {
+	chkptID, ok := instance.chkpts[chkpt.SequenceNumber]
+	if !ok {
 		logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s, but it has not reached this checkpoint itself yet",
 			instance.id, chkpt.SequenceNumber, chkpt.Id)
 		if instance.skipInProgress {
@@ -1239,6 +1240,11 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 
 	logger.Debugf("Replica %d found checkpoint quorum for seqNo %d, digest %s",
 		instance.id, chkpt.SequenceNumber, chkpt.Id)
+
+	if chkptID != chkpt.Id {
+		logger.Criticalf("Replica %d generated a checkpoint of %s, but a quorum of the network agrees on %s.  This is almost definitely non-deterministic chaincode.", instance.id, chkptID, chkpt.Id)
+		instance.stateTransfer(nil)
+	}
 
 	instance.moveWatermarks(chkpt.SequenceNumber)
 

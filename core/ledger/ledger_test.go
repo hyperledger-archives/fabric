@@ -677,10 +677,10 @@ func TestPreviewTXBatchBlock(t *testing.T) {
 	testutil.AssertNoError(t, err, "Error fetching preview block info.")
 
 	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-	commitedBlockInfo, err := ledger.GetBlockchainInfo()
+	committedBlockInfo, err := ledger.GetBlockchainInfo()
 	testutil.AssertNoError(t, err, "Error fetching committed block hash.")
 
-	testutil.AssertEquals(t, previewBlockInfo, commitedBlockInfo)
+	testutil.AssertEquals(t, previewBlockInfo, committedBlockInfo)
 }
 
 func TestGetTransactionByUUID(t *testing.T) {

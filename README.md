@@ -1,12 +1,16 @@
 [![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/fabric)](https://goreportcard.com/report/github.com/hyperledger/fabric)
 [![GoDoc](https://godoc.org/github.com/hyperledger/fabric?status.svg)](https://godoc.org/github.com/hyperledger/fabric)
+[![Documentation Status](https://readthedocs.org/projects/hyperledger-fabric/badge/?version=latest)](http://hyperledger-fabric.readthedocs.io/en/latest/?badge=latest)
 
 # Incubation Notice
 This project is a Hyperledger project in _Incubation_. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what _Incubation_ entails can be found in the [Hyperledger Project Lifecycle document](https://goo.gl/4edNRc).
 
 # Hyperledger Fabric
 The fabric is an implementation of blockchain technology, leveraging familiar and proven technologies. It is a modular architecture allowing pluggable implementations of various function. It features powerful container technology to host any mainstream language for smart contracts development.
+
+## Releases
+The fabric releases are documented [here](https://github.com/hyperledger/fabric/wiki/Fabric-Releases). We have just released our first release under the governance of the Hyperledger Project - v0.5-developer-preview.
 
 ## Contributing to the project
 We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](CONTRIBUTING.md) file.

@@ -186,6 +186,7 @@ export interface TransactionRequest {
  */
 export interface DeployRequest extends TransactionRequest {
     chaincodePath: string;
+    chaincodeName: string;
 }
 /**
  * Invoke or query request.
