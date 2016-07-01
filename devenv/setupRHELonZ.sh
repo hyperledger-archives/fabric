@@ -90,7 +90,7 @@ pip install behave nose docker-compose
 ################
 #grpcio package
 
-git clone https://github.com/grpc/grpc.git
+git clone https://github.com/gongsu832/grpc.git
 cd grpc
 git submodule update --init
 pip install -rrequirements.txt
