@@ -47,6 +47,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	capi "github.com/hyperledger/fabric/consensus/api"
 	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
@@ -487,6 +488,21 @@ func serve(args []string) error {
 		// Register Endorser server
 		serverEndorser := core.NewEndorserServer()
 		pb.RegisterEndorserServer(grpcServer, serverEndorser)
+	}
+
+	// CON-API: isConsenter := viper.GetBool("consensus.enabled")
+	if viper.GetBool("consensus.enabled") {
+		logger.Infof("Consensus enabled.")
+		// Register Consensus server
+		engineGet := func() capi.ConsensusEngine {
+			e, err := helper.GetEngine(peerServer)
+			if nil != err {
+				panic("Cannot get/initialize engine!")
+			}
+			return e
+		}
+		serverConsensus := capi.NewConsensusAPIServer(engineGet, secHelperFunc)
+		pb.RegisterConsensusServer(grpcServer, serverConsensus)
 	}
 
 	// Register the ServerOpenchain server
