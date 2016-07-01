@@ -245,6 +245,10 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
 		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Uuid)
 	}
+	_, err = CheckEndorsements(transaction)
+	if err != nil {
+		return nil, err
+	}
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))

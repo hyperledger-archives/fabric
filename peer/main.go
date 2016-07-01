@@ -482,6 +482,13 @@ func serve(args []string) error {
 	serverDevops := core.NewDevopsServer(peerServer)
 	pb.RegisterDevopsServer(grpcServer, serverDevops)
 
+	if viper.GetBool("endorsement.enabled") {
+		logger.Infof("Endorsement enabled.")
+		// Register Endorser server
+		serverEndorser := core.NewEndorserServer()
+		pb.RegisterEndorserServer(grpcServer, serverEndorser)
+	}
+
 	// Register the ServerOpenchain server
 	serverOpenchain, err := rest.NewOpenchainServerWithPeerInfo(peerServer)
 	if err != nil {
