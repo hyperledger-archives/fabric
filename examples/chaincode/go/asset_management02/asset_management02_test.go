@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -372,7 +373,7 @@ func assignOwnership(assigner crypto.Client, newOwnerCert crypto.CertificateHand
 		return err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "assignOwnership", Args: []string{string(newOwnerCert.GetCertificate()), attributeName, amount}}
+	chaincodeInput := &pb.ChaincodeInput{Function: "assignOwnership", Args: []string{base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate()), attributeName, amount}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
@@ -418,7 +419,11 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 		return err
 	}
 
-	args := []string{string(ownerCert.GetCertificate()), fromAttributes, string(newOwnerCert.GetCertificate()), toAttributes, amount}
+	args := []string{base64.StdEncoding.EncodeToString(ownerCert.GetCertificate()),
+		fromAttributes,
+		base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate()),
+		toAttributes,
+		amount}
 	chaincodeInput := &pb.ChaincodeInput{Function: "transferOwnership", Args: args}
 
 	// Prepare spec and submit

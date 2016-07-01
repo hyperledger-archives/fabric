@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"strconv"
@@ -55,7 +56,11 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 		return nil, errors.New("user is not aurthorized to assign assets")
 	}
 
-	owner := []byte(args[0])
+	owner, err := base64.StdEncoding.DecodeString(args[0])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding owner")
+	}
 	accountAttribute := args[1]
 
 	amount, err := strconv.ParseUint(args[2], 10, 64)
@@ -95,10 +100,18 @@ func (t *AssetManagementChaincode) transferOwnership(stub *shim.ChaincodeStub, a
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
 
-	fromOwner := []byte(args[0])
+	fromOwner, err := base64.StdEncoding.DecodeString(args[0])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding fromOwner")
+	}
 	fromAccountAttributes := strings.Split(args[1], ",")
 
-	toOwner := []byte(args[2])
+	toOwner, err := base64.StdEncoding.DecodeString(args[2])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding owner")
+	}
 	toAccountAttributes := strings.Split(args[3], ",")
 
 	amount, err := strconv.ParseUint(args[4], 10, 64)
