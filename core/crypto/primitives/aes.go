@@ -22,7 +22,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -39,108 +38,101 @@ func GenAESKey() ([]byte, error) {
 	return GetRandomBytes(AESKeyLength)
 }
 
-// PKCS7Padding pads as prescribed by the PKCS7 standard
-func PKCS7Padding(src []byte) []byte {
-	padding := aes.BlockSize - len(src)%aes.BlockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(src, padtext...)
-}
-
-// PKCS7UnPadding unpads as prescribed by the PKCS7 standard
-func PKCS7UnPadding(src []byte) ([]byte, error) {
-	length := len(src)
-	unpadding := int(src[length-1])
-
-	if unpadding > aes.BlockSize || unpadding == 0 {
-		return nil, fmt.Errorf("invalid padding")
+// PKCS7Padding adds padding for any block smaller than AES block size
+func PKCS7Padding(message []byte) []byte {
+	if len(message)%aes.BlockSize == 0 {
+		return message
 	}
 
-	pad := src[len(src)-unpadding:]
-	for i := 0; i < unpadding; i++ {
-		if pad[i] != byte(unpadding) {
-			return nil, fmt.Errorf("invalid padding")
+	padSize := aes.BlockSize - len(message)%aes.BlockSize
+	addByte := bytes.Repeat([]byte{byte(padSize)}, padSize)
+
+	return append(message, addByte...)
+}
+
+//PKCS7UnPadding removes any padding from plain text
+func PKCS7UnPadding(plainText []byte) ([]byte, error) {
+	plaintextLen := len(plainText)
+	if plaintextLen == 0 {
+		return nil, errors.New("length of plaintext is 0")
+	}
+
+	removepadSize := int(plainText[plaintextLen-1])
+	if removepadSize == 0 || removepadSize > aes.BlockSize {
+		return plainText, nil
+	}
+
+	paddedLen := plaintextLen - removepadSize
+	thepaddedData := plainText[paddedLen:]
+
+	for v := 0; v < removepadSize; v++ {
+		if thepaddedData[v] != byte(removepadSize) {
+			return nil, errors.New("padding string must match repeated bytes added")
 		}
 	}
 
-	return src[:(length - unpadding)], nil
+	truemsgLen := plaintextLen - removepadSize
+
+	return plainText[:truemsgLen], nil
 }
 
-// CBCEncrypt encrypts using CBC mode
-func CBCEncrypt(key, s []byte) ([]byte, error) {
-	// CBC mode works on blocks so plaintexts may need to be padded to the
-	// next whole block. For an example of such padding, see
-	// https://tools.ietf.org/html/rfc5246#section-6.2.3.2. Here we'll
-	// assume that the plaintext is already of the correct length.
-	if len(s)%aes.BlockSize != 0 {
-		return nil, errors.New("plaintext is not a multiple of the block size")
+// AESEncryptCBC encrypts AES block with CBC mode
+func AESEncryptCBC(encKey, message []byte) ([]byte, error) {
+	message = PKCS7Padding(message)
+
+	cipherBlock, error := aes.NewCipher(encKey)
+	if error != nil {
+		return nil, error
 	}
 
-	block, err := aes.NewCipher(key)
+	blockSize := aes.BlockSize + len(message)
+	tmpCiphertext := make([]byte, blockSize)
+	randVector := tmpCiphertext[:aes.BlockSize]
+	_, error = io.ReadFull(rand.Reader, randVector)
+
+	if error != nil {
+		return nil, error
+	}
+
+	encMode := cipher.NewCBCEncrypter(cipherBlock, randVector)
+	encMode.CryptBlocks(tmpCiphertext[aes.BlockSize:], message)
+
+	return tmpCiphertext, nil
+}
+
+// AESDecryptCBC decrypts a AES block with CBC mode
+func AESDecryptCBC(decKey, cipherText []byte) ([]byte, error) {
+	decBlock, err := aes.NewCipher(decKey)
+
 	if err != nil {
 		return nil, err
 	}
 
-	// The IV needs to be unique, but not secure. Therefore it's common to
-	// include it at the beginning of the ciphertext.
-	ciphertext := make([]byte, aes.BlockSize+len(s))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
+	if len(cipherText) < aes.BlockSize {
+		return nil, errors.New("ciphertext needs to be multiple of 16")
 	}
 
-	mode := cipher.NewCBCEncrypter(block, iv)
-	mode.CryptBlocks(ciphertext[aes.BlockSize:], s)
+	initVector := cipherText[:aes.BlockSize]
+	originalMsg := cipherText[aes.BlockSize:]
 
-	// It's important to remember that ciphertexts must be authenticated
-	// (i.e. by using crypto/hmac) as well as being encrypted in order to
-	// be secure.
-	return ciphertext, nil
-}
-
-// CBCDecrypt decrypts using CBC mode
-func CBCDecrypt(key, src []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// The IV needs to be unique, but not secure. Therefore it's common to
-	// include it at the beginning of the ciphertext.
-	if len(src) < aes.BlockSize {
-		return nil, errors.New("ciphertext too short")
-	}
-	iv := src[:aes.BlockSize]
-	src = src[aes.BlockSize:]
-
-	// CBC mode always works in whole blocks.
-	if len(src)%aes.BlockSize != 0 {
+	if len(cipherText)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext is not a multiple of the block size")
 	}
 
-	mode := cipher.NewCBCDecrypter(block, iv)
+	decMode := cipher.NewCBCDecrypter(decBlock, initVector)
+	decMode.CryptBlocks(originalMsg, cipherText[aes.BlockSize:])
 
-	// CryptBlocks can work in-place if the two arguments are the same.
-	mode.CryptBlocks(src, src)
-
-	// If the original plaintext lengths are not a multiple of the block
-	// size, padding would have to be added when encrypting, which would be
-	// removed at this point. For an example, see
-	// https://tools.ietf.org/html/rfc5246#section-6.2.3.2. However, it's
-	// critical to note that ciphertexts must be authenticated (i.e. by
-	// using crypto/hmac) before being decrypted in order to avoid creating
-	// a padding oracle.
-
-	return src, nil
+	return PKCS7UnPadding(originalMsg)
 }
 
 // CBCPKCS7Encrypt combines CBC encryption and PKCS7 padding
 func CBCPKCS7Encrypt(key, src []byte) ([]byte, error) {
-	return CBCEncrypt(key, PKCS7Padding(src))
+	return AESEncryptCBC(key, PKCS7Padding(src))
 }
 
 // CBCPKCS7Decrypt combines CBC decryption and PKCS7 unpadding
 func CBCPKCS7Decrypt(key, src []byte) ([]byte, error) {
-	pt, err := CBCDecrypt(key, src)
+	pt, err := AESDecryptCBC(key, src)
 	if err != nil {
 		return nil, err
 	}
