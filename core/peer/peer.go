@@ -629,9 +629,12 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
 func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
-	if p.isValidator {
-		response = p.sendTransactionsToLocalEngine(transaction)
+    // CON-API isConsenter
+    if p.isValidator {
+        // CON-API capi.SendBroadcastMessage(broadcast)
+        response = p.sendTransactionsToLocalEngine(transaction)
 	} else {
+        // CON-API capi.Broadcast(broadcast)
 		peerAddresses := p.discHelper.GetRandomNodes(1)
 		response = p.SendTransactionsToPeer(peerAddresses[0], transaction)
 	}

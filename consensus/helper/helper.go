@@ -180,6 +180,8 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
 
+    // CON-API this will need to be moved
+    // CON-API capi.SendNewConsensusToClients(txs) 
 	res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
 

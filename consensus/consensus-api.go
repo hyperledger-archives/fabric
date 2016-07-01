@@ -8,8 +8,12 @@ import (
 //	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 //	context "golang.org/x/net/context"
+	"github.com/hyperledger/fabric/core/crypto"
+	"github.com/spf13/viper"
+	context "golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"sync"
-//	"time"
+    //	"time"
 )
 
 var logger *logging.Logger // package-level logger
@@ -22,17 +26,25 @@ func init() {
 type consensusAPI struct {
 	consToSend  chan *pb.Deliver
 	streamList  *streamList
+    secHelper   crypto.Peer
+    engine      ConsensusEngine
 }
 
 var c *consensusAPI
 
+type ConsensusEngine interface {
+    ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response)
+}
+
 // NewConsensusAPIServer creates and returns a new Consensus API server instance.
-func NewConsensusAPIServer() *consensusAPI {
+func NewConsensusAPIServer(engineGetterFunc func() ConsensusEngine, secHelperFunc func() crypto.Peer) *consensusAPI {
 	if c == nil {
 		c = new(consensusAPI)
 		c.consToSend = make(chan *pb.Deliver)
 		c.streamList = newStreamList()
-		return c
+		c.secHelper = secHelperFunc()
+        c.engine = engineGetterFunc()
+        return c
 	}
 	panic("Consensus API is a singleton. It must be instantiated only once.")
 }
@@ -51,7 +63,7 @@ func (c *consensusAPI) Chat(stream pb.Consensus_ChatServer) error {
 			e := fmt.Errorf("Error during Consensus Chat, stopping: %s", err)
 			return e
 		}
-		err = c.handleMessage(broadcast)
+		err = c.handleBroadcastMessageWithVerification(broadcast)
 		if err != nil {
 			logger.Errorf("Error handling message: %s", err)
 			return err
@@ -60,8 +72,34 @@ func (c *consensusAPI) Chat(stream pb.Consensus_ChatServer) error {
 }
 
 // handleMessage handles messages
-func (c *consensusAPI) handleMessage(broadcast *pb.Broadcast) error {
+func (c *consensusAPI) handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) error {
+	// verification
+    // Verify transaction signature if security is enabled
+    secHelper := c.secHelper
+    if nil != secHelper {
+        logger.Debugf("Verifying signature...")
+        //if broadcast, err = secHelper.TransactionPreValidation(); err != nil {
+        //    logger.Errorf("Failed to verify transaction %v", err)
+        //    return fmt.Error("Failed to verify transaction.")
+        //}
+    }
+    return c.HandleBroadcastMessage(broadcast)
+}
+
+// HandleBroadcastMessage handles a broadcast that asks for a consensus
+func (c *consensusAPI) HandleBroadcastMessage(broadcast *pb.Broadcast) error {
+    // time := util.CreateUtcTimestamp()
+    payload := broadcast.Proposal.TxContent
+    tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_INVOKE, Payload: payload, Uuid: "temporaryID"}
+    msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: payload, Timestamp: nil}
+	logger.Debugf("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
+	c.engine.ProcessTransactionMsg(msg, tx)
 	return nil
+}
+
+// HandleBroadcastMessage handles a broadcast that asks for a consensus
+func HandleBroadcastMessage(broadcast *pb.Broadcast) error {
+	return c.HandleBroadcastMessage(broadcast)
 }
 
 // SendNewConsensusToClients sends a signal of a newly made consensus to the observing clients.
@@ -98,3 +136,32 @@ func (s *streamList) del(k pb.Consensus_ChatServer) {
 	defer s.Unlock()
 	delete(s.m, k)
 }
+
+// Broadcast sends a broadcast message to consenters
+func SendBroadcastMessage(broadcast *pb.Broadcast) error {
+    var conn *grpc.ClientConn
+    var err error
+    consenters := getConsenters()
+    for _, ip := range consenters {
+        conn, err = grpc.Dial(ip)
+        if err == nil {
+            break
+        }
+    }
+    if err != nil {
+        return err
+    }
+
+    consclient := pb.NewConsensusClient(conn)
+    s, err := consclient.Chat(context.Background())
+    if err != nil {
+        return err
+    }
+    s.Send(broadcast)
+    return nil
+}
+
+func getConsenters() ([]string) {
+	return viper.GetStringSlice("consensus.consenters")
+}
+
