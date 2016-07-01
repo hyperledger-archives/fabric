@@ -270,12 +270,14 @@ func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string,
 
 // --------- State functions ----------
 
-// GetState returns the byte array value specified by the `key`.
+// GetState returns the value currently associated with the `key` in the ledger. If there is no value
+// associated with `key`, then the []byte value returned is nil.
 func (stub *ChaincodeStub) GetState(key string) ([]byte, error) {
 	return handler.handleGetState(key, stub.UUID)
 }
 
-// PutState writes the specified `value` and `key` into the ledger.
+// PutState associates the `value` with the `key` in the ledger. To avoid ambiguities with the operation
+// of GetState the `value` is not allowed to be nil, however a 0-length byte array is a valid `value`.
 func (stub *ChaincodeStub) PutState(key string, value []byte) error {
 	return handler.handlePutState(key, value, stub.UUID)
 }
