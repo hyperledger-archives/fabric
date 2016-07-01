@@ -34,7 +34,6 @@ import (
 //and the big lock should have no performance impact
 //
 type handlerList interface {
-	//find() *handler
 	add(ie *pb.Interest, h *handler) (bool, error)
 	del(ie *pb.Interest, h *handler) (bool, error)
 	foreach(ie *pb.Event, action func(h *handler))
@@ -42,13 +41,11 @@ type handlerList interface {
 
 type genericHandlerList struct {
 	sync.RWMutex
-	// this map used as a list - add/del/iterate
 	handlers map[*handler]bool
 }
 
 type chaincodeHandlerList struct {
 	sync.RWMutex
-	// this map used as a list - add/del/iterate
 	handlers map[string]map[string]map[*handler]bool
 }
 
@@ -113,7 +110,6 @@ func (hl *chaincodeHandlerList) del(ie *pb.Interest, h *handler) (bool, error) {
 		//the handler is not registered for the event type
 		return false, fmt.Errorf("handler not registered for event name %s for chaincode ID %s", ie.GetChaincodeRegInfo().EventName, ie.GetChaincodeRegInfo().ChaincodeID)
 	}
-
 	//remove the handler from the map
 	delete(handlerMap, h)
 
@@ -276,10 +272,11 @@ func AddEventType(eventType pb.EventType) error {
 }
 
 func registerHandler(ie *pb.Interest, h *handler) error {
-	producerLogger.Debugf("registerHandler %s", ie.EventType)
+	//producerLogger.Debugf("registerHandler %s", ie.EventType)
 
 	gEventProcessor.Lock()
 	defer gEventProcessor.Unlock()
+
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
 	} else if _, err := hl.add(ie, h); err != nil {
@@ -290,10 +287,11 @@ func registerHandler(ie *pb.Interest, h *handler) error {
 }
 
 func deRegisterHandler(ie *pb.Interest, h *handler) error {
-	producerLogger.Debugf("deRegisterHandler %s", ie.EventType)
+	//producerLogger.Debugf("deRegisterHandler %s", ie.EventType)
 
 	gEventProcessor.Lock()
 	defer gEventProcessor.Unlock()
+
 	if hl, ok := gEventProcessor.eventConsumers[ie.EventType]; !ok {
 		return fmt.Errorf("event type %s does not exist", ie.EventType)
 	} else if _, err := hl.del(ie, h); err != nil {
