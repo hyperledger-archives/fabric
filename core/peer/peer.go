@@ -41,6 +41,7 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt/state"
 	"github.com/hyperledger/fabric/core/util"
+	capi "github.com/hyperledger/fabric/consensus/api"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -629,16 +630,20 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
 func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
-    // CON-API isConsenter
-    if p.isValidator {
-        // CON-API capi.SendBroadcastMessage(broadcast)
-        response = p.sendTransactionsToLocalEngine(transaction)
+    	var err error
+	err = nil
+    	// CON-API we need to use endorsements
+	broadcast := &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: transaction.Payload}, Endorsements: [][]byte{}}
+	// CON-API isConsenter
+	if p.isValidator {
+		err = capi.HandleBroadcastMessage(broadcast)
 	} else {
-        // CON-API capi.Broadcast(broadcast)
-		peerAddresses := p.discHelper.GetRandomNodes(1)
-		response = p.SendTransactionsToPeer(peerAddresses[0], transaction)
+		err = capi.SendBroadcastMessage(broadcast)
 	}
-	return response
+	if err != nil {
+		return &pb.Response{Status: pb.Response_FAILURE} 
+	}	
+	return &pb.Response{Status: pb.Response_SUCCESS}
 }
 
 // GetPeerEndpoint returns the endpoint for this peer
