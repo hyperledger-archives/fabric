@@ -657,6 +657,13 @@ func (stub *ChaincodeStub) GetRows2(tableName string, key []Column) (func(), <-c
 	rows := make(chan Row)
 
 	go func() {
+		//chaincode may call the closeIter function at any time during iteration
+		//this could cause panic in the routine (for instance on trying to write
+		//to the closed write channel). Catch and release, rather than bringing
+		//down the chaincode
+		defer func() {
+			recover()
+		}()
 		for iter.HasNext() {
 			_, rowBytes, err := iter.Next()
 			if err != nil {
@@ -670,12 +677,24 @@ func (stub *ChaincodeStub) GetRows2(tableName string, key []Column) (func(), <-c
 			}
 
 			rows <- row
-
 		}
 		close(rows)
+
+		rows = nil
 	}()
 
 	closeFunc := func() {
+		//just be overly cautious. We closing and cleaning up. Ignore any residual panic
+		//due to calling closes (note that we *are* taking precautions... for example
+		//if rows != nil check makes sure we don't double-close the channel)
+		defer func() {
+			recover()
+		}()
+
+		if rows != nil {
+			close(rows)
+		}
+
 		iter.Close()
 	}
 

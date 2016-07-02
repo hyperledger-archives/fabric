@@ -47,7 +47,7 @@ func (lrc *largeRowsetChaincode) Init(db *shim.ChaincodeStub, function string, a
 		return nil, err
 	}
 
-	for i := 0; i < 1000;  i++ {
+	for i := 0; i < 250;  i++ {
 		col1 := fmt.Sprintf("Key_%d", i)
 		col2 := fmt.Sprintf("Name_%d", i)
 		col3 := fmt.Sprintf("Bank_%d", i)
@@ -102,7 +102,7 @@ func (lrc *largeRowsetChaincode) Query(db *shim.ChaincodeStub, function string, 
 			case row, ok := <-rowChannel:
 			if !ok {
 				rowChannel = nil
-				} else {
+			} else {
 				rows = append(rows, &row)
 			}
 		}
