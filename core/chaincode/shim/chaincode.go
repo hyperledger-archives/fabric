@@ -541,6 +541,8 @@ func (stub *ChaincodeStub) GetRow(tableName string, key []Column) (Row, error) {
 // all rows that have A, C and any value for D as their key. GetRows could
 // also be called with A only to return all rows that have A and any value
 // for C and D as their key.
+//
+// recommend using GetRows2 as a more efficient implementation
 func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, error) {
 
 	keyString, err := buildKeyString(tableName, key)
@@ -572,7 +574,85 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching rows: %s", err)
 	}
+
 	defer iter.Close()
+
+	//start with 128 but make more if necesssary
+	rows := make(chan Row, 128)
+
+	//at the end of this call all rows are obtained
+	for iter.HasNext() {
+		_, rowBytes, err := iter.Next()
+		if err != nil {
+			break
+		}
+
+		var row Row
+		err = proto.Unmarshal(rowBytes, &row)
+		if err != nil {
+			break
+		}
+
+		//copy rows to a larger channel
+		if len(rows) == cap(rows) {
+			tmprows := make(chan Row, cap(rows)+64)
+			for i := 0;  i < len(rows);  i++ {
+				var ok bool
+				if row, ok = <-rows; !ok {
+					break
+				}
+				tmprows <- row
+			}
+			close(rows)
+
+			rows = tmprows
+			tmprows = nil
+		}
+
+		rows <- row
+
+	}
+	close(rows)
+
+	return rows, nil
+
+}
+
+// GetRows2 is identical to GetRows except 
+//    1) does not have the overhead of buffering all rows into the returned channel
+//    2) returns an additional func() which user needs to call to close the iterator
+//       see examples/chaincode/go/largerowsiterator/largerowsiterator.go
+func (stub *ChaincodeStub) GetRows2(tableName string, key []Column) (func(), <-chan Row, error) {
+
+	keyString, err := buildKeyString(tableName, key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	table, err := stub.getTable(tableName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Need to check for special case where table has a single column
+	if len(table.GetColumnDefinitions()) < 2 && len(key) > 0 {
+
+		row, err := stub.GetRow(tableName, key)
+		if err != nil {
+			return nil, nil, err
+		}
+		rows := make(chan Row)
+		go func() {
+			rows <- row
+			close(rows)
+		}()
+		return nil, rows, nil
+	}
+
+	iter, err := stub.RangeQueryState(keyString+"1", keyString+":")
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error fetching rows: %s", err)
+	}
 
 	rows := make(chan Row)
 
@@ -580,13 +660,13 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 		for iter.HasNext() {
 			_, rowBytes, err := iter.Next()
 			if err != nil {
-				close(rows)
+				break
 			}
 
 			var row Row
 			err = proto.Unmarshal(rowBytes, &row)
 			if err != nil {
-				close(rows)
+				break
 			}
 
 			rows <- row
@@ -595,7 +675,12 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 		close(rows)
 	}()
 
-	return rows, nil
+	closeFunc := func() {
+		iter.Close()
+	}
+
+	//user has to call closeFunc and close the iterator after reading rows
+	return closeFunc, rows, nil
 
 }
 
