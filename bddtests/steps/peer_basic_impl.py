@@ -168,8 +168,8 @@ def step_impl(context, chaincodePath, ctor, containerName):
     print("Requesting path = {0}".format(request_url))
     args = []
     if 'table' in context:
-	   # There is ctor arguments
-	   args = context.table[0].cells
+          # There is ctor arguments
+          args = context.table[0].cells
     typeGolang = 1
 
     # Create a ChaincodeSpec structure
@@ -223,6 +223,12 @@ def step_impl(context, chaincodeName, functionName, containerName, times):
     for i in range(int(times)):
         invokeChaincode(context, "invoke", functionName, containerName)
 
+@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" with attribute "{attributeName}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, attributeName, containerName):
+    assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
+    assert attributeName, "attributeName not specified"
+    invokeChaincode(context, "invoke", functionName, containerName, None, [attributeName])
+
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
@@ -242,7 +248,7 @@ def step_impl(context, chaincodeName, functionName, containerName):
 def step_impl(context, chaincodeName, functionName, containerName):
     invokeChaincode(context, "query", functionName, containerName)
 
-def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=None):
+def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=None, attributes=[]):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     # Update hte chaincodeSpec ctorMsg for invoke
     args = []
@@ -251,6 +257,8 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=N
        args = context.table[0].cells
     context.chaincodeSpec['ctorMsg']['function'] = functionName
     context.chaincodeSpec['ctorMsg']['args'] = args
+    context.chaincodeSpec['attributes'] = attributes
+
     # Invoke the POST
     chaincodeInvocationSpec = {
         "chaincodeSpec" : context.chaincodeSpec
@@ -454,7 +462,7 @@ def query_common(context, chaincodeName, functionName, value, failOnError):
         # Change the SecurityContext per call
         chaincodeInvocationSpec['chaincodeSpec']["secureContext"] = context.peerToSecretMessage[container.composeService]['enrollId']
         print("Container {0} enrollID = {1}".format(container.containerName, container.getEnv("CORE_SECURITY_ENROLLID")))
-        request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format(functionName))
+        request_url = buildUrl(context, container.ipAddress, "/devops/{0}".format("query"))
         print("{0} POSTing path = {1}".format(currentTime(), request_url))
         resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), timeout=30, verify=False)
         if failOnError:

@@ -1316,3 +1316,81 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
             | vp0  | vp1 | vp2 | vp3 |
     Then I should get a JSON response from peers with "OK" = "10"
             | vp0  | vp1 | vp2 | vp3 |
+
+    @chaincode_with_attributes
+    #@doNotDecompose
+    Scenario Outline: chaincode authorizable_counter with 4 peers, two stopped, bring back both
+        Given we compose "<ComposeFile>"
+        And I register with CA supplying username "diego" and secret "DRJ23pEQl16a" on peers:
+                | vp0  |
+        And I use the following credentials for querying peers:
+                | peer |   username  |    secret    |
+                | vp0  |  test_user0 | MS9qrN8hFjlE |
+                | vp1  |  test_user1 | jGlNl6ImkuDo |
+                | vp2  |  test_user2 | zMflqOKezFiA |
+                | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+        When requesting "/chain" from "vp0"
+        Then I should get a JSON response with "height" = "1"
+
+        When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/authorizable_counter" with ctor "init" to "vp0"
+                | arg1 |
+                | 0    |
+        Then I should have received a chaincode name
+        Then I wait up to "60" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 |
+
+        When I query chaincode "authorizable_counter" function name "read" on "vp0":
+                |arg1|
+                | a  |
+        Then I should get a JSON response with "OK" = "0"
+
+        Given I stop peers:
+                | vp1 | vp2 |
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "position" on "vp0"
+                |arg1|
+                | a  |
+        Then I should have received a transactionID
+
+        Given I start peers:
+                | vp1 | vp2 |
+        And I wait "15" seconds
+
+        When I invoke chaincode "authorizable_counter" function name "increment" on "vp0" "8" times
+                |arg1|arg2|arg3|
+                | a  | b  | 10 |
+        Then I should have received a transactionID
+        Then I wait up to "60" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Then I wait "30" seconds
+        # For the view to change to "vp3" or "vp1"
+
+        When I query chaincode "authorizable_counter" function name "read" with value "a" on peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Then I should get a JSON response from peers with "OK" = "1"
+                | vp0  | vp1 | vp2 | vp3 |
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "company" on "vp0"
+                |arg1|
+                | a  |
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "position" on "vp0"
+                |arg1|
+                | a  |
+
+        Then I wait up to "15" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        When I query chaincode "authorizable_counter" function name "read" with value "a" on peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Then I should get a JSON response from peers with "OK" = "2"
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Examples: Consensus Options
+        |          ComposeFile                   |   WaitTime    |
+        |   docker-compose-4-consensus-batch.yml docker-membersrvc-attributes-enabled.yml |      120      |
+        |   docker-compose-4-consensus-batch.yml docker-membersrvc-attributes-enabled.yml docker-membersrvc-attributes-encryption-enabled.yml |      120      |
