@@ -44,17 +44,18 @@ func (lrc *largeRowsetChaincode) Init(db *shim.ChaincodeStub, function string, a
 		{"Name", shim.ColumnDefinition_STRING, false},
 		{"Bank", shim.ColumnDefinition_STRING, false},
 	}); err != nil {
-		return nil, err
+		//just assume the table exists and was populated
+		return nil, nil
 	}
 
-	for i := 0; i < 250;  i++ {
+	for i := 0; i < 250; i++ {
 		col1 := fmt.Sprintf("Key_%d", i)
 		col2 := fmt.Sprintf("Name_%d", i)
 		col3 := fmt.Sprintf("Bank_%d", i)
-		if _, err := lrc.retInAdd(db.InsertRow("Investor", shim.Row{[]*shim.Column{
-			&shim.Column{&shim.Column_String_{col1}},
-			&shim.Column{&shim.Column_String_{col2}},
-			&shim.Column{&shim.Column_String_{col3}},
+		if _, err := lrc.retInAdd(db.InsertRow("Investor", shim.Row{Columns: []*shim.Column{
+			&shim.Column{Value: &shim.Column_String_{String_: col1}},
+			&shim.Column{Value: &shim.Column_String_{String_: col2}},
+			&shim.Column{Value: &shim.Column_String_{String_: col3}},
 		}})); err != nil {
 			return nil, err
 		}
@@ -68,7 +69,7 @@ func (lrc *largeRowsetChaincode) Invoke(db *shim.ChaincodeStub, function string,
 	return nil, nil
 }
 
-// Query callback representing the query of a chaincode. 
+// Query callback representing the query of a chaincode.
 // If function is "old", will use GetRows (inefficient)
 // Otherwise, will use GetRows2 where caller should class close
 func (lrc *largeRowsetChaincode) Query(db *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
@@ -86,7 +87,7 @@ func (lrc *largeRowsetChaincode) Query(db *shim.ChaincodeStub, function string, 
 		if err != nil {
 			return nil, err
 		}
-	} else { 
+	} else {
 		//method 2, more efficient but we have close call close
 		// 1. Call GetRows2()
 		closeIter, rowChannel, err = db.GetRows2(model, []shim.Column{})
@@ -94,12 +95,12 @@ func (lrc *largeRowsetChaincode) Query(db *shim.ChaincodeStub, function string, 
 			return nil, err
 		}
 	}
-	
+
 	// 2. Fetch all the rows
 	var rows []*shim.Row
 	for {
 		select {
-			case row, ok := <-rowChannel:
+		case row, ok := <-rowChannel:
 			if !ok {
 				rowChannel = nil
 			} else {
