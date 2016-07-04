@@ -97,11 +97,14 @@ peer:
 
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:30303
-    # The Address this Peer will bind to for providing services
+
+    # The Address advertised to other services that will connect to this Peer
+    # Chaincode deployment will use this to create chaincode docker containers
+    # (This is NOT a binding address for the listening port)
     address: 0.0.0.0:30303
-    # Whether the Peer should programmatically determine the address to bind to.
-    # This case is useful for docker containers.
-    addressAutoDetect: false
+
+    # Whether to override the IP/hostname portion of peer.address with a local, non-loopback IP address 
+    addressAutoDetect: true
 
     # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
     gomaxprocs: -1
