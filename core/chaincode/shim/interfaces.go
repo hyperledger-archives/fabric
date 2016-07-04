@@ -53,7 +53,7 @@ type ChaincodeStubInterface interface {
 	// DelState removes the specified `key` and its value from the ledger.
 	DelState(key string) error
 
-	RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error)
+	RangeQueryState(startKey, endKey string) (StateRangeQueryIteratorInterface, error)
 
 	CreateTable(name string, columnDefinitions []*ColumnDefinition) error
 	GetTable(tableName string) (*Table, error)
@@ -74,4 +74,10 @@ type ChaincodeStubInterface interface {
 	GetPayload() ([]byte, error)
 	GetTxTimestamp() (*gp.Timestamp, error)
 	SetEvent(name string, payload []byte) error
+}
+
+type StateRangeQueryIteratorInterface interface {
+	HasNext() bool
+	Next() (string, []byte, error)
+	Close() error
 }

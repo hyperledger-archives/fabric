@@ -19,7 +19,10 @@ limitations under the License.
 package shim
 
 import (
+	"container/list"
+	"errors"
 	"fmt"
+	"strings"
 
 	gp "google/protobuf"
 
@@ -29,15 +32,61 @@ import (
 // MockStub is an implementation of ChaincodeStubInterface for unit testing chaincode.
 // Use this instead of ChaincodeStub in your chaincode's unit test calls to Init, Query or Invoke.
 type MockStub struct {
-	// State keeps
+	// A pointer back to the chaincode that will invoke this, set by constructor.
+	// If a peer calls this stub, the chaincode will be invoked from here.
+	cc Chaincode
+
+	// State keeps name value pairs
 	State map[string][]byte
+
+	// Keys stores the list of mapped values in lexical order
+	Keys *list.List
+
+	// registered list of other MockStub chaincodes that can be called from this MockStub
+	Invokables map[string]*MockStub
+
+	// stores a transaction uuid while being Invoked / Deployed
+	// TODO if a chaincode uses recursion this may need to be a stack of UUIDs or possibly a reference counting map
+	Uuid string
 }
 
-// Constructor to initialise the internal State map
-func NewMockStub() *MockStub {
-	s := new(MockStub)
-	s.State = make(map[string][]byte)
-	return s
+// Used to indicate to a chaincode that it is part of a transaction.
+// This is important when chaincodes invoke each other.
+// MockStub doesn't support concurrent transactions at present.
+func (stub *MockStub) MockTransactionStart(uuid string) {
+	stub.Uuid = uuid
+}
+
+// End a mocked transaction, clearing the UUID.
+func (stub *MockStub) MockTransactionEnd(uuid string) {
+	stub.Uuid = ""
+}
+
+func (stub *MockStub) MockPeerChaincode(invokableChaincodeName string, otherStub *MockStub) {
+	stub.Invokables[invokableChaincodeName] = otherStub
+}
+
+// not implemented
+func (stub *MockStub) MockInit(uuid string, function string, args []string) ([]byte, error) {
+	stub.MockTransactionStart(uuid)
+	bytes, err := stub.cc.Init(stub, function, args)
+	stub.MockTransactionEnd(uuid)
+	return bytes, err
+}
+
+// not implemented
+func (stub *MockStub) MockInvoke(uuid string, function string, args []string) ([]byte, error) {
+	stub.MockTransactionStart(uuid)
+	bytes, err := stub.cc.Invoke(stub, function, args)
+	stub.MockTransactionEnd(uuid)
+	return bytes, err
+}
+
+// not implemented
+func (stub *MockStub) MockQuery(function string, args []string) ([]byte, error) {
+	// no transaction needed for queries
+	bytes, err := stub.cc.Query(stub, function, args)
+	return bytes, err
 }
 
 func (stub *MockStub) GetState(key string) ([]byte, error) {
@@ -48,8 +97,43 @@ func (stub *MockStub) GetState(key string) ([]byte, error) {
 
 // PutState writes the specified `value` and `key` into the ledger.
 func (stub *MockStub) PutState(key string, value []byte) error {
+	if stub.Uuid == "" {
+		return errors.New("Cannot PutState without a transactions - call stub.MockTransactionStart()?")
+	}
+
 	fmt.Println("Putting", key, value)
 	stub.State[key] = value
+
+	// insert key into ordered list of keys
+	for elem := stub.Keys.Front(); elem != nil; elem = elem.Next() {
+		elemValue := elem.Value.(string)
+		comp := strings.Compare(key, elemValue)
+		fmt.Println("Compared", key, elemValue, " and got ", comp)
+		if comp < 0 {
+			// key < elem, insert it before elem
+			stub.Keys.InsertBefore(key, elem)
+			fmt.Println("Key", key, " inserted before", elem.Value)
+			break
+		} else if comp == 0 {
+			// keys exists, no need to change
+			fmt.Println("Key", key, "already in State")
+			break
+		} else { // comp > 0
+			// key > elem, keep looking unless this is the end of the list
+			if elem.Next() == nil {
+				stub.Keys.PushBack(key)
+				fmt.Println("Key", key, "appended")
+				break
+			}
+		}
+	}
+
+	// special case for empty Keys list
+	if stub.Keys.Len() == 0 {
+		stub.Keys.PushFront(key)
+		fmt.Println("Key", key, "is first element in list")
+	}
+
 	return nil
 }
 
@@ -57,12 +141,18 @@ func (stub *MockStub) PutState(key string, value []byte) error {
 func (stub *MockStub) DelState(key string) error {
 	fmt.Println("Deleting", key, stub.State[key])
 	delete(stub.State, key)
+
+	for elem := stub.Keys.Front(); elem != nil; elem = elem.Next() {
+		if strings.Compare(key, elem.Value.(string)) == 0 {
+			stub.Keys.Remove(elem)
+		}
+	}
+
 	return nil
 }
 
-// Not implemented
-func (stub *MockStub) RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error) {
-	return nil, nil
+func (stub *MockStub) RangeQueryState(startKey, endKey string) (StateRangeQueryIteratorInterface, error) {
+	return NewMockStateRangeQueryIterator(stub, startKey, endKey), nil
 }
 
 // Not implemented
@@ -108,7 +198,9 @@ func (stub *MockStub) DeleteRow(tableName string, key []Column) error {
 
 // Not implemented
 func (stub *MockStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return nil, nil
+	otherStub := stub.Invokables[chaincodeName]
+	bytes, err := otherStub.MockInvoke(stub.Uuid, function, args)
+	return bytes, err
 }
 
 // Not implemented
@@ -164,4 +256,102 @@ func (stub *MockStub) GetTxTimestamp() (*gp.Timestamp, error) {
 // Not implemented
 func (stub *MockStub) SetEvent(name string, payload []byte) error {
 	return nil
+}
+
+// Constructor to initialise the internal State map
+func NewMockStub(cc Chaincode) *MockStub {
+	s := new(MockStub)
+	s.cc = cc
+	s.State = make(map[string][]byte)
+	s.Keys = list.New()
+	return s
+}
+
+type MockStateRangeQueryIterator struct {
+	Closed   bool
+	Stub     *MockStub
+	StartKey string
+	EndKey   string
+	Current  *list.Element
+}
+
+// HasNext returns true if the range query iterator contains additional keys
+// and values.
+func (iter *MockStateRangeQueryIterator) HasNext() bool {
+	if iter.Closed {
+		// previously called Close()
+		fmt.Println("HasNext() but already closed")
+		return false
+	}
+
+	if iter.Current.Next() == nil {
+		// we've reached the end of the underlying values
+		fmt.Println("HasNext() but no next")
+		return false
+	}
+
+	if iter.EndKey == iter.Current.Value {
+		// we've reached the end of the specified range
+		fmt.Println("HasNext() at end of specified range")
+		return false
+	}
+
+	fmt.Println("HasNext() got next")
+	return true
+}
+
+// Next returns the next key and value in the range query iterator.
+func (iter *MockStateRangeQueryIterator) Next() (string, []byte, error) {
+	if iter.Closed == true {
+		return "", nil, errors.New("MockStateRangeQueryIterator.Next() called after Close()")
+	}
+
+	if iter.HasNext() == false {
+		return "", nil, errors.New("MockStateRangeQueryIterator.Next() called when it does not HaveNext()")
+	}
+
+	iter.Current = iter.Current.Next()
+
+	if iter.Current == nil {
+		return "", nil, errors.New("MockStateRangeQueryIterator.Next() went past end of range")
+	}
+	key := iter.Current.Value.(string)
+	value, err := iter.Stub.GetState(key)
+	return key, value, err
+}
+
+// Close closes the range query iterator. This should be called when done
+// reading from the iterator to free up resources.
+func (iter *MockStateRangeQueryIterator) Close() error {
+	if iter.Closed == true {
+		return errors.New("MockStateRangeQueryIterator.Close() called after Close()")
+	}
+
+	iter.Closed = true
+	return nil
+}
+
+func (iter *MockStateRangeQueryIterator) Print() {
+	fmt.Println("MockStateRangeQueryIterator {")
+	fmt.Println("Closed?", iter.Closed)
+	fmt.Println("Stub", iter.Stub)
+	fmt.Println("StartKey", iter.StartKey)
+	fmt.Println("EndKey", iter.EndKey)
+	fmt.Println("Current", iter.Current)
+	fmt.Println("HasNext?", iter.HasNext())
+	fmt.Println("}")
+}
+
+func NewMockStateRangeQueryIterator(stub *MockStub, startKey string, endKey string) *MockStateRangeQueryIterator {
+	fmt.Println("NewMockStateRangeQueryIterator(", stub, startKey, endKey, ")")
+	iter := new(MockStateRangeQueryIterator)
+	iter.Closed = false
+	iter.Stub = stub
+	iter.StartKey = startKey
+	iter.EndKey = endKey
+	iter.Current = stub.Keys.Front()
+
+	iter.Print()
+
+	return iter
 }

@@ -316,7 +316,7 @@ type StateRangeQueryIterator struct {
 // an iterator will be returned that can be used to iterate over all keys
 // between the startKey and endKey, inclusive. The order in which keys are
 // returned by the iterator is random.
-func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (*StateRangeQueryIterator, error) {
+func (stub *ChaincodeStub) RangeQueryState(startKey, endKey string) (StateRangeQueryIteratorInterface, error) {
 	response, err := handler.handleRangeQueryState(startKey, endKey, stub.UUID)
 	if err != nil {
 		return nil, err
