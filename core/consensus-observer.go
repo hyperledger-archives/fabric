@@ -2,12 +2,12 @@ package core
 
 import (
 	"fmt"
-	pb "github.com/hyperledger/fabric/protos"
+	"github.com/golang/protobuf/proto"
 	capi "github.com/hyperledger/fabric/consensus/api"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/ledger"
+	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
-	"github.com/golang/protobuf/proto"
 )
 
 type consensusObserver struct {
@@ -38,9 +38,9 @@ func observe(incoming chan *pb.Deliver, control chan error) {
 func main(incoming chan *pb.Deliver, control chan error) {
 	for {
 		select {
-		case deliver := <- incoming:
+		case deliver := <-incoming:
 			handleDeliver(deliver)
-		case err := <- control:
+		case err := <-control:
 			if err != nil {
 				panic(fmt.Sprintf("Error in consenter connection: %s", err))
 			}
@@ -50,8 +50,8 @@ func main(incoming chan *pb.Deliver, control chan error) {
 }
 
 func handleDeliver(deliver *pb.Deliver) {
-    devopsLogger.Info("We have received a new consensus.")
-    newTx := &pb.Transaction{}
+	devopsLogger.Info("We have received a new consensus.")
+	newTx := &pb.Transaction{}
 	err := proto.Unmarshal(deliver.Blob.Proposal.TxContent, newTx)
 	txs := []*pb.Transaction{newTx}
 	_, ccevents, txerrs, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
@@ -77,13 +77,13 @@ func handleDeliver(deliver *pb.Deliver) {
 }
 
 func commit(id interface{}, metadata []byte, curBatch []*pb.Transaction, curBatchErrs []*pb.TransactionResult) (*pb.Block, error) {
-    devopsLogger.Info("Comitting to the ledger...")
-    ledger, err := ledger.GetLedger()
+	devopsLogger.Info("Comitting to the ledger...")
+	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	ledger.BeginTxBatch(id)
-    // TODO fix this one the ledger has been fixed to implement
+	// TODO fix this one the ledger has been fixed to implement
 	if err := ledger.CommitTxBatch(id, curBatch, curBatchErrs, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}

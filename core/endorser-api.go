@@ -2,15 +2,15 @@ package core
 
 import (
 	"fmt"
-//	"io"
-//	"github.com/op/go-logging"
-//	"github.com/golang/protobuf/proto"
-//	"github.com/hyperledger/fabric/core/util"
+	//	"io"
+	//	"github.com/op/go-logging"
+	//	"github.com/golang/protobuf/proto"
+	//	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
-	context "golang.org/x/net/context"
 	"github.com/spf13/viper"
+	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
-//	"sync"
+	//	"sync"
 	"time"
 )
 
@@ -36,7 +36,7 @@ func (e endorserServer) Propose(ctx context.Context, tp *pb.TransactionProposal)
 	return response, nil
 }
 
-func checkTxProposal(tp *pb.TransactionProposal) (*pb.ProposalResponse) {
+func checkTxProposal(tp *pb.TransactionProposal) *pb.ProposalResponse {
 	devopsLogger.Info("Checking proposal...")
 	return &pb.ProposalResponse{Response: &pb.ProposalResponse_Valid{Valid: &pb.TransactionValid{EndorsingSignature: []byte{}}}}
 }
@@ -50,43 +50,43 @@ func CheckEndorsements(transaction *pb.Transaction) ([]*pb.ProposalResponse, err
 	return responses, nil
 }
 
-func getEndorsements(transaction *pb.Transaction) ([]*pb.ProposalResponse) {
+func getEndorsements(transaction *pb.Transaction) []*pb.ProposalResponse {
 	timeoutch := make(chan bool, 1)
 	signal := make(chan bool, 1)
 	endorsers := getEndorsers()
 	endorsernum := len(endorsers)
 	responses := make(chan *pb.ProposalResponse, endorsernum)
 	go timeoutSignal(timeoutch)
-    for _, epeer := range endorsers {
+	for _, epeer := range endorsers {
 		go sendReqAndWaitForEndorsement(epeer, transaction, responses, signal)
 	}
 	responsearr := make([]*pb.ProposalResponse, 0, len(endorsers))
 
 WAITING:
-    for {
-        select {
-        case resp := <- responses:
-            devopsLogger.Info("1")
-            responsearr = append(responsearr, resp)
-            if len(responsearr) >= endorsernum {
-                break WAITING
-            }
-        case <- timeoutch:
-            devopsLogger.Info("Endorsement timed out...")
-            signal <- true
-            devopsLogger.Info("2")
-            break WAITING
-        }
-    }
+	for {
+		select {
+		case resp := <-responses:
+			devopsLogger.Info("1")
+			responsearr = append(responsearr, resp)
+			if len(responsearr) >= endorsernum {
+				break WAITING
+			}
+		case <-timeoutch:
+			devopsLogger.Info("Endorsement timed out...")
+			signal <- true
+			devopsLogger.Info("2")
+			break WAITING
+		}
+	}
 	return responsearr
 }
 
-func getEndorsers() ([]pb.EndorserClient) {
+func getEndorsers() []pb.EndorserClient {
 	// TODO: this should not be hardcoded
 	endorserIps := viper.GetStringSlice("endorsement.endorsers")
-    devopsLogger.Info("Endorsers: %s", endorserIps)
+	devopsLogger.Info("Endorsers: %s", endorserIps)
 	endorserClients := make([]pb.EndorserClient, 0, len(endorserIps))
-    tlsEnabled := false
+	tlsEnabled := false
 	var opts []grpc.DialOption
 	if tlsEnabled {
 		opts = append(opts, grpc.WithTransportCredentials(nil))
@@ -94,38 +94,35 @@ func getEndorsers() ([]pb.EndorserClient) {
 		opts = append(opts, grpc.WithInsecure())
 	}
 	opts = append(opts, grpc.WithTimeout(defaultTimeout))
-    for _, ip := range endorserIps {
+	for _, ip := range endorserIps {
 		conn, err := grpc.Dial(ip, opts...)
 		if nil == err {
 			endorserClients = append(endorserClients, pb.NewEndorserClient(conn))
 		}
-        devopsLogger.Info("Endorser says: %s", err)
+		devopsLogger.Info("Endorser says: %s", err)
 	}
-    devopsLogger.Info("Endorser connections: %s", endorserClients)
+	devopsLogger.Info("Endorser connections: %s", endorserClients)
 	return endorserClients
 }
 
 func sendReqAndWaitForEndorsement(epeer pb.EndorserClient, tx *pb.Transaction, ch chan *pb.ProposalResponse, signal chan bool) {
-     devopsLogger.Info("E0")
-     proposal := &pb.TransactionProposal{}
-     resp, err := epeer.Propose(context.Background(), proposal)
-     devopsLogger.Info("E1")
-     select {
-     case <- signal:
-         break
-     default:
-         devopsLogger.Info("E2")
-         if nil == err {
-         devopsLogger.Debug("Endorsement received.")
-             ch <- resp
-         }
-     }
-    devopsLogger.Debug("No endorsement received received from %s", epeer)
+	proposal := &pb.TransactionProposal{}
+	resp, err := epeer.Propose(context.Background(), proposal)
+	select {
+	case <-signal:
+		break
+	default:
+		if nil == err {
+			devopsLogger.Debug("Endorsement received.")
+			ch <- resp
+		}
+	}
+	devopsLogger.Debug("No endorsement received received from %s", epeer)
 }
 
 func timeoutSignal(timeout chan bool) {
-    devopsLogger.Debug("Endorsement timeout starting...")
+	devopsLogger.Debug("Endorsement timeout starting...")
 	time.Sleep(time.Second * 10)
-    devopsLogger.Debug("Endorsement timeout is over...")
+	devopsLogger.Debug("Endorsement timeout is over...")
 	timeout <- true
 }
