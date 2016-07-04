@@ -36,7 +36,7 @@ then
    dpkg -i advance-toolchain-at9.0-golang_9.0-3_ppc64el.deb
    rm advance-toolchain-at9.0-golang_9.0-3_ppc64el.deb
 
-   update-alternatives --install /usr/bin/gofmt gofmt /usr/local/go/bin/gofmt 9
+   update-alternatives --install /usr/bin/go go /usr/local/go/bin/go 9
    update-alternatives --install /usr/bin/gofmt gofmt /usr/local/go/bin/gofmt 9
 
    export GOROOT="/usr/local/go"
