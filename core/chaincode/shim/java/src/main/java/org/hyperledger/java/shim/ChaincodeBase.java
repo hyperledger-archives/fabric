@@ -43,7 +43,7 @@ import protos.ChaincodeSupportGrpc.ChaincodeSupportStub;
 
 public abstract class ChaincodeBase {
 
-	 private static Log logger = LogFactory.getLog(ChaincodeBase.class);
+	private static Log logger = LogFactory.getLog(ChaincodeBase.class);
 
 	public abstract String run(ChaincodeStub stub, String function, String[] args);
 	public abstract String query(ChaincodeStub stub, String function, String[] args);
@@ -74,15 +74,22 @@ public abstract class ChaincodeBase {
 			}
 			if (cl.hasOption('s')) {
 				//TODO
+				logger.warn("securityEnabled option not implemented yet");
 			}
 			if (cl.hasOption('i')) {
 				id = cl.getOptionValue('i');
 			}
-		} catch (Exception e) {}
+		} catch (Exception e) {
+			logger.warn("cli parsing failed with exception",e);
+			
+		}
 			
 		Runnable chaincode = () -> {
+			logger.trace("chaincode started");
 			ManagedChannel connection = newPeerClientConnection();
+			logger.trace("connection created");
 			chatWithPeer(connection);
+			logger.trace("chatWithPeer DONE");
 		};
 		new Thread(chaincode).start(); 
 	}
@@ -98,7 +105,7 @@ public abstract class ChaincodeBase {
 				builder.negotiationType(NegotiationType.TLS);
 				builder.sslContext(sslContext);
 			} catch (SSLException e) {
-				e.printStackTrace();
+				logger.error("failed connect to peer with SSLException",e);
 			}
 		} else {
 			builder.usePlaintext(true);

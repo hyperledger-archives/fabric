@@ -122,6 +122,7 @@ public class Handler {
 	}
 
 	public void triggerNextState(ChaincodeMessage message, boolean send) {
+		if(logger.isTraceEnabled())logger.trace("triggerNextState for message "+message);
 		nextState.add(new NextStateInfo(message, send));
 	}
 
@@ -133,6 +134,7 @@ public class Handler {
 					shortUUID(message), message.getType(), e));
 			throw new RuntimeException(String.format("Error sending %s: %s", message.getType(), e));
 		}
+		if(logger.isTraceEnabled())logger.trace("serialSend complete for message "+message);
 	}
 
 	public synchronized Channel<ChaincodeMessage> createChannel(String uuid) {
@@ -142,6 +144,7 @@ public class Handler {
 
 		Channel<ChaincodeMessage> channel = new Channel<ChaincodeMessage>();
 		responseChannel.put(uuid, channel);
+		if(logger.isTraceEnabled())logger.trace("channel created with uuid "+uuid);
 
 		return channel;
 	}
@@ -160,10 +163,12 @@ public class Handler {
 		try {
 			return channel.take();
 		} catch (InterruptedException e) {
+			logger.debug("channel.take() failed with InterruptedException");
+			
 			//Channel has been closed?
 			//TODO
 			return null;
-		}		
+		}	
 	}
 
 	public synchronized void deleteChannel(String uuid) {
@@ -171,6 +176,8 @@ public class Handler {
 		if (channel != null) {
 			channel.close();
 		}
+
+		if(logger.isTraceEnabled())logger.trace("deleteChannel done with uuid "+uuid);
 	}
 
 	/**
