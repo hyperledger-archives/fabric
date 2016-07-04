@@ -75,7 +75,7 @@ func checkInvoke(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, a
 
 func TestExample03_Init(t *testing.T) {
 	scc := new(main.SimpleChaincode)
-	stub := shim.NewMockStub(scc)
+	stub := shim.NewMockStub("ex03", scc)
 
 	// Init A=123 B=234
 	checkInit(t, scc, stub, []string{"A", "123"})
@@ -85,7 +85,7 @@ func TestExample03_Init(t *testing.T) {
 
 func TestExample03_Query(t *testing.T) {
 	scc := new(main.SimpleChaincode)
-	stub := shim.NewMockStub(scc)
+	stub := shim.NewMockStub("ex03", scc)
 
 	// Init A=345 B=456
 	checkInit(t, scc, stub, []string{"A", "345"})

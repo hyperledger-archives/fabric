@@ -36,6 +36,9 @@ type MockStub struct {
 	// If a peer calls this stub, the chaincode will be invoked from here.
 	cc Chaincode
 
+	// A nice name that can be used for logging
+	Name string
+
 	// State keeps name value pairs
 	State map[string][]byte
 
@@ -62,11 +65,14 @@ func (stub *MockStub) MockTransactionEnd(uuid string) {
 	stub.Uuid = ""
 }
 
+// Register a peer chaincode with this MockStub
+// invokableChaincodeName is the name or hash of the peer
+// otherStub is a MockStub of the peer, already intialised
 func (stub *MockStub) MockPeerChaincode(invokableChaincodeName string, otherStub *MockStub) {
 	stub.Invokables[invokableChaincodeName] = otherStub
 }
 
-// not implemented
+// Initialise this chaincode,  also starts and ends a transaction.
 func (stub *MockStub) MockInit(uuid string, function string, args []string) ([]byte, error) {
 	stub.MockTransactionStart(uuid)
 	bytes, err := stub.cc.Init(stub, function, args)
@@ -74,7 +80,7 @@ func (stub *MockStub) MockInit(uuid string, function string, args []string) ([]b
 	return bytes, err
 }
 
-// not implemented
+// Invoke this chaincode, also starts and ends a transaction.
 func (stub *MockStub) MockInvoke(uuid string, function string, args []string) ([]byte, error) {
 	stub.MockTransactionStart(uuid)
 	bytes, err := stub.cc.Invoke(stub, function, args)
@@ -82,16 +88,17 @@ func (stub *MockStub) MockInvoke(uuid string, function string, args []string) ([
 	return bytes, err
 }
 
-// not implemented
+// Query this chaincode
 func (stub *MockStub) MockQuery(function string, args []string) ([]byte, error) {
 	// no transaction needed for queries
 	bytes, err := stub.cc.Query(stub, function, args)
 	return bytes, err
 }
 
+// GetState retrieves the value for a given key from the ledger
 func (stub *MockStub) GetState(key string) ([]byte, error) {
 	value := stub.State[key]
-	fmt.Println("Getting", key, value)
+	fmt.Println("MockStub", stub.Name, "Getting", key, value)
 	return value, nil
 }
 
@@ -101,28 +108,28 @@ func (stub *MockStub) PutState(key string, value []byte) error {
 		return errors.New("Cannot PutState without a transactions - call stub.MockTransactionStart()?")
 	}
 
-	fmt.Println("Putting", key, value)
+	fmt.Println("MockStub", stub.Name, "Putting", key, value)
 	stub.State[key] = value
 
 	// insert key into ordered list of keys
 	for elem := stub.Keys.Front(); elem != nil; elem = elem.Next() {
 		elemValue := elem.Value.(string)
 		comp := strings.Compare(key, elemValue)
-		fmt.Println("Compared", key, elemValue, " and got ", comp)
+		fmt.Println("MockStub", stub.Name, "Compared", key, elemValue, " and got ", comp)
 		if comp < 0 {
 			// key < elem, insert it before elem
 			stub.Keys.InsertBefore(key, elem)
-			fmt.Println("Key", key, " inserted before", elem.Value)
+			fmt.Println("MockStub", stub.Name, "Key", key, " inserted before", elem.Value)
 			break
 		} else if comp == 0 {
 			// keys exists, no need to change
-			fmt.Println("Key", key, "already in State")
+			fmt.Println("MockStub", stub.Name, "Key", key, "already in State")
 			break
 		} else { // comp > 0
 			// key > elem, keep looking unless this is the end of the list
 			if elem.Next() == nil {
 				stub.Keys.PushBack(key)
-				fmt.Println("Key", key, "appended")
+				fmt.Println("MockStub", stub.Name, "Key", key, "appended")
 				break
 			}
 		}
@@ -131,7 +138,7 @@ func (stub *MockStub) PutState(key string, value []byte) error {
 	// special case for empty Keys list
 	if stub.Keys.Len() == 0 {
 		stub.Keys.PushFront(key)
-		fmt.Println("Key", key, "is first element in list")
+		fmt.Println("MockStub", stub.Name, "Key", key, "is first element in list")
 	}
 
 	return nil
@@ -139,7 +146,7 @@ func (stub *MockStub) PutState(key string, value []byte) error {
 
 // DelState removes the specified `key` and its value from the ledger.
 func (stub *MockStub) DelState(key string) error {
-	fmt.Println("Deleting", key, stub.State[key])
+	fmt.Println("MockStub", stub.Name, "Deleting", key, stub.State[key])
 	delete(stub.State, key)
 
 	for elem := stub.Keys.Front(); elem != nil; elem = elem.Next() {
@@ -196,16 +203,24 @@ func (stub *MockStub) DeleteRow(tableName string, key []Column) error {
 	return nil
 }
 
-// Not implemented
+// Invokes a peered chaincode.
+// E.g. stub1.InvokeChaincode("stub2Hash", func, args)
+// Before calling this make sure to create another MockStub stub2, call stub2.MockInit(uuid, func, args)
+// and register it with stub1 by calling stub1.MockPeerChaincode(
 func (stub *MockStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
 	otherStub := stub.Invokables[chaincodeName]
+	fmt.Println("MockStub", stub.Name, "Invoking peer chaincode", otherStub.Name, function, args)
 	bytes, err := otherStub.MockInvoke(stub.Uuid, function, args)
+	fmt.Println("MockStub", stub.Name, "Invoked peer chaincode", otherStub.Name, "got", bytes, err)
 	return bytes, err
 }
 
-// Not implemented
 func (stub *MockStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
-	return nil, nil
+	otherStub := stub.Invokables[chaincodeName]
+	fmt.Println("MockStub", stub.Name, "Invoking peer chaincode", otherStub.Name, function, args)
+	bytes, err := otherStub.MockQuery(function, args)
+	fmt.Println("MockStub", stub.Name, "Invoked peer chaincode", otherStub.Name, "got", bytes, err)
+	return bytes, err
 }
 
 // Not implemented
@@ -259,13 +274,19 @@ func (stub *MockStub) SetEvent(name string, payload []byte) error {
 }
 
 // Constructor to initialise the internal State map
-func NewMockStub(cc Chaincode) *MockStub {
+func NewMockStub(name string, cc Chaincode) *MockStub {
 	s := new(MockStub)
+	s.Name = name
 	s.cc = cc
 	s.State = make(map[string][]byte)
+	s.Invokables = make(map[string]*MockStub)
 	s.Keys = list.New()
 	return s
 }
+
+/*****************************
+ Range Query Iterator
+*****************************/
 
 type MockStateRangeQueryIterator struct {
 	Closed   bool
