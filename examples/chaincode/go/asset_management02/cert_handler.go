@@ -41,7 +41,7 @@ func NewCertHandler() *CertHandler {
 // Check if the transaction invoker has the appropriate role
 // stub: chaincodestub
 // requiredRole: required role; this function will return true if invoker has this role
-func (t *CertHandler) isAuthorized(stub *shim.ChaincodeStub, requiredRole string) (bool, error) {
+func (t *CertHandler) isAuthorized(stub shim.ChaincodeStubInterface, requiredRole string) (bool, error) {
 	//read transaction invoker's role, and verify that is the same as the required role passed in
 	return stub.VerifyAttribute(role, []byte(requiredRole))
 }

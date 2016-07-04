@@ -85,7 +85,7 @@ func (c *counters) assert(p bool, format string, args ...interface{}) {
 }
 
 // create (re-)creates one or more counter arrays and zeros their state.
-func (c *counters) create(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) create(stub shim.ChaincodeStubInterface, args []string) (val []byte, err error) {
 
 	// There must always be an even number of argument strings, and the odd
 	// (length) strings must parse as non-0 unsigned 64-bit values.
@@ -132,7 +132,7 @@ func (c *counters) create(stub *shim.ChaincodeStub, args []string) (val []byte, 
 
 // incDec either increments or decrements 0 or more counter arrays. The choice
 // is made based on the value of 'incr'.
-func (c *counters) incDec(stub *shim.ChaincodeStub, args []string, incr int) (val []byte, err error) {
+func (c *counters) incDec(stub shim.ChaincodeStubInterface, args []string, incr int) (val []byte, err error) {
 
 	c.assert((incr == 1) || (incr == -1), "The 'incr' parameter must be 1 or -1")
 
@@ -224,7 +224,7 @@ func (c *counters) incDec(stub *shim.ChaincodeStub, args []string, incr int) (va
 }
 
 // initParms handles the initialization of `parms`.
-func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) initParms(stub shim.ChaincodeStubInterface, args []string) (val []byte, err error) {
 
 	c.infof("initParms : Command-line arguments : %v", args)
 
@@ -257,7 +257,7 @@ func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byt
 }
 
 // queryParms handles the `parms` query
-func (c *counters) queryParms(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) queryParms(stub shim.ChaincodeStubInterface, args []string) (val []byte, err error) {
 	flags := flag.NewFlagSet("queryParms", flag.ContinueOnError)
 	flags.StringVar(&c.id, "id", "", "Uniquely identify a chaincode instance")
 	err = flags.Parse(args)
@@ -271,7 +271,7 @@ func (c *counters) queryParms(stub *shim.ChaincodeStub, args []string) (val []by
 // as false, then we do not check for the array having been created, and we
 // assume that the length and count obtained from the state are correct. This
 // is a debug-only setting.
-func (c *counters) status(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) status(stub shim.ChaincodeStubInterface, args []string) (val []byte, err error) {
 
 	c.debugf("status : Entry : checkStatus = %v", c.checkStatus)
 
@@ -323,7 +323,7 @@ func (c *counters) status(stub *shim.ChaincodeStub, args []string) (val []byte, 
 
 // Init handles chaincode initialization. Only the 'parms' function is
 // recognized here.
-func (c *counters) Init(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+func (c *counters) Init(stub shim.ChaincodeStubInterface, function string, args []string) (val []byte, err error) {
 	defer busy.Catch(&err)
 	switch function {
 	case "parms":
@@ -335,7 +335,7 @@ func (c *counters) Init(stub *shim.ChaincodeStub, function string, args []string
 }
 
 // Invoke handles the `invoke` methods.
-func (c *counters) Invoke(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+func (c *counters) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) (val []byte, err error) {
 	defer busy.Catch(&err)
 	switch function {
 	case "create":
@@ -351,7 +351,7 @@ func (c *counters) Invoke(stub *shim.ChaincodeStub, function string, args []stri
 }
 
 // Query handles the `query` methods.
-func (c *counters) Query(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+func (c *counters) Query(stub shim.ChaincodeStubInterface, function string, args []string) (val []byte, err error) {
 	defer busy.Catch(&err)
 	switch function {
 	case "parms":

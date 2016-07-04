@@ -47,22 +47,6 @@ var chaincodeLogger = logging.MustGetLogger("shim")
 // Handler to shim that handles all control logic.
 var handler *Handler
 
-// Chaincode interface must be implemented by all chaincodes. The fabric runs
-// the transactions by calling these functions as specified.
-type Chaincode interface {
-	// Init is called during Deploy transaction after the container has been
-	// established, allowing the chaincode to initialize its internal data
-	Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
-
-	// Invoke is called for every Invoke transactions. The chaincode may change
-	// its state variables
-	Invoke(stub *ChaincodeStub, function string, args []string) ([]byte, error)
-
-	// Query is called for Query transactions. The chaincode may only read
-	// (but not modify) its state variables and return the result
-	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
-}
-
 // ChaincodeStub is an object passed to chaincode for shim side handling of
 // APIs.
 type ChaincodeStub struct {
