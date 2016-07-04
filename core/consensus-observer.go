@@ -17,7 +17,7 @@ type consensusObserver struct {
 
 var c *consensusObserver
 
-// NewConsensusObserver creates a client that is able to observe the consensus
+// ObserveConsensus creates a client that is able to observe the consensus
 func ObserveConsensus() *consensusObserver {
 	if c == nil {
 		c = new(consensusObserver)

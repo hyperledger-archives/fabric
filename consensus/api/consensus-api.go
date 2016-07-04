@@ -27,17 +27,18 @@ type consensusAPI struct {
 	internalStream chan *pb.Deliver
 	streamList     *streamList
 	secHelper      crypto.Peer
-	engine         ConsensusEngine
+	engine         Engine
 }
 
 var c *consensusAPI
 
-type ConsensusEngine interface {
+// Engine contains functions an engine able to process messages has to implement
+type Engine interface {
 	ProcessTransactionMsg(msg *pb.Message, tx *pb.Transaction) (response *pb.Response)
 }
 
 // NewConsensusAPIServer creates and returns a new Consensus API server instance.
-func NewConsensusAPIServer(engineGetterFunc func() ConsensusEngine, secHelperFunc func() crypto.Peer) *consensusAPI {
+func NewConsensusAPIServer(engineGetterFunc func() Engine, secHelperFunc func() crypto.Peer) *consensusAPI {
 	if c == nil {
 		c = new(consensusAPI)
 		c.internalStream = make(chan *pb.Deliver)
@@ -109,7 +110,7 @@ func HandleBroadcastMessage(broadcast *pb.Broadcast) error {
 func SendNewConsensusToClients(consensus *pb.Deliver) error {
 	logger.Info("Sending consensus to clients.")
 	c.internalStream <- consensus
-	for stream, _ := range c.streamList.m {
+	for stream := range c.streamList.m {
 		err := stream.Send(consensus)
 		if nil != err {
 			logger.Errorf("Problem with sending to %s", stream)
@@ -144,32 +145,31 @@ func (s *streamList) del(k pb.Consensus_ChatServer) {
 // -------------------------------------------------------
 // Client-side calls
 
-// Broadcast sends a broadcast message to consenters
+// SendBroadcastMessage sends a broadcast message to consenters
 func SendBroadcastMessage(broadcast *pb.Broadcast) error {
 	if c != nil {
 		return HandleBroadcastMessage(broadcast)
-	} else {
-		var conn *grpc.ClientConn
-		var err error
-		consenters := getConsenters()
-		for _, ip := range consenters {
-			conn, err = grpc.Dial(ip)
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			return err
-		}
-
-		consclient := pb.NewConsensusClient(conn)
-		s, err := consclient.Chat(context.Background())
-		if err != nil {
-			return err
-		}
-		s.Send(broadcast)
-		return nil
 	}
+	var conn *grpc.ClientConn
+	var err error
+	consenters := getConsenters()
+	for _, ip := range consenters {
+		conn, err = grpc.Dial(ip)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	consclient := pb.NewConsensusClient(conn)
+	s, err := consclient.Chat(context.Background())
+	if err != nil {
+		return err
+	}
+	s.Send(broadcast)
+	return nil
 }
 
 // Observe sends new agreed consensus to a channel

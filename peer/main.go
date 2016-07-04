@@ -494,7 +494,7 @@ func serve(args []string) error {
 	if viper.GetBool("consensus.enabled") {
 		logger.Infof("Consensus enabled.")
 		// Register Consensus server
-		engineGet := func() capi.ConsensusEngine {
+		engineGet := func() capi.Engine {
 			e, err := helper.GetEngine(peerServer)
 			if nil != err {
 				panic("Cannot get/initialize engine!")

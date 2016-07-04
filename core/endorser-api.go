@@ -41,7 +41,7 @@ func checkTxProposal(tp *pb.TransactionProposal) *pb.ProposalResponse {
 	return &pb.ProposalResponse{Response: &pb.ProposalResponse_Valid{Valid: &pb.TransactionValid{EndorsingSignature: []byte{}}}}
 }
 
-// Get endorsements and check if there are enough endorsers
+// CheckEndorsements gets endorsements and checks if there are enough endorsers
 func CheckEndorsements(transaction *pb.Transaction) ([]*pb.ProposalResponse, error) {
 	responses := getEndorsements(transaction)
 	if len(responses) < neededEndorsementCount {
