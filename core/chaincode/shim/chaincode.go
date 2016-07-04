@@ -596,7 +596,7 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 		//copy rows to a larger channel
 		if len(rows) == cap(rows) {
 			tmprows := make(chan Row, cap(rows)+64)
-			for i := 0;  i < len(rows);  i++ {
+			for i := 0; i < len(rows); i++ {
 				var ok bool
 				if row, ok = <-rows; !ok {
 					break
@@ -618,7 +618,7 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 
 }
 
-// GetRows2 is identical to GetRows except 
+// GetRows2 is identical to GetRows except
 //    1) does not have the overhead of buffering all rows into the returned channel
 //    2) returns an additional func() which user needs to call to close the iterator
 //       see examples/chaincode/go/largerowsiterator/largerowsiterator.go
