@@ -21,16 +21,17 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
-	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/consensus"
+	capi "github.com/hyperledger/fabric/consensus/api"
 	"github.com/hyperledger/fabric/consensus/executor"
 	"github.com/hyperledger/fabric/consensus/helper/persist"
-	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/peer"
 	pb "github.com/hyperledger/fabric/protos"
+	// "github.com/hyperledger/fabric/core/chaincode"
+	// "golang.org/x/net/context"
 )
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
@@ -158,7 +159,9 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 // BeginTxBatch gets invoked when the next round
 // of transaction-batch execution begins
 func (h *Helper) BeginTxBatch(id interface{}) error {
-	ledger, err := ledger.GetLedger()
+    // CON-API this functionality was removed and moved to core/cons-connector
+	/*
+    ledger, err := ledger.GetLedger()
 	if err != nil {
 		return fmt.Errorf("Failed to get the ledger: %v", err)
 	}
@@ -167,7 +170,8 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	}
 	h.curBatch = nil     // TODO, remove after issue 579
 	h.curBatchErrs = nil // TODO, remove after issue 579
-	return nil
+    */
+    return nil
 }
 
 // ExecTxs executes all the transactions listed in the txs array
@@ -180,9 +184,20 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
 
-    // CON-API this will need to be moved
-    // CON-API capi.SendNewConsensusToClients(txs) 
-	res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	logger.Debugf("Sending consented TXs...")
+    for _, tx := range txs {
+        txcontent, err := proto.Marshal(tx)
+        if err != nil {
+            panic("Cannot convert TX to wire format.")
+        }
+        deliver := &pb.Deliver{Blob: &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: txcontent}}}
+        logger.Debugf("Sending TX")
+        capi.SendNewConsensusToClients(deliver)
+    }
+    return nil, nil
+    // CON-API this functionality was removed and moved to core/cons-connector
+    /*
+    res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
 
 	//copy errs to results
@@ -200,6 +215,7 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	h.curBatchErrs = append(h.curBatchErrs, txresults...) // TODO, remove after issue 579
 
 	return res, err
+    */
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -208,7 +224,12 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 // during execution of this transaction-batch) have been committed to
 // permanent storage.
 func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
-	ledger, err := ledger.GetLedger()
+    // CON-API this function is a noop. The API needs cleanup, internal queues of consensus
+    // have to be removed (now, they are present but they only execute noop procedures)
+    return nil, nil
+    // CON-API This functionality was removed and moved to core/cons-connector
+    /*
+    ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
@@ -231,6 +252,7 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 	logger.Debugf("Committed block with %d transactions, intended to include %d", len(block.Transactions), len(h.curBatch))
 
 	return block, nil
+    */
 }
 
 // RollbackTxBatch discards all the state changes that may have taken

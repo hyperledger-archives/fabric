@@ -6,6 +6,8 @@ import (
 	capi "github.com/hyperledger/fabric/consensus/api"
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/ledger"
+	"golang.org/x/net/context"
+	"github.com/golang/protobuf/proto"
 )
 
 type consensusObserver struct {
@@ -48,7 +50,11 @@ func main(incoming chan *pb.Deliver, control chan error) {
 }
 
 func handleDeliver(deliver *pb.Deliver) {
-    	_, ccevents, txerrs, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+    devopsLogger.Info("We have received a new consensus.")
+    newTx := &pb.Transaction{}
+	err := proto.Unmarshal(deliver.Blob.Proposal.TxContent, newTx)
+	txs := []*pb.Transaction{newTx}
+	_, ccevents, txerrs, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 
 	//copy errs to results
 	txresults := make([]*pb.TransactionResult, len(txerrs))
@@ -62,18 +68,22 @@ func handleDeliver(deliver *pb.Deliver) {
 			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, ChaincodeEvent: ccevents[i]}
 		}
 	}
-	_, err := commit(id, metadata, txs, txresults)
+	// CON-API: we don't have 'id' here so we use c, the consensus-observer itself. Note: id =/= txId
+	// CON-API: we don't have block metadata here so we use an empty array of bytes
+	_, err = commit(c, []byte{}, txs, txresults)
 	if err != nil {
 		panic(fmt.Sprintf("Serious problem occured when fabric tried to write the ledger: %s", err))
 	}
 }
 
 func commit(id interface{}, metadata []byte, curBatch []*pb.Transaction, curBatchErrs []*pb.TransactionResult) (*pb.Block, error) {
-    	ledger, err := ledger.GetLedger()
+    devopsLogger.Info("Comitting to the ledger...")
+    ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
-	// TODO fix this one the ledger has been fixed to implement
+	ledger.BeginTxBatch(id)
+    // TODO fix this one the ledger has been fixed to implement
 	if err := ledger.CommitTxBatch(id, curBatch, curBatchErrs, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
@@ -85,7 +95,7 @@ func commit(id interface{}, metadata []byte, curBatch []*pb.Transaction, curBatc
 		return nil, fmt.Errorf("Failed to get the block at the head of the chain: %v", err)
 	}
 
-	logger.Debugf("Committed block with %d transactions, intended to include %d", len(block.Transactions), len(h.curBatch))
+	devopsLogger.Debugf("Committed block with %d transactions, intended to include %d", len(block.Transactions), len(curBatch))
 
 	return block, nil
 }

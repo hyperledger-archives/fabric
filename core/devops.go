@@ -242,13 +242,15 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	if err != nil {
 		return nil, err
 	}
+	devopsLogger.Debugf("Getting endorsements (%s)", transaction.Uuid)
+	_, err = CheckEndorsements(transaction)
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
 		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Uuid)
 	}
-	_, err = CheckEndorsements(transaction)
 	if err != nil {
 		return nil, err
 	}
+	devopsLogger.Debugf("We have enough endorsements (%s)", transaction.Uuid)
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))

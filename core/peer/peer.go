@@ -432,6 +432,7 @@ func (p *PeerImpl) cloneHandlerMap(typ pb.PeerEndpoint_Type) map[pb.PeerID]Messa
 // Broadcast will broadcast to all registered PeerEndpoints if the type is PeerEndpoint_UNDEFINED
 func (p *PeerImpl) Broadcast(msg *pb.Message, typ pb.PeerEndpoint_Type) []error {
 	cloneMap := p.cloneHandlerMap(typ)
+	peerLogger.Debugf("MAP %s", cloneMap)
 	errorsFromHandlers := make(chan error, len(cloneMap))
 	var bcWG sync.WaitGroup
 
@@ -634,12 +635,8 @@ func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb
 	err = nil
     	// CON-API we need to use endorsements
 	broadcast := &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: transaction.Payload}, Endorsements: [][]byte{}}
-	// CON-API isConsenter
-	if p.isValidator {
-		err = capi.HandleBroadcastMessage(broadcast)
-	} else {
-		err = capi.SendBroadcastMessage(broadcast)
-	}
+	// CON-API isConsenter (isValidator) is checked inside 
+	err = capi.SendBroadcastMessage(broadcast)
 	if err != nil {
 		return &pb.Response{Status: pb.Response_FAILURE} 
 	}	

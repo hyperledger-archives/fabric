@@ -504,6 +504,7 @@ func serve(args []string) error {
 		serverConsensus := capi.NewConsensusAPIServer(engineGet, secHelperFunc)
 		pb.RegisterConsensusServer(grpcServer, serverConsensus)
 	}
+    core.ObserveConsensus()
 
 	// Register the ServerOpenchain server
 	serverOpenchain, err := rest.NewOpenchainServerWithPeerInfo(peerServer)

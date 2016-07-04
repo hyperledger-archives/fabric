@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"github.com/op/go-logging"
-//	"github.com/golang/protobuf/proto"
+    "github.com/golang/protobuf/proto"
 //	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 //	context "golang.org/x/net/context"
@@ -24,10 +24,10 @@ func init() {
 
 // Consensus API
 type consensusAPI struct {
-	consToSend  chan *pb.Deliver
-	streamList  *streamList
-    secHelper   crypto.Peer
-    engine      ConsensusEngine
+	internalStream  chan *pb.Deliver
+	streamList      *streamList
+    secHelper       crypto.Peer
+    engine          ConsensusEngine
 }
 
 var c *consensusAPI
@@ -40,7 +40,7 @@ type ConsensusEngine interface {
 func NewConsensusAPIServer(engineGetterFunc func() ConsensusEngine, secHelperFunc func() crypto.Peer) *consensusAPI {
 	if c == nil {
 		c = new(consensusAPI)
-		c.consToSend = make(chan *pb.Deliver)
+		c.internalStream = make(chan *pb.Deliver)
 		c.streamList = newStreamList()
 		c.secHelper = secHelperFunc()
         c.engine = engineGetterFunc()
@@ -63,7 +63,7 @@ func (c *consensusAPI) Chat(stream pb.Consensus_ChatServer) error {
 			e := fmt.Errorf("Error during Consensus Chat, stopping: %s", err)
 			return e
 		}
-		err = c.handleBroadcastMessageWithVerification(broadcast)
+		err = handleBroadcastMessageWithVerification(broadcast)
 		if err != nil {
 			logger.Errorf("Error handling message: %s", err)
 			return err
@@ -71,41 +71,42 @@ func (c *consensusAPI) Chat(stream pb.Consensus_ChatServer) error {
 	}
 }
 
-// handleMessage handles messages
-func (c *consensusAPI) handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) error {
+// handleBroadcastMessageWithVerification handles messages after verification
+// This one needs to be called if we receive a broadcast from some other peer
+func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) error {
 	// verification
     // Verify transaction signature if security is enabled
-    secHelper := c.secHelper
-    if nil != secHelper {
+    if nil != c.secHelper {
         logger.Debugf("Verifying signature...")
         //if broadcast, err = secHelper.TransactionPreValidation(); err != nil {
         //    logger.Errorf("Failed to verify transaction %v", err)
         //    return fmt.Error("Failed to verify transaction.")
         //}
     }
-    return c.HandleBroadcastMessage(broadcast)
+    return HandleBroadcastMessage(broadcast)
 }
 
 // HandleBroadcastMessage handles a broadcast that asks for a consensus
-func (c *consensusAPI) HandleBroadcastMessage(broadcast *pb.Broadcast) error {
+// This one is enough to be called if we want to handle a local, own broadcast message
+func HandleBroadcastMessage(broadcast *pb.Broadcast) error {
     // time := util.CreateUtcTimestamp()
     payload := broadcast.Proposal.TxContent
     tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_INVOKE, Payload: payload, Uuid: "temporaryID"}
-    msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: payload, Timestamp: nil}
+    txbytes, err := proto.Marshal(tx)
+    if nil != err {
+        return err
+    }
+    msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: txbytes, Timestamp: nil}
 	logger.Debugf("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
 	c.engine.ProcessTransactionMsg(msg, tx)
 	return nil
 }
 
-// HandleBroadcastMessage handles a broadcast that asks for a consensus
-func HandleBroadcastMessage(broadcast *pb.Broadcast) error {
-	return c.HandleBroadcastMessage(broadcast)
-}
-
 // SendNewConsensusToClients sends a signal of a newly made consensus to the observing clients.
 func SendNewConsensusToClients(consensus *pb.Deliver) error {
-        logger.Info("Sending consensus to clients.")
-	for stream, _ := range c.streamList.m {
+    logger.Info("Sending consensus to clients.")
+	c.internalStream <- consensus
+    for stream, _ := range c.streamList.m {
 		err := stream.Send(consensus)
 		if nil != err {
 			logger.Error("Problem with sending to %s", stream)
@@ -137,29 +138,81 @@ func (s *streamList) del(k pb.Consensus_ChatServer) {
 	delete(s.m, k)
 }
 
+// -------------------------------------------------------
+// Client-side calls
+
 // Broadcast sends a broadcast message to consenters
 func SendBroadcastMessage(broadcast *pb.Broadcast) error {
-    var conn *grpc.ClientConn
-    var err error
-    consenters := getConsenters()
-    for _, ip := range consenters {
-        conn, err = grpc.Dial(ip)
-        if err == nil {
-            break
+    if c != nil {
+        return HandleBroadcastMessage(broadcast)
+    } else {
+        var conn *grpc.ClientConn
+        var err error
+        consenters := getConsenters()
+        for _, ip := range consenters {
+            conn, err = grpc.Dial(ip)
+            if err == nil {
+                break
+            }
+        }
+        if err != nil {
+            return err
+        }
+
+        consclient := pb.NewConsensusClient(conn)
+        s, err := consclient.Chat(context.Background())
+        if err != nil {
+            return err
+        }
+        s.Send(broadcast)
+        return nil
+    }
+}
+
+// Observe sends new agreed consensus to a channel
+func Observe(ch chan *pb.Deliver) error {
+    if c != nil {
+        for {
+            deliver := <- c.internalStream
+            ch <- deliver
+        }
+
+        return nil
+    } else {
+        var conn *grpc.ClientConn
+        var err error
+        consenters := getConsenters()
+        if len(consenters) == 0 {
+            return fmt.Errorf("No consenter node found in configuration.")
+        }
+        for _, ip := range consenters {
+            conn, err = grpc.Dial(ip)
+            if err == nil {
+                break
+            }
+        }
+        if err != nil {
+            return err
+        }
+
+        consclient := pb.NewConsensusClient(conn)
+        s, err := consclient.Chat(context.Background())
+        if err != nil {
+            return err
+        }
+        for {
+            deliver, err := s.Recv()
+            if err == io.EOF {
+                return nil
+            }
+            if err != nil {
+                return err
+            }
+            ch <- deliver
         }
     }
-    if err != nil {
-        return err
-    }
-
-    consclient := pb.NewConsensusClient(conn)
-    s, err := consclient.Chat(context.Background())
-    if err != nil {
-        return err
-    }
-    s.Send(broadcast)
-    return nil
 }
+
 
 func getConsenters() ([]string) {
 	return viper.GetStringSlice("consensus.consenters")
