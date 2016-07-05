@@ -2,17 +2,19 @@ package consensus
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/op/go-logging"
-	"io"
 	//	"github.com/hyperledger/fabric/core/util"
 	pb "github.com/hyperledger/fabric/protos"
 	//	context "golang.org/x/net/context"
+	"sync"
+
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/spf13/viper"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"sync"
 	//	"time"
 )
 
@@ -91,7 +93,7 @@ func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) *pb.Respons
 func HandleBroadcastMessage(broadcast *pb.Broadcast) *pb.Response {
 	// time := util.CreateUtcTimestamp()
 	tx := &pb.Transaction{}
-    txbytes := broadcast.Proposal.TxContent
+	txbytes := broadcast.Proposal.TxContent
 	err := proto.Unmarshal(txbytes, tx)
 	if nil != err {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
@@ -158,13 +160,13 @@ func SendBroadcastMessage(broadcast *pb.Broadcast) *pb.Response {
 		}
 	}
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())} 
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 	}
 
 	consclient := pb.NewConsensusClient(conn)
 	s, err := consclient.Chat(context.Background())
 	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())} 
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 	}
 	s.Send(broadcast)
 	return &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte("Success")}

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	capi "github.com/hyperledger/fabric/consensus/api"
 	"github.com/hyperledger/fabric/core/chaincode"
@@ -71,9 +72,9 @@ func handleDeliver(deliver *pb.Deliver) {
 	// CON-API: we don't have 'id' here so we use c, the consensus-observer itself. Note: id =/= txId
 	// CON-API: we don't have block metadata here so we use an empty array of bytes
 	if err != nil {
-        devopsLogger.Warning("An error happened while executing the TXs: %s", err)
-    }
-    _, err = commit(c, []byte{}, txs, txresults)
+		devopsLogger.Warning("An error happened while executing the TXs: %s", err)
+	}
+	_, err = commit(c, []byte{}, txs, txresults)
 	if err != nil {
 		panic(fmt.Sprintf("Serious problem occured when fabric tried to write the ledger: %s", err))
 	}
