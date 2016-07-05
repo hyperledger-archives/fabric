@@ -45,15 +45,19 @@ func checkTxProposal(tp *pb.TransactionProposal) *pb.ProposalResponse {
 func CheckEndorsements(transaction *pb.Transaction) ([][]byte, error) {
 	responses := getEndorsements(transaction)
 	if len(responses) < neededEndorsementCount {
-		return nil, fmt.Errorf("There is a problem with endorsements. Not enough endorsements.")
+		return nil, fmt.Errorf("There is a problem with endorsements. Not enough endorsement responses.")
 	}
-	endorsements := make([][]byte, 0, len(responses))
+
+    endorsements := make([][]byte, 0, len(responses))
 	for _, resp := range responses {
 		r, ok := resp.Response.(*pb.ProposalResponse_Valid)
 		if ok {
 			endorsement := r.Valid.EndorsingSignature
 			endorsements = append(endorsements, endorsement)
 		}
+	}
+	if len(endorsements) < neededEndorsementCount {
+		return nil, fmt.Errorf("There is a problem with endorsements. Not enough endorsements.")
 	}
 	return endorsements, nil
 }

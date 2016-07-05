@@ -18,6 +18,7 @@ import (
 	//	"time"
 )
 
+const neededEndorsements = 1
 var logger *logging.Logger // package-level logger
 
 func init() {
@@ -85,6 +86,9 @@ func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) *pb.Respons
 		//    return fmt.Error("Failed to verify transaction.")
 		//}
 	}
+    if len(broadcast.Endorsements) < neededEndorsements {
+        return  &pb.Response{Type: pb.Response_FAILURE, Msg: []byte("Not enough endorsements.")}
+    }
 	return HandleBroadcastMessage(broadcast)
 }
 
