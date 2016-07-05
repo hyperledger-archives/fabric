@@ -54,7 +54,7 @@ func handleDeliver(deliver *pb.Deliver) {
 	newTx := &pb.Transaction{}
 	err := proto.Unmarshal(deliver.Blob.Proposal.TxContent, newTx)
 	txs := []*pb.Transaction{newTx}
-	_, ccevents, txerrs, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+	_, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 
 	//copy errs to results
 	txresults := make([]*pb.TransactionResult, len(txerrs))
@@ -70,7 +70,10 @@ func handleDeliver(deliver *pb.Deliver) {
 	}
 	// CON-API: we don't have 'id' here so we use c, the consensus-observer itself. Note: id =/= txId
 	// CON-API: we don't have block metadata here so we use an empty array of bytes
-	_, err = commit(c, []byte{}, txs, txresults)
+	if err != nil {
+        devopsLogger.Warning("An error happened while executing the TXs: %s", err)
+    }
+    _, err = commit(c, []byte{}, txs, txresults)
 	if err != nil {
 		panic(fmt.Sprintf("Serious problem occured when fabric tried to write the ledger: %s", err))
 	}

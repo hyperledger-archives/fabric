@@ -631,16 +631,10 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
 func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
-    	var err error
-	err = nil
-    	// CON-API we need to use endorsements
+    // CON-API we need to use endorsements
 	broadcast := &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: transaction.Payload}, Endorsements: [][]byte{}}
 	// CON-API isConsenter (isValidator) is checked inside 
-	err = capi.SendBroadcastMessage(broadcast)
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE} 
-	}	
-	return &pb.Response{Status: pb.Response_SUCCESS}
+	return capi.SendBroadcastMessage(broadcast)
 }
 
 // GetPeerEndpoint returns the endpoint for this peer

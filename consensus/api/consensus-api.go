@@ -61,20 +61,19 @@ func (c *consensusAPI) Chat(stream pb.Consensus_ChatServer) error {
 			return nil
 		}
 		if err != nil {
-			e := fmt.Errorf("Error during Consensus Chat, stopping: %s", err)
-			return e
+			return fmt.Errorf("Error during Consensus Chat, stopping: %s", err)
 		}
-		err = handleBroadcastMessageWithVerification(broadcast)
-		if err != nil {
+		resp := handleBroadcastMessageWithVerification(broadcast)
+		if resp.Status == pb.Response_FAILURE {
 			logger.Errorf("Error handling message: %s", err)
-			return err
+			return fmt.Errorf("Error, response: %s", string(resp.Msg))
 		}
 	}
 }
 
 // handleBroadcastMessageWithVerification handles messages after verification
 // This one needs to be called if we receive a broadcast from some other peer
-func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) error {
+func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) *pb.Response {
 	// verification
 	// Verify transaction signature if security is enabled
 	if nil != c.secHelper {
@@ -89,21 +88,17 @@ func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) error {
 
 // HandleBroadcastMessage handles a broadcast that asks for a consensus
 // This one is enough to be called if we want to handle a local, own broadcast message
-func HandleBroadcastMessage(broadcast *pb.Broadcast) error {
+func HandleBroadcastMessage(broadcast *pb.Broadcast) *pb.Response {
 	// time := util.CreateUtcTimestamp()
 	payload := broadcast.Proposal.TxContent
 	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_INVOKE, Payload: payload, Uuid: "temporaryID"}
 	txbytes, err := proto.Marshal(tx)
 	if nil != err {
-		return err
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 	}
 	msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: txbytes, Timestamp: nil}
 	logger.Debugf("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
-	response := c.engine.ProcessTransactionMsg(msg, tx)
-	if response.Status == pb.Response_FAILURE {
-		return fmt.Errorf(string(response.Msg))
-	}
-	return nil
+	return c.engine.ProcessTransactionMsg(msg, tx)
 }
 
 // SendNewConsensusToClients sends a signal of a newly made consensus to the observing clients.
@@ -146,7 +141,7 @@ func (s *streamList) del(k pb.Consensus_ChatServer) {
 // Client-side calls
 
 // SendBroadcastMessage sends a broadcast message to consenters
-func SendBroadcastMessage(broadcast *pb.Broadcast) error {
+func SendBroadcastMessage(broadcast *pb.Broadcast) *pb.Response {
 	if c != nil {
 		return HandleBroadcastMessage(broadcast)
 	}
@@ -160,16 +155,16 @@ func SendBroadcastMessage(broadcast *pb.Broadcast) error {
 		}
 	}
 	if err != nil {
-		return err
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())} 
 	}
 
 	consclient := pb.NewConsensusClient(conn)
 	s, err := consclient.Chat(context.Background())
 	if err != nil {
-		return err
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())} 
 	}
 	s.Send(broadcast)
-	return nil
+	return &pb.Response{Status: pb.Response_SUCCESS, Msg: []byte("Success")}
 }
 
 // Observe sends new agreed consensus to a channel
