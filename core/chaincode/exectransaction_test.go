@@ -1490,11 +1490,21 @@ func TestGetRows(t *testing.T) {
 	args = []string{}
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
 
-	if err != nil {
+	var retval []byte
+	_, _, retval, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+
+	if err != nil || retval == nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if string(retval) != "250" {
+		t.Fail()
+		t.Logf("Invalid return value <%s>: %s", chaincodeID, string(retval))
 		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
 		closeListenerAndSleep(lis)
 		return
@@ -1505,11 +1515,19 @@ func TestGetRows(t *testing.T) {
 	args = []string{}
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
-	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+	_, _, retval, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
 
-	if err != nil {
+	if err != nil || retval == nil {
 		t.Fail()
 		t.Logf("Error invoking <%s>: %s", chaincodeID, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if string(retval) != "250" {
+		t.Fail()
+		t.Logf("Invalid return value <%s>: %s", chaincodeID, string(retval))
 		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
 		closeListenerAndSleep(lis)
 		return

@@ -48,7 +48,9 @@ func (lrc *largeRowsetChaincode) Init(db *shim.ChaincodeStub, function string, a
 		return nil, nil
 	}
 
-	for i := 0; i < 250; i++ {
+	//don't change this... unit test case depends on this
+	totalRows := 250
+	for i := 0; i < totalRows; i++ {
 		col1 := fmt.Sprintf("Key_%d", i)
 		col2 := fmt.Sprintf("Name_%d", i)
 		col3 := fmt.Sprintf("Bank_%d", i)
@@ -120,12 +122,12 @@ func (lrc *largeRowsetChaincode) Query(db *shim.ChaincodeStub, function string, 
 
 	// 5. Query some other functions immediately which access to KVS
 	col1 := shim.Column{Value: &shim.Column_String_{String_: "Key_2"}}
-	row, err := db.GetRow(model, []shim.Column{col1})
+	_, err = db.GetRow(model, []shim.Column{col1})
 	if err != nil {
 		return nil, err
 	}
 
-	return []byte(row.Columns[1].GetString_()), nil
+	return []byte(fmt.Sprintf("%d", len(rows))), nil
 }
 
 func main() {

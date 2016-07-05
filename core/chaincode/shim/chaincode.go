@@ -596,7 +596,11 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 		//copy rows to a larger channel
 		if len(rows) == cap(rows) {
 			tmprows := make(chan Row, cap(rows)+64)
-			for i := 0; i < len(rows); i++ {
+
+			//need to save of len when dealing with
+			//mutable channel
+			sz := len(rows)
+			for i := 0; i < sz; i++ {
 				var ok bool
 				if row, ok = <-rows; !ok {
 					break
