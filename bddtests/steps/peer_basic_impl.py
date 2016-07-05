@@ -538,7 +538,7 @@ def compose_op(context, op):
     # Loop through services and start/stop them, and modify the container data list if successful.
     for service in services:
        context.compose_output, context.compose_error, context.compose_returncode = \
-           bdd_test_util.cli_call(context, ["docker-compose", "-f", context.compose_yaml, op, service], expect_success=True)
+           bdd_test_util.cli_call(context, ["docker-compose"] + fileArgsToDockerCompose + [op, service], expect_success=True)
        assert context.compose_returncode == 0, "docker-compose failed to {0} {0}".format(op, service)
        if op == "stop" or op == "pause":
            context.compose_containers = [containerData for containerData in context.compose_containers if containerData.composeService != service]
