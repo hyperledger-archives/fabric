@@ -126,7 +126,7 @@ type MessageHandlerCoordinator interface {
 	GetPeers() (*pb.PeersMessage, error)
 	GetRemoteLedger(receiver *pb.PeerID) (RemoteLedger, error)
 	PeersDiscovered(*pb.PeersMessage) error
-	ExecuteTransaction(transaction *pb.Transaction) *pb.Response
+	ExecuteTransaction(transaction *pb.Transaction, endorsements [][]byte) *pb.Response
 	Discoverer
 }
 
@@ -304,7 +304,7 @@ func (p *PeerImpl) ProcessTransaction(ctx context.Context, tx *pb.Transaction) (
 		}
 
 	}
-	return p.ExecuteTransaction(tx), err
+	return p.ExecuteTransaction(tx, [][]byte{}), err
 }
 
 // GetPeers returns the currently registered PeerEndpoints
@@ -630,9 +630,13 @@ func (p *PeerImpl) handleChat(ctx context.Context, stream ChatStream, initiatedS
 }
 
 //ExecuteTransaction executes transactions decides to do execute in dev or prod mode
-func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction) (response *pb.Response) {
+func (p *PeerImpl) ExecuteTransaction(transaction *pb.Transaction, endorsements [][]byte) (response *pb.Response) {
     // CON-API we need to use endorsements
-	broadcast := &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: transaction.Payload}, Endorsements: [][]byte{}}
+    txbytes, err := proto.Marshal(transaction)
+	if err != nil {
+        return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+    }
+    broadcast := &pb.Broadcast{Proposal: &pb.TransactionProposal{TxContent: txbytes}, Endorsements: endorsements}
 	// CON-API isConsenter (isValidator) is checked inside 
 	return capi.SendBroadcastMessage(broadcast)
 }

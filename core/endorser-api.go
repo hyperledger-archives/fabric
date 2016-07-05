@@ -42,12 +42,20 @@ func checkTxProposal(tp *pb.TransactionProposal) *pb.ProposalResponse {
 }
 
 // CheckEndorsements gets endorsements and checks if there are enough endorsers
-func CheckEndorsements(transaction *pb.Transaction) ([]*pb.ProposalResponse, error) {
+func CheckEndorsements(transaction *pb.Transaction) ([][]byte, error) {
 	responses := getEndorsements(transaction)
 	if len(responses) < neededEndorsementCount {
 		return nil, fmt.Errorf("There is a problem with endorsements. Not enough endorsements.")
 	}
-	return responses, nil
+    endorsements := make([][]byte, 0, len(responses))
+    for _, resp := range responses {
+        r, ok := resp.Response.(*pb.ProposalResponse_Valid)
+        if ok {
+            endorsement := r.Valid.EndorsingSignature
+            endorsements = append(endorsements, endorsement)
+        }
+    }
+    return endorsements, nil
 }
 
 func getEndorsements(transaction *pb.Transaction) []*pb.ProposalResponse {

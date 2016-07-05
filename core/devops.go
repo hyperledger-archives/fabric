@@ -195,7 +195,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
 		devopsLogger.Debugf("Sending deploy transaction (%s) to validator", tx.Uuid)
 	}
-	resp := d.coord.ExecuteTransaction(tx)
+	resp := d.coord.ExecuteTransaction(tx, [][]byte{})
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
 	}
@@ -243,15 +243,15 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		return nil, err
 	}
 	devopsLogger.Debugf("Getting endorsements (%s)", transaction.Uuid)
-	_, err = CheckEndorsements(transaction)
-	if devopsLogger.IsEnabledFor(logging.DEBUG) {
+    endorsements, err := CheckEndorsements(transaction)
+    if devopsLogger.IsEnabledFor(logging.DEBUG) {
 		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Uuid)
 	}
 	if err != nil {
 		return nil, err
 	}
 	devopsLogger.Debugf("We have enough endorsements (%s)", transaction.Uuid)
-	resp := d.coord.ExecuteTransaction(transaction)
+	resp := d.coord.ExecuteTransaction(transaction, endorsements)
 	if resp.Status == pb.Response_FAILURE {
 		err = fmt.Errorf(string(resp.Msg))
 	} else {
@@ -461,7 +461,8 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 			return nil, fmt.Errorf("Error creating executing with binding:  %s", err)
 		}
 
-		return d.coord.ExecuteTransaction(tx), nil
+        // CON-API What endorsements to use here?
+		return d.coord.ExecuteTransaction(tx, [][]byte{}), nil
 		//return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("NOT IMPLEMENTED")}, nil
 
 		//return &pb.Response{Status: pb.Response_SUCCESS, Msg: sigmaOutputBytes}, nil

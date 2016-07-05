@@ -90,9 +90,12 @@ func handleBroadcastMessageWithVerification(broadcast *pb.Broadcast) *pb.Respons
 // This one is enough to be called if we want to handle a local, own broadcast message
 func HandleBroadcastMessage(broadcast *pb.Broadcast) *pb.Response {
 	// time := util.CreateUtcTimestamp()
-	payload := broadcast.Proposal.TxContent
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_INVOKE, Payload: payload, Uuid: "temporaryID"}
-	txbytes, err := proto.Marshal(tx)
+	tx := &pb.Transaction{}
+    txbytes := broadcast.Proposal.TxContent
+	err := proto.Unmarshal(txbytes, tx)
+	if nil != err {
+		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
+	}
 	if nil != err {
 		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 	}
