@@ -96,10 +96,12 @@ func (i *Noops) RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error {
 	}
 	if msg.Type == pb.Message_CHAIN_TRANSACTION {
 		if err := i.broadcastConsensusMsg(msg); nil != err {
+		logger.Debugf("Handling Message: %s ", err)
 			return err
 		}
 	}
 	if msg.Type == pb.Message_CONSENSUS {
+		logger.Debugf("C O N S E N S U S  M E S S A G E")
 		tx, err := i.getTxFromMsg(msg)
 		if nil != err {
 			return err
@@ -158,6 +160,7 @@ func (i *Noops) handleChannels() {
 	for {
 		select {
 		case tx := <-i.channel:
+		    logger.Debugf("Processing.")
 			if i.canProcessBlock(tx) {
 				if logger.IsEnabledFor(logging.DEBUG) {
 					logger.Debug("Process block due to size")
