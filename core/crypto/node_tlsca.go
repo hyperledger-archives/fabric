@@ -63,6 +63,21 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 	return nil
 }
 
+func (node *nodeImpl) deleteTLSCertificate(id, affiliation string) error {
+	if err := node.ks.deletePrivateKeyInClear(node.conf.getTLSKeyFilename()); err != nil {
+		node.Errorf("Failed deleting tls key [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls cert
+	if err := node.ks.deleteCert(node.conf.getTLSCertFilename()); err != nil {
+		node.Errorf("Failed deleting tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+
+	return nil
+}
+
 func (node *nodeImpl) loadTLSCertificate() error {
 	node.Debug("Loading tls certificate...")
 
