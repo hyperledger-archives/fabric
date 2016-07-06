@@ -190,6 +190,9 @@ export interface EnrollCallback { (err:Error, enrollment?:Enrollment):void }
 // The callback from the newBuildOrDeployTransaction
 export interface DeployTransactionCallback { (err:Error, deployTx?:Transaction):void }
 
+// The callback from the newInvokeOrQueryTransaction
+export interface InvokeOrQueryTransactionCallback { (err:Error, invokeOrQueryTx?:Transaction):void }
+
 // Enrollment metadata
 export interface Enrollment {
     key:Buffer;
@@ -988,6 +991,8 @@ export class Member {
      * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
      */
     invoke(invokeRequest:InvokeRequest):TransactionContext {
+        debug("Member.invoke");
+
         let tx = this.newTransactionContext();
         tx.invoke(invokeRequest);
         return tx;
@@ -999,6 +1004,8 @@ export class Member {
      * @returns {TransactionContext} Emits 'submitted', 'complete', and 'error' events.
      */
     query(queryRequest:QueryRequest):TransactionContext {
+        debug("Member.query");
+
         var tx = this.newTransactionContext();
         tx.query(queryRequest);
         return tx;
@@ -1151,6 +1158,23 @@ export class TransactionContext extends events.EventEmitter {
     };
 
     /**
+     * Emit a specific event provided an event listener is already registered.
+     */
+    emitMyEvent(name:string, event:any) {
+       var self = this;
+
+       setTimeout(function() {
+         // Check if an event listener has been registered for the event
+         let listeners = self.listeners(name);
+
+         // If an event listener has been registered, emit the event
+         if (listeners && listeners.length > 0) {
+            self.emit(name, event);
+         }
+       }, 0);
+    }
+
+    /**
      * Issue a deploy transaction.
      * @param deployRequest {Object} A deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
    */
@@ -1164,7 +1188,7 @@ export class TransactionContext extends events.EventEmitter {
         self.getMyTCert(function (err) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', new EventTransactionError(err));
+                self.emitMyEvent('error', new EventTransactionError(err));
 
                 return self;
             }
@@ -1174,7 +1198,7 @@ export class TransactionContext extends events.EventEmitter {
             self.newBuildOrDeployTransaction(deployRequest, false, function(err, deployTx) {
               if (err) {
                 debug("Error in newBuildOrDeployTransaction [%s]", err);
-                self.emit('error', new EventTransactionError(err));
+                self.emitMyEvent('error', new EventTransactionError(err));
 
                 return self;
               }
@@ -1192,16 +1216,35 @@ export class TransactionContext extends events.EventEmitter {
      * @param invokeRequest {Object} An invoke request of the form: XXX
      */
     invoke(invokeRequest:InvokeRequest):TransactionContext {
+        debug("TransactionContext.invoke");
+        debug("Received invoke request: %j", invokeRequest);
+
         let self = this;
-        debug("Member.invoke: req=%j",invokeRequest);
+
+        // Get a TCert to use in the invoke transaction
         self.setAttrs(invokeRequest.attrs);
         self.getMyTCert(function (err, tcert) {
             if (err) {
                 debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', new EventTransactionError(err));
+                self.emitMyEvent('error', new EventTransactionError(err));
+
                 return self;
             }
-            return self.execute(self.newInvokeOrQueryTransaction(invokeRequest, true));
+
+            debug("Got a TCert successfully, continue...");
+
+            self.newInvokeOrQueryTransaction(invokeRequest, true, function(err, invokeTx) {
+              if (err) {
+                debug("Error in newInvokeOrQueryTransaction [%s]", err);
+                self.emitMyEvent('error', new EventTransactionError(err));
+
+                return self;
+              }
+
+              debug("Calling TransactionContext.execute");
+
+              return self.execute(invokeTx);
+            });
         });
         return self;
     }
@@ -1211,18 +1254,37 @@ export class TransactionContext extends events.EventEmitter {
      * @param queryRequest {Object} A query request of the form: XXX
      */
     query(queryRequest:QueryRequest):TransactionContext {
-        let self = this;
-        debug("Member.query: req=%j",queryRequest);
-        self.setAttrs(queryRequest.attrs);
-        self.getMyTCert(function (err, tcert) {
+      debug("TransactionContext.query");
+      debug("Received query request: %j", queryRequest);
+
+      let self = this;
+
+      // Get a TCert to use in the query transaction
+      self.setAttrs(queryRequest.attrs);
+      self.getMyTCert(function (err, tcert) {
+          if (err) {
+              debug('Failed getting a new TCert [%s]', err);
+              self.emitMyEvent('error', new EventTransactionError(err));
+
+              return self;
+          }
+
+          debug("Got a TCert successfully, continue...");
+
+          self.newInvokeOrQueryTransaction(queryRequest, false, function(err, queryTx) {
             if (err) {
-                debug('Failed getting a new TCert [%s]', err);
-                self.emit('error', new EventTransactionError(err));
-                return self;
+              debug("Error in newInvokeOrQueryTransaction [%s]", err);
+              self.emitMyEvent('error', new EventTransactionError(err));
+
+              return self;
             }
-            return self.execute(self.newInvokeOrQueryTransaction(queryRequest, false));
+
+            debug("Calling TransactionContext.execute");
+
+            return self.execute(queryTx);
+          });
         });
-        return self;
+      return self;
     }
 
    /**
@@ -1437,13 +1499,21 @@ export class TransactionContext extends events.EventEmitter {
         if (self.chain.isDevMode()) {
             // Deployment in developent mode. Build a dev mode transaction.
             this.newDevModeTransaction(request, isBuildRequest, function(err, tx) {
-                return cb(null, tx);
+                if(err) {
+                    return cb(err);
+                } else {
+                    return cb(null, tx);
+                }
             });
         } else {
-          // Deployment in network mode. Build a net mode transaction.
-          this.newNetModeTransaction(request, isBuildRequest, function(err, tx) {
-              return cb(null, tx);
-          });
+            // Deployment in network mode. Build a net mode transaction.
+            this.newNetModeTransaction(request, isBuildRequest, function(err, tx) {
+                if(err) {
+                    return cb(err);
+                } else {
+                    return cb(null, tx);
+                }
+            });
         }
     } // end newBuildOrDeployTransaction
 
@@ -1455,6 +1525,11 @@ export class TransactionContext extends events.EventEmitter {
         debug("newDevModeTransaction");
 
         let self = this;
+
+        // Verify that chaincodeName is being passed
+        if (!request.chaincodeName || request.chaincodeName === "") {
+          return cb(Error("missing chaincodeName in DeployRequest"));
+        }
 
         let tx = new _fabricProto.Transaction();
 
@@ -1540,6 +1615,11 @@ export class TransactionContext extends events.EventEmitter {
         debug("newNetModeTransaction");
 
         let self = this;
+
+        // Verify that chaincodePath is being passed
+        if (!request.chaincodePath || request.chaincodePath === "") {
+          return cb(Error("missing chaincodePath in DeployRequest"));
+        }
 
         // Determine the user's $GOPATH
         let goPath =  process.env['GOPATH'];
@@ -1740,8 +1820,13 @@ export class TransactionContext extends events.EventEmitter {
      * Create an invoke or query transaction.
      * @param request {Object} A build or deploy request of the form: { chaincodeID, payload, metadata, uuid, timestamp, confidentiality: { level, version, nonce }
      */
-    private newInvokeOrQueryTransaction(request:InvokeOrQueryRequest, isInvokeRequest:boolean):Transaction {
+    private newInvokeOrQueryTransaction(request:InvokeOrQueryRequest, isInvokeRequest:boolean, cb:InvokeOrQueryTransactionCallback):void {
         let self = this;
+
+        // Verify that chaincodeID is being passed
+        if (!request.chaincodeID || request.chaincodeID === "") {
+          return cb(Error("missing chaincodeID in InvokeOrQueryRequest"));
+        }
 
         // Create a deploy transaction
         let tx = new _fabricProto.Transaction();
@@ -1813,7 +1898,7 @@ export class TransactionContext extends events.EventEmitter {
 
         tx = new Transaction(tx, request.chaincodeID);
 
-        return tx;
+        return cb(null, tx);
     }
 
 }  // end TransactionContext
