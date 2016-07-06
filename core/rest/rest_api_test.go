@@ -131,10 +131,6 @@ func (d *mockDevops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBind
 	return nil, nil
 }
 
-func (d *mockDevops) GetTransactionResult(ctx context.Context, txRequest *protos.TransactionRequest) (*protos.Response, error) {
-	return nil, nil
-}
-
 func initGlobalServerOpenchain(t *testing.T) {
 	var err error
 	serverOpenchain, err = NewOpenchainServerWithPeerInfo(new(peerInfo))

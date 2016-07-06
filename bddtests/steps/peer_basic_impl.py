@@ -127,6 +127,14 @@ def step_impl(context, path, containerName):
     context.response = resp
     print("")
 
+@then(u'I should get a JSON response containing "{attribute}" attribute')
+def step_impl(context, attribute):
+    assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
+
+@then(u'I should get a JSON response containing no "{attribute}" attribute')
+def step_impl(context, attribute):
+    assert attribute not in context.response.json(), "Attribute found in response (%s)" %(attribute)
+
 @then(u'I should get a JSON response with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
     assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
