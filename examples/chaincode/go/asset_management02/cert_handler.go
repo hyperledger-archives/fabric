@@ -30,25 +30,25 @@ const (
 )
 
 //CertHandler provides APIs used to perform operations on incoming TCerts
-type CertHandler struct {
+type certHandler struct {
 }
 
-// NewCertHandler create a new reference to CertHandler
-func NewCertHandler() *CertHandler {
-	return &CertHandler{}
+// NewCertHandler creates a new reference to CertHandler
+func NewCertHandler() *certHandler {
+	return &certHandler{}
 }
 
-// Check if the transaction invoker has the appropriate role
+// isAuthorized checks if the transaction invoker has the appropriate role
 // stub: chaincodestub
 // requiredRole: required role; this function will return true if invoker has this role
-func (t *CertHandler) isAuthorized(stub *shim.ChaincodeStub, requiredRole string) (bool, error) {
+func (t *certHandler) isAuthorized(stub *shim.ChaincodeStub, requiredRole string) (bool, error) {
 	//read transaction invoker's role, and verify that is the same as the required role passed in
 	return stub.VerifyAttribute(role, []byte(requiredRole))
 }
 
-// Retrieve the contact info stored as an attribute in a Tcert
+// getContactInfo retrieves the contact info stored as an attribute in a Tcert
 // cert: TCert
-func (t *CertHandler) getContactInfo(cert []byte) (string, error) {
+func (t *certHandler) getContactInfo(cert []byte) (string, error) {
 	if len(cert) == 0 {
 		return "", errors.New("cert is empty")
 	}
@@ -62,10 +62,10 @@ func (t *CertHandler) getContactInfo(cert []byte) (string, error) {
 	return string(contactInfo), err
 }
 
-// get account IDs stored in  TCert attributes
+// getAccountIDsFromAttribute retrieves account IDs stored in  TCert attributes
 // cert: TCert to read account IDs from
 // attributeNames: attribute names inside TCert that stores the entity's account IDs
-func (t *CertHandler) getAccountIDsFromAttribute(cert []byte, attributeNames []string) ([]string, error) {
+func (t *certHandler) getAccountIDsFromAttribute(cert []byte, attributeNames []string) ([]string, error) {
 	if cert == nil || attributeNames == nil {
 		return nil, errors.New("cert or accountIDs list is empty")
 	}
