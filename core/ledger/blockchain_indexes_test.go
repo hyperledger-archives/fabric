@@ -66,7 +66,7 @@ func TestIndexes_GetTransactionByUUID(t *testing.T) {
 }
 
 func testIndexesGetBlockByBlockNumber(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
@@ -80,7 +80,7 @@ func testIndexesGetBlockByBlockNumber(t *testing.T) {
 }
 
 func testIndexesGetBlockByBlockHash(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
@@ -95,7 +95,7 @@ func testIndexesGetBlockByBlockHash(t *testing.T) {
 }
 
 func testIndexesGetBlockByBlockHashWrongHash(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	_, err := testBlockchainWrapper.blockchain.getBlockByHash([]byte("NotAnActualHash"))
@@ -108,7 +108,7 @@ func testIndexesGetBlockByBlockHashWrongHash(t *testing.T) {
 }
 
 func testIndexesGetTransactionByBlockNumberAndTxIndex(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
@@ -124,7 +124,7 @@ func testIndexesGetTransactionByBlockNumberAndTxIndex(t *testing.T) {
 }
 
 func testIndexesGetTransactionByBlockHashAndTxIndex(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
@@ -141,7 +141,7 @@ func testIndexesGetTransactionByBlockHashAndTxIndex(t *testing.T) {
 }
 
 func testIndexesGetTransactionByUUID(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	tx1, uuid1 := buildTestTx(t)
