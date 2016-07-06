@@ -1317,7 +1317,7 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
     Then I should get a JSON response from peers with "OK" = "10"
             | vp0  | vp1 | vp2 | vp3 |
 
-    @chaincode_with_attributes
+    @issue_2116
     #@doNotDecompose
     Scenario Outline: chaincode authorizable_counter with 4 peers, two stopped, bring back both
         Given we compose "<ComposeFile>"
@@ -1348,7 +1348,7 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
         Given I stop peers:
                 | vp1 | vp2 |
 
-        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "position" on "vp0"
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "position" on "vp0"
                 |arg1|
                 | a  |
         Then I should have received a transactionID
@@ -1373,11 +1373,11 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
         Then I should get a JSON response from peers with "OK" = "1"
                 | vp0  | vp1 | vp2 | vp3 |
 
-        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "company" on "vp0"
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "company" on "vp0"
                 |arg1|
                 | a  |
 
-        When I invoke chaincode "authorizable_counter" function name "increment" with attribute "position" on "vp0"
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "company, position, age" on "vp0"
                 |arg1|
                 | a  |
 

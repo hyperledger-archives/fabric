@@ -223,11 +223,11 @@ def step_impl(context, chaincodeName, functionName, containerName, times):
     for i in range(int(times)):
         invokeChaincode(context, "invoke", functionName, containerName)
 
-@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" with attribute "{attributeName}" on "{containerName}"')
-def step_impl(context, chaincodeName, functionName, attributeName, containerName):
+@when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" with attributes "{attrs}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, attrs, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    assert attributeName, "attributeName not specified"
-    invokeChaincode(context, "invoke", functionName, containerName, None, [attributeName])
+    assert attrs, "attrs were not specified"
+    invokeChaincode(context, "invoke", functionName, containerName, None, attrs.split(","))
 
 @when(u'I invoke chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
 def step_impl(context, chaincodeName, functionName, containerName):
@@ -255,6 +255,10 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=N
     if 'table' in context:
        # There is ctor arguments
        args = context.table[0].cells
+
+    for idx, attr in enumerate(attributes):
+        attributes[idx] = attr.strip()
+
     context.chaincodeSpec['ctorMsg']['function'] = functionName
     context.chaincodeSpec['ctorMsg']['args'] = args
     context.chaincodeSpec['attributes'] = attributes
@@ -268,6 +272,7 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=N
 	    chaincodeInvocationSpec['idGenerationAlg'] = idGenAlg
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
+    print("Using attributes {0}".format(attributes))
 
     resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
