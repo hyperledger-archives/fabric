@@ -111,6 +111,8 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 		},
 	}
 
+	// System chaincode has to be enabled
+	viper.Set("chaincode.system", map[string]string{"sample_syscc": "true"})
 	RegisterSysCCs()
 
 	url := "github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"

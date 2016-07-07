@@ -244,15 +244,22 @@ func main() {
 	flags := nodeStartCmd.Flags()
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
+	var alternativeCfgPath = os.Getenv("PEER_CFG_PATH")
+	if alternativeCfgPath != "" {
+		logger.Info("User defined config file path: %s", alternativeCfgPath)
+		viper.AddConfigPath(alternativeCfgPath) // Path to look for the config file in
+	} else {
+		viper.AddConfigPath("./") // Path to look for the config file in
+		// Path to look for the config file in based on GOPATH
+		gopath := os.Getenv("GOPATH")
+		for _, p := range filepath.SplitList(gopath) {
+			peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
+			viper.AddConfigPath(peerpath)
+		}
+	}
+
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
-	viper.AddConfigPath("./")    // Path to look for the config file in
-	// Path to look for the config file in based on GOPATH
-	gopath := os.Getenv("GOPATH")
-	for _, p := range filepath.SplitList(gopath) {
-		peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
-		viper.AddConfigPath(peerpath)
-	}
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
