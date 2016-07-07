@@ -287,7 +287,7 @@ def invokeMasterChaincode(context, devopsFunc, chaincodeName, functionName, cont
     chaincodeInvocationSpec = {
         "chaincodeSpec" : chaincodeSpec
     }
-    ipAddress = ipFromContainerNamePart(containerName, context.compose_containers)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
     request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
 

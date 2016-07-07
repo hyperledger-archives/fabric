@@ -1281,8 +1281,6 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
     Then I should get a JSON response from peers with "OK" = "10"
             | vp0  | vp1 | vp2 | vp3 |
 
-# issue #1967 needs to be solved to make this working
-@issue_1967
 #    noop
 #    @doNotDecompose
   Scenario: noop chaincode test
