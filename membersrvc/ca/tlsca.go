@@ -34,8 +34,8 @@ import (
 //
 type TLSCA struct {
 	*CA
-	eca		*ECA
-	gRPCServer 	*grpc.Server
+	eca        *ECA
+	gRPCServer *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -168,4 +168,3 @@ func (tlscaa *TLSCAA) RevokeCertificate(context.Context, *pb.TLSCertRevokeReq) (
 
 	return nil, errors.New("not yet implemented")
 }
-
