@@ -17,11 +17,12 @@ limitations under the License.
 package executor
 
 import (
+	"time"
+
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	"github.com/hyperledger/fabric/core/peer/statetransfer"
 	pb "github.com/hyperledger/fabric/protos"
-
 	"github.com/op/go-logging"
 )
 
@@ -79,7 +80,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.Executed(et.tag)
 	case commitEvent:
-		logger.Debug("Executor is processing an commitEvent")
+		logger.Debug("Executor is processing a commitEvent")
 		if co.skipInProgress {
 			logger.Error("Likely FATAL programming error, attempted to commit a transaction batch during state transfer")
 			return nil
@@ -90,6 +91,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 			return nil
 		}
 
+		start := time.Now()
 		_, err := co.rawExecutor.CommitTxBatch(co, et.metadata)
 		_ = err // TODO This should probably panic, see issue 752
 
@@ -97,11 +99,11 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		info := co.rawExecutor.GetBlockchainInfo()
 
-		logger.Debugf("Committed block %d with hash %x to chain", info.Height-1, info.CurrentBlockHash)
+		logger.Debugf("Committed block %d with hash %x to chain, took %v", info.Height-1, info.CurrentBlockHash, time.Since(start))
 
 		co.consumer.Committed(et.tag, info)
 	case rollbackEvent:
-		logger.Debug("Executor is processing an rollbackEvent")
+		logger.Debug("Executor is processing a rollbackEvent")
 		if co.skipInProgress {
 			logger.Error("Programming error, attempted to rollback a transaction batch during state transfer")
 			return nil

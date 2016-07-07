@@ -511,7 +511,10 @@ func (p *PeerImpl) sendTransactionsToLocalEngine(transaction *pb.Transaction) *p
 	var response *pb.Response
 	msg := &pb.Message{Type: pb.Message_CHAIN_TRANSACTION, Payload: data, Timestamp: util.CreateUtcTimestamp()}
 	peerLogger.Debugf("Sending message %s with timestamp %v to local engine", msg.Type, msg.Timestamp)
+
+	processStartTime := time.Now()
 	response = p.engine.ProcessTransactionMsg(msg, transaction)
+	peerLogger.Debugf("ProcessTransactionMsg took %v", time.Since(processStartTime))
 
 	return response
 }
