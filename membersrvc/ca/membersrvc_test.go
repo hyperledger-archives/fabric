@@ -108,8 +108,8 @@ func cleanupFiles() {
 }
 
 func stopPKI() {
-	aca.Close()
-	eca.Close()
-	tca.Close()
+	aca.Stop()
+	eca.Stop()
+	tca.Stop()
 	server.Stop()
 }

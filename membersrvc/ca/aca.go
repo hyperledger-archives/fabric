@@ -42,6 +42,7 @@ var (
 // ACA is the attribute certificate authority.
 type ACA struct {
 	*CA
+	gRPCServer *grpc.Server
 }
 
 // ACAA serves the administrator GRPC interface of the ACA.
@@ -218,7 +219,7 @@ func (attrPair *AttributePair) ToACAAttribute() *pb.ACAAttribute {
 
 // NewACA sets up a new ACA.
 func NewACA() *ACA {
-	aca := &ACA{NewCA("aca", initializeACATables)}
+	aca := &ACA{CA: NewCA("aca", initializeACATables)}
 
 	return aca
 }
@@ -363,10 +364,28 @@ func (aca *ACA) findAttribute(owner *AttributeOwner, attributeName string) (*Att
 
 func (aca *ACA) startACAP(srv *grpc.Server) {
 	pb.RegisterACAPServer(srv, &ACAP{aca})
+	Info.Println("ACA PUBLIC gRPC API server started")
 }
 
-// Start starts the ECA.
+// Start starts the ACA.
 func (aca *ACA) Start(srv *grpc.Server) {
+	Info.Println("Staring ACA services...")
 	aca.startACAP(srv)
-	Info.Println("ACA started.")
+	aca.gRPCServer = srv
+	Info.Println("ACA services started")
+}
+
+// Stop stops the ACA
+func (aca *ACA) Stop() error {
+	Info.Println("Stopping the ACA services...")
+	if aca.gRPCServer != nil {
+		aca.gRPCServer.Stop()
+	}
+	err := aca.CA.Stop()
+	if err != nil {
+		Error.Println("Error stopping the ACA services ", err)
+	} else {
+		Info.Println("ACA services stopped")
+	}
+	return err
 }

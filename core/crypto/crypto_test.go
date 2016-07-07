@@ -2084,10 +2084,10 @@ func cleanup() {
 }
 
 func stopPKI() {
-	aca.Close()
-	eca.Close()
-	tca.Close()
-	tlsca.Close()
+	aca.Stop()
+	eca.Stop()
+	tca.Stop()
+	tlsca.Stop()
 
 	server.Stop()
 }

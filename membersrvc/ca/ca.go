@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -257,8 +258,14 @@ func NewCA(name string, initTables TableInitializer) *CA {
 }
 
 // Close closes down the CA.
-func (ca *CA) Close() {
-	ca.db.Close()
+func (ca *CA) Stop() error {
+	err := ca.db.Close()
+	if err == nil {
+		Trace.Println("Shutting down CA - Successfully")
+	} else {
+		Trace.Println(fmt.Sprintf("Shutting down CA - Error closing DB [%s]", err))
+	}
+	return err
 }
 
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
