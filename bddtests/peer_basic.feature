@@ -1337,3 +1337,12 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
             | vp0  | vp1 | vp2 | vp3 |
     Then I should get a JSON response from peers with "OK" = "10"
             | vp0  | vp1 | vp2 | vp3 |
+
+#    noop
+#    @doNotDecompose
+  Scenario: noop chaincode test
+    Given we compose "docker-compose-1.yml"
+      When I invoke master chaincode "noop" function name "execute" on "vp0"
+        |arg1|
+        | aa |
+      Then I should have received a transactionID
