@@ -97,6 +97,7 @@ do
 done`
 COPY scripts $REMOTESCRIPTS
 RUN $REMOTESCRIPTS/common.sh
+RUN chmod a+rw -R /opt/gopath
 EOF
 
 [ ! -z "$http_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg http_proxy=$http_proxy"

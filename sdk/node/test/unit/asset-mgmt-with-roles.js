@@ -25,11 +25,14 @@
 var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
+var crypto = require('../../lib/crypto');
 
 var chain, chaincodeID;
-var chaincodeName = "assetmgmt_with_roles";
-var deployer, assigner, nonAssigner;
-var networkMode = process.env.NETWORK_MODE;
+var chaincodeName = "mycc3";
+var deployer, alice, bob, assigner;
+var aliceAccount = "12345-56789";
+var bobAccount = "23456-67890";
+var devMode = process.env.DEPLOY_MODE == 'dev';
 
 // Create the chain and enroll users as deployer, assigner, and nonAssigner (who doesn't have privilege to assign.
 function setup(cb) {
@@ -38,18 +41,25 @@ function setup(cb) {
    chain.setKeyValStore(hfc.newFileKeyValStore("/tmp/keyValStore"));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.addPeer("grpc://localhost:30303");
+   if (devMode) chain.setDevMode(true);
    console.log("enrolling deployer ...");
    chain.enroll("WebAppAdmin", "DJY27pEnl16d", function (err, user) {
       if (err) return cb(err);
       deployer = user;
-      console.log("enrolling assigner ...");
-      chain.enroll("jim","6avZQLwcUe9b", function (err, user) {
+      console.log("enrolling Assigner ...");
+      chain.enroll("assigner","Tc43PeqBl11", function (err, user) {
          if (err) return cb(err);
          assigner = user;
-         console.log("enrolling nonAssigner ...");
-         chain.enroll("lukas","NPKYL39uKbkj", function (err, user) {
+         console.log("enrolling Alice ...");
+         chain.enroll("alice","CMS10pEQlB16", function (err, user) {
             if (err) return cb(err);
-            nonAssigner = user;
+            alice = user;
+            console.log("enrolling Bob ...");
+            chain.enroll("bob","NOE63pEQbL25", function (err, user) {
+               if (err) return cb(err);
+               bob = user;
+               return deploy(cb);
+            });
          });
       });
    });
@@ -61,21 +71,22 @@ function deploy(cb) {
     var req = {
         fcn: "init",
         args: [],
-        metadata: "assigner"
+        metadata: new Buffer("assigner")
     };
-    if (networkMode) {
-       req.chaincodePath = "github.com/asset_management_with_roles/";
+    if (devMode) {
+       req.chaincodeName = chaincodeName;
     } else {
-       req.chaincodeName = "asset_management_with_roles";
+       req.chaincodePath = "github.com/asset_management_with_roles/";
     }
-    var tx = admin.deploy(req);
+    var tx = deployer.deploy(req);
     tx.on('submitted', function (results) {
         console.log("deploy submitted: %j", results);
     });
     tx.on('complete', function (results) {
         console.log("deploy complete: %j", results);
         chaincodeID = results.chaincodeID;
-        return assign(cb);
+        console.log("chaincodeID:" + chaincodeID);
+        return cb();
     });
     tx.on('error', function (err) {
         console.log("deploy error: %j", err.toString());
@@ -83,11 +94,11 @@ function deploy(cb) {
     });
 }
 
-function assign(user,cb) {
+function assignOwner(user,owner,cb) {
     var req = {
         chaincodeID: chaincodeID,
         fcn: "assign",
-        args: ["MyAsset","ownerID"],
+        args: ["MyAsset",owner],
         attrs: ['role']
     };
     console.log("assign: invoking %j",req);
@@ -105,53 +116,85 @@ function assign(user,cb) {
     });
 }
 
+// Check to see if the owner of the asset is
+function checkOwner(user,ownerAccount,cb) {
+    var req = {
+        chaincodeID: chaincodeID,
+        fcn: "query",
+        args: ["MyAsset"]
+    };
+    console.log("query: querying %j",req);
+    var tx = user.query(req);
+    tx.on('complete', function (results) {
+       var realOwner = results.result;
+       //console.log("realOwner: " + realOwner);
+
+       if (ownerAccount == results.result) {
+          console.log("correct owner: %s",ownerAccount);
+          return cb();
+       } else {
+          return cb(new Error(util.format("incorrect owner: expected=%s, real=%s",ownerAccount,realOwner)));
+       }
+    });
+    tx.on('error', function (err) {
+        console.log("assign invoke error: %j", err);
+        return cb(err);
+    });
+}
+
 test('setup asset management with roles', function (t) {
+    t.plan(1);
+
+    console.log("setup asset management with roles");
+
     setup(function(err) {
         if (err) {
             t.fail("error: "+err.toString());
-            t.end(err);
             process.exit(1);
         } else {
             t.pass("setup successful");
-            t.end();
-        }
-    });
-});
-
-test('deploy asset management with roles', function (t) {
-    deploy(function(err) {
-        if (err) {
-            t.fail("error: "+err.toString());
-            t.end(err);
-            process.exit(1);
-        } else {
-            t.pass("deploy successful");
-            t.end();
         }
     });
 });
 
 test('assign asset management with roles', function (t) {
-    assign(assigner, function(err) {
-        if (err) {
-            t.fail("error: "+err.toString());
-            t.end(err);
-        } else {
-            t.pass("assign successful");
-            t.end();
-        }
-    });
+    t.plan(1);
+    alice.getUserCert(["role", "account"], function (err, aliceCert) {
+        if (err) fail(t, "Failed getting Application certificate for Alice.");
+        assignOwner(assigner, aliceCert.encode().toString('base64'), function(err) {
+            if (err) {
+                t.fail("error: "+err.toString());
+            } else {
+                checkOwner(assigner, aliceAccount, function(err) {
+                    if(err){
+                        t.fail("error: "+err.toString());
+                    } else {
+                        t.pass("assign successful");
+                    }
+                });
+            }
+        });
+    })
 });
 
 test('not assign asset management with roles', function (t) {
-    assign(notAssigner, function(err) {
-        if (err) {
-            t.pass("not assign successful");
-            t.end();
-        } else {
-            err = new Error ("this user should not have been allowed to assign");
-            t.fail("error: "+err.toString());
-            t.end(err);
-        }
+    t.plan(1);
+
+    bob.getUserCert(["role", "account"], function (err, bobCert) {
+        if (err) fail(t, "Failed getting Application certificate for Alice.");
+        assignOwner(alice, bobCert.encode().toString('base64'), function(err) {
+            if (err) {
+                t.fail("error: "+err.toString());
+            } else {
+                checkOwner(alice, bobAccount, function(err) {
+                    if(err){
+                        t.pass("assign successful");
+                    } else {
+                        err = new Error ("this user should not have been allowed to assign");
+                        t.fail("error: "+err.toString());
+                    }
+                });
+            }
+        });
     });
 });

@@ -19,6 +19,7 @@ package crypto
 import (
 	"encoding/asn1"
 	"errors"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"

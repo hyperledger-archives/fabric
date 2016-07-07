@@ -21,8 +21,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
-	"golang.org/x/crypto/sha3"
 	"sync"
+
+	"golang.org/x/crypto/sha3"
 )
 
 var (

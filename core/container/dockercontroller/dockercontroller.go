@@ -26,14 +26,34 @@ import (
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	cutil "github.com/hyperledger/fabric/core/container/util"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 )
 
-var dockerLogger = logging.MustGetLogger("dockercontroller")
+var (
+	dockerLogger = logging.MustGetLogger("dockercontroller")
+	hostConfig   = new(docker.HostConfig)
+)
 
 //DockerVM is a vm. It is identified by an image id
 type DockerVM struct {
 	id string
+}
+
+func init() {
+	err := viper.UnmarshalKey("vm.docker.hostConfig", hostConfig)
+	if err != nil {
+		dockerLogger.Fatalf("Load docker HostConfig wrong, error: %s", err.Error())
+	}
+
+	if hostConfig.NetworkMode == "" {
+		hostConfig.NetworkMode = "host"
+	}
+
+	// not support customize
+	hostConfig.Privileged = false
+
+	dockerLogger.Debugf("Load docker HostConfig: %+v", hostConfig)
 }
 
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
@@ -126,7 +146,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		}
 	}
 
-	err = client.StartContainer(containerID, &docker.HostConfig{NetworkMode: "host"})
+	err = client.StartContainer(containerID, hostConfig)
 	if err != nil {
 		dockerLogger.Errorf("start-could not start container %s", err)
 		return err

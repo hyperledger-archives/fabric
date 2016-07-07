@@ -2,6 +2,9 @@
 
 set -e
 
+echo "Cleaning membership services folder"
+rm -rf membersrvc/ca/.ca/
+
 echo -n "Obtaining list of tests to run.."
 PKGS=`go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/`
 echo "DONE!"
@@ -16,4 +19,4 @@ trap cleanup 0
 echo "DONE!"
 
 echo "Running tests..."
-go test -cover -timeout=20m $PKGS
+go test -cover -p 1 -timeout=20m $PKGS

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -122,6 +123,28 @@ func NewChaincodeSupport(chainname ChainName, getPeerEndpoint func() (*pb.PeerEn
 		s.chaincodeInstallPath = chaincodeInstallPathDefault
 	}
 
+	s.peerTLS = viper.GetBool("peer.tls.enabled")
+	if s.peerTLS {
+		s.peerTLSCertFile = viper.GetString("peer.tls.cert.file")
+		s.peerTLSKeyFile = viper.GetString("peer.tls.key.file")
+		s.peerTLSSvrHostOrd = viper.GetString("peer.tls.serverhostoverride")
+	}
+
+	kadef := 0
+	if ka := viper.GetString("chaincode.keepalive"); ka == "" {
+		s.keepalive = time.Duration(kadef) * time.Second
+	} else {
+		t, terr := strconv.Atoi(ka)
+		if terr != nil {
+			chaincodeLogger.Errorf("Invalid keepalive value %s (%s) defaulting to %d", ka, terr, kadef)
+			t = kadef
+		} else if t <= 0 {
+			chaincodeLogger.Debugf("Turn off keepalive(value %s)", ka)
+			t = kadef
+		}
+		s.keepalive = time.Duration(t) * time.Second
+	}
+
 	return s
 }
 
@@ -142,6 +165,11 @@ type ChaincodeSupport struct {
 	secHelper            crypto.Peer
 	peerNetworkID        string
 	peerID               string
+	peerTLS              bool
+	peerTLSCertFile      string
+	peerTLSKeyFile       string
+	peerTLSSvrHostOrd    string
+	keepalive            time.Duration
 }
 
 // DuplicateChaincodeHandlerError returned if attempt to register same chaincodeID while a stream already exists.
@@ -250,6 +278,17 @@ func (chaincodeSupport *ChaincodeSupport) sendInitOrReady(context context.Contex
 //get args and env given chaincodeID
 func (chaincodeSupport *ChaincodeSupport) getArgsAndEnv(cID *pb.ChaincodeID) (args []string, envs []string, err error) {
 	envs = []string{"CORE_CHAINCODE_ID_NAME=" + cID.Name}
+
+	//if TLS is enabled, pass TLS material to chaincode
+	if chaincodeSupport.peerTLS {
+		envs = append(envs, "CORE_PEER_TLS_ENABLED=true")
+		envs = append(envs, "CORE_PEER_TLS_CERT_FILE="+chaincodeSupport.peerTLSCertFile)
+		if chaincodeSupport.peerTLSSvrHostOrd != "" {
+			envs = append(envs, "CORE_PEER_TLS_SERVERHOSTOVERRIDE="+chaincodeSupport.peerTLSSvrHostOrd)
+		}
+	} else {
+		envs = append(envs, "CORE_PEER_TLS_ENABLED=false")
+	}
 
 	//chaincode executable will be same as the name of the chaincode
 	args = []string{chaincodeSupport.chaincodeInstallPath + cID.Name, fmt.Sprintf("-peer.address=%s", chaincodeSupport.peerAddress)}

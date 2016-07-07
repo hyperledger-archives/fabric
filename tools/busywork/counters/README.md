@@ -58,14 +58,6 @@ values, interpreted as detailed for the individual keys below.
   interface. See the `-loggingLevel` option for details on the `<level>`
   argument. The default level for *shim* logging is WARNING.
   
-- `-checkCounters=<bool>` : The `<bool>` value defaults to `true`. This is a
-   debugging flag only (?). If `false`, the chaincode does not check for
-   consistency of the array state before incrementing and decrementing.
-  
-- `-checkStatus=<bool>` : The `<bool>` value defaults to `true`. This is a
-  debugging flag only. See **counters.go**, `status()` function for the
-  semantics when this flag is set to `false`.
-  
 Examples:
 
     parms -id cc0 -loggingLevel debug
@@ -129,25 +121,8 @@ for each occurrence, without rewriting the array back to the state between
 increments.
 	
 
-
-
 ## Query Methods
 
-### `parms ?... <parm> ...?`
-
-This query is used to uniquely re-parameterize individual instances of the
-chaincode. The new/modified parameters will only apply to the chaincode
-associated with the peer that handles the query. Only the following parameters
-are allowed to be modified at runtime:
-
-- `-id <id>`
-
-Examples:
-
-    -id cc0x
-	
-The return value of this query is an empty string.
-	
 ### `status ?... <name> ...?`
 
 Return the status of 0 or more counter arrays. The status is returned as a
@@ -170,8 +145,35 @@ Examples:
 	status a b c  # Assume lengths 1, 2, 3 and counts 10, 20, 30
 	--> "1 1 10 10 2 2 20 20 3 3 30 30"
 
-It is an error to name an array that has not been created. This query *does
-not* signal an error if the expected and actual values do not match.
+It is an error to name an array that has not been created. 
+
+The `<expectedLength>` is obtained from the database. This query *does not*
+signal an error if the expected and actual values do not match. The
+`<expectedCount>` and `<actualCount>` will currently always be equal, and
+correspond to the value held in the first element of the array. The
+implementation of state transfer does not allow the chaincode to independently
+track the expected counter value, so correctness checking of the count will
+need to be performed by the environment.
+
+### `parms ?... <parm> ...?`
+
+This query is used to uniquely re-parameterize individual instances of the
+chaincode. The new/modified parameters will only apply to the chaincode
+associated with the peer that handles the query. Only the following parameters
+are allowed to be modified at runtime:
+
+- `-id <id>`
+
+Examples:
+
+    -id cc0x
+	
+The return value of this query is an empty string.
+	
+### `ping`
+
+This query always succeeds by returning the chaincode ID, as most recently set
+by the `parms` invocation or query.
 
 
   

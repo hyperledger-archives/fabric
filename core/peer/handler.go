@@ -185,6 +185,16 @@ func (d *Handler) beforeHello(e *fsm.Event) {
 	} else {
 		// Registered successfully
 		d.registered = true
+		otherPeer := d.ToPeerEndpoint.Address
+		if !d.Coordinator.GetDiscHelper().FindNode(otherPeer) {
+			if ok := d.Coordinator.GetDiscHelper().AddNode(otherPeer); !ok {
+				peerLogger.Warningf("Unable to add peer %v to discovery list", otherPeer)
+			}
+			err = d.Coordinator.StoreDiscoveryList()
+			if err != nil {
+				peerLogger.Error(err)
+			}
+		}
 		go d.start()
 	}
 }
@@ -289,59 +299,6 @@ func (d *Handler) start() error {
 			if err := d.SendMessage(&pb.Message{Type: pb.Message_DISC_GET_PEERS}); err != nil {
 				peerLogger.Errorf("Error sending %s during handler discovery tick: %s", pb.Message_DISC_GET_PEERS, err)
 			}
-			// // TODO: For testing only, remove eventually.  Test the blocks transfer functionality.
-			// syncBlocksChannel, _ := d.RequestBlocks(&pb.SyncBlockRange{Start: 0, End: 0})
-			// go func() {
-			// 	for {
-			// 		// peerLogger.Debug("Sleeping for 1 second...")
-			// 		// time.Sleep(1 * time.Second)
-			// 		// peerLogger.Debug("Waking up and pulling from sync channel")
-			// 		syncBlocks, ok := <-syncBlocksChannel
-			// 		if !ok {
-			// 			// Channel was closed
-			// 			peerLogger.Debug("Channel closed for SyncBlocks")
-			// 			break
-			// 		} else {
-			// 			peerLogger.Debugf("Received SyncBlocks on channel with Range from %d to %d", syncBlocks.Range.Start, syncBlocks.Range.End)
-			// 		}
-			// 	}
-			// }()
-
-			// // TODO: For testing only, remove eventually.  Test the State Snapshot functionality
-			// syncStateSnapshotChannel, _ := d.RequestStateSnapshot()
-			// go func() {
-			// 	for {
-			// 		// peerLogger.Debug("Sleeping for 1 second...")
-			// 		// time.Sleep(1 * time.Second)
-			// 		// peerLogger.Debug("Waking up and pulling from sync channel")
-			// 		syncStateSnapshot, ok := <-syncStateSnapshotChannel
-			// 		if !ok {
-			// 			// Channel was closed
-			// 			peerLogger.Debug("Channel closed for SyncStateSnapshot")
-			// 			break
-			// 		} else {
-			// 			peerLogger.Debugf("Received SyncStateSnapshot on channel with block = %d, correlationId = %d, sequence = %d, len delta = %d", syncStateSnapshot.BlockNumber, syncStateSnapshot.Request.CorrelationId, syncStateSnapshot.Sequence, len(syncStateSnapshot.Delta))
-			// 		}
-			// 	}
-			// }()
-
-			// // TODO: For testing only, remove eventually.  Test the State Deltas functionality
-			// syncStateDeltasChannel, _ := d.RequestStateDeltas(&pb.SyncBlockRange{Start: 0, End: 0})
-			// go func() {
-			// 	for {
-			// 		// peerLogger.Debug("Sleeping for 1 second...")
-			// 		// time.Sleep(1 * time.Second)
-			// 		// peerLogger.Debug("Waking up and pulling from sync channel")
-			// 		syncStateDeltas, ok := <-syncStateDeltasChannel
-			// 		if !ok {
-			// 			// Channel was closed
-			// 			peerLogger.Debug("Channel closed for SyncStateDeltas")
-			// 			break
-			// 		} else {
-			// 			peerLogger.Debugf("Received SyncStateDeltas on channel with syncBlockRange = %d-%d, len delta = %d", syncStateDeltas.Range.Start, syncStateDeltas.Range.End, len(syncStateDeltas.Deltas))
-			// 		}
-			// 	}
-			// }()
 		case <-d.doneChan:
 			peerLogger.Debug("Stopping discovery service")
 			return nil

@@ -1,23 +1,26 @@
-<!--- Provide a general summary of your changes in the Title above -->
+<!-- Provide a general summary of your changes in the Title above -->
 
 ## Description
-<!--- Describe your changes in detail. -->
+<!-- Describe your changes in detail. -->
 
 ## Motivation and Context
-<!--- Why is this change required? What problem does it solve? -->
-<!--- If it fixes an open issue, please link to the issue here. -->
+<!-- Why is this change required? What problem does it solve? -->
+<!-- If it fixes an open issue, please link to the issue here. -->
 Fixes #
 
 ## How Has This Been Tested?
-<!--- Please describe in detail how you tested your changes. -->
-<!--- If this PR does not contain a new test case, explain why. -->
+<!-- If this PR does not contain a new test case, explain why. -->
+<!-- Describe in detail how you tested your changes. -->
 
 ## Checklist:
-<!--- Go over all the following points, and put an `x` in all the boxes that apply. -->
-<!--- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->
-- [] I have added a [Signed-off-by](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md#legal-stuff)
-- [] Either no new documentation is required by this change, OR I added new documentation
-- [] Either no new tests are required by this change, OR I added new tests
-- [] I have run [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports), [go vet](https://golang.org/cmd/vet/), and [golint](https://github.com/golang/lint). I have cleaned up all valid errors and warnings in code I have added or modified. These tools may generate false positives. Don't be worried about ignoring some errors or warnings. The goal is clean, consistent, and readable code.
+<!-- To check a box, and an 'x': [x] -->
+<!-- To uncheck box, add a space: [ ] -->
+<!-- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->
+- [] I have added a [Signed-off-by](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md#legal-stuff).
+- [] I have either added documentation to cover my changes or this change requires no new documentation.
+- [] I have either added unit tests to cover my changes or this change requires no new tests.
+- [] I have run [golint](https://github.com/golang/lint) and have fixed valid warnings in code I have added or modified. This tool generates false positives so you may choose to ignore some warnings. The goal is clean, consistent, and readable code.
+
+<!-- The continuous integration build process will run [make checks](https://github.com/hyperledger/fabric/blob/master/Makefile#L22) to confirm that tests pass and that code quality meets minimum standards. You may optionally run this locally as PRs will not be accepted until they pass. -->
 
 Signed-off-by:

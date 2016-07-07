@@ -92,7 +92,7 @@ func createFreshDBAndInitTestStateImplWithCustomHasher(t testing.TB, numBuckets 
 		ConfigHashFunction:           testHasher.getHashFunction(),
 	}
 
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImpl := NewStateImpl()
 	stateImpl.Initialize(configMap)
 	stateImplTestWrapper := &stateImplTestWrapper{configMap, stateImpl, t}

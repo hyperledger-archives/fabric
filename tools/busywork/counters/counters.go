@@ -33,21 +33,21 @@ import (
 )
 
 // counters implementation
+//
+// NB: It is not clear whether this usage of the stub, that is, storing the
+// stub in the counters object, will work in future versions of the
+// architecture that support concurrency. For now it is handy to put it here;
+// in the future a different way of exposing the shim might be preferred.
 type counters struct {
-	logger        *shim.ChaincodeLogger // Our logger
-	id            string                // Chaincode ID
-	length        map[string]uint64     // Array lengths
-	count         map[string]uint64     // Current array counts
-	checkCounters bool                  // Error-check counter arrays?
-	checkStatus   bool                  // Error-check the 'status' method?
+	logger *shim.ChaincodeLogger // Our logger
+	id     string                // Chaincode ID
+	stub   *shim.ChaincodeStub   // The stub
 }
 
 // newCounters is a "constructor" for counters objects
 func newCounters() *counters {
 	c := new(counters)
 	c.logger = shim.NewLogger("counters:<uninitialized>")
-	c.length = map[string]uint64{}
-	c.count = map[string]uint64{}
 	return c
 }
 
@@ -84,14 +84,83 @@ func (c *counters) assert(p bool, format string, args ...interface{}) {
 	}
 }
 
+// lengthKey computes the key used to store the array length
+func lengthKey(name string) string {
+	return "length" + "\x00" + name
+}
+
+// getUint64 is a generic GetState() for integers
+func (c *counters) getUint64(name string) uint64 {
+	b, err := c.stub.GetState(name)
+	if err != nil {
+		c.criticalf("getUint64: Error from getState(%s): %s", name, err)
+	}
+	if len(b) != 8 {
+		c.criticalf("getUint64: Reading '%s', expected 8 bytes but read %d", name, len(b))
+	}
+	var i uint64
+	err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &i)
+	if err != nil {
+		c.criticalf("getUint64: Error converting bytes of '%s' to uint64: %s", name, err)
+	}
+	return i
+}
+
+// putUint64 is a generic PutState() for integers
+func (c *counters) putUint64(name string, x uint64) {
+	b := new(bytes.Buffer)
+	err := binary.Write(b, binary.LittleEndian, x)
+	if err != nil {
+		c.criticalf("putUint64: Error from binary.Write(): %s", err)
+	}
+	err = c.stub.PutState(name, b.Bytes())
+	if err != nil {
+		c.criticalf("putuint64: Error from PutState(%s): %s", name, err)
+	}
+}
+
+// getArray gets an array from the state and does a few basic consistency
+// checks.
+func (c *counters) getArray(name string) []uint64 {
+	b, err := c.stub.GetState(name)
+	if err != nil {
+		c.criticalf("getArray: GetState() for array '%s' failed: %s", name, err)
+	}
+	if len(b) == 0 {
+		c.criticalf("getArray: Array '%s' is empty", name)
+	}
+	if len(b)%8 != 0 {
+		c.criticalf("getArray: Array '%s' was retreived as %d bytes; Expected a multiple of 8", name, len(b))
+	}
+	array := make([]uint64, len(b)/8)
+	err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &array)
+	if err != nil {
+		c.criticalf("getArray: Error converting array '%s' (length %d) to uint64: %s", name, len(b), err)
+	}
+	return array
+}
+
+// putArray puts an array back to the state
+func (c *counters) putArray(name string, array []uint64) {
+	b := new(bytes.Buffer)
+	err := binary.Write(b, binary.LittleEndian, array)
+	if err != nil {
+		c.criticalf("putArray: Error on binary.Write() for array '%s': %s", name, err)
+	}
+	err = c.stub.PutState(name, b.Bytes())
+	if err != nil {
+		c.criticalf("putArray: Error on PutState() for array '%s': %s", name, err)
+	}
+}
+
 // create (re-)creates one or more counter arrays and zeros their state.
-func (c *counters) create(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) create(args []string) (val []byte, err error) {
 
 	// There must always be an even number of argument strings, and the odd
 	// (length) strings must parse as non-0 unsigned 64-bit values.
 
 	if (len(args) % 2) != 0 {
-		c.errorf("create : Odd number of parameters; Must be pairs of ... <name> <length> ...")
+		c.errorf("create: Odd number of parameters; Must be pairs of ... <name> <length> ...")
 	}
 	name := false
 	var names []string
@@ -103,28 +172,28 @@ func (c *counters) create(stub *shim.ChaincodeStub, args []string) (val []byte, 
 		} else {
 			length, err := strconv.ParseUint(x, 0, 64)
 			if err != nil {
-				c.errorf("create : This - '%s' - does not parse as a 64-bit integer", x)
+				c.errorf("create: This - '%s' - does not parse as a 64-bit integer", x)
 			}
 			if length <= 0 {
-				c.errorf("create : Argument %d is negative or 0", n)
+				c.errorf("create: Argument %d is negative or 0", n)
 			}
-			c.debugf("create : Length = %d", length)
+			c.debugf("create: Length = %d", length)
 			lengths = append(lengths, length)
 		}
 	}
 
 	// Now create and store each array. Note that we create the arrays
-	// directly as byte arrays.
+	// directly as byte arrays. The length of each array is stored in the
+	// database.
 
 	for n, name := range names {
 		length := lengths[n]
 		a := make([]byte, length*8)
-		err := stub.PutState(name, a)
+		err := c.stub.PutState(name, a)
 		if err != nil {
-			c.criticalf("create : Error on PutState, %s[%d] : %s", name, length, err)
+			c.criticalf("create: Error on PutState, array '%s' with length %d: %s", name, length, err)
 		}
-		c.length[name] = length
-		c.count[name] = 0
+		c.putUint64(lengthKey(name), uint64(length))
 	}
 
 	return
@@ -132,99 +201,71 @@ func (c *counters) create(stub *shim.ChaincodeStub, args []string) (val []byte, 
 
 // incDec either increments or decrements 0 or more counter arrays. The choice
 // is made based on the value of 'incr'.
-func (c *counters) incDec(stub *shim.ChaincodeStub, args []string, incr int) (val []byte, err error) {
+func (c *counters) incDec(args []string, incr int) (val []byte, err error) {
 
 	c.assert((incr == 1) || (incr == -1), "The 'incr' parameter must be 1 or -1")
 
 	// Check each array for existence and record the number of times it will
-	// be incremented/decremented, checking for overflow/underflow along the
-	// way.
+	// be incremented/decremented. We assume that no-one will be able to
+	// process a command with >= 2^64 increments or decrements.
 
 	offset := map[string]uint64{}
 	var names []string
 	for _, name := range args {
-		if _, ok := c.length[name]; !ok {
-			c.errorf("incDec : Array '%s' does not exist", name)
-		}
 		if offset[name] == 0 {
 			names = append(names, name)
 		}
 		offset[name]++
-		if incr > 0 {
-			if offset[name] > (0xffffffffffffffff - c.count[name]) {
-				c.criticalf("incDec : Array '%s' would overflow", name)
-			}
-		} else {
-			if offset[name] > c.count[name] {
-				c.criticalf("incDec : Array '%s' would underflow", name)
-			}
-		}
 	}
 
-	// Bring the arrays into (our) memory, checking expected lengths.
+	// Bring the arrays into (our) memory.
 
 	arrays := map[string][]uint64{}
 	for _, name := range names {
-		b, err := stub.GetState(name)
-		if err != nil {
-			c.criticalf("incDec : GetState() for array '%s' failed : %s", name, err)
-		}
-		length := c.length[name]
-		if uint64(len(b)) != (length * 8) {
-			c.criticalf("incDec : Array '%s' was retreived as %d bytes; Expected %d", name, len(b), length*8)
-		}
-		array := make([]uint64, length)
-		arrays[name] = array
-
-		c.debugf("incDec : Array '%s' initial value : %v\n", name, array)
-		err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &array)
-		c.debugf("incDec : Array '%s' after Read    : %v\n", name, array)
-
-		if err != nil {
-			c.criticalf("incDec : Error converting bytes to uint64 : %s", err)
-		}
+		arrays[name] = c.getArray(name)
 	}
 
-	// Increment/decrement, insuring that each array has the correct state in
-	// every location. The unsigned offsets are "signed" here.
+	// Increment/decrement, insuring that each array has consistent state in
+	// every location. The unsigned offsets are "signed" here. Underflow and
+	// overflow checks are performed on the first element here.
 
 	for _, name := range names {
-		count := c.count[name]
+
 		counters := arrays[name]
-		offset[name] = offset[name] * uint64(incr)
-		new := count + offset[name]
-		c.debugf("incDec : Array %s has count %d and offset %d", name, count, offset[name])
-		for i, v := range counters {
-			if c.checkCounters && (v != count) {
-				c.criticalf("incDec : Element %s[%d] has value %d; Expected %d", name, i, v, count)
+		finalOffset := offset[name] * uint64(incr)
+		expected := counters[0]
+
+		if incr < 0 {
+			if (expected + finalOffset) > expected {
+				c.criticalf("incDec: Underflow on array '%s'", name)
 			}
+		} else {
+			if (expected + finalOffset) < expected {
+				c.criticalf("incDec: Overflow on array '%s'", name)
+			}
+		}
+
+		for i, v := range counters {
+			if v != expected {
+				c.criticalf("incDec: Inconsistent state for element '%s[%d]', expecting %d, found %d", name, i, expected, v)
+			}
+			new := v + finalOffset
 			c.debugf("incDec : %s[%d] <- %d", name, i, new)
 			counters[i] = new
 		}
 	}
 
-	// Write the arrays back to the state. The new count values are only
-	// recorded once this operation is successful.
+	// Write the arrays back to the state.
 
 	for _, name := range names {
-		b := new(bytes.Buffer)
-		err := binary.Write(b, binary.LittleEndian, arrays[name])
-		if err != nil {
-			c.criticalf("incDec : Error on binary.Write() : %s", err)
-		}
-		c.debugf("incDec : Putting array '%s' bytes : %v", name, b.Bytes())
-		err = stub.PutState(name, b.Bytes())
-		if err != nil {
-			c.criticalf("incDec : Error on PutState() for array '%s' : %s", name, err)
-		}
-		c.count[name] += offset[name]
+		c.putArray(name, arrays[name])
 	}
 
 	return
 }
 
 // initParms handles the initialization of `parms`.
-func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) initParms(args []string) (val []byte, err error) {
 
 	c.infof("initParms : Command-line arguments : %v", args)
 
@@ -233,15 +274,14 @@ func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byt
 	flags.StringVar(&c.id, "id", "", "A unique identifier; Allows multiple copies of this chaincode to be deployed")
 	loggingLevel := flags.String("loggingLevel", "default", "The logging level of the chaincode logger. Defaults to INFO.")
 	shimLoggingLevel := flags.String("shimLoggingLevel", "default", "The logging level of the chaincode 'shim' interface. Defaults to WARNING.")
-	flags.BoolVar(&c.checkCounters, "checkCounters", true, "Default true; If false, no error/consistency checks are made on counter array states.")
-	flags.BoolVar(&c.checkStatus, "checkStatus", true, "Default true; If false, no error/consistency checks are made in the 'status' method.")
 	err = flags.Parse(args)
 	if err != nil {
 		c.errorf("initParms : Error during option processing : %s", err)
 	}
 
-	// Replace the original logger logging as "counters", with a new logger,
-	// then set its logging level and the logging level of the shim.
+	// Replace the original logger, logging as "counters", with a new logger
+	// logging as "counters:<id>", then set its logging level and the logging
+	// level of the shim.
 	c.logger = shim.NewLogger("counters:" + c.id)
 	if *loggingLevel == "default" {
 		c.logger.SetLevel(shim.LogInfo)
@@ -257,7 +297,7 @@ func (c *counters) initParms(stub *shim.ChaincodeStub, args []string) (val []byt
 }
 
 // queryParms handles the `parms` query
-func (c *counters) queryParms(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
+func (c *counters) queryParms(args []string) (val []byte, err error) {
 	flags := flag.NewFlagSet("queryParms", flag.ContinueOnError)
 	flags.StringVar(&c.id, "id", "", "Uniquely identify a chaincode instance")
 	err = flags.Parse(args)
@@ -267,35 +307,14 @@ func (c *counters) queryParms(stub *shim.ChaincodeStub, args []string) (val []by
 	return
 }
 
-// status implements the `status` query. If the -checkStatus flag was passed
-// as false, then we do not check for the array having been created, and we
-// assume that the length and count obtained from the state are correct. This
-// is a debug-only setting.
-func (c *counters) status(stub *shim.ChaincodeStub, args []string) (val []byte, err error) {
-
-	c.debugf("status : Entry : checkStatus = %v", c.checkStatus)
+// status implements the `status` query.
+func (c *counters) status(args []string) (val []byte, err error) {
 
 	// Run down the list of arrays, pulling their state into our memory
 
 	arrays := map[string][]uint64{}
 	for _, name := range args {
-		if c.checkStatus {
-			if _, ok := c.length[name]; !ok {
-				c.errorf("status : Array '%s' has never been created", name)
-			}
-		}
-		b, err := stub.GetState(name)
-		if err != nil {
-			c.criticalf("status : GetState() for array '%s' failed : %s", name, err)
-		}
-		length := len(b) / 8
-		array := make([]uint64, length)
-		arrays[name] = array
-		err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &array)
-		if err != nil {
-			c.criticalf("status : Error converting %d bytes of array %s to uint64 : %s", len(b), name, err)
-		}
-		c.debugf("status : Array %s[%d] (%d bytes)", name, length, len(b))
+		arrays[name] = c.getArray(name)
 	}
 
 	// Now create the result
@@ -305,29 +324,24 @@ func (c *counters) status(stub *shim.ChaincodeStub, args []string) (val []byte, 
 		if res != "" {
 			res += " "
 		}
+		expectedLength := c.getUint64(lengthKey(name))
 		actualLength := uint64(len(arrays[name]))
 		actualCount := arrays[name][0]
-		var expectedLength, expectedCount uint64
-		if c.checkStatus {
-			expectedLength = c.length[name]
-			expectedCount = c.count[name]
-		} else {
-			expectedLength = actualLength
-			expectedCount = actualCount
-		}
+		expectedCount := actualCount
 		res += fmt.Sprintf("%d %d %d %d", expectedLength, actualLength, expectedCount, actualCount)
 	}
-	c.debugf("status : Final status : %s", res)
+	c.debugf("status: Final status: %s", res)
 	return []byte(res), nil
 }
 
 // Init handles chaincode initialization. Only the 'parms' function is
 // recognized here.
 func (c *counters) Init(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+	c.stub = stub
 	defer busy.Catch(&err)
 	switch function {
 	case "parms":
-		return c.initParms(stub, args)
+		return c.initParms(args)
 	default:
 		c.errorf("Init : Function '%s' is not recognized for INIT", function)
 	}
@@ -336,14 +350,15 @@ func (c *counters) Init(stub *shim.ChaincodeStub, function string, args []string
 
 // Invoke handles the `invoke` methods.
 func (c *counters) Invoke(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+	c.stub = stub
 	defer busy.Catch(&err)
 	switch function {
 	case "create":
-		return c.create(stub, args)
+		return c.create(args)
 	case "decrement":
-		return c.incDec(stub, args, -1)
+		return c.incDec(args, -1)
 	case "increment":
-		return c.incDec(stub, args, 1)
+		return c.incDec(args, 1)
 	default:
 		c.errorf("Invoke : Function '%s' is not recognized for INVOKE", function)
 	}
@@ -352,12 +367,15 @@ func (c *counters) Invoke(stub *shim.ChaincodeStub, function string, args []stri
 
 // Query handles the `query` methods.
 func (c *counters) Query(stub *shim.ChaincodeStub, function string, args []string) (val []byte, err error) {
+	c.stub = stub
 	defer busy.Catch(&err)
 	switch function {
 	case "parms":
-		return c.queryParms(stub, args)
+		return c.queryParms(args)
+	case "ping":
+		return []byte(c.id), nil
 	case "status":
-		return c.status(stub, args)
+		return c.status(args)
 	default:
 		c.errorf("Query : Function '%s' is not recognized for QUERY", function)
 	}

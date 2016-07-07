@@ -22,7 +22,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	google_protobuf1 "google/protobuf"
+	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/ledger"
@@ -75,7 +75,7 @@ func NewOpenchainServerWithPeerInfo(peerServer PeerInfo) (*ServerOpenchain, erro
 
 // GetBlockchainInfo returns information about the blockchain ledger such as
 // height, current block hash, and previous block hash.
-func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockchainInfo, error) {
+func (s *ServerOpenchain) GetBlockchainInfo(ctx context.Context, e *google_protobuf.Empty) (*pb.BlockchainInfo, error) {
 	blockchainInfo, err := s.ledger.GetBlockchainInfo()
 	if blockchainInfo.Height == 0 {
 		return nil, fmt.Errorf("No blocks in blockchain.")
@@ -122,7 +122,7 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 
 // GetBlockCount returns the current number of blocks in the blockchain data
 // structure.
-func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf1.Empty) (*pb.BlockCount, error) {
+func (s *ServerOpenchain) GetBlockCount(ctx context.Context, e *google_protobuf.Empty) (*pb.BlockCount, error) {
 	// Total number of blocks in the blockchain.
 	size := s.ledger.GetBlockchainSize()
 
@@ -157,12 +157,12 @@ func (s *ServerOpenchain) GetTransactionByUUID(ctx context.Context, txUUID strin
 }
 
 // GetPeers returns a list of all peer nodes currently connected to the target peer.
-func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+func (s *ServerOpenchain) GetPeers(ctx context.Context, e *google_protobuf.Empty) (*pb.PeersMessage, error) {
 	return s.peerInfo.GetPeers()
 }
 
 // GetPeerEndpoint returns PeerEndpoint info of target peer.
-func (s *ServerOpenchain) GetPeerEndpoint(ctx context.Context, e *google_protobuf1.Empty) (*pb.PeersMessage, error) {
+func (s *ServerOpenchain) GetPeerEndpoint(ctx context.Context, e *google_protobuf.Empty) (*pb.PeersMessage, error) {
 	peers := []*pb.PeerEndpoint{}
 	peerEndpoint, err := s.peerInfo.GetPeerEndpoint()
 	if err != nil {

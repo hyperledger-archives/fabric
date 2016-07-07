@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"

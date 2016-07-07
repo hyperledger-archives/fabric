@@ -21,12 +21,13 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 
 	"fmt"
+	"sync"
+
 	"github.com/hyperledger/fabric/consensus/controller"
 	"github.com/hyperledger/fabric/consensus/util"
 	"github.com/hyperledger/fabric/core/chaincode"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
-	"sync"
 )
 
 // EngineImpl implements a struct to hold consensus.Consenter, PeerEndpoint and MessageFan

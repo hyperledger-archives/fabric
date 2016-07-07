@@ -16,6 +16,11 @@ tags
 .#*
 # bddtest log files
 *.log
+# bddtest coverage files
+bddtests/coverage
+*.cov
+# Makefile dummy artifacts
+.*-dummy
 # go-carpet output files
 go-carpet-coverage*
 # make node-sdk copied files

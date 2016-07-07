@@ -34,27 +34,38 @@ type broadcaster struct {
 	comm communicator
 
 	f        int
-	msgChans map[uint64]chan *pb.Message
+	msgChans map[uint64]chan *sendRequest
 	closed   sync.WaitGroup
 	closedCh chan struct{}
+}
+
+type sendRequest struct {
+	msg  *pb.Message
+	done chan bool
 }
 
 func newBroadcaster(self uint64, N int, f int, c communicator) *broadcaster {
 	queueSize := 10 // XXX increase after testing
 
-	chans := make(map[uint64]chan *pb.Message)
-	for i := 0; i < N; i++ {
-		if uint64(i) == self {
-			continue
-		}
-		chans[uint64(i)] = make(chan *pb.Message, queueSize)
-	}
+	chans := make(map[uint64]chan *sendRequest)
 	b := &broadcaster{
 		comm:     c,
 		f:        f,
 		msgChans: chans,
 		closedCh: make(chan struct{}),
 	}
+	for i := 0; i < N; i++ {
+		if uint64(i) == self {
+			continue
+		}
+		chans[uint64(i)] = make(chan *sendRequest, queueSize)
+	}
+
+	// We do not start the go routines in the above loop to avoid concurrent map read/writes
+	for i := 0; i < N; i++ {
+		go b.drainer(uint64(i))
+	}
+
 	return b
 }
 
@@ -67,32 +78,67 @@ func (b *broadcaster) Wait() {
 	b.closed.Wait()
 }
 
-func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan bool) {
+func (b *broadcaster) drainerSend(dest uint64, send *sendRequest, successLastTime bool) bool {
+	// Note, successLastTime is purely used to avoid flooding the log with unnecessary warning messages when a network problem is encountered
 	defer func() {
 		b.closed.Done()
-		wait <- true
 	}()
-
-	select {
-	case <-b.closedCh:
-		return
-	default:
-	}
-
 	h, err := getValidatorHandle(dest)
 	if err != nil {
-		logger.Warningf("could not get handle for replica %d", dest)
-	} else {
-		err = b.comm.Unicast(msg, h)
-	}
-	if err != nil {
-		logger.Debugf("could not send to replica %d: %v", dest, err)
-		select {
-		case <-b.closedCh:
-			return
-		case <-time.After(1 * time.Second):
-			return
+		if successLastTime {
+			logger.Warningf("could not get handle for replica %d", dest)
 		}
+		send.done <- false
+		return false
+	}
+
+	err = b.comm.Unicast(send.msg, h)
+	if err != nil {
+		if successLastTime {
+			logger.Warningf("could not send to replica %d: %v", dest, err)
+		}
+		send.done <- false
+		return false
+	}
+
+	send.done <- true
+	return true
+
+}
+
+func (b *broadcaster) drainer(dest uint64) {
+	successLastTime := false
+	destChan := b.msgChans[dest] // Avoid doing the map lookup every send
+
+	for {
+		select {
+		case send := <-destChan:
+			successLastTime = b.drainerSend(dest, send, successLastTime)
+		case <-b.closedCh:
+			for {
+				// Drain the message channel to free calling waiters before we shut down
+				select {
+				case send := <-destChan:
+					send.done <- false
+					b.closed.Done()
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+func (b *broadcaster) unicastOne(msg *pb.Message, dest uint64, wait chan bool) {
+	select {
+	case b.msgChans[dest] <- &sendRequest{
+		msg:  msg,
+		done: wait,
+	}:
+	default:
+		// If this channel is full, we must discard the message and flag it as done
+		wait <- false
+		b.closed.Done()
 	}
 }
 
@@ -117,16 +163,37 @@ func (b *broadcaster) send(msg *pb.Message, dest *uint64) error {
 
 	if dest != nil {
 		b.closed.Add(1)
-		go b.unicastOne(msg, *dest, wait)
+		b.unicastOne(msg, *dest, wait)
 	} else {
 		b.closed.Add(len(b.msgChans))
 		for i := range b.msgChans {
-			go b.unicastOne(msg, i, wait)
+			b.unicastOne(msg, i, wait)
 		}
 	}
 
-	for i := 0; i < required; i++ {
-		<-wait
+	succeeded := 0
+	timer := time.NewTimer(time.Second) // TODO, make this configurable
+
+	// This loop will try to send, until one of:
+	// a) the required number of sends succeed
+	// b) all sends complete regardless of success
+	// c) the timeout expires and the required number of sends have returned
+outer:
+	for i := 0; i < destCount; i++ {
+		select {
+		case success := <-wait:
+			if success {
+				succeeded++
+				if succeeded >= required {
+					break outer
+				}
+			}
+		case <-timer.C:
+			for i := i; i < required; i++ {
+				<-wait
+			}
+			break outer
+		}
 	}
 
 	return nil

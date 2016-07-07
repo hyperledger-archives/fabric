@@ -17,8 +17,9 @@ limitations under the License.
 package ecdsa
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestSignatureVerifier(t *testing.T) {

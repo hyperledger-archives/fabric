@@ -32,7 +32,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 	"path/filepath"
 
 	"github.com/golang/protobuf/proto"
@@ -69,7 +69,7 @@ func startTLSCA(t *testing.T) {
 	tlscaS = NewTLSCA(ecaS)
 
 	var opts []grpc.ServerOption
-	creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.certfile"), viper.GetString("server.tls.keyfile"))
+	creds, err := credentials.NewServerTLSFromFile(viper.GetString("server.tls.cert.file"), viper.GetString("server.tls.key.file"))
 	if err != nil {
 		t.Logf("Failed creating credentials for TLS-CA service: %s", err)
 		t.Fail()
@@ -94,7 +94,7 @@ func startTLSCA(t *testing.T) {
 func requestTLSCertificate(t *testing.T) {
 	var opts []grpc.DialOption
 
-	creds, err := credentials.NewClientTLSFromFile(viper.GetString("server.tls.certfile"), "tlsca")
+	creds, err := credentials.NewClientTLSFromFile(viper.GetString("server.tls.cert.file"), "tlsca")
 	if err != nil {
 		t.Logf("Failed creating credentials for TLS-CA client: %s", err)
 		t.Fail()

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
 	"github.com/golang/protobuf/proto"
@@ -73,9 +74,6 @@ func TestNetworkBatch(t *testing.T) {
 			t.Fatalf("Replica %d executed %d requests, expected %d",
 				ce.id, numTrans, batchSize)
 		}
-		if numTxResults := len(block.NonHashData.TransactionResults); numTxResults != 1 /*numTrans*/ {
-			t.Fatalf("Replica %d has %d txResults, expected %d", ce.id, numTxResults, numTrans)
-		}
 	}
 }
 
@@ -83,7 +81,7 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 	b := newObcBatch(0, loadConfig(), &omniProto{})
 	defer b.Close()
 
-	b.outstandingReqs[&Request{}] = struct{}{}
+	b.reqStore.storeOutstanding(&Request{})
 
 	b.manager.Queue() <- stateUpdatedEvent{
 		chkpt: &checkpointMessage{
@@ -93,7 +91,7 @@ func TestClearOustandingReqsOnStateRecovery(t *testing.T) {
 
 	b.manager.Queue() <- nil
 
-	if len(b.outstandingReqs) != 0 {
+	if b.reqStore.outstandingRequests.Len() != 0 {
 		t.Fatalf("Should not have any requests outstanding after completing state transfer")
 	}
 }
@@ -132,15 +130,9 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 
 	for i, b := range bs {
 		b.manager.Queue() <- nil
-		count := len(b.outstandingReqs)
-		if i == 0 {
-			if count != 0 {
-				t.Errorf("Batch primary should not have the request in its store: %v", b.outstandingReqs)
-			}
-		} else {
-			if count != 1 {
-				t.Errorf("Batch backup %d should have the request in its store", i)
-			}
+		count := b.reqStore.outstandingRequests.Len()
+		if count != 1 {
+			t.Errorf("Batch backup %d should have the request in its store", i)
 		}
 	}
 }
@@ -148,9 +140,14 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 func TestOutstandingReqsResubmission(t *testing.T) {
 	omni := &omniProto{}
 	b := newObcBatch(0, loadConfig(), omni)
-	defer b.Close()
+	defer b.Close() // The broadcasting threads only cause problems here... but this test stalls without them
 
+	transactionsBroadcast := 0
 	omni.ExecuteImpl = func(tag interface{}, txs []*pb.Transaction) {
+		transactionsBroadcast += len(txs)
+		logger.Debugf("\nExecuting %d transactions (%v)\n", len(txs), txs)
+		nextExec := b.pbft.lastExec + 1
+		b.pbft.currentExec = &nextExec
 		b.manager.Inject(executedEvent{tag: tag})
 	}
 
@@ -159,52 +156,84 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	}
 
 	omni.UnicastImpl = func(ocMsg *pb.Message, dest *pb.PeerID) error {
-		if dest.Name != "vp1" {
-			return nil
-		}
-
-		batchMsg := &BatchMessage{}
-		err := proto.Unmarshal(ocMsg.Payload, batchMsg)
-
-		msgRaw := batchMsg.GetPbftMessage()
-		if msgRaw == nil {
-			t.Fatalf("Expected PBFT message only")
-		}
-
-		msg := &Message{}
-		err = proto.Unmarshal(msgRaw, msg)
-		if err != nil {
-			t.Fatalf("Error unpacking payload from message: %s", err)
-		}
-
-		logger.Debug("unicast: %v", msg)
-
-		prePrepare := msg.GetPrePrepare()
-
-		if err != nil {
-			t.Fatalf("Expected only a prePrepare")
-		}
-
-		// Shortcuts the whole 3 phase protocol, and executes whatever is in the prePrepare
-		b.execute(prePrepare.SequenceNumber, prePrepare.Request.Payload)
-
 		return nil
 	}
 
-	// Add two requests
-	b.outstandingReqs[createPbftRequestWithChainTx(1, 0)] = struct{}{}
-	b.outstandingReqs[createPbftRequestWithChainTx(2, 0)] = struct{}{}
+	reqs := make([]*Request, 8)
+	for i := 0; i < len(reqs); i++ {
+		reqs[i] = createPbftRequestWithChainTx(int64(i), 0)
+	}
 
-	seqNo := uint64(1)
-	b.pbft.currentExec = &seqNo
+	// Add three requests, with a batch size of 2
+	b.reqStore.storeOutstanding(reqs[0])
+	b.reqStore.storeOutstanding(reqs[1])
+	b.reqStore.storeOutstanding(reqs[2])
+	b.reqStore.storeOutstanding(reqs[3])
 
-	b.manager.Queue() <- committedEvent{}
-	b.manager.Queue() <- nil
+	executed := make(map[string]struct{})
+	execute := func() {
+		for d, req := range b.pbft.outstandingReqs {
+			if _, ok := executed[d]; ok {
+				continue
+			}
+			executed[d] = struct{}{}
+			b.execute(b.pbft.lastExec+1, req.Payload)
+		}
+	}
 
-	b.broadcaster.Wait()
+	tmp := uint64(1)
+	b.pbft.currentExec = &tmp
+	events.SendEvent(b, committedEvent{})
+	execute()
 
-	if len(b.outstandingReqs) != 0 {
-		t.Fatalf("All requests should have been resubmitted")
+	if b.reqStore.outstandingRequests.Len() != 0 {
+		t.Fatalf("All requests should have been executed and deleted after exec")
+	}
+
+	// Simulate changing views, with a request in the qSet, and one outstanding which is not
+	wreq := reqs[4]
+
+	reqsPacked, err := proto.Marshal(&RequestBlock{[]*Request{wreq}})
+	if err != nil {
+		t.Fatalf("Unable to pack block for new batch request")
+	}
+
+	breq := &Request{Payload: reqsPacked}
+	prePrep := &PrePrepare{
+		View:           0,
+		SequenceNumber: b.pbft.lastExec + 1,
+		RequestDigest:  "foo",
+		Request:        breq,
+	}
+
+	b.pbft.certStore[msgID{v: prePrep.View, n: prePrep.SequenceNumber}] = &msgCert{prePrepare: prePrep}
+
+	// Add the request, which is already pre-prepared, to be outstanding, and one outstanding not pending, not prepared
+	b.reqStore.storeOutstanding(wreq) // req 6
+	b.reqStore.storeOutstanding(reqs[5])
+	b.reqStore.storeOutstanding(reqs[6])
+	b.reqStore.storeOutstanding(reqs[7])
+
+	events.SendEvent(b, viewChangedEvent{})
+	execute()
+
+	if b.reqStore.hasNonPending() {
+		t.Errorf("All requests should have been resubmitted after view change")
+	}
+
+	// We should have one request in batch which has not been sent yet
+	expected := 6
+	if transactionsBroadcast != expected {
+		t.Errorf("Expected %d transactions broadcast, got %d", expected, transactionsBroadcast)
+	}
+
+	events.SendEvent(b, batchTimerEvent{})
+	execute()
+
+	// If the already prepared request were to be resubmitted, we would get count 8 here
+	expected = 7
+	if transactionsBroadcast != expected {
+		t.Errorf("Expected %d transactions broadcast, got %d", expected, transactionsBroadcast)
 	}
 }
 
@@ -224,5 +253,116 @@ func TestViewChangeOnPrimarySilence(t *testing.T) {
 
 	if b.pbft.activeView {
 		t.Fatalf("Should have caused a view change")
+	}
+}
+
+func obcBatchSizeOneHelper(id uint64, config *viper.Viper, stack consensus.Stack) pbftConsumer {
+	// It's not entirely obvious why the compiler likes the parent function, but not newObcClassic directly
+	config.Set("general.batchsize", 1)
+	return newObcBatch(id, config, stack)
+}
+
+func TestClassicStateTransfer(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, obcBatchSizeOneHelper, func(ce *consumerEndpoint) {
+		ce.consumer.(*obcBatch).pbft.K = 2
+		ce.consumer.(*obcBatch).pbft.L = 4
+	})
+	defer net.stop()
+	// net.debug = true
+
+	filterMsg := true
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if filterMsg && dst == 3 { // 3 is byz
+			return nil
+		}
+		return msg
+	}
+
+	// Advance the network one seqNo past so that Replica 3 will have to do statetransfer
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.process()
+
+	// Move the seqNo to 9, at seqNo 6, Replica 3 will realize it's behind, transfer to seqNo 8, then execute seqNo 9
+	filterMsg = false
+	for n := 2; n <= 9; n++ {
+		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
+	}
+
+	net.process()
+
+	for _, ep := range net.endpoints {
+		ce := ep.(*consumerEndpoint)
+		obc := ce.consumer.(*obcBatch)
+		_, err := obc.stack.GetBlock(9)
+		if nil != err {
+			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
+		}
+		if !obc.pbft.activeView || obc.pbft.view != 0 {
+			t.Errorf("Replica %d not active in view 0, is %v %d", ce.id, obc.pbft.activeView, obc.pbft.view)
+		}
+	}
+}
+
+func TestClassicBackToBackStateTransfer(t *testing.T) {
+	validatorCount := 4
+	net := makeConsumerNetwork(validatorCount, obcBatchSizeOneHelper, func(ce *consumerEndpoint) {
+		ce.consumer.(*obcBatch).pbft.K = 2
+		ce.consumer.(*obcBatch).pbft.L = 4
+		ce.consumer.(*obcBatch).pbft.requestTimeout = time.Hour // We do not want any view changes
+	})
+	defer net.stop()
+	// net.debug = true
+
+	filterMsg := true
+	net.filterFn = func(src int, dst int, msg []byte) []byte {
+		if filterMsg && dst == 3 { // 3 is byz
+			return nil
+		}
+		return msg
+	}
+
+	// Get the group to advance past seqNo 1, leaving Replica 3 behind
+	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.process()
+
+	// Now start including Replica 3, go to sequence number 10, Replica 3 will trigger state transfer
+	// after seeing seqNo 8, then pass another target for seqNo 10 and 12, but transfer to 8, but the network
+	// will have already moved on and be past to seqNo 13, outside of Replica 3's watermarks, but
+	// Replica 3 will execute through seqNo 12
+	filterMsg = false
+	for n := 2; n <= 21; n++ {
+		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
+	}
+
+	net.process()
+
+	for _, ep := range net.endpoints {
+		ce := ep.(*consumerEndpoint)
+		obc := ce.consumer.(*obcBatch)
+		_, err := obc.stack.GetBlock(21)
+		if nil != err {
+			t.Errorf("Replica %d executed requests, expected a new block on the chain, but could not retrieve it : %s", ce.id, err)
+		}
+		if !obc.pbft.activeView || obc.pbft.view != 0 {
+			t.Errorf("Replica %d not active in view 0, is %v %d", ce.id, obc.pbft.activeView, obc.pbft.view)
+		}
+	}
+}
+
+func TestClearBatchStoreOnViewChange(t *testing.T) {
+	b := newObcBatch(1, loadConfig(), &omniProto{})
+	defer b.Close()
+
+	b.batchStore = []*Request{&Request{}}
+
+	// Send a request, which will be ignored, triggering view change
+	b.manager.Queue() <- viewChangedEvent{}
+	b.manager.Queue() <- nil
+
+	if len(b.batchStore) != 0 {
+		t.Fatalf("Should have cleared the batch store on view change")
 	}
 }

@@ -25,9 +25,10 @@ import (
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
+	gp "google/protobuf"
+
 	pb "github.com/hyperledger/fabric/protos"
 	"github.com/spf13/viper"
-	gp "google/protobuf"
 )
 
 type inertTimer struct{}

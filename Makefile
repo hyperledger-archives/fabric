@@ -39,31 +39,30 @@
 PROJECT_NAME=hyperledger/fabric
 PKGNAME = github.com/$(PROJECT_NAME)
 CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
+UID = $(shell id -u)
 
 EXECUTABLES = go docker git
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
+# SUBDIRS are components that have their own Makefiles that we can invoke
+SUBDIRS = gotools sdk/node
+SUBDIRS:=$(strip $(SUBDIRS))
+
 # Make our baseimage depend on any changes to images/base or scripts/provision
 BASEIMAGE_RELEASE = $(shell cat ./images/base/release)
 BASEIMAGE_DEPS    = $(shell git ls-files images/base scripts/provision)
 
-GOTOOLS = golint govendor goimports protoc-gen-go ginkgo gomega
-GOTOOLS_BIN = $(patsubst %,$(GOPATH)/bin/%, $(GOTOOLS))
-
 PROJECT_FILES = $(shell git ls-files)
 IMAGES = base src ccenv peer membersrvc
 
-# go tool->path mapping
-go.fqp.govendor  := github.com/kardianos/govendor
-go.fqp.golint    := github.com/golang/lint/golint
-go.fqp.goimports := golang.org/x/tools/cmd/goimports
-go.fqp.ginkgo := github.com/onsi/ginkgo/ginkgo
-go.fqp.gomega := github.com/onsi/gomega
-
 all: peer membersrvc checks
 
-checks: unit-test behave linter
+checks: linter unit-test behave
+
+.PHONY: $(SUBDIRS)
+$(SUBDIRS):
+	cd $@ && $(MAKE)
 
 .PHONY: peer
 peer: build/bin/peer
@@ -84,27 +83,18 @@ behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
 
-gotools: $(GOTOOLS_BIN)
-
 linter: gotools
 	@echo "LINT: Running code checks.."
-	@echo "LINT: No errors found"
-
-# Special override for protoc-gen-go since we want to use the version vendored with the project
-gotool.protoc-gen-go:
-	mkdir -p $(GOPATH)/src/github.com/golang/protobuf/
-	cp -r $(GOPATH)/src/github.com/hyperledger/fabric/vendor/github.com/golang/protobuf/ $(GOPATH)/src/github.com/golang/
-	go install github.com/golang/protobuf/protoc-gen-go
-	rm -rf $(GOPATH)/src/github.com/golang/protobuf
-
-# Default rule for gotools uses the name->path map for a generic 'go get' style build
-gotool.%:
-	$(eval TOOL = ${subst gotool.,,${@}})
-	go get ${go.fqp.${TOOL}}
-
-$(GOPATH)/bin/%:
-	$(eval TOOL = ${subst $(GOPATH)/bin/,,${@}})
-	$(MAKE) gotool.$(TOOL)
+	@echo "Running go vet"
+	go vet ./consensus/...
+	go vet ./core/...
+	go vet ./events/...
+	go vet ./examples/...
+	go vet ./membersrvc/...
+	go vet ./peer/...
+	go vet ./protos/...
+	@echo "Running goimports"
+	@./scripts/goimports.sh
 
 # We (re)build protoc-gen-go from within docker context so that
 # we may later inject the binary into a different docker environment
@@ -114,6 +104,7 @@ $(GOPATH)/bin/%:
 	@echo "Building $@"
 	@mkdir -p $(@D)
 	@docker run -i \
+		--user=$(UID) \
 		-v $(abspath vendor/github.com/golang/protobuf):/opt/gopath/src/github.com/golang/protobuf \
 		-v $(abspath $(@D)):/opt/gopath/bin \
 		hyperledger/fabric-baseimage go install github.com/golang/protobuf/protoc-gen-go
@@ -129,6 +120,7 @@ build/docker/bin/%: build/image/src/.dummy $(PROJECT_FILES)
 	@echo "Building $@"
 	@mkdir -p build/docker/bin build/docker/pkg
 	@docker run -i \
+		--user=$(UID) \
 		-v $(abspath build/docker/bin):/opt/gopath/bin \
 		-v $(abspath build/docker/pkg):/opt/gopath/pkg \
 		hyperledger/fabric-src go install github.com/hyperledger/fabric/$(TARGET)
@@ -180,7 +172,7 @@ build/image/%/.dummy: build/image/src/.dummy build/docker/bin/%
 	@touch $@
 
 .PHONY: protos
-protos:
+protos: gotools
 	./devenv/compile_protos.sh
 
 base-image-clean:
@@ -189,29 +181,24 @@ base-image-clean:
 
 %-image-clean:
 	$(eval TARGET = ${patsubst %-image-clean,%,${@}})
-	-@rm -rf build/image/$(TARGET) ||:
 	-docker rmi -f $(PROJECT_NAME)-$(TARGET)
+	-@rm -rf build/image/$(TARGET) ||:
 
 images-clean: $(patsubst %,%-image-clean, $(IMAGES))
 
-.PHONY: node-sdk
-node-sdk:
-	cp ./protos/*.proto ./sdk/node/lib/protos
-	cp ./membersrvc/protos/*.proto ./sdk/node/lib/protos
-	cd ./sdk/node && sudo apt-get install npm && npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
-	cd ./sdk/node && tsc
-	cd ./sdk/node && ./makedoc.sh
+node-sdk: sdk/node
 
-.PHONY: node-sdk-unit-tests
-node-sdk-unit-tests: node-sdk
-	@./sdk/node/bin/run-unit-tests.sh
+node-sdk-unit-tests: peer membersrvc
+	cd sdk/node && $(MAKE) unit-tests
 
-node-sdk:
+.PHONY: $(SUBDIRS:=-clean)
+$(SUBDIRS:=-clean):
+	cd $(patsubst %-clean,%,$@) && $(MAKE) clean
+
 .PHONY: clean
-clean: images-clean
+clean: images-clean $(filter-out gotools-clean, $(SUBDIRS:=-clean))
 	-@rm -rf build ||:
-	-@rm -f $(GOTOOLS_BIN) ||:
 
 .PHONY: dist-clean
-dist-clean: clean
+dist-clean: clean gotools-clean
 	-@rm -rf /var/hyperledger/* ||:

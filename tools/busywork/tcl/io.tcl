@@ -319,6 +319,7 @@ proc httpTokenDump {i_token {i_level err} {i_module {}}} {
 proc httpErrorExit {i_token} {
 
     httpTokenDump $i_token
+    http::cleanup $i_token
     errorExit
 }
 

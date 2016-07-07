@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 )
 
 var vmLogger = logging.MustGetLogger("container")
@@ -96,6 +97,15 @@ func WriteGopathSrc(tw *tar.Writer, excludeDir string) error {
 		vmLogger.Infof("Error walking rootDirectory: %s", err)
 		return err
 	}
+
+	// Add the certificates to tar
+	if viper.GetBool("peer.tls.enabled") {
+		err := WriteFileToPackage(viper.GetString("peer.tls.cert.file"), "src/certs/cert.pem", tw)
+		if err != nil {
+			return fmt.Errorf("Error writing cert file to package: %s", err)
+		}
+	}
+
 	// Write the tar file out
 	if err := tw.Close(); err != nil {
 		return err

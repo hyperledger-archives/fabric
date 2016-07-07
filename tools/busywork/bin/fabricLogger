@@ -20,7 +20,10 @@ Usage: fabricLogger ?... parms ...? [... peers ...]
 Convert a HyperLedger fabric blockchain into a file that logs all of the
 transactions that are found in the blockchain. By default, the entire current
 blockchain is converted to a log on standard output and the job
-terminates. Each line of the report is a single character followed by a single
+terminates. Options are provided to start logging from a certain block, log
+only a range of blocks and/or "follow" the blockchain indefinitely.
+
+Each line of the report is a single character followed by a single
 piece of information:
 
 b <n>    : Block number <n>
@@ -55,14 +58,27 @@ Options:
     By default the job terminates as soon as the last block is processed, that
     is, as soon as a peer does not have the next block. Select -follow to keep
     following forever. In -follow mode the output file is flushed after each
-    block is processed.
+    block is processed. The -follow option has slightly different semantics if
+    '-from <first>:<last>' is specified; See below.
 
 -followPoll <duration> : 1s
 
     In -follow mode, once the end of the current blockchain is reached
     fabricLogger will keep polling (alternate peers) at this frequency. If this
     is specified as 0 then fabricLogger will aggressively poll the set of peers
-    as fast as possible.
+    as fast as possible. 
+
+-from <first>[:<last>] : Log all (currently existing) blocks
+
+    Specifying for example '-from 10' starts logging from block 10. In this
+    mode the -follow option is in force to determine what happens once the end
+    of the current chain is met.
+
+    Specifying for example '-from 10:20' logs blocks 10, 11, ..., 20 and then
+    stops. In this mode specifying -follow causes the logger to (potentially)
+    poll the network until the final block is logged. The default -noFollow
+    mode causes logging to stop either when the final block is logged or the
+    end of the blockchain is first encountered.
 
 -file <file> : *Standard Output*
 
@@ -116,6 +132,7 @@ set options {
     {enum    {-h -help --help}         parms(help)       0  p_help}
     {bool    {-follow -noFollow}       parms(follow)     0}
     {key     -followPoll               parms(followPoll) 1s}
+    {key     -from                     parms(from)       {} p_from}
     {key     -file                     parms(file)       {} fileOption}
     {bool    {-delete -noDelete}       parms(delete)     0}
     {key     -retry                    parms(retry)      0}
@@ -178,8 +195,6 @@ if {$fileOption} {
     }
 }
 
-parms block 0
-
 proc killPIDs {} {
     foreach pid [parms killPIDs] {
         catch {kill SIGINT $pid}
@@ -188,14 +203,55 @@ proc killPIDs {} {
 
 atErrorExit {killPIDs}
 
+
+# Interpret the -from <first>[:<last>] specification. The condition
+# finalBlock == -1 means "forever".
+
+if {!$p_from} {
+
+    parms block 0
+    parms finalBlock -1
+
+} else {
+
+    set spec [split [parms from] :]
+    switch [llength $spec] {
+        0 {
+            errorExit "-from specification is empty"
+        }
+        1 {
+            parms block $spec
+            parms finalBlock -1
+        }
+        2 {
+            set first [first $spec]
+            set last [last $spec]
+            if {![string is integer $first] || ![string is integer $last] ||
+                ($first < 0) || ($last < $first)} {
+                errorExit "Invalid -from specification"
+            }
+            parms block $first
+            parms finalBlock $last
+        }
+        default {
+            errorExit "Invalid -from specification"
+        }
+    }
+}
+
 ############################################################################
 # Do it
 ############################################################################
 
 # TODO : Move block access to ::fabric package procedures
 
+# NB: To avoid memory leaks the HTTP token must always be cleaned up
+# (deleted). We even delete the token on errorExit paths, as one day we may
+# decide to add an option to return errors instead of exiting from errorExit.
+
 proc forceBreakOrErrorExit {i_token} {
     if {[parms force]} {
+        http::cleanup $i_token
         err {} "Continuing after error (-force mode)"
         return -code break
     } else {
@@ -206,6 +262,7 @@ proc forceBreakOrErrorExit {i_token} {
 set log [parms log]
 set follow [parms follow]
 set block [parms block]
+set finalBlock [parms finalBlock]
 set lastBlock $block
 
 while {1} {
@@ -224,6 +281,7 @@ while {1} {
                 http::cleanup $token
                 continue
             }
+            http::cleanup $token
             errorExit \
                 "$peer @ block $block: ::http::geturl failed " \
                 "with [parms retry] retries : $token"
@@ -233,6 +291,7 @@ while {1} {
 
             # End of blockchain
             
+            http::cleanup $token
             if {![parms follow]} {exit 0}
             if {[parms followPoll] == 0} break
             after [parms followPoll]
@@ -322,5 +381,9 @@ while {1} {
         note note \
         "$peer @ block $lastBlock: " \
         "Success after [expr {[parms retry] - $retry}] HTTP retries"
+    }
+
+    if {($finalBlock >= 0) && ($block > $finalBlock)} {
+        break
     }
 }

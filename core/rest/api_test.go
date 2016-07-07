@@ -19,10 +19,9 @@ package rest
 import (
 	"bytes"
 	"fmt"
+	"google/protobuf"
 	"os"
 	"testing"
-
-	"google/protobuf"
 
 	"github.com/hyperledger/fabric/core/ledger"
 	"github.com/hyperledger/fabric/core/util"
@@ -37,12 +36,10 @@ func TestMain(m *testing.M) {
 }
 
 func setupTestConfig() {
-	viper.SetConfigName("core")         // name of config file (without extension)
-	viper.AddConfigPath("./")           // path to look for the config file in
-	viper.AddConfigPath("./..")         // path to look for the config file in
-	viper.AddConfigPath("./../../peer") // path to look for the config file in
-	err := viper.ReadInConfig()         // Find and read the config file
-	if err != nil {                     // Handle errors reading the config file
+	viper.SetConfigName("rest_test") // name of config file (without extension)
+	viper.AddConfigPath(".")         // path to look for the config file in
+	err := viper.ReadInConfig()      // Find and read the config file
+	if err != nil {                  // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 }

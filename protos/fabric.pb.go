@@ -297,10 +297,8 @@ func (*BlockchainInfo) ProtoMessage()    {}
 // the block hash when verifying the blockchain.
 // localLedgerCommitTimestamp - The time at which the block was added
 // to the ledger on the local peer.
-// transactionResults - The results of transactions.
 type NonHashData struct {
 	LocalLedgerCommitTimestamp *google_protobuf.Timestamp `protobuf:"bytes,1,opt,name=localLedgerCommitTimestamp" json:"localLedgerCommitTimestamp,omitempty"`
-	TransactionResults         []*TransactionResult       `protobuf:"bytes,2,rep,name=transactionResults" json:"transactionResults,omitempty"`
 }
 
 func (m *NonHashData) Reset()         { *m = NonHashData{} }
@@ -310,13 +308,6 @@ func (*NonHashData) ProtoMessage()    {}
 func (m *NonHashData) GetLocalLedgerCommitTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.LocalLedgerCommitTimestamp
-	}
-	return nil
-}
-
-func (m *NonHashData) GetTransactionResults() []*TransactionResult {
-	if m != nil {
-		return m.TransactionResults
 	}
 	return nil
 }
@@ -370,6 +361,14 @@ func (m *PeersMessage) GetPeers() []*PeerEndpoint {
 	}
 	return nil
 }
+
+type PeersAddresses struct {
+	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *PeersAddresses) Reset()         { *m = PeersAddresses{} }
+func (m *PeersAddresses) String() string { return proto.CompactTextString(m) }
+func (*PeersAddresses) ProtoMessage()    {}
 
 type HelloMessage struct {
 	PeerEndpoint   *PeerEndpoint   `protobuf:"bytes,1,opt,name=peerEndpoint" json:"peerEndpoint,omitempty"`

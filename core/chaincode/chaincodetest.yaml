@@ -12,7 +12,7 @@ server:
         # cadir: ".ca"
 
         # port the CA services are listening on
-        port: ":50051"
+        port: ":20051"
 
         # TLS certificate and key file paths
         tls:
@@ -44,7 +44,7 @@ aca:
         attribute-entry-2: user1;bank_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
         attribute-entry-3: user2;bank_a;company;ACompany;2001-02-02T00:00:00-03:00;;
         attribute-entry-4: user2;bank_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
-    address: localhost:50051
+    address: localhost:20051
     server-name: acap
     enabled: true
 
@@ -175,15 +175,15 @@ peer:
 
 
     # The Address this Peer will listen on
-    listenAddress: 0.0.0.0:41414
+    listenAddress: 0.0.0.0:21212
     # The Address this Peer will bind to for providing services
-    address: 0.0.0.0:41414
+    address: 0.0.0.0:21212
     # Whether the Peer should programmatically determine the address to bind to.
     # This case is useful for docker containers.
     addressAutoDetect: false
 
     # Peer port to accept connections on
-    port:    41414
+    port:    21212
     # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
     gomaxprocs: -1
     workers: 2
@@ -240,22 +240,25 @@ peer:
 
     # TLS Settings for p2p communications
     tls:
-        enabled:  false
+        enabled:  true
         cert:
             file: testdata/server1.pem
         key:
             file: testdata/server1.key
+
         # The server name use to verify the hostname returned by TLS handshake
-        serverhostoverride:
+        # The key cert was generated using
+        #       openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout testdata/server1.key -out testdata/server1.pem
+        serverhostoverride: dummy
 
     # PKI member services properties
     pki:
         eca:
-            paddr: localhost:50051
+            paddr: localhost:20051
         tca:
-            paddr: localhost:50051
+            paddr: localhost:20051
         tlsca:
-            paddr: localhost:50051
+            paddr: localhost:20051
         tls:
             enabled: false
             rootcert:
@@ -277,10 +280,10 @@ peer:
         # testNodes:
         #    - node   : 1
         #      ip     : 127.0.0.1
-        #      port   : 41414
+        #      port   : 21212
         #    - node   : 2
         #      ip     : 127.0.0.1
-        #      port   : 41414
+        #      port   : 21212
 
         # Should the discovered nodes and their reputations
         # be stored in DB and persisted between restarts
@@ -390,6 +393,11 @@ chaincode:
     # the image
     installpath: /opt/gopath/bin/
 
+    #keepalive in seconds. In situations where the communiction goes through a 
+    #proxy that does not support keep-alive, this parameter will maintain connection
+    #between peer and chaincode.
+    #A value <= 0 turns keepalive off
+    keepalive: 1
 ###############################################################################
 #
 #    Ledger section - ledger configuration encompases both the blockchain

@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -51,20 +52,26 @@ var restLogger = logging.MustGetLogger("rest")
 // the pointer to the underlying Devops object. This is necessary due to
 // how the gocraft/web package implements context initialization.
 var serverOpenchain *ServerOpenchain
-var serverDevops *core.Devops
+var serverDevops pb.DevopsServer
 
 // ServerOpenchainREST defines the Openchain REST service object. It exposes
 // the methods available on the ServerOpenchain service and the Devops service
 // through a REST API.
 type ServerOpenchainREST struct {
 	server *ServerOpenchain
-	devops *core.Devops
+	devops pb.DevopsServer
 }
 
 // restResult defines the response payload for a general REST interface request.
 type restResult struct {
 	OK    string `json:",omitempty"`
 	Error string `json:",omitempty"`
+}
+
+// tcertsResult defines the response payload for the GetTransactionCert REST
+// interface request.
+type tcertsResult struct {
+	OK []string
 }
 
 // rpcRequest defines the JSON RPC 2.0 request payload for the /chaincode endpoint.
@@ -182,10 +189,42 @@ func getRESTFilePath() string {
 	return localStore
 }
 
+// isEnrollmentIDValid returns true if the given enrollmentID matches the valid
+// pattern defined in the configuration.
+func isEnrollmentIDValid(enrollmentID string) (bool, error) {
+	pattern := viper.GetString("rest.validPatterns.enrollmentID")
+	if pattern == "" {
+		return false, errors.New("Missing configuration key rest.validPatterns.enrollmentID")
+	}
+	return regexp.MatchString(pattern, enrollmentID)
+}
+
+// validateEnrollmentIDParameter checks whether the given enrollmentID is
+// valid: if valid, returns true and does nothing; if not, writes the HTTP
+// error response and returns false.
+func validateEnrollmentIDParameter(rw web.ResponseWriter, enrollmentID string) bool {
+	validID, err := isEnrollmentIDValid(enrollmentID)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(rw).Encode(restResult{Error: err.Error()})
+		restLogger.Errorf("Error when validating enrollment ID: %s", err)
+		return false
+	}
+	if !validID {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(restResult{Error: "Invalid enrollment ID parameter"})
+		restLogger.Errorf("Invalid enrollment ID parameter '%s'.\n", enrollmentID)
+		return false
+	}
+
+	return true
+}
+
 // Register confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST client login...")
+	encoder := json.NewEncoder(rw)
 
 	// Decode the incoming JSON payload
 	var loginSpec pb.Secret
@@ -193,20 +232,15 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 
 	// Check for proper JSON syntax
 	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character.
-		// Otherwise, the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 		// Client must supply payload
 		if err == io.EOF {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
-			restLogger.Error("{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
+			encoder.Encode(restResult{Error: "Payload must contain object Secret with enrollId and enrollSecret fields."})
+			restLogger.Error("Error: Payload must contain object Secret with enrollId and enrollSecret fields.")
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 		}
 
 		return
@@ -215,9 +249,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// Check that the enrollId and enrollSecret are not left blank.
 	if (loginSpec.EnrollId == "") || (loginSpec.EnrollSecret == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
-		restLogger.Error("{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
+		encoder.Encode(restResult{Error: "enrollId and enrollSecret may not be blank."})
+		restLogger.Error("Error: enrollId and enrollSecret may not be blank.")
 
+		return
+	}
+
+	if !validateEnrollmentIDParameter(rw, loginSpec.EnrollId) {
 		return
 	}
 
@@ -229,7 +267,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is already logged in.", loginSpec.EnrollId)})
 		restLogger.Infof("User '%s' is already logged in.\n", loginSpec.EnrollId)
 
 		return
@@ -248,13 +286,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 				// Directory does not exist, create it
 				if err := os.Mkdir(localStore, 0755); err != nil {
 					rw.WriteHeader(http.StatusInternalServerError)
-					fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+					encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
 				// Unexpected error
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
 			}
 		}
@@ -264,19 +302,17 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		err = ioutil.WriteFile(localStore+"loginToken_"+loginSpec.EnrollId, []byte(loginSpec.EnrollId), 0755)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("Login successful for user '%s'.", loginSpec.EnrollId)})
 		restLogger.Infof("Login successful for user '%s'.\n", loginSpec.EnrollId)
 	} else {
-		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
-
 		rw.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", loginErr)
-		restLogger.Errorf("Error on client login: %s", loginErr)
+		encoder.Encode(restResult{Error: string(loginResult.Msg)})
+		restLogger.Errorf("Error on client login: %s", string(loginResult.Msg))
 	}
 
 	return
@@ -288,22 +324,26 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
 	localStore := getRESTFilePath()
 
+	encoder := json.NewEncoder(rw)
+
 	// If the user is already logged in, return OK. Otherwise return error.
 	if _, err := os.Stat(localStore + "loginToken_" + enrollmentID); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", enrollmentID)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is already logged in.", enrollmentID)})
 		restLogger.Infof("User '%s' is already logged in.\n", enrollmentID)
 	} else {
 		rw.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(rw, "{\"Error\": \"User %s must log in.\"}", enrollmentID)
+		encoder.Encode(restResult{Error: fmt.Sprintf("User %s must log in.", enrollmentID)})
 		restLogger.Infof("User '%s' must log in.\n", enrollmentID)
 	}
-
-	return
 }
 
 // DeleteEnrollmentID removes the login token of the specified user from the
@@ -313,6 +353,10 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
@@ -329,10 +373,12 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	_, err1 := os.Stat(loginTok)
 	_, err2 := os.Stat(cryptoDir)
 
+	encoder := json.NewEncoder(rw)
+
 	// If the user is not logged in, nothing to delete. Return OK.
 	if os.IsNotExist(err1) && os.IsNotExist(err2) {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is not logged in.\"}", enrollmentID)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is not logged in.", enrollmentID)})
 		restLogger.Infof("User '%s' is not logged in.\n", enrollmentID)
 
 		return
@@ -341,8 +387,8 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's login token
 	if err := os.RemoveAll(loginTok); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login token for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login token for user %s: %s", enrollmentID, err)
 
 		return
 	}
@@ -350,14 +396,14 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's cert and key directory
 	if err := os.RemoveAll(cryptoDir); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login directory for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login directory for user %s: %s", enrollmentID, err)
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Deleted login token and directory for user %s.\"}", enrollmentID)
+	encoder.Encode(restResult{OK: fmt.Sprintf("Deleted login token and directory for user %s.", enrollmentID)})
 	restLogger.Infof("Deleted login token and directory for user %s.\n", enrollmentID)
 
 	return
@@ -368,7 +414,13 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	restLogger.Debugf("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
+
+	encoder := json.NewEncoder(rw)
 
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
@@ -380,8 +432,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -390,8 +442,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		handler, err := sec.GetEnrollmentCertificateHandler()
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -399,8 +451,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -411,8 +463,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate is not nil
 		if certDER == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate is nil.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate is nil.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate is nil."})
+			restLogger.Errorf("Error: Enrollment certificate is nil.")
 
 			return
 		}
@@ -420,8 +472,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate has non-zero length
 		if len(certDER) == 0 {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate length is 0.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate length is 0.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate length is 0."})
+			restLogger.Errorf("Error: Enrollment certificate length is 0.")
 
 			return
 		}
@@ -436,13 +488,13 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		crypto.CloseClient(sec)
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
+		encoder.Encode(restResult{OK: urlEncodedCert})
 		restLogger.Debugf("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}
@@ -453,7 +505,13 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	restLogger.Debugf("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
+
+	encoder := json.NewEncoder(rw)
 
 	// Parse out the count query parameter
 	req.ParseForm()
@@ -471,8 +529,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Check for count parameter being a non-negative integer
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
-			restLogger.Error("{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
+			encoder.Encode(restResult{Error: "Count query parameter must be a non-negative integer."})
+			restLogger.Errorf("Error: Count query parameter must be a non-negative integer.")
 
 			return
 		}
@@ -498,8 +556,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -510,8 +568,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		handler, err := sec.GetTCertificateHandlerNext(attributes...)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -519,8 +577,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -535,8 +593,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate is not nil
 			if certDER == nil {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate is nil.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate is nil.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate is nil."})
+				restLogger.Errorf("Error: Transaction certificate is nil.")
 
 				return
 			}
@@ -544,8 +602,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate has non-zero length
 			if len(certDER) == 0 {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate length is 0.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate length is 0.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate length is 0."})
+				restLogger.Errorf("Error: Transaction certificate length is 0.")
 
 				return
 			}
@@ -563,24 +621,14 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Close the security client
 		crypto.CloseClient(sec)
 
-		// Construct a JSON formatted response
-		jsonResponse, err := json.Marshal(tcertArray)
-		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error marshalling TCert array\": \"%s\"}", err)
-
-			return
-		}
-
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
+		encoder.Encode(tcertsResult{OK: tcertArray})
 		restLogger.Debugf("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}
@@ -597,7 +645,7 @@ func (s *ServerOpenchainREST) GetBlockchainInfo(rw web.ResponseWriter, req *web.
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
+		encoder.Encode(restResult{Error: err.Error()})
 	} else {
 		// Success
 		rw.WriteHeader(http.StatusOK)
@@ -611,32 +659,34 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 	// Parse out the Block id
 	blockNumber, err := strconv.ParseUint(req.PathParams["id"], 10, 64)
 
+	encoder := json.NewEncoder(rw)
+
 	// Check for proper Block id syntax
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Block id must be an integer (uint64).\"}")
-	} else {
-		// Retrieve Block from blockchain
-		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
-
-		// Check for error
-		if err != nil || block == nil {
-			// Failure
-			switch {
-			case err == ErrNotFound || block == nil:
-				rw.WriteHeader(http.StatusNotFound)
-			default:
-				rw.WriteHeader(http.StatusInternalServerError)
-			}
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		} else {
-			// Success
-			rw.WriteHeader(http.StatusOK)
-			encoder := json.NewEncoder(rw)
-			encoder.Encode(block)
-		}
+		encoder.Encode(restResult{Error: "Block id must be an integer (uint64)."})
+		return
 	}
+
+	// Retrieve Block from blockchain
+	block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
+
+	if (err == ErrNotFound) || (err == nil && block == nil) {
+		rw.WriteHeader(http.StatusNotFound)
+		encoder.Encode(restResult{Error: ErrNotFound.Error()})
+		return
+	}
+
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		encoder.Encode(restResult{Error: err.Error()})
+		return
+	}
+
+	// Success
+	rw.WriteHeader(http.StatusOK)
+	encoder.Encode(block)
 }
 
 // GetTransactionByUUID returns a transaction matching the specified UUID
@@ -647,21 +697,22 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 	// Retrieve the transaction matching the UUID
 	tx, err := s.server.GetTransactionByUUID(context.Background(), txUUID)
 
+	encoder := json.NewEncoder(rw)
+
 	// Check for Error
 	if err != nil {
 		switch err {
 		case ErrNotFound:
 			rw.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(rw, "{\"Error\": \"Transaction %s is not found.\"}", txUUID)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Transaction %s is not found.", txUUID)})
 		default:
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
-			restLogger.Errorf("{\"Error\": \"Error retrieving transaction %s: %s.\"}", txUUID, err)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Error retrieving transaction %s: %s.", txUUID, err)})
+			restLogger.Errorf("Error retrieving transaction %s: %s", txUUID, err)
 		}
 	} else {
 		// Return existing transaction
 		rw.WriteHeader(http.StatusOK)
-		encoder := json.NewEncoder(rw)
 		encoder.Encode(tx)
 		restLogger.Infof("Successfully retrieved transaction: %s", txUUID)
 	}
@@ -669,6 +720,8 @@ func (s *ServerOpenchainREST) GetTransactionByUUID(rw web.ResponseWriter, req *w
 
 // Deploy first builds the chaincode package and subsequently deploys it to the
 // blockchain.
+//
+// Deprecated: use the /chaincode endpoint instead (routes to ProcessChaincode)
 func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST deploying chaincode...")
 
@@ -815,6 +868,8 @@ func (s *ServerOpenchainREST) Deploy(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Invoke executes a specified function within a target Chaincode.
+//
+// Deprecated: use the /chaincode endpoint instead (routes to ProcessChaincode)
 func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST invoking chaincode...")
 
@@ -955,6 +1010,8 @@ func (s *ServerOpenchainREST) Invoke(rw web.ResponseWriter, req *web.Request) {
 }
 
 // Query performs the requested query on the target Chaincode.
+//
+// Deprecated: use the /chaincode endpoint instead (routes to ProcessChaincode)
 func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST querying chaincode...")
 
@@ -1110,34 +1167,26 @@ func (s *ServerOpenchainREST) Query(rw web.ResponseWriter, req *web.Request) {
 func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST processing chaincode request...")
 
+	encoder := json.NewEncoder(rw)
+
 	// Read in the incoming request payload
 	reqBody, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		// Format the error appropriately
-		error := formatRPCError(InternalError.Code, InternalError.Message, "Internal JSON-RPC error when reading request body.")
-		// Produce correctly formatted JSON RPC 2.0 response
-		response := formatRPCResponse(error, nil)
-		jsonResponse, _ := json.Marshal(response)
-
+		// Format the error appropriately and produce JSON RPC 2.0 response
+		errObj := formatRPCError(InternalError.Code, InternalError.Message, "Internal JSON-RPC error when reading request body.")
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, string(jsonResponse))
+		encoder.Encode(formatRPCResponse(errObj, nil))
 		restLogger.Error("Internal JSON-RPC error when reading request body.")
-
 		return
 	}
 
 	// Incoming request body may not be empty, client must supply request payload
 	if string(reqBody) == "" {
-		// Format the error appropriately
-		error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Client must supply a payload for chaincode requests.")
-		// Produce correctly formatted JSON RPC 2.0 response
-		response := formatRPCResponse(error, nil)
-		jsonResponse, _ := json.Marshal(response)
-
+		// Format the error appropriately and produce JSON RPC 2.0 response
+		errObj := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Client must supply a payload for chaincode requests.")
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, string(jsonResponse))
+		encoder.Encode(formatRPCResponse(errObj, nil))
 		restLogger.Error("Client must supply a payload for chaincode requests.")
-
 		return
 	}
 
@@ -1148,16 +1197,11 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	// error here if the incoming JSON is invalid (e.g. missing brace or comma).
 	err = json.Unmarshal(reqBody, &requestPayload)
 	if err != nil {
-		// Format the error appropriately
-		error := formatRPCError(ParseError.Code, ParseError.Message, fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
-		// Produce correctly formatted JSON RPC 2.0 response
-		response := formatRPCResponse(error, nil)
-		jsonResponse, _ := json.Marshal(response)
-
+		// Format the error appropriately and produce JSON RPC 2.0 response
+		errObj := formatRPCError(ParseError.Code, ParseError.Message, fmt.Sprintf("Error unmarshalling chaincode request payload: %s", err))
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, string(jsonResponse))
+		encoder.Encode(formatRPCResponse(errObj, nil))
 		restLogger.Errorf("Error unmarshalling chaincode request payload: %s", err)
-
 		return
 	}
 
@@ -1179,14 +1223,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	if requestPayload.Jsonrpc == nil {
 		// If the request is not a notification, produce a response.
 		if !notification {
-			// Format the error appropriately
-			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 version string.")
-			// Produce correctly formatted JSON RPC 2.0 response
-			response := formatRPCResponse(error, requestPayload.ID)
-			jsonResponse, _ := json.Marshal(response)
-
+			// Format the error appropriately and produce JSON RPC 2.0 response
+			errObj := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 version string.")
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, string(jsonResponse))
+			encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 		}
 		restLogger.Error("Missing JSON RPC version string.")
 
@@ -1194,14 +1234,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	} else if *(requestPayload.Jsonrpc) != "2.0" {
 		// If the request is not a notification, produce a response.
 		if !notification {
-			// Format the error appropriately
-			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Invalid JSON RPC 2.0 version string. Must be 2.0.")
-			// Produce correctly formatted JSON RPC 2.0 response
-			response := formatRPCResponse(error, requestPayload.ID)
-			jsonResponse, _ := json.Marshal(response)
-
+			// Format the error appropriately and produce JSON RPC 2.0 response
+			errObj := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Invalid JSON RPC 2.0 version string. Must be 2.0.")
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, string(jsonResponse))
+			encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 		}
 		restLogger.Error("Invalid JSON RPC version string. Must be 2.0.")
 
@@ -1212,14 +1248,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	if requestPayload.Method == nil {
 		// If the request is not a notification, produce a response.
 		if !notification {
-			// Format the error appropriately
-			error := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 method string.")
-			// Produce correctly formatted JSON RPC 2.0 response
-			response := formatRPCResponse(error, requestPayload.ID)
-			jsonResponse, _ := json.Marshal(response)
-
+			// Format the error appropriately and produce JSON RPC 2.0 response
+			errObj := formatRPCError(InvalidRequest.Code, InvalidRequest.Message, "Missing JSON RPC 2.0 method string.")
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, string(jsonResponse))
+			encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 		}
 		restLogger.Error("Missing JSON RPC 2.0 method string.")
 
@@ -1227,14 +1259,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	} else if (*(requestPayload.Method) != "deploy") && (*(requestPayload.Method) != "invoke") && (*(requestPayload.Method) != "query") {
 		// If the request is not a notification, produce a response.
 		if !notification {
-			// Format the error appropriately
-			error := formatRPCError(MethodNotFound.Code, MethodNotFound.Message, "Requested method does not exist.")
-			// Produce correctly formatted JSON RPC 2.0 response
-			response := formatRPCResponse(error, requestPayload.ID)
-			jsonResponse, _ := json.Marshal(response)
-
+			// Format the error appropriately and produce JSON RPC 2.0 response
+			errObj := formatRPCError(MethodNotFound.Code, MethodNotFound.Message, "Requested method does not exist.")
 			rw.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(rw, string(jsonResponse))
+			encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 		}
 		restLogger.Error("Requested method does not exist.")
 
@@ -1258,14 +1286,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		if requestPayload.Params == nil {
 			// If the request is not a notification, produce a response.
 			if !notification {
-				// Format the error appropriately
-				error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeSpec for chaincode deploy request.")
-				// Produce correctly formatted JSON RPC 2.0 response
-				response := formatRPCResponse(error, requestPayload.ID)
-				jsonResponse, _ := json.Marshal(response)
-
+				// Format the error appropriately and produce JSON RPC 2.0 response
+				errObj := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeSpec for chaincode deploy request.")
 				rw.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(rw, string(jsonResponse))
+				encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 			}
 			restLogger.Error("Client must supply ChaincodeSpec for chaincode deploy request.")
 
@@ -1292,14 +1316,10 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 		if invokequeryPayload.ChaincodeSpec == nil {
 			// If the request is not a notification, produce a response.
 			if !notification {
-				// Format the error appropriately
-				error := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeSpec for chaincode invoke or query request.")
-				// Produce correctly formatted JSON RPC 2.0 response
-				response := formatRPCResponse(error, requestPayload.ID)
-				jsonResponse, _ := json.Marshal(response)
-
+				// Format the error appropriately and produce JSON RPC 2.0 response
+				errObj := formatRPCError(InvalidParams.Code, InvalidParams.Message, "Client must supply ChaincodeSpec for chaincode deploy request.")
 				rw.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(rw, string(jsonResponse))
+				encoder.Encode(formatRPCResponse(errObj, requestPayload.ID))
 			}
 			restLogger.Error("Client must supply ChaincodeSpec for chaincode invoke or query request.")
 
@@ -1320,7 +1340,7 @@ func (s *ServerOpenchainREST) ProcessChaincode(rw web.ResponseWriter, req *web.R
 	// If the request is not a notification, produce a response.
 	if !notification {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, string(jsonResponse))
+		rw.Write(jsonResponse)
 	}
 
 	// Make a clarification in the invoke response message, that the transaction has been successfully submitted but not completed
@@ -1457,12 +1477,9 @@ func (s *ServerOpenchainREST) processChaincodeDeploy(spec *pb.ChaincodeSpec) rpc
 	//
 
 	if err != nil {
-		// Replace " characters with ' within the chaincode response
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 		// Format the error appropriately for further processing
-		error := formatRPCError(ChaincodeDeployError.Code, ChaincodeDeployError.Message, fmt.Sprintf("Error when deploying chaincode: %s", errVal))
-		restLogger.Errorf("Error when deploying chaincode: %s", errVal)
+		error := formatRPCError(ChaincodeDeployError.Code, ChaincodeDeployError.Message, fmt.Sprintf("Error when deploying chaincode: %s", err))
+		restLogger.Errorf("Error when deploying chaincode: %s", err)
 
 		return error
 	}
@@ -1593,12 +1610,9 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		if err != nil {
-			// Replace " characters with ' within the chaincode response
-			errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 			// Format the error appropriately for further processing
-			error := formatRPCError(ChaincodeInvokeError.Code, ChaincodeInvokeError.Message, fmt.Sprintf("Error when invoking chaincode: %s", errVal))
-			restLogger.Errorf("Error when invoking chaincode: %s", errVal)
+			error := formatRPCError(ChaincodeInvokeError.Code, ChaincodeInvokeError.Message, fmt.Sprintf("Error when invoking chaincode: %s", err))
+			restLogger.Errorf("Error when invoking chaincode: %s", err)
 
 			return error
 		}
@@ -1632,12 +1646,9 @@ func (s *ServerOpenchainREST) processChaincodeInvokeOrQuery(method string, spec 
 		//
 
 		if err != nil {
-			// Replace " characters with ' within the chaincode response
-			errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 			// Format the error appropriately for further processing
-			error := formatRPCError(ChaincodeQueryError.Code, ChaincodeQueryError.Message, fmt.Sprintf("Error when querying chaincode: %s", errVal))
-			restLogger.Errorf("Error when querying chaincode: %s", errVal)
+			error := formatRPCError(ChaincodeQueryError.Code, ChaincodeQueryError.Message, fmt.Sprintf("Error when querying chaincode: %s", err))
+			restLogger.Errorf("Error when querying chaincode: %s", err)
 
 			return error
 		}
@@ -1671,13 +1682,13 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 	if err != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-		restLogger.Errorf("{\"Error\": \"Querying network peers -- %s\"}", err)
+		encoder.Encode(restResult{Error: err.Error()})
+		restLogger.Errorf("Error: Querying network peers -- %s", err)
 	} else if err1 != nil {
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err1)
-		restLogger.Errorf("{\"Error\": \"Accesing target peer endpoint data  -- %s\"}", err1)
+		encoder.Encode(restResult{Error: err1.Error()})
+		restLogger.Errorf("Error: Accesing target peer endpoint data -- %s", err1)
 	} else {
 		currentPeerFound := false
 		peersList := peers.Peers
@@ -1702,19 +1713,11 @@ func (s *ServerOpenchainREST) GetPeers(rw web.ResponseWriter, req *web.Request) 
 // had not been defined.
 func (s *ServerOpenchainREST) NotFound(rw web.ResponseWriter, r *web.Request) {
 	rw.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(rw, "{\"Error\": \"Openchain endpoint not found.\"}")
+	json.NewEncoder(rw).Encode(restResult{Error: "Openchain endpoint not found."})
 }
 
-// StartOpenchainRESTServer initializes the REST service and adds the required
-// middleware and routes.
-func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
-	// Initialize the REST service object
-	restLogger.Infof("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
+func buildOpenchainRESTRouter() *web.Router {
 	router := web.New(ServerOpenchainREST{})
-
-	// Record the pointer to the underlying ServerOpenchain and Devops objects.
-	serverOpenchain = server
-	serverDevops = devops
 
 	// Add middleware
 	router.Middleware((*ServerOpenchainREST).SetOpenchainServer)
@@ -1744,6 +1747,21 @@ func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
 
 	// Add not found page
 	router.NotFound((*ServerOpenchainREST).NotFound)
+
+	return router
+}
+
+// StartOpenchainRESTServer initializes the REST service and adds the required
+// middleware and routes.
+func StartOpenchainRESTServer(server *ServerOpenchain, devops *core.Devops) {
+	// Initialize the REST service object
+	restLogger.Infof("Initializing the REST service on %s, TLS is %s.", viper.GetString("rest.address"), (map[bool]string{true: "enabled", false: "disabled"})[comm.TLSEnabled()])
+
+	// Record the pointer to the underlying ServerOpenchain and Devops objects.
+	serverOpenchain = server
+	serverDevops = devops
+
+	router := buildOpenchainRESTRouter()
 
 	// Start server
 	if comm.TLSEnabled() {

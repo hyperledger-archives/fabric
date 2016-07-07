@@ -17,8 +17,10 @@ server:
 
         # TLS certificate and key file paths
         tls:
-#              certfile: "/var/hyperledger/production/.membersrvc/tlsca.cert"
-#              keyfile: "/var/hyperledger/production/.membersrvc/tlsca.priv"
+            cert:
+                file:
+            key:
+                file:
 
 security:
     # Can be 256 or 384
@@ -87,6 +89,13 @@ eca:
                 diego: 1 DRJ23pEQl16a institution_a 00003
                 jim: 1 6avZQLwcUe9b bank_a 00004
                 binhn: 1 7avZQLwcUe9q institution_a 00005
+
+                # Users for asset transfer with roles test located at
+                # sdk/node/test/unit/asset-mgmt-with-roles.js
+                alice: 1 CMS10pEQlB16 bank_a 00006
+                bob: 1 NOE63pEQbL25 bank_a 00007
+                assigner: 1 Tc43PeqBl11 bank_a 00008
+
                 vp: 4 f3489fy98ghf
 
                 test_vp0: 4 MwYpmSRjupbT
@@ -100,7 +109,7 @@ eca:
                 test_vp8: 4 BxP7QNh778gI
                 test_vp9: 4 wu3F1EwJWHvQ
 
-                test_user0: 1 MS9qrN8hFjlE bank_a        00006
+                test_user0: 1 MS9qrN8hFjlE bank_a        00001
                 test_user1: 1 jGlNl6ImkuDo institution_a 00007
                 test_user2: 1 zMflqOKezFiA bank_c        00008
                 test_user3: 1 vWdLCE00vJy0 bank_a        00009
@@ -141,6 +150,15 @@ aca:
               attribute-entry-4: jim;institution_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
               attribute-entry-5: binhn,;institution_a;company;ACompany;2015-01-01T00:00:00-03:00;;
               attribute-entry-6: binhn;institution_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;
+
+              # User attributes for asset transfer with roles test located at
+              #sdk/node/test/unit/asset-mgmt-with-roles.js
+              attribute-entry-7: alice;bank_a;role;client;2016-01-01T00:00:00-03:00;;
+              attribute-entry-8: alice;bank_a;account;12345-56789;2016-01-01T00:00:00-03:00;;
+              attribute-entry-9: bob;bank_a;role;client;2015-02-02T00:00:00-03:00;;
+              attribute-entry-10: bob;bank_a;account;23456-67890;2015-02-02T00:00:00-03:00;;
+              attribute-entry-11: assigner;bank_a;role;assigner;2015-01-01T00:00:00-03:00;;
+
           address: localhost:50051
           server-name: acap
           # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be added into the TCert.

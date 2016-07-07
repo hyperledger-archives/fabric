@@ -35,7 +35,8 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	_ "github.com/mattn/go-sqlite3" // TODO: justify this blank import or remove
+
+	_ "github.com/mattn/go-sqlite3" // This blank import is required to load sqlite3 driver
 	"github.com/spf13/viper"
 )
 
@@ -343,10 +344,10 @@ func (ca *CA) readCACertificate(name string) ([]byte, error) {
 
 func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage, timestamp int64, kdfKey []byte, opt ...pkix.Extension) ([]byte, error) {
 	spec := NewDefaultCertificateSpec(id, pub, usage, opt...)
-	return ca.createCertificateFromSpec(spec, timestamp, kdfKey)
+	return ca.createCertificateFromSpec(spec, timestamp, kdfKey, true)
 }
 
-func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte) ([]byte, error) {
+func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte, persist bool) ([]byte, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -358,13 +359,22 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 		return nil, err
 	}
 
-	hash := primitives.NewHash()
-	hash.Write(raw)
-	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", spec.GetID(), timestamp, spec.GetUsage(), raw, hash.Sum(nil), kdfKey); err != nil {
-		Error.Println(err)
+	if persist {
+		err = ca.persistCertificate(spec.GetID(), timestamp, spec.GetUsage(), raw, kdfKey)
 	}
 
 	return raw, err
+}
+
+func (ca *CA) persistCertificate(id string, timestamp int64, usage x509.KeyUsage, certRaw []byte, kdfKey []byte) error {
+	hash := primitives.NewHash()
+	hash.Write(certRaw)
+	var err error
+
+	if _, err = ca.db.Exec("INSERT INTO Certificates (id, timestamp, usage, cert, hash, kdfkey) VALUES (?, ?, ?, ?, ?, ?)", id, timestamp, usage, certRaw, hash.Sum(nil), kdfKey); err != nil {
+		Error.Println(err)
+	}
+	return err
 }
 
 func (ca *CA) newCertificate(id string, pub interface{}, usage x509.KeyUsage, ext []pkix.Extension) ([]byte, error) {
@@ -420,10 +430,14 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 }
 
 func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte, error) {
-	Trace.Println("Reading certificate for " + id + ".")
+	Trace.Printf("Reading certificate for %s and usage %v", id, usage)
 
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
+
+	if err != nil {
+		Trace.Printf("readCertificateByKeyUsage() Error: %v", err)
+	}
 
 	return raw, err
 }
@@ -576,7 +590,7 @@ func (ca *CA) registerUserWithEnrollID(id string, enrollID string, role pb.Role,
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
 	if err == nil {
-		return "", errors.New("user is already registered")
+		return "", errors.New("User is already registered")
 	}
 
 	_, err = ca.db.Exec("INSERT INTO Users (id, enrollmentId, token, role, metadata, state) VALUES (?, ?, ?, ?, ?, ?)", id, enrollID, tok, role, memberMetadata, 0)

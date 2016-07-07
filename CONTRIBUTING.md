@@ -25,17 +25,19 @@ To work on something, whether a new feature or a bugfix:
   ```
   git clone https://github.com/yourid/fabric.git
   ```
+
   3. Add the upstream repository as a remote
   ```
   git remote add upstream https://github.com/hyperledger/fabric.git
   ```
-  4. Create a branch
 
+  4. Create a branch
   Create a descriptively-named branch off of your cloned fork ([more detail here](https://help.github.com/articles/syncing-a-fork/))
   ```
   cd fabric
   git checkout -b issue-nnnn
   ```
+
   5. Commit your code
 
   Commit to that branch locally, and regularly push your work to the same branch on the server.
@@ -46,6 +48,8 @@ To work on something, whether a new feature or a bugfix:
 
   7. Pull Request (PR)
 
+  **Note:** Each source file must include a license header for the Apache Software License 2.0. A template of that header can be found [here](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt).
+
   When you need feedback or help, or you think the branch is ready for merging, open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](docs/dev-setup/install.md#3-test)).
 
    _Note: if your PR does not merge cleanly, use ```git rebase master``` in your feature branch to update your pull request rather than using ```git merge master```_.
@@ -54,7 +58,7 @@ To work on something, whether a new feature or a bugfix:
 
   9. Continuous Integration (CI): Be sure to check [Travis](https://travis-ci.org/) or the Slack [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) channel for status of your build. You can re-trigger a build on [Jenkins](https://jenkins.io/) with a PR comment containing `reverify jenkins`.
 
-   Note: While some underlying work to migrate the build system from Travis to Jenkins is taking place, you can ask the [maintainers](https://github.com/hyperledger/fabric/blob/master/MAINTAINERS.txt) to re-trigger a Travis build for your PR, either by adding a comment to the PR or on the [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) Slack channel.
+   **Note:** While some underlying work to migrate the build system from Travis to Jenkins is taking place, you can ask the [maintainers](https://github.com/hyperledger/fabric/blob/master/MAINTAINERS.txt) to re-trigger a Travis build for your PR, either by adding a comment to the PR or on the [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) Slack channel.
 
   10. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
 
@@ -63,7 +67,6 @@ After your Pull Request (PR) has been reviewed and signed off, a maintainer will
 ## Coding guidelines
 
 ### Coding Golang <a name="coding-go"></a>
-- We require a file [header](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt) in all source code files. Simply copy and paste the header when you create a new file.
 - We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
 and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
   - [golint](https://github.com/golang/lint)
@@ -104,6 +107,9 @@ and will not accept any deviations. You must run the following tools against you
 This project is managed under open governance model as described in our  [charter](https://www.hyperledger.org/about/charter). Projects or sub-projects will be lead by a set of maintainers. New projects can designate an initial set of maintainers that will be approved by the Technical Steering Committee when the project is first approved. The project's maintainers will, from time-to-time, consider adding a new maintainer. An existing maintainer will post a pull request to the [MAINTAINERS.txt](MAINTAINERS.txt) file. If a majority of the maintainers concur in the comments, the pull request is then merged and the individual becomes a maintainer.
 
 ### Legal stuff
+
+**Note:** Each source file must include a license header for the Apache Software License 2.0. A template of that header can be found [here](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt).
+
 We have tried to make it as easy as possible to make contributions. This applies to how we handle the legal aspects of contribution. We use the same approach&mdash;the [Developer's Certificate of Origin 1.1 (DCO)](docs/biz/DCO1.1.txt)&mdash;that the Linux&reg; Kernel [community](http://elinux.org/Developer_Certificate_Of_Origin) uses to manage code contributions.
 We simply ask that when submitting a pull request, the developer must include a sign-off statement in the pull request description.
 

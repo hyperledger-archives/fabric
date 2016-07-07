@@ -18,16 +18,16 @@ package obcpbft
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/obcpbft/events"
 	pb "github.com/hyperledger/fabric/protos"
 
-	google_protobuf "google/protobuf"
+	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/op/go-logging"
 	"github.com/spf13/viper"
 )
 
@@ -48,7 +48,9 @@ type obcBatch struct {
 	incomingChan chan *batchMessage // Queues messages for processing by main thread
 	idleChan     chan struct{}      // Idle channel, to be removed
 
-	outstandingReqs map[*Request]struct{}
+	reqStore *requestStore // Holds the outstanding and pending requests
+
+	deduplicator *deduplicator
 
 	persistForward
 }
@@ -99,11 +101,23 @@ func newObcBatch(id uint64, config *viper.Viper, stack consensus.Stack) *obcBatc
 	logger.Infof("PBFT Batch size = %d", op.batchSize)
 	logger.Infof("PBFT Batch timeout = %v", op.batchTimeout)
 
+	if op.batchTimeout >= op.pbft.requestTimeout {
+		op.pbft.requestTimeout = 3 * op.batchTimeout / 2
+		logger.Warningf("Configured request timeout must be greater than batch timeout, setting to %v", op.pbft.requestTimeout)
+	}
+
+	if op.pbft.requestTimeout >= op.pbft.nullRequestTimeout && op.pbft.nullRequestTimeout != 0 {
+		op.pbft.nullRequestTimeout = 3 * op.pbft.requestTimeout / 2
+		logger.Warningf("Configured null request timeout must be greater than request timeout, setting to %v", op.pbft.nullRequestTimeout)
+	}
+
 	op.incomingChan = make(chan *batchMessage)
 
 	op.batchTimer = etf.CreateTimer()
 
-	op.outstandingReqs = make(map[*Request]struct{})
+	op.reqStore = newRequestStore()
+
+	op.deduplicator = newDeduplicator()
 
 	op.idleChan = make(chan struct{})
 	close(op.idleChan) // TODO remove eventually
@@ -121,14 +135,14 @@ func (op *obcBatch) submitToLeader(req *Request) events.Event {
 	// Broadcast the request to the network, in case we're in the wrong view
 	op.broadcastMsg(&BatchMessage{&BatchMessage_Request{req}})
 
+	op.logAddTxFromRequest(req)
+	op.reqStore.storeOutstanding(req)
+	op.startTimerIfOutstandingRequests()
+
 	// if we believe we are the leader, then process this request
 	leader := op.pbft.primary(op.pbft.view)
 	if leader == op.pbft.id && op.pbft.activeView {
 		return op.leaderProcReq(req)
-	} else {
-		logger.Debugf("Replica %d add request %v to its outstanding store", op.pbft.id, req)
-		op.outstandingReqs[req] = struct{}{}
-		op.startTimerIfOutstandingRequests()
 	}
 
 	return nil
@@ -194,8 +208,6 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 		return
 	}
 
-	logger.Debugf("Batch replica %d received exec for seqNo %d", op.pbft.id, seqNo)
-
 	var txs []*pb.Transaction
 
 	for _, req := range reqs.Requests {
@@ -205,17 +217,20 @@ func (op *obcBatch) execute(seqNo uint64, raw []byte) {
 			logger.Warningf("Batch replica %d could not unmarshal transaction: %s", op.pbft.id, err)
 			continue
 		}
-		// TODO, this is a really and inefficient way to do this, but because reqs aren't comparable, they cannot be retrieved from the map directly
-		for oreq := range op.outstandingReqs {
-			if reflect.DeepEqual(oreq, req) {
-				delete(op.outstandingReqs, oreq)
-				break
-			}
+
+		logger.Debugf("Batch replica %d executing request with transaction %s from outstandingReqs, seqNo=%d", op.pbft.id, tx.Uuid, seqNo)
+
+		if outstanding, pending := op.reqStore.remove(req); !outstanding || !pending {
+			logger.Debugf("Batch replica %d missing transaction %s outstanding=%v, pending=%v", op.pbft.id, tx.Uuid, outstanding, pending)
 		}
 		txs = append(txs, tx)
+
+		op.deduplicator.Execute(req)
 	}
 
 	meta, _ := proto.Marshal(&Metadata{seqNo})
+
+	logger.Debugf("Batch replica %d received exec for seqNo %d containing %d transactions", op.pbft.id, seqNo, len(txs))
 
 	op.stack.Execute(meta, txs) // This executes in the background, we will receive an executedEvent once it completes
 }
@@ -231,6 +246,7 @@ func (op *obcBatch) leaderProcReq(req *Request) events.Event {
 
 	logger.Debugf("Batch primary %d queueing new request %s", op.pbft.id, hash)
 	op.batchStore = append(op.batchStore, req)
+	op.reqStore.storePending(req)
 
 	if !op.batchTimerActive {
 		op.startBatchTimer()
@@ -307,10 +323,17 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	}
 
 	if req := batchMsg.GetRequest(); req != nil {
+		if !op.deduplicator.IsNew(req) {
+			logger.Warningf("Replica %d ignoring request as it is too old", op.pbft.id)
+			return nil
+		}
+
+		op.logAddTxFromRequest(req)
+		op.reqStore.storeOutstanding(req)
 		if (op.pbft.primary(op.pbft.view) == op.pbft.id) && op.pbft.activeView {
 			return op.leaderProcReq(req)
 		}
-		op.outstandingReqs[req] = struct{}{}
+		op.startTimerIfOutstandingRequests()
 		return nil
 	} else if pbftMsg := batchMsg.GetPbftMessage(); pbftMsg != nil {
 		senderID, err := getValidatorID(senderHandle) // who sent this?
@@ -334,6 +357,42 @@ func (op *obcBatch) processMessage(ocMsg *pb.Message, senderHandle *pb.PeerID) e
 	return nil
 }
 
+func (op *obcBatch) logAddTxFromRequest(req *Request) {
+	if logger.IsEnabledFor(logging.DEBUG) {
+		// This is potentially a very large expensive debug statement, guard
+		tx := &pb.Transaction{}
+		err := proto.Unmarshal(req.Payload, tx)
+		if err != nil {
+			logger.Errorf("Replica %d was sent a transaction which did not unmarshal: %s", op.pbft.id, err)
+		} else {
+			logger.Debugf("Replica %d adding request from %d with transaction %s into outstandingReqs", op.pbft.id, req.ReplicaId, tx.Uuid)
+		}
+	}
+}
+
+func (op *obcBatch) resubmitOutstandingReqs() events.Event {
+	op.startTimerIfOutstandingRequests()
+
+	// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
+	// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
+	// Do not enter while an execution is in progress to prevent duplicating a request
+	if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView && op.pbft.currentExec == nil {
+		needed := op.batchSize - len(op.batchStore)
+
+		for op.reqStore.hasNonPending() {
+			outstanding := op.reqStore.getNextNonPending(needed)
+
+			// If we have enough outstanding requests, this will trigger a batch
+			for _, nreq := range outstanding {
+				if msg := op.leaderProcReq(nreq); msg != nil {
+					op.manager.Inject(msg)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // allow the primary to send a batch when the timer expires
 func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	logger.Debugf("Replica %d batch main thread looping", op.pbft.id)
@@ -344,23 +403,26 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 	case executedEvent:
 		op.stack.Commit(nil, et.tag.([]byte))
 	case committedEvent:
-		op.pbft.ProcessEvent(execDoneEvent{})
-		op.startTimerIfOutstandingRequests()
-		// If we are the primary, and know of outstanding requests, submit them for inclusion in the next batch until
-		// we run out of requests, or a new batch message is triggered (this path will re-enter after execution)
-		if op.pbft.primary(op.pbft.view) == op.pbft.id && op.pbft.activeView {
-			for nreq := range op.outstandingReqs {
-				if msg := op.leaderProcReq(nreq); msg != nil {
-					return msg
-				}
-			}
+		logger.Debugf("Replica %d received committedEvent", op.pbft.id)
+		return execDoneEvent{}
+	case execDoneEvent:
+		if res := op.pbft.ProcessEvent(event); res != nil {
+			// This may trigger a view change, if so, process it, we will resubmit on new view
+			return res
 		}
+		return op.resubmitOutstandingReqs()
 	case batchTimerEvent:
 		logger.Infof("Replica %d batch timer expired", op.pbft.id)
 		if op.pbft.activeView && (len(op.batchStore) > 0) {
 			return op.sendBatch()
 		}
+	case *Commit:
+		// TODO, this is extremely hacky, but should go away when batch and core are merged
+		res := op.pbft.ProcessEvent(event)
+		op.startTimerIfOutstandingRequests()
+		return res
 	case viewChangedEvent:
+		op.batchStore = nil
 		// Outstanding reqs doesn't make sense for batch, as all the requests in a batch may be processed
 		// in a different batch, but PBFT core can't see through the opaque structure to see this
 		// so, on view change, clear it out
@@ -371,9 +433,45 @@ func (op *obcBatch) ProcessEvent(event events.Event) events.Event {
 			op.stopBatchTimer()
 		}
 
+		if op.pbft.skipInProgress {
+			// If we're the new primary, but we're in state transfer, we can't trust ourself not to duplicate things
+			op.reqStore.outstandingRequests.empty()
+		}
+
+		op.reqStore.pendingRequests.empty()
+		for i := op.pbft.h + 1; i <= op.pbft.h+op.pbft.L; i++ {
+			if i <= op.pbft.lastExec {
+				continue
+			}
+
+			cert, ok := op.pbft.certStore[msgID{v: op.pbft.view, n: i}]
+			if !ok || cert.prePrepare == nil {
+				continue
+			}
+
+			if cert.prePrepare.RequestDigest == "" {
+				// a null request
+				continue
+			}
+
+			if cert.prePrepare.Request == nil {
+				logger.Warningf("Batch replica %d found a non-null prePrepare with no request, ignoring")
+				continue
+			}
+
+			reqs := &RequestBlock{}
+			if err := proto.Unmarshal(cert.prePrepare.Request.Payload, reqs); err != nil {
+				logger.Warningf("Batch replica %d could not unmarshal request block: %s", op.pbft.id, err)
+				continue
+			}
+
+			op.reqStore.storePendings(reqs.Requests)
+		}
+
+		return op.resubmitOutstandingReqs()
 	case stateUpdatedEvent:
 		// When the state is updated, clear any outstanding requests, they may have been processed while we were gone
-		op.outstandingReqs = make(map[*Request]struct{})
+		op.reqStore = newRequestStore()
 		return op.pbft.ProcessEvent(event)
 	default:
 		return op.pbft.ProcessEvent(event)
@@ -417,13 +515,15 @@ func (op *obcBatch) getManager() events.Manager {
 }
 
 func (op *obcBatch) startTimerIfOutstandingRequests() {
-	if op.pbft.skipInProgress || op.pbft.currentExec != nil {
+	if op.pbft.skipInProgress || op.pbft.currentExec != nil || !op.pbft.activeView {
 		// Do not start view change timer if some background event is in progress
+		logger.Debugf("Replica %d not starting timer because skip in progress or current exec or in view change", op.pbft.id)
 		return
 	}
 
-	if len(op.outstandingReqs) == 0 {
+	if !op.reqStore.hasNonPending() {
 		// Only start a timer if we are aware of outstanding requests
+		logger.Debugf("Replica %d not starting timer because all outstanding requests are pending", op.pbft.id)
 		return
 	}
 	op.pbft.softStartTimer(op.pbft.requestTimeout, "Batch outstanding requests")

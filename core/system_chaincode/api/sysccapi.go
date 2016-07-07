@@ -50,7 +50,6 @@ type SystemChaincode struct {
 
 	// Chaincode is the actual chaincode object
 	Chaincode shim.Chaincode
-
 }
 
 // RegisterSysCC registers the given system chaincode with the peer

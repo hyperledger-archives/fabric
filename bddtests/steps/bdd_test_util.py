@@ -15,8 +15,8 @@
 #
 
 import os
+import re
 import subprocess
-
 
 def cli_call(context, arg_list, expect_success=True):
     """Executes a CLI command in a subprocess and return the results.
@@ -42,3 +42,66 @@ def cli_call(context, arg_list, expect_success=True):
         if expect_success:
             raise subprocess.CalledProcessError(p.returncode, arg_list, output)
     return output, error, p.returncode
+
+class UserRegistration:
+    def __init__(self, secretMsg, composeService):
+        self.secretMsg = secretMsg
+        self.composeService = composeService   
+        self.tags = {}   
+        self.lastResult = None  
+
+    def getUserName(self):
+        return self.secretMsg['enrollId']
+
+# Registerses a user on a specific composeService
+def registerUser(context, secretMsg, composeService):
+    userName = secretMsg['enrollId']
+    if 'users' in context:
+        pass
+    else:
+        context.users = {}
+    if userName in context.users:
+        raise Exception("User already registered: {0}".format(userName)) 
+    context.users[userName] = UserRegistration(secretMsg, composeService) 
+
+# Registerses a user on a specific composeService
+def getUserRegistration(context, enrollId):
+    userRegistration = None
+    if 'users' in context:
+        pass
+    else:
+        context.users = {}
+    if enrollId in context.users:
+        userRegistration = context.users[enrollId] 
+    else:
+        raise Exception("User has not been registered: {0}".format(enrollId)) 
+    return userRegistration
+
+    
+def ipFromContainerNamePart(namePart, containerDataList):
+    """Returns the IPAddress based upon a name part of the full container name"""
+    ip = None
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    for containerData in containerDataList:
+        if containerData.containerName.startswith(containerNamePrefix + namePart):
+            ip = containerData.ipAddress
+    if ip == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+    return ip
+
+
+def getContainerDataValuesFromContext(context, aliases, callback):
+    """Returns the IPAddress based upon a name part of the full container name"""
+    assert 'compose_containers' in context, "compose_containers not found in context"
+    values = []
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    for namePart in aliases:
+        for containerData in context.compose_containers:
+            if containerData.containerName.startswith(containerNamePrefix + namePart):
+                values.append(callback(containerData))
+                break
+    return values
+
+
+
+

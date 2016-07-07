@@ -551,15 +551,15 @@ func (mock *MockLedger) GetCurrentStateHash() ([]byte, error) {
 
 func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 	current := start
+
+	cb, err := mock.GetBlock(current)
+	if nil != err {
+		return current, err
+	}
+
 	for {
 		if current == finish {
-			return 0, nil
-		}
-
-		cb, err := mock.GetBlock(current)
-
-		if nil != err {
-			return current, err
+			return finish, nil
 		}
 
 		next := current
@@ -573,19 +573,20 @@ func (mock *MockLedger) VerifyBlockchain(start, finish uint64) (uint64, error) {
 		nb, err := mock.GetBlock(next)
 
 		if nil != err {
-			return current, err
+			return current, nil
 		}
 
 		nbh, err := mock.HashBlock(nb)
 
 		if nil != err {
-			return current, err
+			return current, nil
 		}
 
 		if !bytes.Equal(nbh, cb.PreviousBlockHash) {
 			return current, nil
 		}
 
+		cb = nb
 		current = next
 	}
 }
@@ -623,17 +624,9 @@ func SimpleEncodeUint64(num uint64) []byte {
 
 func SimpleHashBlock(block *protos.Block) []byte {
 	buffer := make([]byte, binary.MaxVarintLen64)
-	if nil != block.NonHashData && nil != block.NonHashData.TransactionResults {
-		for _, txResult := range block.NonHashData.TransactionResults {
-			for i, b := range txResult.Result {
-				buffer[i%binary.MaxVarintLen64] += b
-			}
-		}
-	} else {
-		for _, transaction := range block.Transactions {
-			for i, b := range transaction.Payload {
-				buffer[i%binary.MaxVarintLen64] += b
-			}
+	for _, transaction := range block.Transactions {
+		for i, b := range transaction.Payload {
+			buffer[i%binary.MaxVarintLen64] += b
 		}
 	}
 	return []byte(fmt.Sprintf("BlockHash:%s-%s-%s", buffer, block.StateHash, block.ConsensusMetadata))

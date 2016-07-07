@@ -24,7 +24,7 @@ import (
 )
 
 func TestRangeScanIterator(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateTrieTestWrapper := newStateTrieTestWrapper(t)
 	stateTrie := stateTrieTestWrapper.stateTrie
 	stateDelta := statemgmt.NewStateDelta()

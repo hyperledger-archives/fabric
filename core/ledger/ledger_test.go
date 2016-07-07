@@ -375,7 +375,7 @@ func TestVerifyChain(t *testing.T) {
 
 	// Verify the chain
 	for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
-		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), lowBlock)
 	}
 	for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
 		testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
@@ -388,23 +388,19 @@ func TestVerifyChain(t *testing.T) {
 		goodBlock := ledgerTestWrapper.GetBlockByNumber(i)
 		ledger.PutRawBlock(badBlock, i)
 		for lowBlock := uint64(0); lowBlock < ledger.GetBlockchainSize()-1; lowBlock++ {
-			if i >= lowBlock {
-				expected := uint64(i + 1)
-				if i == ledger.GetBlockchainSize()-1 {
-					expected--
-				}
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), expected)
+			if i == ledger.GetBlockchainSize()-1 {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(i))
+			} else if i >= lowBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(i+1))
 			} else {
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), uint64(0))
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(ledger.GetBlockchainSize()-1, lowBlock), lowBlock)
 			}
 		}
-		for highBlock := ledger.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
-			if i <= highBlock {
-				expected := uint64(i + 1)
-				if i == highBlock {
-					expected--
-				}
-				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), expected)
+		for highBlock := ledger.GetBlockchainSize() - 1; highBlock != ^uint64(0); highBlock-- {
+			if i == highBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(i))
+			} else if i < highBlock {
+				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(i+1))
 			} else {
 				testutil.AssertEquals(t, ledgerTestWrapper.VerifyChain(highBlock, 0), uint64(0))
 			}
@@ -415,8 +411,6 @@ func TestVerifyChain(t *testing.T) {
 	// Test edge cases
 	_, err := ledger.VerifyChain(2, 10)
 	testutil.AssertError(t, err, "Expected error as high block is less than low block")
-	_, err = ledger.VerifyChain(2, 2)
-	testutil.AssertError(t, err, "Expected error as high block is equal to low block")
 	_, err = ledger.VerifyChain(0, 100)
 	testutil.AssertError(t, err, "Expected error as high block is out of bounds")
 }
@@ -683,10 +677,10 @@ func TestPreviewTXBatchBlock(t *testing.T) {
 	testutil.AssertNoError(t, err, "Error fetching preview block info.")
 
 	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, nil, []byte("proof"))
-	commitedBlockInfo, err := ledger.GetBlockchainInfo()
+	committedBlockInfo, err := ledger.GetBlockchainInfo()
 	testutil.AssertNoError(t, err, "Error fetching committed block hash.")
 
-	testutil.AssertEquals(t, previewBlockInfo, commitedBlockInfo)
+	testutil.AssertEquals(t, previewBlockInfo, committedBlockInfo)
 }
 
 func TestGetTransactionByUUID(t *testing.T) {
@@ -710,40 +704,6 @@ func TestGetTransactionByUUID(t *testing.T) {
 	ledgerTransaction, err = ledger.GetTransactionByUUID("InvalidUUID")
 	testutil.AssertEquals(t, err, ErrResourceNotFound)
 	testutil.AssertNil(t, ledgerTransaction)
-}
-
-func TestTransactionResult(t *testing.T) {
-	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
-	ledger := ledgerTestWrapper.ledger
-
-	// Block 0
-	ledger.BeginTxBatch(0)
-	ledger.TxBegin("txUuid1")
-	ledger.SetState("chaincode1", "key1", []byte("value1A"))
-	ledger.SetState("chaincode2", "key2", []byte("value2A"))
-	ledger.SetState("chaincode3", "key3", []byte("value3A"))
-	ledger.TxFinished("txUuid1", true)
-	transaction, uuid := buildTestTx(t)
-
-	transactionResult := &protos.TransactionResult{Uuid: uuid, ErrorCode: 500, Error: "bad"}
-
-	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []*protos.TransactionResult{transactionResult}, []byte("proof"))
-
-	block := ledgerTestWrapper.GetBlockByNumber(0)
-
-	nonHashData := block.GetNonHashData()
-	if nonHashData == nil {
-		t.Fatal("Expected block to have non hash data, but non hash data was nil.")
-	}
-
-	if nonHashData.TransactionResults == nil || len(nonHashData.TransactionResults) == 0 {
-		t.Fatal("Expected block to have non hash data transaction results.")
-	}
-
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Uuid, uuid)
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Error, "bad")
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].ErrorCode, uint32(500))
-
 }
 
 func TestRangeScanIterator(t *testing.T) {

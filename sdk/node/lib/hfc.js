@@ -2085,7 +2085,7 @@ function rolesToMask(roles) {
     var mask = 0;
     if (roles) {
         for (var role in roles) {
-            switch (role) {
+            switch (roles[role]) {
                 case 'client':
                     mask |= 1;
                     break; // Client mask

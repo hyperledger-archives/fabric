@@ -17,8 +17,9 @@ limitations under the License.
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"math/big"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {

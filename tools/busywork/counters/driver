@@ -49,6 +49,11 @@ Optional parameters. Default values are given after the colon:
     taken from the environmnent, or if not present there, defaults to
     ~/.busywork.
 
+-remote | -local : -local
+
+    You must specify -remote if the peer network is running remotely, that is,
+    not on the same machine as the client driver.
+
 -targetPeers <n> : All
     
     Limit the run to targeting at most the first <n> peers.
@@ -59,7 +64,8 @@ Optional parameters. Default values are given after the colon:
     network, and the users are selected from the test_user* defined in the
     membersrvc.yaml file. This flag is only required if the peers are listed
     explicitly. Normally the security mode is obtained from the
-    $BUSYWORK/network configuration.
+    $BUSYWORK/network configuration, and specifying either version of this
+    flag is considered an error in this case.
 
 -targetUsers <n> : All
 
@@ -76,21 +82,19 @@ Optional parameters. Default values are given after the colon:
 
     Deploy <n> instances of the 'counters' chaincode. Chaincode IDs are
 
-        cc<m> : <m> = 1,...,<n>
+        <ccPrefix><m> : <m> = 1,...,<n>
 
-    Specify -noDeploy to avoid deployment and the deployWait.
+    The default <ccPrefix> is 'cc', so by default the chaincoces are named
+    'cc0', 'cc1', ..., etc. Use the -ccPrefix option to change the prefix.
 
--containerWait <duration> : 5m
+    Specify -noDeploy to avoid deployment and the -deployWait. This parameter
+    is effectively ignored in -noDeploy mode.
 
-    For docker-compose setups: Once the chaincodes are recorded in the
-    blockchain as deployed, wait for this <duration> for all chaincode
-    containers to be running.
+-ccPrefix <prefix> : cc
 
--startupWait <duration> : 10s
-
-    This is a safety wait; After the containers are running we wait a bit to
-    make sure that the chaincodes have some time to actually start up. There
-    is currently no way to securely interlock this.   
+    This option can be used to change the chaincode name prefix. This should only
+    be required in special cases to avoid ambiguities when a peer network is
+    being driven my multiple independent sets of client drivers.
 
 -deploy | -noDeploy : -deploy
 
@@ -101,10 +105,10 @@ Optional parameters. Default values are given after the colon:
     redeploying the chaincodes. Note that the arrays are always (re-)created
     each time the driver is run.
 
-    If -noDeploy is specified, then it is not legal (but currently not
-    checked) to change the number of deployed chaincodes from the original
-    run. The driver will examine the blockchain log to find the "names" of the
-    deployed chaincodes.
+    If -noDeploy is specified, then the driver will examine the
+    $BUSYWORK_HOME/chaincodes file to determine the number and names of the
+    'counters' chaincodes that have been previously deployed, and they will
+    all be targeted.
 
     If running with -security in -noDeploy mode it is assumed that all users
     are already logged in. Therefore one should not change the number of users
@@ -113,7 +117,14 @@ Optional parameters. Default values are given after the colon:
 -deployWait : 5m
 
     The maximum amount of time to wait for chaincode deployment to be
-    registered in the blockchain.
+    registered in the blockchain. It may still take some time after this
+    before the chaincodes are actually running.
+
+-chaincodeWait : 5m
+
+    Once the chaincodes are registered as deployed, wait up to this amount of
+    time for a successful "ping" of all of the chaincodes. A chaincode that
+    "pings" successfully is up and running and ready to go.
 
 -arrays <n> : 1
 
@@ -160,7 +171,7 @@ Optional parameters. Default values are given after the colon:
     Note that -peerBurst and -netBurst do not apply to chaincode deployment or
     array creation. Chaincodes are deployed sequentially as fast as
     possible. All arrays for a chaincode are created in a single transaction,
-    and all create transactions are generated as quickly as possible by the
+    and all 'create' transactions are generated as quickly as possible by the
     base driver.
 
 -txDelay <duration> : 0
@@ -174,7 +185,7 @@ Optional parameters. Default values are given after the colon:
 
     If -interlock is specified, then each client waits after each network
     burst until all transactions of the last burst have been committed to the
-    Blockchain. By default (-noInterlock) the client simply sends all required
+    blockchain. By default (-noInterlock) the client simply sends all required
     transactions as fast as possible, subject to the bursting specifications.
 
     Note that array creation is currently always interlocked to avoid ordering
@@ -207,10 +218,23 @@ Optional parameters. Default values are given after the colon:
     driver continues to attempt interlock as long as at least 1 transaction
     completes within each timeout period. 
 
+-convergeWait <duration> : 10s
+-convergePoll <duration> : 1s
+
+    If the run is in -interlock mode, then the run will not finish until at
+    least one peer has recorded every transaction. However due to delays and
+    state transfer, there may be lagging peers that have not finished yet. In
+    this case we do "strong reads" of the block height of every node, and do
+    not start checking until there is 100% consensus on the block
+    height. These checks must converge within the -convergeWait time. The
+    network is polled (and the current status printed) every -convergePoll
+    interval. 
+
 -finalWait <duration> : 10s    
 
-    If not running in -interlock mode, wait this duration at the end of the
-    run to check the final status for correctness.
+    Always wait this duration at the end of the run before checking the final
+    status for correctness. Wired things can still happen even if the
+    blockchains appear to be converged.
 
 -keepLog | -noKeepLog : -noKeepLog
 
@@ -229,10 +253,10 @@ Optional parameters. Default values are given after the colon:
 
     By default a busywork 'networkStatus' process is started and runs in the
     background to monitor the network every 5s and kill the driver if network
-    nodes die. If the -watchdogPoll option is negative, or if -force is
-    specified, or if explicit peers are specified, then the watchdog process
-    is not started. (The final restriction could be removed with some work on
-    the 'networkStatus' script.)
+    nodes die. If the -watchdogPoll option is negative, or if -remote is
+    specified, or if -force is specified, or if explicit peers are specified,
+    then the watchdog process is not started. (The final restriction could be
+    removed with some work on the 'networkStatus' script.)
 
 -pprofClient <args> : No profiling
 
@@ -290,6 +314,14 @@ Optional parameters. Default values are given after the colon:
 -timestamp | -noTimestamp : -noTimestamp
 
     If -timestamp is selected, the logs from this script will be timestamped.
+
+-traceInterlock : N/A
+
+    This is a debugging flag. If set, a timestamped trace of the interlock
+    operations of the clients is produced. Clients "interlock" after each
+    network burst if -interlock is selected, waiting until all transactions of
+    the burst are seen as having been committed to the blockchain.
+
 }
 
 ############################################################################
@@ -307,15 +339,16 @@ setLoggingPrefix driver
 set options {
     {enum    {-h -help --help}     parms(help)              0 p_help}
     {key     -home                 parms(home)             {}}
+    {bool    {-remote -local}      parms(remote)            0}
     {key     -targetPeers          parms(targetPeers)       0 p_targetPeers}
-    {bool    {-security -noSecurity} parms(security)        0}
+    {bool    {-security -noSecurity} parms(security)        0 p_security}
     {key     -targetUsers          parms(targetUsers)       0 p_targetUsers}
     {key     -port                 parms(port)              5000}
     {key     -chaincodes           parms(nChaincodes)       1}
-    {key     -containerWait        parms(containerWait)     5m}
-    {key     -startupWait          parms(startupWait)       10s}
+    {key     -ccPrefix             parms(ccPrefix)         cc}
     {bool    {-deploy -noDeploy}   parms(deploy)            1}
     {key     -deployWait           parms(deployWait)        5m}
+    {key     -chaincodeWait        parms(chaincodeWait)     5m}
     {key     -arrays               parms(nArrays)           1}
     {key     -size                 parms(size)              *1}
     {enum    {-rest}               parms(protocol)          -rest}
@@ -330,6 +363,8 @@ set options {
     {bool    -finalInterlock       parms(finalInterlock)    0}
     {key     -interlockTimeout     parms(interlockTimeout)  60s}
     {key     {-interlockProgress -interlockAbsolute} parms(interlockProgress) 0}
+    {key     -convergeWait         parms(convergeWait)      10s}
+    {key     -convergePoll         parms(convergePoll)      1s}
     {key     -finalWait            parms(finalWait)         10s}
     {bool    {-keepLog -noKeepLog} parms(keepLog)           0}
     {bool    {-force -noForce}     parms(force)             0}
@@ -341,6 +376,7 @@ set options {
     {key     -retry                parms(retry)             0}
     {key     -args                 parms(args)              {}}
     {bool    {-timestamp -noTimestamp} parms(timestamp)     0}
+    {bool    -traceInterlock       parms(traceInterlock)    0}
 }
 
 mapKeywordArgs $argv $options parms(explicitPeers)
@@ -379,8 +415,14 @@ if {[null [parms explicitPeers]]} {
         errorExit $msg
     }
     parms originalPeers [parms network.peer.restAddresses]
-    parms security [? {[parms network.security] eq "true"} 1 0]
     parms noops [? {[parms network.consensus] eq "noops"} 1 0]
+    if {$p_security} {
+        errorExit \
+            "The security mode is implicit in the busywork network. " \
+            "The -security/-noSecurity flags are not allowed."
+    } else {
+        parms security [? {[parms network.security] eq "true"} 1 0]
+    }        
 } else {
     parms originalPeers [addPortToHosts [parms explicitPeers] [parms port]]
 }
@@ -435,20 +477,7 @@ if {$p_logUsingPeerN} {
 CircularList create peerList [parms peers]
 
 
-# Compute the chaincodeIDs, and the names and sizes of the arrays.
-
-set chaincodeIDs {}
-for {set i 0} {$i < [parms nChaincodes]} {incr i} {
-    lappend chaincodeIDs cc$i
-}
-parms chaincodeIDs $chaincodeIDs
-if {[parms deploy]} {
-    note {} \
-        "[llength [parms chaincodeIDs]] chaincode(s) will be deployed"
-} else {
-    note {} \
-        "[llength [parms chaincodeIDs]] chaincode(s) are assumed to be deployed"
-}
+# Compute the names and sizes of the arrays.
 
 set names {}
 for {set i 1} {$i <= [parms nArrays]} {incr i} {
@@ -457,14 +486,7 @@ for {set i 1} {$i <= [parms nArrays]} {incr i} {
 parms arrayNames $names
 note {} "[llength [parms arrayNames]] array(s) will be defined per chaincode"
 
-set countPerArray [expr {[parms transactions] * [parms clients]}]
-set totalTransactions \
-    [expr {$countPerArray * [parms nChaincodes] * [parms nArrays]}]
-
-note {} "[parms clients] clients will be activated"
-note {} "$countPerArray transaction(s) will be issued to each array"
-note {} "$totalTransactions total transaction(s) will be issued"
-
+parms countPerArray [expr {[parms transactions] * [parms clients]}]
 
 set sizes {}
 if {[string is integer [parms size]]} {
@@ -507,7 +529,7 @@ set logger [::busywork::Logger new \
 
 parms watchdogPoll [durationToMs [parms watchdogPoll]]
 if {[null [parms explicitPeers]] &&
-    ![parms force] && ([parms watchdogPoll] >= 0)} {
+    ![parms remote] && ![parms force] && ([parms watchdogPoll] >= 0)} {
     if {[catch \
              {exec [busywork::bin]/networkStatus \
                   -poll [parms watchdogPoll]ms -quiet \
@@ -609,10 +631,28 @@ proc peerUser {peer} {
 # If we are deploying, we go to each peer in round-robin order to deploy the
 # next of the chaincodes.
 
-set chaincode "github.com/hyperledger/fabric/tools/busywork/counters"
+proc txSummary {} {
+    parms totalTransactions \
+        [expr {[parms countPerArray] * [parms nChaincodes] * [parms nArrays]}]
+
+    note {} "[parms clients] clients will be activated"
+    note {} "[parms countPerArray] transaction(s) will be issued to each array"
+    note {} "[parms totalTransactions] total transaction(s) will be issued"
+}    
+
+set chaincodePath "github.com/hyperledger/fabric/tools/busywork/counters"
 
 if {[parms deploy]} {
     
+    set chaincodeIDs {}
+    for {set i 0} {$i < [parms nChaincodes]} {incr i} {
+        lappend chaincodeIDs [parms ccPrefix]$i
+    }
+    parms chaincodeIDs $chaincodeIDs
+    note {} "[parms nChaincodes] chaincode(s) will be deployed"
+
+    txSummary
+
     note {} "Deploying chaincode(s)"
 
     set chaincodeNames {}
@@ -620,10 +660,9 @@ if {[parms deploy]} {
         set peer [peerList next]
         set user [peerUser $peer]
         set args [concat [list -id $id] [parms args]]
-        set name [::fabric::deploy $peer $user $chaincode parms $args]
+        set name [::fabric::deploy $peer $user $chaincodePath parms $args]
         note {} "Deployed $id as $name"
-        set args [quote [concat parms $args]]
-        exec echo "$name $chaincode $args" >> $BUSYWORK_HOME/chaincodes
+        busywork::addChaincode $id $name $chaincodePath parms $args
         lappend chaincodeNames $name
     }
     parms chaincodeNames $chaincodeNames
@@ -634,46 +673,64 @@ if {[parms deploy]} {
     set unmatched [$logger waitUUIDs \
                        deploy $chaincodeNames [parms deployWait]]
     if {$unmatched ne {}} {
-        err err "Chaincode deployment registration timed out; Aborting"
-        err err "Unmatched chaincode names below"
+        err {} "Chaincode deployment registration timed out; Aborting"
+        err {} "Unmatched chaincode names below"
         foreach name $unmatched {
-            err err "    $name"
+            err {} "    $name"
         }
         errorExit
     }
 
+    proc ping {} {
+        foreach name [parms chaincodeNames] {
+            set peer [peerList next]
+            set user [peerUser $peer]
+            if {[catch {fabric::query $peer $user $name ping {} -1}]} {
+                return 0
+            }
+        }
+        return 1
+    }
+
     note {} \
-        "Waiting up to [parms containerWait] " \
-        "for all chaincode containers to be running"
-    if {[waitFor \
-             [parms containerWait] \
-             [list ::fabric::checkForLocalDockerChaincodes \
-                  [parms totalPeers] \
-                  [parms chaincodeNames]]]} {
-        errorExit "Wait for container startup timed out"
+        "Waiting up to [parms chaincodeWait] for all chaincodes to be running"
+    if {[waitFor [parms chaincodeWait] {ping} 1s]} {
+        errorExit "Wait for chaincode startup timed out"
     }
         
-    note {} "Waiting [parms startupWait] to give chaincode(s) time to initialize"
-    after [durationToMs [parms startupWait]]
-
 } else {
 
-    note {} "-noDeploy mode : Getting chaincode names $BUSYWORK_HOME/chaincodes"
+    note {} "-noDeploy mode: Getting chaincode deployments from:"
+    note {} "    $BUSYWORK_HOME/chaincodes"
 
-    # Note: The file ends in a newline, hence splitting on \n yields a final
-    # empty string that we eliminate. If this execution fails for any reason
-    # then "lines" contains an error string.
-    if {[catch \
-             {butlast [split [read [open $BUSYWORK_HOME/chaincodes r]] \n]} \
-             lines]} {
-        errorExit "Reading $BUSYWORK_HOME/chaincodes failed : $lines"
+    if {[catch {busywork::chaincodesToArray ::parms chaincodes.} why]} {
+        err {} "Error accessing $BUSYWORK_HOME/chaincodes:"
+        err {} "    $why"
+        err {} "Have chaincodes been deployed to this network?"
+        errorExit
     }
-    if {[llength $lines] != [llength [parms chaincodeIDs]]} {
-        errorExit \
-            "-noDeploy mode : We found [llength $lines] chaincode deployments " \
-            "registered but were expecting [llength [parms chaincodeIDs]]"
+    set chaincodeIDs {}
+    set chaincodeNames {}
+    foreach id [parms chaincodes.ids] {
+        if {[parms chaincodes.$id.path] eq $chaincodePath} {
+            lappend chaincodeIDs $id
+            lappend chaincodeNames [parms chaincodes.$id.name]
+        }
     }
-    parms chaincodeNames [mapeach line $lines {return [lindex $line 0]}]
+    parms chaincodeIDs $chaincodeIDs
+    parms chaincodeNames $chaincodeNames
+    parms nChaincodes [llength $chaincodeIDs]
+
+    if {[parms nChaincodes] == 0} {
+        err {} "No counters chaincodes were found in:"
+        err {} "    $BUSYWORK_HOME/chaincodes"
+        errorExit
+    }
+    note {} \
+        "[parms nChaincodes] counters chaincode(s) " \
+        "have been previously deployed"
+
+    txSummary
 }
 
 
@@ -773,13 +830,14 @@ oo::class create LimitedRandomBag {
 proc clientRoutine {i_logger} {
 
     clearAtExitHandlers
-    setLoggingPrefix client[parms client]
+    setLoggingPrefix client[format %3d [parms client]]
 
     $i_logger reset
 
     set peerBag [RandomBag new [parms peers]]
     set keyBag [LimitedRandomBag new [parms arrayKeys] [parms transactions]]
     set uuids {}
+    set tx 0
 
     while {1} {
 
@@ -791,10 +849,22 @@ proc clientRoutine {i_logger} {
             lappend netBurst $peerBurst
         }
 
-        if {[parms interlock]} {
+        if {[parms interlock] && ![null $uuids]} {
+
+            if {[parms traceInterlock]} {
+                set nTx [llength $uuids]
+                set range "$tx - [expr {$tx + $nTx} - 1]"
+                note {} "[timestamp]: Start Interlock: $range"
+                incr tx $nTx
+            }
 
             set unmatched \
                 [$i_logger waitUUIDs invoke $uuids [parms interlockTimeout]]
+
+            if {[parms traceInterlock]} {
+                note {} "[timestamp]: End   Interlock: $range"
+            }
+
             if {$unmatched ne {}} {
                 err err "Interlock timed out; Aborting"
                 err err "Unmatched UUIDs below"
@@ -880,8 +950,10 @@ set t [time {set errors [waitPIDs $pids]} 1]
 
 if {!$errors} {
     set seconds [expr {[lindex $t 0] / 1e6}]
-    set rate [format %.2f [expr {$totalTransactions / $seconds}]]
-    note {} "Transaction rate : $rate per second ($totalTransactions / $seconds)"
+    set rate [format %.2f [expr {[parms totalTransactions] / $seconds}]]
+    note {} \
+        "Transaction rate : $rate per second " \
+        "([parms totalTransactions] / $seconds)"
 }
 
 if {$p_pprofClient} {
@@ -892,53 +964,104 @@ if {$p_pprofClient} {
     }
 }
 
+if {$errors && ![parms force]} {
+    errorExit "Aborting due to client errors"
+}
+
 
 # Finally, check the results for correctness. For the most accurate completed
 # transaction rates you need to -interlock, as it is likely that not all
-# invocations have been commited at this point if -interlock is not specified.
+# invocations have been commited at this point if -interlock is not
+# specified. We can't interlock NOOPS because the blockchains are not required
+# to be identical.
 
-if {![parms interlock] && (!$errors || [parms force])} {
-    note {} "Waiting [parms finalWait] before collecting the final status"
-    after [durationToMs [parms finalWait]]
+if {[parms interlock] && ![parms noops]} {
+
+    # For interlocked runs, do "strong reads" of the block height until
+    # consensus is reached.
+
+    proc strongReadBlockHeight {} {
+        set originalHeights [mapeach peer [parms peers] {
+            return [::fabric::height $peer]
+        }]
+        set heights [removeDuplicates $originalHeights]
+        if {[llength $heights] != 1} {
+            note {} "    Observed block heights: $originalHeights"
+        }
+        return [expr {[llength $heights] == 1}]
+    }
+    
+    note {} \
+        "Waiting up to [parms convergeWait] for block-height consensus, " \
+        "polling every [parms convergePoll]"
+    if {[waitFor \
+             [parms convergeWait] strongReadBlockHeight [parms convergePoll]]} {
+        if {![parms force]} {
+            set errors 1
+            errorExit "Aborting due to block-height consensus timeout"
+        }
+    }
+        
 }
 
-if {!$errors || [parms force]} {
-    note {} "Checking final results"
-    foreach peer [parms peers] {
-        foreach name [parms chaincodeNames] id [parms chaincodeIDs] {
-            debug {} "::fabric::query $peer $name status [parms arrayNames]"
-            set status \
-                [::fabric::query \
-                $peer [peerUser $peer] $name status [parms arrayNames]]
-            foreach \
-                {l1 l2 c1 c2} $status \
-                arrayName [parms arrayNames] \
-                size [parms arraySizes] {
+# We always wait -finalWait before continuing with the checks. Wierd things
+# can happen even after all TX have putatively been processed.
+    
+note {} "Waiting [parms finalWait] before collecting the final status"
+after [durationToMs [parms finalWait]]
 
-                    if {($l1 != $l2) || ($l1 != $size)} {
-                        err err \
-                            "Peer $peer : Array length mismatch for " \
+
+# Now we check the consistency of the counters. Due to state transfer it will
+# not always be the case the every chaincode executes every transaction, but
+# it must be the case that every chaincode has a state that makes it appear
+# that it executed every transaction.
+
+note {} "Checking consistency of the final state"
+foreach peer [parms peers] {
+    foreach name [parms chaincodeNames] id [parms chaincodeIDs] {
+        debug {} "::fabric::query $peer $name status [parms arrayNames]"
+        set status \
+            [::fabric::query \
+                 $peer [peerUser $peer] $name status [parms arrayNames]]
+        foreach \
+            {l1 l2 c1 c2} $status \
+            arrayName [parms arrayNames] \
+            size [parms arraySizes] {
+
+                if {($l1 != $l2) || ($l1 != $size)} {
+                    err {} \
+                        "Peer $peer : Array length mismatch for " \
                             "chaincode $id, array $arrayName.\n" \
                             "Expected $size, Reported $l1 $l2"
                         set errors 1
                     }
 
-                    if {($c1 != $c2) || ($c1 != $countPerArray)} {
-                        err err \
-                            "Peer $peer : Count mismatch for chaincode $id, " \
-                            "array $arrayName.\n" \
-                            "Expected $countPerArray, Reported $c1 $c2"
+                    if {$c1 != $c2} {
+                        warn {} \
+                            "Peer $peer: Expected/observed mismatch for " \
+                            "chaincode $id, array $arrayName"
+                        warn {} \
+                            "Expected [parms countPerArray], reported $c1 $c2"
+                    }
+
+                    if {$c2 != [parms countPerArray]} {
+                        err {} \
+                            "Peer $peer: Final count mismatch for " \
+                            "chaincode $id, array $arrayName"
+                        err {} \
+                            "Expected [parms countPerArray], Reported $c1 $c2"
                         set errors 1
                     }
                 }
         }
-    }
 }
 
 
-# Check for peer agreement
+# Check for peer agreement. Note that we do this even if the previous checks
+# failed. There are interesting cases where the status may be inconsistent but
+# the blockchains actually agree.
 
-if {$p_checkAgreement && (!$errors || [parms force])} {
+if {$p_checkAgreement} {
 
     note {} "Checking for agreement between the peers"
     set checkAgreement [file dirname [info script]]/../bin/checkAgreement
@@ -951,7 +1074,6 @@ if {$p_checkAgreement && (!$errors || [parms force])} {
     }
 }
 
-
 if {$errors} {
     err err "Aborting due to errors, mismatches or disagreements above"
     exit 1
@@ -959,24 +1081,3 @@ if {$errors} {
     note {} "Terminating normally"
     exit 0
 }
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-    

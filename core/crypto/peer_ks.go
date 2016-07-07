@@ -19,6 +19,7 @@ package crypto
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 

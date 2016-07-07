@@ -20,7 +20,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
-	protobuf "google/protobuf"
+	"google/protobuf"
 	"time"
 
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
@@ -362,7 +362,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	}
 
 	req := &membersrvc.ECertCreateReq{
-		Ts:   &protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
+		Ts:   &google_protobuf.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:   &membersrvc.Identity{Id: id},
 		Tok:  &membersrvc.Token{Tok: []byte(pw)},
 		Sign: &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: signPub},

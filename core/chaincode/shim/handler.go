@@ -866,6 +866,11 @@ func (handler *Handler) handleQueryChaincode(chaincodeName string, function stri
 
 // handleMessage message handles loop for shim side of chaincode/validator stream.
 func (handler *Handler) handleMessage(msg *pb.ChaincodeMessage) error {
+	if msg.Type == pb.ChaincodeMessage_KEEPALIVE {
+		// Received a keep alive message, we don't do anything with it for now
+		// and it does not touch the state machine
+		return nil
+	}
 	chaincodeLogger.Debugf("[%s]Handling ChaincodeMessage of type: %s(state:%s)", shortuuid(msg.Uuid), msg.Type, handler.FSM.Current())
 	if handler.FSM.Cannot(msg.Type.String()) {
 		errStr := fmt.Sprintf("[%s]Chaincode handler FSM cannot handle message (%s) with payload size (%d) while in state: %s", msg.Uuid, msg.Type.String(), len(msg.Payload), handler.FSM.Current())

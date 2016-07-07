@@ -316,7 +316,7 @@ func executeDeployTransaction(t *testing.T, url string) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
 		t.Fail()
@@ -463,9 +463,15 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 	return nil
 }
 
-// Test the invocation of a transaction.
 func TestExecuteInvokeTransaction(t *testing.T) {
 	var opts []grpc.ServerOption
+
+	//TLS is on by default. This is the ONLY test that does NOT use TLS
+	viper.Set("peer.tls.enabled", false)
+
+	//turn OFF keepalive. All other tests use keepalive
+	viper.Set("peer.chaincode.keepalive", "0")
+
 	if viper.GetBool("peer.tls.enabled") {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
@@ -478,7 +484,7 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -576,7 +582,7 @@ func TestExecuteQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -659,7 +665,7 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -720,7 +726,7 @@ func TestExecuteInvalidQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -791,7 +797,7 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -904,7 +910,7 @@ func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1125,7 +1131,7 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1288,7 +1294,7 @@ func TestRangeQuery(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {
@@ -1358,7 +1364,7 @@ func TestGetEvent(t *testing.T) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress := "0.0.0.0:40303"
+	peerAddress := "0.0.0.0:21212"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {

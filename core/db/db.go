@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
@@ -44,6 +45,13 @@ var columnfamilies = []string{
 	persistCF,    // persistent per-peer state (consensus)
 }
 
+type dbState int32
+
+const (
+	closed dbState = iota
+	opened
+)
+
 // OpenchainDB encapsulates rocksdb's structures
 type OpenchainDB struct {
 	DB           *gorocksdb.DB
@@ -52,59 +60,20 @@ type OpenchainDB struct {
 	StateDeltaCF *gorocksdb.ColumnFamilyHandle
 	IndexesCF    *gorocksdb.ColumnFamilyHandle
 	PersistCF    *gorocksdb.ColumnFamilyHandle
+	dbState      dbState
+	mux          sync.Mutex
 }
 
-var openchainDB *OpenchainDB
-var isOpen bool
+var openchainDB = Create()
 
-// CreateDB creates a rocks db database
-func CreateDB() error {
-	dbPath := getDBPath()
-	dbLogger.Debugf("Creating DB at [%s]", dbPath)
-	missing, err := dirMissingOrEmpty(dbPath)
-	if err != nil {
-		return err
-	}
-
-	if !missing {
-		return fmt.Errorf("db dir [%s] already exists", dbPath)
-	}
-	err = os.MkdirAll(path.Dir(dbPath), 0755)
-	if err != nil {
-		dbLogger.Errorf("Error calling  os.MkdirAll for directory path [%s]: %s", dbPath, err)
-		return fmt.Errorf("Error making directory path [%s]: %s", dbPath, err)
-	}
-	opts := gorocksdb.NewDefaultOptions()
-	defer opts.Destroy()
-	opts.SetCreateIfMissing(true)
-
-	db, err := gorocksdb.OpenDb(opts, dbPath)
-	if err != nil {
-		return err
-	}
-
-	defer db.Close()
-
-	dbLogger.Debugf("DB created at [%s]", dbPath)
-	return nil
+// Create create an openchainDB instance
+func Create() *OpenchainDB {
+	return &OpenchainDB{dbState: closed}
 }
 
-// GetDBHandle returns a handle to OpenchainDB
+// GetDBHandle get an opened openchainDB singleton
 func GetDBHandle() *OpenchainDB {
-	var err error
-	if isOpen {
-		return openchainDB
-	}
-
-	err = createDBIfDBPathEmpty()
-	if err != nil {
-		panic(fmt.Sprintf("Error while trying to create DB: %s", err))
-	}
-
-	openchainDB, err = openDB()
-	if err != nil {
-		panic(fmt.Sprintf("Could not open openchain db error = [%s]", err))
-	}
+	openchainDB.Open()
 	return openchainDB
 }
 
@@ -172,32 +141,34 @@ func getDBPath() string {
 	return dbPath + "db"
 }
 
-func createDBIfDBPathEmpty() error {
+// Open open underlying rocksdb
+func (openchainDB *OpenchainDB) Open() {
+	openchainDB.mux.Lock()
+	if openchainDB.dbState == opened {
+		openchainDB.mux.Unlock()
+		return
+	}
+
+	defer openchainDB.mux.Unlock()
+
 	dbPath := getDBPath()
 	missing, err := dirMissingOrEmpty(dbPath)
 	if err != nil {
-		return err
+		panic(fmt.Sprintf("Error while trying to open DB: %s", err))
 	}
 	dbLogger.Debugf("Is db path [%s] empty [%t]", dbPath, missing)
+
 	if missing {
-		err := CreateDB()
+		err = os.MkdirAll(path.Dir(dbPath), 0755)
 		if err != nil {
-			return nil
+			panic(fmt.Sprintf("Error making directory path [%s]: %s", dbPath, err))
 		}
 	}
-	return nil
-}
 
-func openDB() (*OpenchainDB, error) {
-	if isOpen {
-		return openchainDB, nil
-	}
-
-	dbPath := getDBPath()
 	opts := gorocksdb.NewDefaultOptions()
 	defer opts.Destroy()
 
-	opts.SetCreateIfMissing(false)
+	opts.SetCreateIfMissing(missing)
 	opts.SetCreateIfMissingColumnFamilies(true)
 
 	cfNames := []string{"default"}
@@ -210,23 +181,34 @@ func openDB() (*OpenchainDB, error) {
 	db, cfHandlers, err := gorocksdb.OpenDbColumnFamilies(opts, dbPath, cfNames, cfOpts)
 
 	if err != nil {
-		fmt.Println("Error opening DB", err)
-		return nil, err
+		panic(fmt.Sprintf("Error opening DB: %s", err))
 	}
-	isOpen = true
-	// XXX should we close cfHandlers[0]?
-	return &OpenchainDB{db, cfHandlers[1], cfHandlers[2], cfHandlers[3], cfHandlers[4], cfHandlers[5]}, nil
+
+	openchainDB.DB = db
+	openchainDB.BlockchainCF = cfHandlers[1]
+	openchainDB.StateCF = cfHandlers[2]
+	openchainDB.StateDeltaCF = cfHandlers[3]
+	openchainDB.IndexesCF = cfHandlers[4]
+	openchainDB.PersistCF = cfHandlers[5]
+	openchainDB.dbState = opened
 }
 
-// CloseDB releases all column family handles and closes rocksdb
-func (openchainDB *OpenchainDB) CloseDB() {
+// Close releases all column family handles and closes rocksdb
+func (openchainDB *OpenchainDB) Close() {
+	openchainDB.mux.Lock()
+	if openchainDB.dbState == closed {
+		openchainDB.mux.Unlock()
+		return
+	}
+
+	defer openchainDB.mux.Unlock()
 	openchainDB.BlockchainCF.Destroy()
 	openchainDB.StateCF.Destroy()
 	openchainDB.StateDeltaCF.Destroy()
 	openchainDB.IndexesCF.Destroy()
 	openchainDB.PersistCF.Destroy()
 	openchainDB.DB.Close()
-	isOpen = false
+	openchainDB.dbState = closed
 }
 
 // DeleteState delets ALL state keys/values from the DB. This is generally

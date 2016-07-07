@@ -54,12 +54,8 @@ func New(stack consensus.Stack) consensus.Consenter {
 	id, _ := getValidatorID(handle)
 
 	switch strings.ToLower(config.GetString("general.mode")) {
-	case "classic":
-		return newObcClassic(id, config, stack)
 	case "batch":
 		return newObcBatch(id, config, stack)
-	case "sieve":
-		return newObcSieve(id, config, stack)
 	default:
 		panic(fmt.Errorf("Invalid PBFT mode: %s", config.GetString("general.mode")))
 	}

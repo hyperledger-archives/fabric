@@ -20,8 +20,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
-	"golang.org/x/crypto/sha3"
 	"hash"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )

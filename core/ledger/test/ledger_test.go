@@ -170,11 +170,6 @@ var _ = Describe("Ledger", func() {
 			Expect(err).To(BeNil())
 			nonHashData := block.GetNonHashData()
 			Expect(nonHashData).ToNot(BeNil())
-			Expect(nonHashData.TransactionResults).ToNot(BeNil())
-			Expect(len(nonHashData.TransactionResults)).ToNot(Equal(0))
-			Expect(nonHashData.TransactionResults[0].Uuid).To(Equal(uuid))
-			Expect(nonHashData.TransactionResults[0].Error).To(Equal("bad"))
-			Expect(nonHashData.TransactionResults[0].ErrorCode).To(Equal(uint32(500)))
 		})
 	})
 
@@ -469,7 +464,7 @@ var _ = Describe("Ledger", func() {
 		It("verifies the blockchain", func() {
 			// Verify the chain
 			for lowBlock := uint64(0); lowBlock < ledgerPtr.GetBlockchainSize()-1; lowBlock++ {
-				Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(0)))
+				Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(lowBlock))
 			}
 			for highBlock := ledgerPtr.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
 				Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(0)))
@@ -483,23 +478,19 @@ var _ = Describe("Ledger", func() {
 				goodBlock, _ := ledgerPtr.GetBlockByNumber(i)
 				ledgerPtr.PutRawBlock(badBlock, i)
 				for lowBlock := uint64(0); lowBlock < ledgerPtr.GetBlockchainSize()-1; lowBlock++ {
-					if i >= lowBlock {
-						expected := uint64(i + 1)
-						if i == ledgerPtr.GetBlockchainSize()-1 {
-							expected--
-						}
-						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(expected))
+					if i == ledgerPtr.GetBlockchainSize()-1 {
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(i)))
+					} else if i >= lowBlock {
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(i + 1)))
 					} else {
-						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(uint64(0)))
+						Expect(ledgerPtr.VerifyChain(ledgerPtr.GetBlockchainSize()-1, lowBlock)).To(Equal(lowBlock))
 					}
 				}
 				for highBlock := ledgerPtr.GetBlockchainSize() - 1; highBlock > 0; highBlock-- {
-					if i <= highBlock {
-						expected := uint64(i + 1)
-						if i == highBlock {
-							expected--
-						}
-						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(expected))
+					if i == highBlock {
+						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(i)))
+					} else if i < highBlock {
+						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(i + 1)))
 					} else {
 						Expect(ledgerPtr.VerifyChain(highBlock, 0)).To(Equal(uint64(0)))
 					}
@@ -510,8 +501,6 @@ var _ = Describe("Ledger", func() {
 		// Test edge cases
 		It("tests some edge cases", func() {
 			_, err := ledgerPtr.VerifyChain(2, 10)
-			Expect(err).To(Equal(ledger.ErrOutOfBounds))
-			_, err = ledgerPtr.VerifyChain(2, 2)
 			Expect(err).To(Equal(ledger.ErrOutOfBounds))
 			_, err = ledgerPtr.VerifyChain(0, 100)
 			Expect(err).To(Equal(ledger.ErrOutOfBounds))
@@ -807,7 +796,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(0, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 
-		// Block 1
+			// Block 1
 			Expect(ledgerPtr.BeginTxBatch(1)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1B"))).To(BeNil())
@@ -820,7 +809,7 @@ var _ = Describe("Ledger", func() {
 			err = ledgerPtr.CommitTxBatch(1, []*protos.Transaction{tx}, nil, []byte("proof"))
 			Expect(err).To(BeNil())
 
-		// Block 2
+			// Block 2
 			Expect(ledgerPtr.BeginTxBatch(2)).To(BeNil())
 			ledgerPtr.TxBegin("txUuid1")
 			Expect(ledgerPtr.SetState("chaincode1", "key1", []byte("value1C"))).To(BeNil())
@@ -903,9 +892,9 @@ var _ = Describe("Ledger", func() {
 				Expect(actual[k]).To(Equal(v))
 			}
 		}
-			///////// Test with an empty Ledger //////////
-			//////////////////////////////////////////////
-		It("does a bunch of stuff", func () {
+		///////// Test with an empty Ledger //////////
+		//////////////////////////////////////////////
+		It("does a bunch of stuff", func() {
 			itr, _ := ledgerPtr.GetStateRangeScanIterator("chaincodeID2", "key2", "key5", false)
 			expected := map[string][]byte{}
 			AssertIteratorContains(itr, expected)
@@ -956,37 +945,37 @@ var _ = Describe("Ledger", func() {
 			//////////////////////////////////////////////////////////
 			// test range scan for chaincodeID4
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", true)
-			expected =	map[string][]byte {
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty start-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", true)
-			expected =	map[string][]byte {
-					"key1": []byte("value1"),
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key1": []byte("value1"),
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty end-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", true)
-			expected =	map[string][]byte {
-					"key1": []byte("value1"),
-					"key2": []byte("value2"),
-					"key3": []byte("value3"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-					"key6": []byte("value6"),
-					"key7": []byte("value7"),
+			expected = map[string][]byte{
+				"key1": []byte("value1"),
+				"key2": []byte("value2"),
+				"key3": []byte("value3"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+				"key6": []byte("value6"),
+				"key7": []byte("value7"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
@@ -995,10 +984,10 @@ var _ = Describe("Ledger", func() {
 			//////////////////////////////////////////////////////////
 			// test range scan for chaincodeID4
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "key2", "key5", false)
-			expected =	map[string][]byte{
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
+			expected = map[string][]byte{
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
 			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
@@ -1006,25 +995,25 @@ var _ = Describe("Ledger", func() {
 			// test with empty start-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "key5", false)
 			expected = map[string][]byte{
-					"key1": []byte("value1"),
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-				}
+				"key1": []byte("value1"),
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 
 			// test with empty end-key
 			itr, _ = ledgerPtr.GetStateRangeScanIterator("chaincodeID4", "", "", false)
 			expected = map[string][]byte{
-					"key1": []byte("value1"),
-					"key2": []byte("value2_new"),
-					"key4": []byte("value4"),
-					"key5": []byte("value5"),
-					"key6": []byte("value6"),
-					"key7": []byte("value7"),
-					"key8": []byte("value8_new"),
-				}
+				"key1": []byte("value1"),
+				"key2": []byte("value2_new"),
+				"key4": []byte("value4"),
+				"key5": []byte("value5"),
+				"key6": []byte("value6"),
+				"key7": []byte("value7"),
+				"key8": []byte("value8_new"),
+			}
 			AssertIteratorContains(itr, expected)
 			itr.Close()
 		})

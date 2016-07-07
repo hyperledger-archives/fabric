@@ -29,12 +29,6 @@ var fs = require('fs');
 
 var chain = hfc.newChain("testChain");
 
-var registrar = {
-    name: 'WebAppAdmin',
-    secret: 'DJY27pEnl16d'
-};
-
-
 //
 // Configure the test chain
 //
@@ -113,8 +107,8 @@ function getUser(name, cb) {
         if (err) return cb(err);
         if (user.isEnrolled()) return cb(null,user);
         // User is not enrolled yet, so perform both registration and enrollment
+        // The chain registrar is already set inside 'Set chain registrar' test
         var registrationRequest = {
-            registrar: registrar.user,
             enrollmentID: name,
             account: "bank_a",
             affiliation: "00001"
@@ -135,6 +129,40 @@ function fail(t, msg, err) {
     t.fail("Failure: [" + msg + "]: [" + err + "]");
     t.end(err);
 }
+
+//
+// Set Invalid security level and hash algorithm.
+//
+
+test('Set Invalid security level and hash algorithm.', function (t) {
+    t.plan(2);
+
+    var securityLevel = chain.getMemberServices().getSecurityLevel();
+    try {
+        chain.getMemberServices().setSecurityLevel(128);
+        t.fail("Setting an invalid security level should fail. Allowed security levels are '256' and '384'.")
+    } catch (err) {
+        if (securityLevel != chain.getMemberServices().getSecurityLevel()) {
+            t.fail("Chain is using an invalid security level.")
+        }
+
+        t.pass("Setting an invalid security level failed as expected.")
+    }
+
+    var hashAlgorithm = chain.getMemberServices().getHashAlgorithm();
+    try {
+        chain.getMemberServices().setHashAlgorithm('SHA');
+        t.fail("Setting an invalid hash algorithm should fail. Allowed hash algorithm are 'SHA2' and 'SHA3'.")
+    } catch (err) {
+        if (hashAlgorithm != chain.getMemberServices().getHashAlgorithm()) {
+            t.fail("Chain is using an invalid hash algorithm.")
+        }
+
+        t.pass("Setting an invalid hash algorithm failed as expected.")
+    }
+
+});
+
 
 //
 // Enroll the WebAppAdmin member. WebAppAdmin member is already registered

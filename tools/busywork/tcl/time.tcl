@@ -74,19 +74,24 @@ proc durationToIntegerSeconds {i_duration} {
     return [expr int([durationToMs $i_duration] / 1000)]
 }
 
-# waitFor i_timeout i_script
+# waitFor i_timeout i_script {i_poll}
 
 # This is a busy-wait polling loop that returns 0 if the i_script evaluates
 # non-0 before the timeout, otherwise returns -1 in the event of a
 # timeout. Specify -1 as the timeout to wait forever. Note that the test is
-# always guaranteed to be made at least one time, even for very short timeouts.
+# always guaranteed to be made at least one time, even for very short
+# timeouts. The i_poll argument specifies the polling interval and defaults to
+# 0, that is, continuous polling.
 
-proc waitFor {i_timeout i_script} {
+proc waitFor {i_timeout i_script {i_poll 0}} {
 
     set timeout [durationToMs $i_timeout]
+    set poll [durationToMs $i_poll]
 
     if {$timeout < 0} {
-        while {![uplevel $script]} {}
+        while {![uplevel $i_script]} {
+            if {$poll != 0} {after $poll}
+        }
         return 0
     }
 
@@ -95,6 +100,7 @@ proc waitFor {i_timeout i_script} {
     while {1} {
         if {[uplevel $i_script]} {return 0}
         if {$timedOut} {return -1}
+        if {$poll != 0} {after $poll}
         set now [clock clicks -milliseconds]
         set timedOut [expr {($now - $start) >= $timeout}]
     }

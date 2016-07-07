@@ -109,6 +109,7 @@ const (
 	ChaincodeMessage_RANGE_QUERY_STATE       ChaincodeMessage_Type = 17
 	ChaincodeMessage_RANGE_QUERY_STATE_NEXT  ChaincodeMessage_Type = 18
 	ChaincodeMessage_RANGE_QUERY_STATE_CLOSE ChaincodeMessage_Type = 19
+	ChaincodeMessage_KEEPALIVE               ChaincodeMessage_Type = 20
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
@@ -132,6 +133,7 @@ var ChaincodeMessage_Type_name = map[int32]string{
 	17: "RANGE_QUERY_STATE",
 	18: "RANGE_QUERY_STATE_NEXT",
 	19: "RANGE_QUERY_STATE_CLOSE",
+	20: "KEEPALIVE",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
 	"UNDEFINED":               0,
@@ -154,6 +156,7 @@ var ChaincodeMessage_Type_value = map[string]int32{
 	"RANGE_QUERY_STATE":       17,
 	"RANGE_QUERY_STATE_NEXT":  18,
 	"RANGE_QUERY_STATE_CLOSE": 19,
+	"KEEPALIVE":               20,
 }
 
 func (x ChaincodeMessage_Type) String() string {
@@ -251,6 +254,14 @@ func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp 
 // Carries the chaincode function and its arguments.
 type ChaincodeInvocationSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
+	// This field can contain a user-specified ID generation algorithm
+	// If supplied, this will be used to generate a ID
+	// If not supplied (left empty), a random UUID will be generated
+	// The algorithm consists of two parts:
+	//  1, a hash function
+	//  2, a decoding used to decode user (string) input to bytes
+	// Currently, SHA256 with BASE64 is supported (e.g. idGenerationAlg='sha256base64')
+	IdGenerationAlg string `protobuf:"bytes,2,opt,name=idGenerationAlg" json:"idGenerationAlg,omitempty"`
 }
 
 func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }

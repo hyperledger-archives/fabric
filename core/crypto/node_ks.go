@@ -19,11 +19,12 @@ package crypto
 import (
 	"crypto/x509"
 	"database/sql"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 
 	// Required to successfully initialized the driver
 	"github.com/hyperledger/fabric/core/crypto/primitives"
