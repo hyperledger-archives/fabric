@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"strconv"
@@ -28,8 +29,8 @@ import (
 
 var myLogger = logging.MustGetLogger("asset_mgm")
 
-var certHandler = NewCertHandler()
-var despositoryHandler = NewDepositoryHandler()
+var cHandler = NewCertHandler()
+var dHandler = NewDepositoryHandler()
 
 //AssetManagementChaincode APIs exposed to chaincode callers
 type AssetManagementChaincode struct {
@@ -49,13 +50,17 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 
 	//check is invoker has the correct role, only invokers with the "issuer" role is allowed to
 	//assign asset to owners
-	isAuthorized, err := certHandler.isAuthorized(stub, "issuer")
+	isAuthorized, err := cHandler.isAuthorized(stub, "issuer")
 	if !isAuthorized {
 		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("user is not aurthorized to assign assets")
 	}
 
-	owner := []byte(args[0])
+	owner, err := base64.StdEncoding.DecodeString(args[0])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding owner")
+	}
 	accountAttribute := args[1]
 
 	amount, err := strconv.ParseUint(args[2], 10, 64)
@@ -65,7 +70,7 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 	}
 
 	//retrieve account IDs from investor's TCert
-	accountIDs, err := certHandler.getAccountIDsFromAttribute(owner, []string{accountAttribute})
+	accountIDs, err := cHandler.getAccountIDsFromAttribute(owner, []string{accountAttribute})
 	if err != nil {
 		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("Unable to retrieve account Ids from user certificate " + args[1])
@@ -74,13 +79,13 @@ func (t *AssetManagementChaincode) assignOwnership(stub *shim.ChaincodeStub, arg
 	//retreive investors' contact info (e.g. phone number, email, home address)
 	//from investors' TCert. Ideally, this information shall be encrypted with issuer's pub key or KA key
 	//between investor and issuer, so that only issuer can view such information
-	contactInfo, err := certHandler.getContactInfo(owner)
+	contactInfo, err := cHandler.getContactInfo(owner)
 	if err != nil {
 		return nil, errors.New("Unable to retrieve contact info from user certificate " + args[1])
 	}
 
 	//call DeposistoryHandler.assign function to put the "amount" and "contact info" under this account ID
-	return nil, despositoryHandler.assign(stub, accountIDs[0], contactInfo, amount)
+	return nil, dHandler.assign(stub, accountIDs[0], contactInfo, amount)
 }
 
 // transferOwnership moves x number of assets from account A to account B
@@ -95,10 +100,18 @@ func (t *AssetManagementChaincode) transferOwnership(stub *shim.ChaincodeStub, a
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
 
-	fromOwner := []byte(args[0])
+	fromOwner, err := base64.StdEncoding.DecodeString(args[0])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding fromOwner")
+	}
 	fromAccountAttributes := strings.Split(args[1], ",")
 
-	toOwner := []byte(args[2])
+	toOwner, err := base64.StdEncoding.DecodeString(args[2])
+	if err != nil {
+		myLogger.Errorf("system error %v", err)
+		return nil, errors.New("Failed decoding owner")
+	}
 	toAccountAttributes := strings.Split(args[3], ",")
 
 	amount, err := strconv.ParseUint(args[4], 10, 64)
@@ -108,28 +121,28 @@ func (t *AssetManagementChaincode) transferOwnership(stub *shim.ChaincodeStub, a
 	}
 
 	// retrieve account IDs from "transfer from" TCert
-	fromAccountIds, err := certHandler.getAccountIDsFromAttribute(fromOwner, fromAccountAttributes)
+	fromAccountIds, err := cHandler.getAccountIDsFromAttribute(fromOwner, fromAccountAttributes)
 	if err != nil {
 		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("Unable to retrieve contact info from user certificate" + args[1])
 	}
 
 	// retrieve account IDs from "transfer to" TCert
-	toAccountIds, err := certHandler.getAccountIDsFromAttribute(toOwner, toAccountAttributes)
+	toAccountIds, err := cHandler.getAccountIDsFromAttribute(toOwner, toAccountAttributes)
 	if err != nil {
 		myLogger.Errorf("system error %v", err)
 		return nil, errors.New("Unable to retrieve contact info from user certificate" + args[3])
 	}
 
 	// retrieve contact info from "transfer to" TCert
-	contactInfo, err := certHandler.getContactInfo(toOwner)
+	contactInfo, err := cHandler.getContactInfo(toOwner)
 	if err != nil {
 		myLogger.Errorf("system error %v received", err)
 		return nil, errors.New("Unable to retrieve contact info from user certificate" + args[4])
 	}
 
-	// call DespositoryHandler.transfer to transfer to transfer "amount" from "from account" IDs to "to account" IDs
-	return nil, despositoryHandler.transfer(stub, fromAccountIds, toAccountIds[0], contactInfo, amount)
+	// call dHandler.transfer to transfer to transfer "amount" from "from account" IDs to "to account" IDs
+	return nil, dHandler.transfer(stub, fromAccountIds, toAccountIds[0], contactInfo, amount)
 }
 
 // getOwnerContactInformation retrieves the contact information of the investor that owns a particular account ID
@@ -145,7 +158,7 @@ func (t *AssetManagementChaincode) getOwnerContactInformation(stub *shim.Chainco
 
 	accountID := args[0]
 
-	email, err := despositoryHandler.QueryContactInfo(stub, accountID)
+	email, err := dHandler.queryContactInfo(stub, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +177,7 @@ func (t *AssetManagementChaincode) getBalance(stub *shim.ChaincodeStub, args []s
 
 	accountID := args[0]
 
-	balance, err := despositoryHandler.QueryBalance(stub, accountID)
+	balance, err := dHandler.queryBalance(stub, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +198,7 @@ func (t *AssetManagementChaincode) Init(stub *shim.ChaincodeStub, function strin
 		return nil, errors.New("Incorrect number of arguments. Expecting 0")
 	}
 
-	return nil, despositoryHandler.createTable(stub)
+	return nil, dHandler.createTable(stub)
 }
 
 // Invoke  method is the interceptor of all invocation transactions, its job is to direct

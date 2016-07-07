@@ -212,13 +212,7 @@ func (mock *MockLedger) commonCommitTx(id interface{}, metadata []byte, preview 
 		PreviousBlockHash: previousBlockHash,
 		StateHash:         mock.curResults, // Use the current result output in the hash
 		Transactions:      mock.curBatch,
-		NonHashData: &protos.NonHashData{
-			TransactionResults: []*protos.TransactionResult{
-				{
-					Result: mock.curResults,
-				},
-			},
-		},
+		NonHashData:       &protos.NonHashData{},
 	}
 
 	if !preview {

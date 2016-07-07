@@ -89,11 +89,15 @@ to run a simple stress test. This stress test exercises a single peer
 running `NOOPS` consensus.
 
 At present the PBFT *batch* algorithm is the only true consensus algorithm
-being suported by the development team. The target 
+supported by the development team. The targets
 
     make stress2b
+	make sweep1b
 	
-runs PBFT *batch* on a 4-peer network. 
+both test 4-peer PBFT *batch* networks. The `stress2b` test is a single run
+with a single client. The `sweep1b` test sweeps a test setup over a range of
+from 1 to 64 clients. At present the `sweep1b` target appears to work in
+server environments, but fails in Vagrant/laptop environments.
 
 There is also a pre-canned target
 
@@ -109,10 +113,7 @@ counter (8 bytes) to 1000 counters (8000 bytes):
 
     .PHONY: stress2b1k
 	stress2b1k:
-            @CORE_PBFT_GENERAL_TIMEOUT_NULLREQUEST=3s \
-            $(NETWORK) -batch 4
-            @echo "makefile: Sleeping 10 seconds to allow peers to interlock"
-			sleep 10
+            @(STRESS2_CONFIG) $(NETWORK) -batch 4
 	        @$(STRESS2) -size 1000
 	
 ## Running Peers and Clients on Separate Machines

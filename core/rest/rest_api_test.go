@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -58,6 +59,23 @@ func performHTTPPost(t *testing.T, url string, requestBody []byte) (*http.Respon
 	return response, body
 }
 
+func performHTTPDelete(t *testing.T, url string) []byte {
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		t.Fatalf("Error building a DELETE request")
+	}
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Error attempt to DELETE %s: %v", url, err)
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatalf("Error reading HTTP resposne body: %v", err)
+	}
+	return body
+}
+
 func parseRESTResult(t *testing.T, body []byte) restResult {
 	var res restResult
 	err := json.Unmarshal(body, &res)
@@ -80,7 +98,10 @@ type mockDevops struct {
 }
 
 func (d *mockDevops) Login(c context.Context, s *protos.Secret) (*protos.Response, error) {
-	return nil, nil
+	if s.EnrollSecret == "wrong_password" {
+		return &protos.Response{Status: protos.Response_FAILURE, Msg: []byte("Wrong mock password")}, nil
+	}
+	return &protos.Response{Status: protos.Response_SUCCESS}, nil
 }
 
 func (d *mockDevops) Build(c context.Context, cs *protos.ChaincodeSpec) (*protos.ChaincodeDeploymentSpec, error) {
@@ -128,10 +149,6 @@ func (d *mockDevops) EXP_ProduceSigma(ctx context.Context, sigmaInput *protos.Si
 }
 
 func (d *mockDevops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding *protos.ExecuteWithBinding) (*protos.Response, error) {
-	return nil, nil
-}
-
-func (d *mockDevops) GetTransactionResult(ctx context.Context, txRequest *protos.TransactionRequest) (*protos.Response, error) {
 	return nil, nil
 }
 
@@ -290,11 +307,50 @@ func TestServerOpenchainREST_API_GetTransactionByUUID(t *testing.T) {
 	badBody := performHTTPGet(t, httpServer.URL+"/transactions/with-\"-chars-in-the-URL")
 	badRes := parseRESTResult(t, badBody)
 	if badRes.Error == "" {
-		t.Errorf("Expected a proper error when retrieive transaction with bad UUID")
+		t.Errorf("Expected a proper error when retrieving transaction with bad UUID")
 	}
 }
 
+func TestServerOpenchainREST_API_Register(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	expectError := func(reqBody string, expectedStatus int) {
+		httpResponse, body := performHTTPPost(t, httpServer.URL+"/registrar", []byte(reqBody))
+		if httpResponse.StatusCode != expectedStatus {
+			t.Errorf("Expected an HTTP status code %#v but got %#v", expectedStatus, httpResponse.StatusCode)
+		}
+		res := parseRESTResult(t, body)
+		if res.Error == "" {
+			t.Errorf("Expected a proper error when registering")
+		}
+	}
+
+	expectOK := func(reqBody string) {
+		httpResponse, body := performHTTPPost(t, httpServer.URL+"/registrar", []byte(reqBody))
+		if httpResponse.StatusCode != http.StatusOK {
+			t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
+		}
+		res := parseRESTResult(t, body)
+		if res.Error != "" {
+			t.Errorf("Expected no error but got: %v", res.Error)
+		}
+	}
+
+	expectError("", http.StatusBadRequest)
+	expectError("} invalid json ]", http.StatusBadRequest)
+	expectError(`{"enrollId":"user"}`, http.StatusBadRequest)
+	expectError(`{"enrollId":"user","enrollSecret":"wrong_password"}`, http.StatusUnauthorized)
+	expectOK(`{"enrollId":"user","enrollSecret":"password"}`)
+	expectOK(`{"enrollId":"user","enrollSecret":"password"}`) // Already logged-in
+}
+
 func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
 	initGlobalServerOpenchain(t)
 
 	// Start the HTTP REST test server
@@ -311,6 +367,79 @@ func TestServerOpenchainREST_API_GetEnrollmentID(t *testing.T) {
 	res = parseRESTResult(t, body)
 	if res.Error != "Invalid enrollment ID parameter" {
 		t.Errorf("Expected an error when retrieving non-existing user, but got: %v", res.Error)
+	}
+
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+	body = performHTTPGet(t, httpServer.URL+"/registrar/myuser")
+	res = parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when retrieving logged-in user, but got: %v", res.Error)
+	}
+}
+
+func TestServerOpenchainREST_API_DeleteEnrollmentID(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPDelete(t, httpServer.URL+"/registrar/NON_EXISTING_USER")
+	res := parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when deleting non logged-in user, but got: %v", res.Error)
+	}
+
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+	body = performHTTPDelete(t, httpServer.URL+"/registrar/myuser")
+	res = parseRESTResult(t, body)
+	if res.OK == "" || res.Error != "" {
+		t.Errorf("Expected no error when deleting a logged-in user, but got: %v", res.Error)
+	}
+}
+
+func TestServerOpenchainREST_API_GetEnrollmentCert(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPGet(t, httpServer.URL+"/registrar/NON_EXISTING_USER/ecert")
+	res := parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+
+	body = performHTTPGet(t, httpServer.URL+"/registrar/BAD-\"-CHARS/ecert")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+}
+
+func TestServerOpenchainREST_API_GetTransactionCert(t *testing.T) {
+	os.RemoveAll(getRESTFilePath())
+	initGlobalServerOpenchain(t)
+
+	// Start the HTTP REST test server
+	httpServer := httptest.NewServer(buildOpenchainRESTRouter())
+	defer httpServer.Close()
+
+	body := performHTTPGet(t, httpServer.URL+"/registrar/NON_EXISTING_USER/tcert")
+	res := parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
+	}
+
+	body = performHTTPGet(t, httpServer.URL+"/registrar/BAD-\"-CHARS/tcert")
+	res = parseRESTResult(t, body)
+	if res.Error == "" {
+		t.Errorf("Expected an error when retrieving non-existing user, but got none")
 	}
 }
 
@@ -438,8 +567,27 @@ func TestServerOpenchainREST_API_Chaincode_Deploy(t *testing.T) {
 		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
 	}
 
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+
 	// Test deploy with invalid chaincode path
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"deploy","params":{"type":1,"chaincodeID":{"path":"non-existing"},"ctorMsg":{"function":"Init","args":[]}}}`))
+	requestBody := `{
+		"jsonrpc": "2.0",
+		"ID": 123,
+		"method": "deploy",
+		"params": {
+			"type": 1,
+			"chaincodeID": {
+				"path": "non-existing"
+			},
+			"ctorMsg": {
+				"function": "Init",
+				"args": []
+			},
+			"secureContext": "myuser"
+		}
+	}`
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(requestBody))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}
@@ -448,8 +596,8 @@ func TestServerOpenchainREST_API_Chaincode_Deploy(t *testing.T) {
 		t.Errorf("Expected an error when sending non-existing chaincode path, but got %#v", res.Error)
 	}
 
-	// Test deploy with real chaincode path
-	requestBody := `{
+	// Test deploy without username
+	requestBody = `{
 		"jsonrpc": "2.0",
 		"ID": 123,
 		"method": "deploy",
@@ -462,6 +610,29 @@ func TestServerOpenchainREST_API_Chaincode_Deploy(t *testing.T) {
 				"function": "Init",
 				"args": []
 			}
+		}
+	}`
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(requestBody))
+	res = parseRPCResponse(t, body)
+	if res.Error == nil || res.Error.Code != InvalidParams.Code {
+		t.Errorf("Expected an error when sending without username, but got %#v", res.Error)
+	}
+
+	// Test deploy with real chaincode path
+	requestBody = `{
+		"jsonrpc": "2.0",
+		"ID": 123,
+		"method": "deploy",
+		"params": {
+			"type": 1,
+			"chaincodeID": {
+				"path": "github.com/hyperledger/fabric/core/rest/test_chaincode"
+			},
+			"ctorMsg": {
+				"function": "Init",
+				"args": []
+			},
+			"secureContext": "myuser"
 		}
 	}`
 	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(requestBody))
@@ -501,8 +672,11 @@ func TestServerOpenchainREST_API_Chaincode_Invoke(t *testing.T) {
 		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
 	}
 
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+
 	// Test invoke with "fail" function
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]}}}`))
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]},"secureContext":"myuser"}}`))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}
@@ -512,7 +686,7 @@ func TestServerOpenchainREST_API_Chaincode_Invoke(t *testing.T) {
 	}
 
 	// Test invoke with "change_owner" function
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"change_owner","args":[]}}}`))
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"invoke","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"change_owner","args":[]},"secureContext":"myuser"}}`))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}
@@ -549,8 +723,11 @@ func TestServerOpenchainREST_API_Chaincode_Query(t *testing.T) {
 		t.Errorf("Expected an error when sending missing params, but got %#v", res.Error)
 	}
 
+	// Login
+	performHTTPPost(t, httpServer.URL+"/registrar", []byte(`{"enrollId":"myuser","enrollSecret":"password"}`))
+
 	// Test query with non-existing chaincode name
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"non-existing"},"ctorMsg":{"function":"Init","args":[]}}}`))
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"non-existing"},"ctorMsg":{"function":"Init","args":[]},"secureContext":"myuser"}}`))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}
@@ -560,7 +737,7 @@ func TestServerOpenchainREST_API_Chaincode_Query(t *testing.T) {
 	}
 
 	// Test query with fail function
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]}}}`))
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"fail","args":[]},"secureContext":"myuser"}}`))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}
@@ -573,7 +750,7 @@ func TestServerOpenchainREST_API_Chaincode_Query(t *testing.T) {
 	}
 
 	// Test query with get_owner function
-	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"get_owner","args":[]}}}`))
+	httpResponse, body = performHTTPPost(t, httpServer.URL+"/chaincode", []byte(`{"jsonrpc":"2.0","ID":123,"method":"query","params":{"type":1,"chaincodeID":{"name":"dummy"},"ctorMsg":{"function":"get_owner","args":[]},"secureContext":"myuser"}}`))
 	if httpResponse.StatusCode != http.StatusOK {
 		t.Errorf("Expected an HTTP status code %#v but got %#v", http.StatusOK, httpResponse.StatusCode)
 	}

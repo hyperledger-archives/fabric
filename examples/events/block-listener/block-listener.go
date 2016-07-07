@@ -29,24 +29,28 @@ import (
 )
 
 type adapter struct {
-	notfy chan *pb.Event_Block
+	notfy              chan *pb.Event_Block
+	rejected           chan *pb.Event_Rejection
+	listenToRejections bool
 }
 
 //GetInterestedEvents implements consumer.EventAdapter interface for registering interested events
 func (a *adapter) GetInterestedEvents() ([]*pb.Interest, error) {
-	return []*pb.Interest{{EventType: pb.EventType_BLOCK}}, nil
+	return []*pb.Interest{{EventType: pb.EventType_BLOCK}, {EventType: pb.EventType_REJECTION}}, nil
 }
 
 //Recv implements consumer.EventAdapter interface for receiving events
 func (a *adapter) Recv(msg *pb.Event) (bool, error) {
-	switch msg.Event.(type) {
-	case *pb.Event_Block:
-		a.notfy <- msg.Event.(*pb.Event_Block)
+	if o, e := msg.Event.(*pb.Event_Block); e {
+		a.notfy <- o
 		return true, nil
-	default:
-		a.notfy <- nil
-		return false, nil
 	}
+	if o, e := msg.Event.(*pb.Event_Rejection); e && a.listenToRejections {
+		a.rejected <- o
+		return true, nil
+	}
+	a.notfy <- nil
+	return false, nil
 }
 
 //Disconnected implements consumer.EventAdapter interface for disconnecting
@@ -55,11 +59,12 @@ func (a *adapter) Disconnected(err error) {
 	os.Exit(1)
 }
 
-func createEventClient(eventAddress string) *adapter {
+func createEventClient(eventAddress string, listenToRejections bool) *adapter {
 	var obcEHClient *consumer.EventsClient
 
 	done := make(chan *pb.Event_Block)
-	adapter := &adapter{notfy: done}
+	reject := make(chan *pb.Event_Rejection)
+	adapter := &adapter{notfy: done, rejected: reject, listenToRejections: listenToRejections}
 	obcEHClient = consumer.NewEventsClient(eventAddress, adapter)
 	if err := obcEHClient.Start(); err != nil {
 		fmt.Printf("could not start chat %s\n", err)
@@ -72,31 +77,35 @@ func createEventClient(eventAddress string) *adapter {
 
 func main() {
 	var eventAddress string
+	var listenToRejections bool
 	flag.StringVar(&eventAddress, "events-address", "0.0.0.0:31315", "address of events server")
+	flag.BoolVar(&listenToRejections, "listen-to-rejections", false, "whether to listen to rejection events")
 	flag.Parse()
 
 	fmt.Printf("Event Address: %s\n", eventAddress)
 
-	a := createEventClient(eventAddress)
+	a := createEventClient(eventAddress, listenToRejections)
 	if a == nil {
 		fmt.Printf("Error creating event client\n")
 		return
 	}
 
 	for {
-		b := <-a.notfy
-		if b.Block.NonHashData.TransactionResults == nil {
-			fmt.Printf("INVALID BLOCK ... NO TRANSACTION RESULTS %v\n", b)
-		} else {
+		select {
+		case b := <-a.notfy:
+			fmt.Printf("\n")
+			fmt.Printf("\n")
 			fmt.Printf("Received block\n")
 			fmt.Printf("--------------\n")
-			for _, r := range b.Block.NonHashData.TransactionResults {
-				if r.ErrorCode != 0 {
-					fmt.Printf("Err Transaction:\n\t[%v]\n", r)
-				} else {
-					fmt.Printf("Success Transaction:\n\t[%v]\n", r)
-				}
+			for _, r := range b.Block.Transactions {
+				fmt.Printf("Transaction:\n\t[%v]\n", r)
 			}
+		case r := <-a.rejected:
+			fmt.Printf("\n")
+			fmt.Printf("\n")
+			fmt.Printf("Received rejected transaction\n")
+			fmt.Printf("--------------\n")
+			fmt.Printf("Transaction error:\n%s\t%s\n", r.Rejection.Tx.Uuid, r.Rejection.ErrorMsg)
 		}
 	}
 }

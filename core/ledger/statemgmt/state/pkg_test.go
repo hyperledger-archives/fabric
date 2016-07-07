@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 }
 
 func createFreshDBAndConstructState(t *testing.T) (*stateTestWrapper, *State) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateTestWrapper := newStateTestWrapper(t)
 	return stateTestWrapper, stateTestWrapper.state
 }

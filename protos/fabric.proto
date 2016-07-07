@@ -110,10 +110,8 @@ message BlockchainInfo {
 // the block hash when verifying the blockchain.
 // localLedgerCommitTimestamp - The time at which the block was added
 // to the ledger on the local peer.
-// transactionResults - The results of transactions.
 message NonHashData {
     google.protobuf.Timestamp localLedgerCommitTimestamp = 1;
-    repeated TransactionResult transactionResults = 2;
 }
 
 // Interface exported by the server.
