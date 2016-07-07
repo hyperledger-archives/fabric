@@ -20,17 +20,17 @@ EXECUTABLES = npm
 K := $(foreach exec,$(EXECUTABLES),\
 	$(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH: Check dependencies")))
 
-all: hlc
+all: hfc
 
-.PHONY: hlc
-hlc:
+.PHONY: hfc
+hfc:
 	cp ../../protos/*.proto ./lib/protos
 	cp ../../membersrvc/protos/*.proto ./lib/protos
 	npm install && sudo npm install -g typescript && sudo npm install typings --global && typings install
 	tsc
 	./makedoc.sh
 
-unit-tests: hlc
+unit-tests: hfc
 	@./bin/run-unit-tests.sh
 
 clean:

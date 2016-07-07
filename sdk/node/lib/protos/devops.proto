@@ -39,6 +39,18 @@ service Devops {
     // Invoke chaincode.
     rpc Query(ChaincodeInvocationSpec) returns (Response) {}
 
+    // Retrieve a TCert.
+    rpc EXP_GetApplicationTCert(Secret) returns (Response) {}
+
+    // Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    rpc EXP_PrepareForTx(Secret) returns (Response) {}
+
+    // Prepare for performing a TX, which will return a binding that can later be used to sign and then execute a transaction.
+    rpc EXP_ProduceSigma(SigmaInput) returns (Response) {}
+
+    // Execute a transaction with a specific binding
+    rpc EXP_ExecuteWithBinding(ExecuteWithBinding) returns (Response) {}
+
 }
 
 
@@ -48,6 +60,24 @@ message Secret {
     string enrollId = 1;
     string enrollSecret = 2;
 }
+
+message SigmaInput {
+    Secret secret = 1;
+    bytes appTCert = 2;
+    bytes data = 3;
+}
+
+message ExecuteWithBinding {
+    ChaincodeInvocationSpec chaincodeInvocationSpec = 1;
+    bytes binding = 2;    
+}
+
+message SigmaOutput {
+    bytes tcert = 1;
+    bytes sigma = 2;
+    bytes asn1Encoding = 3;
+}
+
 
 message BuildResult {
 
@@ -60,4 +90,8 @@ message BuildResult {
     StatusCode status = 1;
     string msg = 2;
     ChaincodeDeploymentSpec deploymentSpec = 3;
+}
+
+message TransactionRequest {
+    string transactionUuid = 1;
 }
