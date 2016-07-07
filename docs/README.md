@@ -45,7 +45,7 @@ When you are ready to start building applications or to otherwise contribute to 
 
 ## Chaincode developer guide:
 
-- [Setting up the development environment](dev-setup/devenv.md) - when developing and testing chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same set up that Fabric developers use.
+- [Setting up the development environment](dev-setup/devenv.md) - when developing and testing chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same setup that Fabric developers use.
 - [Setting Up a Network For Development](dev-setup/devnet-setup.md) - alternately, you can follow these instructions for setting up a local network for chaincode development.
 - [Writing, Building, and Running Chaincode in a Development Environment](API/SandboxSetup.md) - a step-by-step guide to writing and testing chaincode.
 - [Chaincode FAQ](FAQ/chaincode_FAQ.md) - a FAQ for all of your burning questions relating to chaincode.
