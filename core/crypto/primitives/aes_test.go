@@ -14,32 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package primitives
+package primitives_test
 
 import (
 	"bytes"
 	"crypto/aes"
 	"crypto/rand"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestCBCPKCS7EncryptCBCPKCS7Decrypt(t *testing.T) {
 	// Encrypt with CBCPKCS7Encrypt and Decrypt with CBCPKCS7Decrypt
-	// The intent is not to test the implementation of the aes standard
-	// library but to verify the code around the calls to aes.
+	// The purpose of this test is not to test the implementation of the AES standard
+	// library but to verify the code wrapping the Cipher.
 
-	key := make([]byte, 32)
+	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
 
 	var msg = []byte("a message with arbitrary length (42 bytes)")
 
-	encrypted, encErr := CBCPKCS7Encrypt(key, msg)
+	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, msg)
 
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
 
-	decrypted, dErr := CBCPKCS7Decrypt(key, encrypted)
+	decrypted, dErr := primitives.CBCPKCS7Decrypt(key, encrypted)
 
 	if dErr != nil {
 		t.Fatalf("Error encrypting message %v", dErr)
@@ -60,7 +62,7 @@ func TestPKCS7Padding(t *testing.T) {
 		16, 16, 16, 16,
 		16, 16, 16, 16,
 		16, 16, 16, 16}
-	result := PKCS7Padding(msg)
+	result := primitives.PKCS7Padding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error: Expected ", expected, " but got ", result)
@@ -72,7 +74,7 @@ func TestPKCS7Padding(t *testing.T) {
 		15, 15, 15, 15,
 		15, 15, 15, 15,
 		15, 15, 15, 15}
-	result = PKCS7Padding(msg)
+	result = primitives.PKCS7Padding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error: Expected ", expected, " but got ", result)
@@ -84,7 +86,7 @@ func TestPKCS7Padding(t *testing.T) {
 		14, 14, 14, 14,
 		14, 14, 14, 14,
 		14, 14, 14, 14}
-	result = PKCS7Padding(msg)
+	result = primitives.PKCS7Padding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error: Expected ", expected, " but got ", result)
@@ -94,7 +96,7 @@ func TestPKCS7Padding(t *testing.T) {
 	for i := 3; i < aes.BlockSize; i++ {
 		msg := []byte("0123456789ABCDEF")
 
-		result := PKCS7Padding(msg[:i])
+		result := primitives.PKCS7Padding(msg[:i])
 
 		padding := aes.BlockSize - i
 		expectedPadding := bytes.Repeat([]byte{byte(padding)}, padding)
@@ -110,7 +112,7 @@ func TestPKCS7Padding(t *testing.T) {
 	// !! needs to be modified for PR2093
 	msg = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
 
-	result = PKCS7Padding(msg)
+	result = primitives.PKCS7Padding(msg)
 
 	expectedPadding := bytes.Repeat([]byte{byte(aes.BlockSize)},
 		aes.BlockSize)
@@ -135,7 +137,7 @@ func TestPKCS7UnPadding(t *testing.T) {
 		16, 16, 16, 16,
 		16, 16, 16, 16}
 
-	result, _ := PKCS7UnPadding(msg)
+	result, _ := primitives.PKCS7UnPadding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error: Expected ", expected, " but got ", result)
@@ -148,7 +150,7 @@ func TestPKCS7UnPadding(t *testing.T) {
 		15, 15, 15, 15,
 		15, 15, 15, 15}
 
-	result, _ = PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error: Expected ", expected, " but got ", result)
@@ -161,7 +163,7 @@ func TestPKCS7UnPadding(t *testing.T) {
 		14, 14, 14, 14,
 		14, 14, 14, 14}
 
-	result, _ = PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error: Expected ", expected, " but got ", result)
@@ -176,7 +178,7 @@ func TestPKCS7UnPadding(t *testing.T) {
 		msg = append(base[:i], padding...)
 
 		expected := base[:i]
-		result, _ := PKCS7UnPadding(msg)
+		result, _ := primitives.PKCS7UnPadding(msg)
 
 		if !bytes.Equal(result, expected) {
 			t.Fatal("UnPadding error: Expected ", expected, " but got ", result)
@@ -192,7 +194,7 @@ func TestPKCS7UnPadding(t *testing.T) {
 		aes.BlockSize)
 	msg = append(expected, padding...)
 
-	result, _ = PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(msg)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error: Expected ", expected, " but got ", result)
