@@ -65,7 +65,7 @@ func TestBroadcast(t *testing.T) {
 	sent := make(map[string]int)
 	go func() {
 		for msg := range m.msgCh {
-			sent[msg.dest.Name] += 1
+			sent[msg.dest.Name]++
 		}
 	}()
 
@@ -79,7 +79,7 @@ func TestBroadcast(t *testing.T) {
 	sentCount := 0
 	for _, q := range sent {
 		if q == 1 {
-			sentCount += 1
+			sentCount++
 		}
 	}
 
@@ -147,7 +147,7 @@ func TestBroadcastStuck(t *testing.T) {
 	sendDone := 0
 	for _, q := range sent {
 		if len(q) >= 2 {
-			sendDone += 1
+			sendDone++
 		}
 	}
 	if sendDone != maxc {
@@ -164,7 +164,7 @@ func TestBroadcastUnicast(t *testing.T) {
 	sent := make(map[string]int)
 	go func() {
 		for msg := range m.msgCh {
-			sent[msg.dest.Name] += 1
+			sent[msg.dest.Name]++
 		}
 	}()
 
@@ -178,7 +178,7 @@ func TestBroadcastUnicast(t *testing.T) {
 	sentCount := 0
 	for _, q := range sent {
 		if q == 1 {
-			sentCount += 1
+			sentCount++
 		}
 	}
 
