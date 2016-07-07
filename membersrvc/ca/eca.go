@@ -56,7 +56,7 @@ func initializeECATables(db *sql.DB) error {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	eca := &ECA{CA:NewCA("eca", initializeECATables)}
+	eca := &ECA{CA: NewCA("eca", initializeECATables)}
 
 	{
 		// read or create global symmetric encryption key
