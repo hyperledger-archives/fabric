@@ -28,6 +28,7 @@ enum EventType {
         REGISTER = 0;
         BLOCK = 1;
 	CHAINCODE = 2;
+	REJECTION = 3;
 }
 
 //ChaincodeReg is used for registering chaincode Interests
@@ -55,6 +56,14 @@ message Register {
     repeated Interest events = 1;
 }
 
+//Rejection is sent by consumers for erroneous transaction rejection events
+//string type - "rejection"
+message Rejection {
+    Transaction tx = 1;
+    string errorMsg = 2;
+}
+
+//---------- producer events ---------
 //Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
@@ -68,6 +77,7 @@ message Event {
         //producer events
         Block block = 2;
         ChaincodeEvent chaincodeEvent = 3;
+        Rejection rejection = 4;
     }
 }
 

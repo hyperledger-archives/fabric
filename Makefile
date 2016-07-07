@@ -131,9 +131,11 @@ build/bin:
 # Both peer and peer-image depend on ccenv-image
 build/bin/peer: build/image/ccenv/.dummy
 build/image/peer/.dummy: build/image/ccenv/.dummy
+build/image/peer/.dummy: build/docker/bin/examples/events/block-listener/
 
 build/bin/%: build/image/base/.dummy $(PROJECT_FILES)
 	@mkdir -p $(@D)
+	@echo "$@"
 	$(CGO_FLAGS) GOBIN=$(abspath $(@D)) go install $(PKGNAME)/$(@F)
 	@echo "Binary available as $@"
 	@touch $@

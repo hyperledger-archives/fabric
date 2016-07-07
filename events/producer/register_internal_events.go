@@ -27,9 +27,10 @@ import (
 
 //----Event Types -----
 /*const (
-	RegisterType = "register"
-	BlockType    = "block"
-) */
+	RegisterType  = "register"
+	RejectionType = "rejection"
+	BlockType     = "block"
+)*/
 
 func getMessageType(e *pb.Event) pb.EventType {
 	switch e.Event.(type) {
@@ -39,6 +40,8 @@ func getMessageType(e *pb.Event) pb.EventType {
 		return pb.EventType_BLOCK
 	case *pb.Event_ChaincodeEvent:
 		return pb.EventType_CHAINCODE
+	case *pb.Event_Rejection:
+		return pb.EventType_REJECTION
 	default:
 		return -1
 	}
@@ -48,4 +51,6 @@ func getMessageType(e *pb.Event) pb.EventType {
 func addInternalEventTypes() {
 	AddEventType(pb.EventType_BLOCK)
 	AddEventType(pb.EventType_CHAINCODE)
+	AddEventType(pb.EventType_REJECTION)
+	AddEventType(pb.EventType_REGISTER)
 }
