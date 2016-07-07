@@ -25,7 +25,7 @@ We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and
 [Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
 
 ## Documentation
-Project documentation can be found [here](docs/README.md).
+Project documentation can be found [here](http://hyperledger-fabric.readthedocs.io/en/latest/).
 
 ## Still Have Questions?
 For general purpose questions, please use [StackOverflow](http://stackoverflow.com/questions/tagged/hyperledger).
