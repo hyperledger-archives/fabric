@@ -3173,7 +3173,7 @@ peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_comman
 <col>
 <col>
 <tr>
-<td width="50%"><img src="images/refarch-app.png"></td>
+<td width="50%"><img src="https://github.com/hyperledger/fabric/blob/master/docs/images/refarch-app.png"></td>
 <td valign="top">
 An application follows a MVC-B architecture – Model, View, Control, BlockChain.
 <p><p>
