@@ -18,7 +18,7 @@ package executor
 
 import (
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 	"github.com/hyperledger/fabric/core/peer/statetransfer"
 	pb "github.com/hyperledger/fabric/protos"
 
