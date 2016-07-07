@@ -59,8 +59,8 @@ message Register {
 //Rejection is sent by consumers for erroneous transaction rejection events
 //string type - "rejection"
 message Rejection {
-    string Uuid = 1;
-    string ErrorMsg = 2;
+    Transaction tx = 1;
+    string errorMsg = 2;
 }
 
 //---------- producer events ---------

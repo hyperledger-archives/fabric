@@ -31,6 +31,6 @@ func CreateChaincodeEvent(te *ehpb.ChaincodeEvent) *ehpb.Event {
 }
 
 //CreateRejectionEvent creates an Event from TxResults
-func CreateRejectionEvent(uuid string, errorMsg string) *ehpb.Event {
-	return &ehpb.Event{Event: &ehpb.Event_Rejection{Rejection: &ehpb.Rejection{Uuid: uuid, ErrorMsg: errorMsg}}}
+func CreateRejectionEvent(tx *ehpb.Transaction, errorMsg string) *ehpb.Event {
+	return &ehpb.Event{Event: &ehpb.Event_Rejection{Rejection: &ehpb.Rejection{Tx: tx, ErrorMsg: errorMsg}}}
 }
