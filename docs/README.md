@@ -18,7 +18,7 @@ If you are new to the project, you can begin by reviewing the following links. I
 - [Requirements WG](https://github.com/hyperledger/hyperledger/wiki/Requirements-WG): where the community is developing use cases and requirements
 - [Canonical use cases](biz/usecases.md)
 - [Glossary](glossary.md): to understand the terminology that we use throughout the Fabric project's documentation.
-- [Fabric FAQs](FAQ)
+- [Fabric FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
 - [Consensus Algorithms FAQ](FAQ/consensus_FAQ.md)
 
 ## Quickstart documentation
@@ -33,7 +33,7 @@ If you are new to the project, you can begin by reviewing the following links. I
 
 When you are ready to start building applications or to otherwise contribute to the project, we strongly recommend that you read our [protocol specification](protocol-spec.md) for the technical details. Procedurally, we use the agile methodology with a weekly sprint, organized by [issues](https://github.com/hyperledger/fabric/issues), so take a look to familiarize yourself with the current work.
 
-- [Making code contributions](../CONTRIBUTING.md) - First, you'll want to familiarize yourself with the project's contribution guidelines.
+- [Making code contributions](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md) - First, you'll want to familiarize yourself with the project's contribution guidelines.
 - [Setting up the development environment](dev-setup/devenv.md) - after that, you will want to set up your development environment.
 - [Building the fabric core](dev-setup/install.md#building-the-fabric-core-) - next, try building the project in your local development environment to ensure that everything is set up correctly.
 - [Building outside of Vagrant](dev-setup/install.md#building-outside-of-vagrant-) - for the adventurous, you might try to build outside of the standard Vagrant development environment.
