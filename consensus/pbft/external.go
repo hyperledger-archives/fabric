@@ -24,7 +24,7 @@ import (
 // --------------------------------------------------------------
 //
 // external contains all of the functions which
-// are intended to be called from outside of the obcpbft package
+// are intended to be called from outside of the pbft package
 //
 // --------------------------------------------------------------
 
