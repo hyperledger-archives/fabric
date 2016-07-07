@@ -28,7 +28,7 @@ import (
 func TestCBCPKCS7EncryptCBCPKCS7Decrypt(t *testing.T) {
 	// Encrypt with CBCPKCS7Encrypt and Decrypt with CBCPKCS7Decrypt
 	// The purpose of this test is not to test the implementation of the AES standard
-	// library but to verify the code wrapping the Cipher.
+	// library but to verify the code wrapping/unwrapping the AES cipher.
 
 	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
@@ -109,7 +109,6 @@ func TestPKCS7Padding(t *testing.T) {
 	}
 
 	// aes.BlockSize length message
-	// !! needs to be modified for PR2093
 	msg = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
 
 	result = primitives.PKCS7Padding(msg)
@@ -129,6 +128,8 @@ func TestPKCS7Padding(t *testing.T) {
 }
 
 func TestPKCS7UnPadding(t *testing.T) {
+	// Verify the PKCS7 unpadding, using a human readable plaintext.
+
 	// 0 byte/length message
 	expected := []byte("")
 	msg := []byte{16, 16, 16, 16,
@@ -186,7 +187,6 @@ func TestPKCS7UnPadding(t *testing.T) {
 	}
 
 	// aes.BlockSize length message
-	// !! needs to be modified for PR2093
 	expected = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
 
 	padding := bytes.Repeat([]byte{byte(aes.BlockSize)},
