@@ -47,6 +47,7 @@ const (
 	ChaincodeSpec_GOLANG    ChaincodeSpec_Type = 1
 	ChaincodeSpec_NODE      ChaincodeSpec_Type = 2
 	ChaincodeSpec_CAR       ChaincodeSpec_Type = 3
+	ChaincodeSpec_JAVA      ChaincodeSpec_Type = 4
 )
 
 var ChaincodeSpec_Type_name = map[int32]string{
@@ -54,12 +55,14 @@ var ChaincodeSpec_Type_name = map[int32]string{
 	1: "GOLANG",
 	2: "NODE",
 	3: "CAR",
+	4: "JAVA",
 }
 var ChaincodeSpec_Type_value = map[string]int32{
 	"UNDEFINED": 0,
 	"GOLANG":    1,
 	"NODE":      2,
 	"CAR":       3,
+	"JAVA":      4,
 }
 
 func (x ChaincodeSpec_Type) String() string {

@@ -25,7 +25,7 @@ import (
 )
 
 func TestStateSnapshotIterator(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateDelta := statemgmt.NewStateDelta()
 

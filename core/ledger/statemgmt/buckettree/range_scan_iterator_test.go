@@ -24,7 +24,7 @@ import (
 )
 
 func TestRangeScanIterator(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateDelta := statemgmt.NewStateDelta()
 
@@ -122,7 +122,7 @@ func TestRangeScanIterator(t *testing.T) {
 }
 
 func TestRangeScanIteratorEmptyArray(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateDelta := statemgmt.NewStateDelta()
 

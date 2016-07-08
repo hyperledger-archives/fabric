@@ -15,6 +15,7 @@
 #
 
 import os
+import os.path
 import re
 import time
 import copy
@@ -65,7 +66,7 @@ def parseComposeOutput(context):
     for containerName in containerNames:
     	output, error, returncode = \
         	bdd_test_util.cli_call(context, ["docker", "inspect", "--format",  "{{ .NetworkSettings.IPAddress }}", containerName], expect_success=True)
-        #print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
+        print("container {0} has address = {1}".format(containerName, output.splitlines()[0]))
         ipAddress = output.splitlines()[0]
 
         # Get the environment array
@@ -127,6 +128,14 @@ def step_impl(context, path, containerName):
     context.response = resp
     print("")
 
+@then(u'I should get a JSON response containing "{attribute}" attribute')
+def step_impl(context, attribute):
+    assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
+
+@then(u'I should get a JSON response containing no "{attribute}" attribute')
+def step_impl(context, attribute):
+    assert attribute not in context.response.json(), "Attribute found in response (%s)" %(attribute)
+
 @then(u'I should get a JSON response with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
     assert attribute in context.response.json(), "Attribute not found in response (%s)" %(attribute)
@@ -151,6 +160,42 @@ def step_impl(context, seconds):
 @then(u'I wait "{seconds}" seconds')
 def step_impl(context, seconds):
     time.sleep(float(seconds))
+
+@when(u'I deploy lang chaincode "{chaincodePath}" of "{chainLang}" with ctor "{ctor}" to "{containerName}"')
+def step_impl(context, chaincodePath, chainLang, ctor, containerName):
+    print("Printing chaincode language " + chainLang)
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
+    request_url = buildUrl(context, ipAddress, "/devops/deploy")
+    print("Requesting path = {0}".format(request_url))
+    args = []
+    if 'table' in context:
+       # There is ctor arguments
+       args = context.table[0].cells
+    #typeGolang =
+
+    # Create a ChaincodeSpec structure
+    chaincodeSpec = {
+        "type": chainLang,
+        "chaincodeID": {
+            "path" : chaincodePath,
+            "name" : ""
+        },
+        "ctorMsg":  {
+            "function" : ctor,
+            "args" : args
+        },
+    }
+    if 'userName' in context:
+        chaincodeSpec["secureContext"] = context.userName
+
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec), verify=False)
+    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
+    context.response = resp
+    chaincodeName = resp.json()['message']
+    chaincodeSpec['chaincodeID']['name'] = chaincodeName
+    context.chaincodeSpec = chaincodeSpec
+    print(json.dumps(chaincodeSpec, indent=4))
+    print("")
 
 
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
@@ -220,6 +265,10 @@ def step_impl(context, chaincodeName, functionName, containerName):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
     invokeChaincode(context, "invoke", functionName, containerName)
 
+@when(u'I invoke master chaincode "{chaincodeName}" function name "{functionName}" on "{containerName}"')
+def step_impl(context, chaincodeName, functionName, containerName):
+    invokeMasterChaincode(context, "invoke", chaincodeName, functionName, containerName)
+
 @then(u'I should have received a transactionID')
 def step_impl(context):
     assert 'transactionID' in context, 'transactionID not found in context'
@@ -236,7 +285,7 @@ def step_impl(context, chaincodeName, functionName, containerName):
 
 def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=None):
     assert 'chaincodeSpec' in context, "chaincodeSpec not found in context"
-    # Update hte chaincodeSpec ctorMsg for invoke
+    # Update the chaincodeSpec ctorMsg for invoke
     args = []
     if 'table' in context:
        # There is ctor arguments
@@ -261,6 +310,42 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=N
     if 'message' in resp.json():
         transactionID = context.response.json()['message']
         context.transactionID = transactionID
+
+def invokeMasterChaincode(context, devopsFunc, chaincodeName, functionName, containerName):
+    args = []
+    if 'table' in context:
+       args = context.table[0].cells
+    typeGolang = 1
+    chaincodeSpec = {
+        "type": typeGolang,
+        "chaincodeID": {
+            "name" : chaincodeName
+        },
+        "ctorMsg":  {
+            "function" : functionName,
+            "args" : args
+        }
+    }
+    if 'userName' in context:
+        chaincodeSpec["secureContext"] = context.userName
+
+    chaincodeInvocationSpec = {
+        "chaincodeSpec" : chaincodeSpec
+    }
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
+    request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
+    print("{0} POSTing path = {1}".format(currentTime(), request_url))
+
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
+    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
+    context.response = resp
+    print("RESULT from {0} of chaincode from peer {1}".format(functionName, containerName))
+    print(json.dumps(context.response.json(), indent = 4))
+    if 'message' in resp.json():
+        transactionID = context.response.json()['message']
+        context.transactionID = transactionID
+
+
 
 @then(u'I wait "{seconds}" seconds for chaincode to build')
 def step_impl(context, seconds):
@@ -390,6 +475,15 @@ def step_impl(context, seconds):
     print("Result of request to all peers = {0}".format(respMap))
     print("")
 
+
+@then(u'I should get a rejection message in the listener after stopping it')
+def step_impl(context):
+    assert "eventlistener" in context, "no eventlistener is started"
+    context.eventlistener.terminate()
+    output = context.eventlistener.stdout.read()
+    rejection = "Received rejected transaction"
+    assert rejection in output, "no rejection message was found"
+    assert output.count(rejection) == 1, "only one rejection message should be found"
 
 
 @when(u'I query chaincode "{chaincodeName}" function name "{functionName}" on all peers')
@@ -539,6 +633,16 @@ def step_impl(context):
 @given(u'I stop peers')
 def step_impl(context):
     compose_op(context, "stop")
+
+
+@given(u'I start a listener')
+def step_impl(context):
+    gopath = os.environ.get('GOPATH')
+    assert gopath is not None, "Please set GOPATH properly!"
+    listener = os.path.join(gopath, "src/github.com/hyperledger/fabric/build/docker/bin/block-listener")
+    assert os.path.isfile(listener), "Please build the block-listener binary!"
+    bdd_test_util.start_background_process(context, "eventlistener", [listener, "-listen-to-rejections"] )
+
 
 @given(u'I start peers')
 def step_impl(context):

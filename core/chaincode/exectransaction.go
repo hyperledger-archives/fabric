@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -135,16 +136,23 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 //will return an array of errors one for each transaction. If the execution
 //succeeded, array element will be nil. returns []byte of state hash or
 //error
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (stateHash []byte, ccevents []*pb.ChaincodeEvent, txerrs []error, err error) {
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (succeededTXs []*pb.Transaction, stateHash []byte, ccevents []*pb.ChaincodeEvent, txerrs []error, err error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
+
 	txerrs = make([]error, len(xacts))
 	ccevents = make([]*pb.ChaincodeEvent, len(xacts))
+	var succeededTxs = make([]*pb.Transaction, 0)
 	for i, t := range xacts {
 		_, ccevents[i], txerrs[i] = Execute(ctxt, chain, t)
+		if txerrs[i] == nil {
+			succeededTxs = append(succeededTxs, t)
+		} else {
+			sendTxRejectedEvent(xacts[i], txerrs[i].Error())
+		}
 	}
 
 	var lgr *ledger.Ledger
@@ -152,7 +160,8 @@ func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Tran
 	if err == nil {
 		stateHash, err = lgr.GetTempStateHash()
 	}
-	return stateHash, ccevents, txerrs, err
+
+	return succeededTxs, stateHash, ccevents, txerrs, err
 }
 
 // GetSecureContext returns the security context from the context object or error
@@ -203,4 +212,8 @@ func markTxFinish(ledger *ledger.Ledger, t *pb.Transaction, successful bool) {
 		return
 	}
 	ledger.TxFinished(t.Uuid, successful)
+}
+
+func sendTxRejectedEvent(tx *pb.Transaction, errorMsg string) {
+	producer.Send(producer.CreateRejectionEvent(tx, errorMsg))
 }

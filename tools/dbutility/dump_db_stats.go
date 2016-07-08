@@ -64,7 +64,7 @@ func main() {
 	}
 
 	openchainDB := db.GetDBHandle()
-	defer openchainDB.CloseDB()
+	defer openchainDB.Close()
 	fmt.Println()
 	scan(openchainDB, "blockchainCF", openchainDB.BlockchainCF, blockDetailPrinter)
 	fmt.Println()

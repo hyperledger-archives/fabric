@@ -39,7 +39,7 @@ func testDetailPrinter(data []byte) {
 
 func TestDBStatsOversizedKV(t *testing.T) {
 	dbTestWrapper := db.NewTestDBWrapper()
-	dbTestWrapper.CreateFreshDB(t)
+	dbTestWrapper.CleanDB(t)
 	defer dbTestWrapper.CloseDB(t)
 	defer deleteTestDBDir()
 

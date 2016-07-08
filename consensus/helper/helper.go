@@ -180,10 +180,11 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
 
-	res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
-	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
+	succeededTxs, res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
 
-	//copy errs to results
+	h.curBatch = append(h.curBatch, succeededTxs...) // TODO, remove after issue 579
+
+	//copy errs to result
 	txresults := make([]*pb.TransactionResult, len(txerrs))
 
 	//process errors for each transaction

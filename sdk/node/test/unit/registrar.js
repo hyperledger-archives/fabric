@@ -18,7 +18,7 @@
  * © Copyright IBM Corp. 2016
  */
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -52,11 +52,11 @@ function registrarTest(cb) {
    //
    // Create and configure the test chain
    //
-   var chain = hlc.newChain("testChain");
+   var chain = hfc.newChain("testChain");
    var expect="";
    var found="";
 
-   chain.setKeyValStore(hlc.newFileKeyValStore(keyValStorePath));
+   chain.setKeyValStore(hfc.newFileKeyValStore(keyValStorePath));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       if (err) return cb(err);
@@ -116,8 +116,8 @@ function enrollAgain(cb) {
    // This is necessary to start without a local cache.
    //
    fs.renameSync(keyValStorePath,keyValStorePath2);
-   var chain = hlc.newChain("testChain2");
-   chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+   var chain = hfc.newChain("testChain2");
+   chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       rmdir(keyValStorePath);

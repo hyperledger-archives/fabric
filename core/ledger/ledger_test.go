@@ -706,40 +706,6 @@ func TestGetTransactionByUUID(t *testing.T) {
 	testutil.AssertNil(t, ledgerTransaction)
 }
 
-func TestTransactionResult(t *testing.T) {
-	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
-	ledger := ledgerTestWrapper.ledger
-
-	// Block 0
-	ledger.BeginTxBatch(0)
-	ledger.TxBegin("txUuid1")
-	ledger.SetState("chaincode1", "key1", []byte("value1A"))
-	ledger.SetState("chaincode2", "key2", []byte("value2A"))
-	ledger.SetState("chaincode3", "key3", []byte("value3A"))
-	ledger.TxFinished("txUuid1", true)
-	transaction, uuid := buildTestTx(t)
-
-	transactionResult := &protos.TransactionResult{Uuid: uuid, ErrorCode: 500, Error: "bad"}
-
-	ledger.CommitTxBatch(0, []*protos.Transaction{transaction}, []*protos.TransactionResult{transactionResult}, []byte("proof"))
-
-	block := ledgerTestWrapper.GetBlockByNumber(0)
-
-	nonHashData := block.GetNonHashData()
-	if nonHashData == nil {
-		t.Fatal("Expected block to have non hash data, but non hash data was nil.")
-	}
-
-	if nonHashData.TransactionResults == nil || len(nonHashData.TransactionResults) == 0 {
-		t.Fatal("Expected block to have non hash data transaction results.")
-	}
-
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Uuid, uuid)
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].Error, "bad")
-	testutil.AssertEquals(t, nonHashData.TransactionResults[0].ErrorCode, uint32(500))
-
-}
-
 func TestRangeScanIterator(t *testing.T) {
 	ledgerTestWrapper := createFreshDBAndTestLedgerWrapper(t)
 	ledger := ledgerTestWrapper.ledger

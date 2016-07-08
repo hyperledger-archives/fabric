@@ -40,6 +40,7 @@ It has these top-level messages:
 	ChaincodeReg
 	Interest
 	Register
+	Rejection
 	Event
 	Transaction
 	TransactionBlock

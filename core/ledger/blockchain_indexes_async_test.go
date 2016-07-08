@@ -74,7 +74,7 @@ func TestIndexesAsync_IndexingErrorScenario(t *testing.T) {
 	indexBlockDataSynchronously = false
 	defer func() { indexBlockDataSynchronously = defaultSetting }()
 
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	chain := testBlockchainWrapper.blockchain
 	asyncIndexer, _ := chain.indexer.(*blockchainIndexerAsync)
@@ -117,7 +117,7 @@ func TestIndexesAsync_ClientWaitScenario(t *testing.T) {
 	indexBlockDataSynchronously = false
 	defer func() { indexBlockDataSynchronously = defaultSetting }()
 
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 
@@ -175,7 +175,7 @@ func TestIndexesAsync_IndexPendingBlocks(t *testing.T) {
 	indexBlockDataSynchronously = false
 	defer func() { indexBlockDataSynchronously = defaultSetting }()
 
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
 
 	// stop the original indexer and change the indexer to Noop - so, no block is indexed

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 
 	pb "github.com/hyperledger/fabric/protos"
 
