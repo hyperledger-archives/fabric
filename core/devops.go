@@ -213,13 +213,12 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var customIDgenAlg = strings.ToLower(chaincodeInvocationSpec.IdGenerationAlg)
 	var id string
 	var generr error
-	if customIDgenAlg != "" {
-		id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
-		if generr != nil {
-			return nil, generr
-		}
-	} else {
-		id = util.GenerateUUID()
+	if customIDgenAlg == "" {
+		customIDgenAlg = "sha256base64"
+	}
+	id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+	if generr != nil {
+		return nil, generr
 	}
 	devopsLogger.Infof("Transaction ID: %v", id)
 	var transaction *pb.Transaction
@@ -448,7 +447,11 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
 		}
 
-		tid := util.GenerateUUID()
+		customIDgenAlg := "sha256base64"
+		tid, generr := util.GenerateIDWithAlg(customIDgenAlg, executeWithBinding.ChaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+		if generr != nil {
+			return nil, fmt.Errorf("Error: cannot generate TX ID (executing with binding)")
+		}
 
 		tx, err := txHandler.NewChaincodeExecute(executeWithBinding.ChaincodeInvocationSpec, tid)
 		if err != nil {

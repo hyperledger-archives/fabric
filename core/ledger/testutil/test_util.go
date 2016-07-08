@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric/core/util"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 type TestRandomNumberGenerator struct {
@@ -179,9 +180,13 @@ func AppendAll(content ...[]byte) []byte {
 	return combinedContent
 }
 
-func GenerateUUID(t *testing.T) string {
-	uuid := util.GenerateUUID()
-	return uuid
+func GenerateID(t *testing.T, chaincodeInvocationSpec *pb.ChaincodeInvocationSpec) string {
+	customIDgenAlg := "sha256base64"
+	id, generr := util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+	if generr != nil {
+		panic("Unable to generate TX ID")
+	}
+	return id
 }
 
 func ConstructRandomBytes(t testing.TB, size int) []byte {
