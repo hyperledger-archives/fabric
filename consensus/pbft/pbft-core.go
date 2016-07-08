@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
 	"encoding/base64"
@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 	_ "github.com/hyperledger/fabric/core" // Needed for logging format init
 
 	"github.com/golang/protobuf/proto"
@@ -40,7 +40,7 @@ import (
 var logger *logging.Logger // package-level logger
 
 func init() {
-	logger = logging.MustGetLogger("consensus/obcpbft")
+	logger = logging.MustGetLogger("consensus/pbft")
 }
 
 const (

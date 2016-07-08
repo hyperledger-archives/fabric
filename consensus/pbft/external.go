@@ -14,17 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 // --------------------------------------------------------------
 //
 // external contains all of the functions which
-// are intended to be called from outside of the obcpbft package
+// are intended to be called from outside of the pbft package
 //
 // --------------------------------------------------------------
 

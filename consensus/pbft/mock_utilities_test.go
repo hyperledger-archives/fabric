@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 
 	gp "google/protobuf"
