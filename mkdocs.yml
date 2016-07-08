@@ -2,11 +2,7 @@ site_name: Hyperledger Fabric
 site_url: http://hyperledger-fabric.readthedocs.io
 theme: readthedocs
 repo_url: https://github.com/hyperledger/fabric
-site_description: 'Welcome to the Hyperledger fabric documentation'
-
-markdown_extensions:
-# Convert ASCII dashes, quotes to HTML entity
-- smarty
+site_description: 'Welcome to the hyperledger fabric documentation'
 
 pages:
 - HOME: index.md
@@ -48,8 +44,10 @@ markdown_extensions:
   - tables
   - toc
   - fenced_code
+  - smarty
   - mdx_math:
       enable_dollar_delimiter: True #for use of inline $..$  
   - footnotes
 
-copyright: Copyright &copy; 2016 <a href="https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt">IBM Corp.</a> <br></br>Contributed to the Hyperledger Project under the Apache Software License 2.0
+copyright: Copyright &copy; 2016 <a href="https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt" target="_blank">IBM Corp.</a> <br></br> Contributed to the Hyperledger Project under the <a href="https://github.com/hyperledger/fabric/blob/master/LICENSE" target="_blank">Apache Software License 2.0</a>
+

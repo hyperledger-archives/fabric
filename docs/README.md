@@ -18,7 +18,7 @@ When you are ready to start building applications or to otherwise contribute to 
 ## Quickstart documentation
 In addition to the <b>Getting started</b> documentation, the following quickstart topics are available:
 
-- [Fabric FAQs](FAQ)
+- [Fabric FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
 - [Canonical use cases](biz/usecases.md)
 - [Development environment set-up](dev-setup/devenv.md)
 - [Chaincode development environment](API/SandboxSetup.md)
@@ -34,9 +34,9 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 - [Hyperledger project](https://github.com/hyperledger/hyperledger)
 - [Whitepaper](https://github.com/hyperledger/hyperledger/wiki/Whitepaper-WG)
-- [Fabric README](../README.md)
+- [Fabric README](https://github.com/hyperledger/fabric/blob/master/README.md)
 - [Glossary](glossary.md) 
-- [Figures & Diagrams](/docs/images/) 
+- [Figures & Diagrams](https://github.com/hyperledger/fabric/tree/master/docs/images) 
 - [Protocol specification](protocol-spec.md):
      - Introduction (fabric, terminology)
      - Fabric: 
@@ -51,11 +51,11 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
 
 ### Reference docs:
 
-- [Contributing](../CONTRIBUTING.md)
-- [Communicating](../README.md#communication-)
+- [Contributing](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md)
+- [Communicating](https://github.com/hyperledger/fabric/blob/master/README.md#communication-)
 - [Project Lifecycle](https://github.com/hyperledger/hyperledger/wiki/Project-Lifecycle)
-- [License](../LICENSE)
-- [Maintainers](../MAINTAINERS.txt)
+- [License](https://github.com/hyperledger/fabric/blob/master/LICENSE)
+- [Maintainers](https://github.com/hyperledger/fabric/blob/master/MAINTAINERS.txt)
 
 ### API and chaincode developer docs:
 
@@ -65,7 +65,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Steps (GOPATH, Windows, Clone Peer, VM Vagrant
 - [Building the fabric core](dev-setup/install.md#building-the-fabric-core-)
 - [Building outside of Vagrant](dev-setup/install.md#building-outside-of-vagrant-)
-- [Code contributions](../CONTRIBUTING.md)
+- [Code contributions](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md)
 - [Coding Golang](dev-setup/install.md#coding-golang-)
 - [Headers](dev-setup/headers.txt)
 - [Writing Chaincode](dev-setup/install.md#writing-chaincode-)
@@ -90,7 +90,7 @@ Overview docs; Reference docs; API and chaincode developer docs; Network operati
      - Go 
 - [Generating grpc code](dev-setup/install.md#generating-grpc-code-)
 - [Adding or updating Go packages](dev-setup/install.md#adding-or-updating-go-packages-)
-- [SDK](wiki-images)
+- [SDK](https://github.com/hyperledger/fabric/tree/master/docs/wiki-images)
 
 ### Network operations docs:
 
