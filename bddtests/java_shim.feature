@@ -27,10 +27,9 @@ Feature: SimpleSample Java example
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  a |
-      	    Then I should get a JSON response with "result.message" = "{u'Amount': u'100', u'Name': u'a'}"
+      	    Then I should get a JSON response with "result.message" = "{'Name':'a','Amount':'100'}"
 
-
-              When I invoke chaincode "example2" function name "transfer" on "vp0"
+            When I invoke chaincode "example2" function name "transfer" on "vp0"
       			|arg1|arg2|arg3|
       			| a  | b  | 10 |
       	    Then I should have received a transactionID
@@ -42,9 +41,9 @@ Feature: SimpleSample Java example
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  a |
-      	    Then I should get a JSON response with "result.message" = "{u'Amount': u'90', u'Name': u'a'}"
+      	    Then I should get a JSON response with "result.message" = "{'Name':'a','Amount':'90'}"
 
               When I query chaincode "example2" function name "query" on "vp0":
                   |arg1|
                   |  b |
-      	    Then I should get a JSON response with "result.message" = "{u'Amount': u'210', u'Name': u'b'}"
+      	    Then I should get a JSON response with "result.message" = "{'Name':'b','Amount':'210'}"

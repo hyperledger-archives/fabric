@@ -150,10 +150,14 @@ def getHierarchyAttributesFromJSON(attributes, jsonObject, msg):
         return getHierarchyAttributesFromJSON(attributes[1:], jsonObject[attributes[0]], msg)
     return jsonObject
 
+def formatStringToCompare(value):
+    # double quotes are replaced by simple quotes because is not possible escape double quotes in the attribute parameters.
+    return str(value).replace("\"", "'")
+
 @then(u'I should get a JSON response with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
     foundValue = getAttributeFromJSON(attribute, context.response.json(), "Attribute not found in response (%s)" %(attribute))
-    assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+    assert (formatStringToCompare(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
 
 @then(u'I should get a JSON response with array "{attribute}" contains "{expectedValue}" elements')
 def step_impl(context, attribute, expectedValue):
@@ -172,6 +176,19 @@ def step_impl(context, seconds):
 def step_impl(context, seconds):
     time.sleep(float(seconds))
 
+def getChaincodeTypeValue(chainLang):
+    if chainLang == "GOLANG":
+        return 1
+    elif chainLang =="JAVA":
+        return 4
+    elif chainLang == "NODE":
+        return 2
+    elif chainLang == "CAR":
+        return 3
+    elif chainLang == "UNDEFINED":
+        return 0
+    return 1
+
 @when(u'I deploy lang chaincode "{chaincodePath}" of "{chainLang}" with ctor "{ctor}" to "{containerName}"')
 def step_impl(context, chaincodePath, chainLang, ctor, containerName):
     print("Printing chaincode language " + chainLang)
@@ -186,7 +203,7 @@ def step_impl(context, chaincodePath, chainLang, ctor, containerName):
 
     # Create a ChaincodeSpec structure
     chaincodeSpec = {
-        "type": chainLang,
+        "type": getChaincodeTypeValue(chainLang),
         "chaincodeID": {
             "path" : chaincodePath,
             "name" : ""
@@ -407,6 +424,7 @@ def invokeMasterChaincode(context, devopsFunc, chaincodeName, functionName, cont
         result = resp.json()['result']
         if 'message' in result:
             transactionID = result['message']
+            context.transactionID = transactionID
 
 @then(u'I wait "{seconds}" seconds for chaincode to build')
 def step_impl(context, seconds):
@@ -614,7 +632,7 @@ def step_impl(context, attribute, expectedValue):
     assert 'responses' in context, "responses not found in context"
     for resp in context.responses:
         foundValue = getAttributeFromJSON(attribute, resp.json(), "Attribute not found in response (%s)" %(attribute))
-        assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+        assert (formatStringToCompare(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
 
 @then(u'I should get a JSON response from peers with "{attribute}" = "{expectedValue}"')
 def step_impl(context, attribute, expectedValue):
@@ -624,7 +642,7 @@ def step_impl(context, attribute, expectedValue):
 
     for resp in context.responses:
         foundValue = getAttributeFromJSON(attribute, resp.json(), "Attribute not found in response (%s)" %(attribute))
-        assert (str(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
+        assert (formatStringToCompare(foundValue) == expectedValue), "For attribute %s, expected (%s), instead found (%s)" % (attribute, expectedValue, foundValue)
 
 @given(u'I register with CA supplying username "{userName}" and secret "{secret}" on peers')
 def step_impl(context, userName, secret):
