@@ -176,7 +176,7 @@ def step_impl(context, seconds):
 def step_impl(context, chaincodePath, chainLang, ctor, containerName):
     print("Printing chaincode language " + chainLang)
     ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(context, ipAddress, "/devops/deploy")
+    request_url = buildUrl(context, ipAddress, "/chaincode")
     print("Requesting path = {0}".format(request_url))
     args = []
     if 'table' in context:
@@ -199,15 +199,16 @@ def step_impl(context, chaincodePath, chainLang, ctor, containerName):
     if 'userName' in context:
         chaincodeSpec["secureContext"] = context.userName
 
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeSpec), verify=False)
+    chaincodeOpPayload = createChaincodeOpPayload("deploy", chaincodeSpec)
+
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeOpPayload), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
     context.response = resp
-    chaincodeName = resp.json()['message']
+    chaincodeName = resp.json()['result']['message']
     chaincodeSpec['chaincodeID']['name'] = chaincodeName
     context.chaincodeSpec = chaincodeSpec
     print(json.dumps(chaincodeSpec, indent=4))
     print("")
-
 
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
 def step_impl(context, chaincodePath, ctor, containerName):
@@ -391,23 +392,21 @@ def invokeMasterChaincode(context, devopsFunc, chaincodeName, functionName, cont
     if 'userName' in context:
         chaincodeSpec["secureContext"] = context.userName
 
-    chaincodeInvocationSpec = {
-        "chaincodeSpec" : chaincodeSpec
-    }
+    chaincodeOpPayload = createChaincodeOpPayload(devopsFunc, chaincodeSpec)
+
     ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(context, ipAddress, "/devops/{0}".format(devopsFunc))
+    request_url = buildUrl(context, ipAddress, "/chaincode")
     print("{0} POSTing path = {1}".format(currentTime(), request_url))
 
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeInvocationSpec), verify=False)
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeOpPayload), verify=False)
     assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
     context.response = resp
     print("RESULT from {0} of chaincode from peer {1}".format(functionName, containerName))
     print(json.dumps(context.response.json(), indent = 4))
-    if 'message' in resp.json():
-        transactionID = context.response.json()['message']
-        context.transactionID = transactionID
-
-
+    if 'result' in resp.json():
+        result = resp.json()['result']
+        if 'message' in result:
+            transactionID = result['message']
 
 @then(u'I wait "{seconds}" seconds for chaincode to build')
 def step_impl(context, seconds):
