@@ -111,7 +111,7 @@ func TestQueryGetTranExisting(t *testing.T) {
 type mockLedger struct {
 }
 
-func (ml mockLedger) GetTransactionByUUID(txUUID string) (*protos.Transaction, error) {
+func (ml mockLedger) GetTransactionByID(txUUID string) (*protos.Transaction, error) {
 	if txUUID == "noSuchTX" {
 		return nil, fmt.Errorf("Some error")
 	}

@@ -193,7 +193,7 @@ func (d *Devops) Deploy(ctx context.Context, spec *pb.ChaincodeSpec) (*pb.Chainc
 	}
 
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
-		devopsLogger.Debugf("Sending deploy transaction (%s) to validator", tx.Uuid)
+		devopsLogger.Debugf("Sending deploy transaction (%s) to validator", tx.Txid)
 	}
 	resp := d.coord.ExecuteTransaction(tx)
 	if resp.Status == pb.Response_FAILURE {
@@ -242,7 +242,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 		return nil, err
 	}
 	if devopsLogger.IsEnabledFor(logging.DEBUG) {
-		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Uuid)
+		devopsLogger.Debugf("Sending invocation transaction (%s) to validator", transaction.Txid)
 	}
 	resp := d.coord.ExecuteTransaction(transaction)
 	if resp.Status == pb.Response_FAILURE {
