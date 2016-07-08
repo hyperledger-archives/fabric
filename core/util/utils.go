@@ -104,7 +104,7 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 // GenerateIDfromTxSHAHash generates SHA256 hash using Tx payload
 func GenerateIDfromTxSHAHash(txData []byte) string {
 	txHash := sha256.Sum256(txData)
-	return idBytesToStr(txHash[0:16])
+	return fmt.Sprintf("%x", txHash)
 }
 
 // GenerateIDWithAlg generates an ID using a custom algorithm
