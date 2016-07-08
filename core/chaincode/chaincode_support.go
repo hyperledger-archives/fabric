@@ -509,7 +509,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 	//launch container if it is a System container or not in dev mode
 	if (!chaincodeSupport.userRunsCC || cds.ExecEnv == pb.ChaincodeDeploymentSpec_SYSTEM) && (chrte == nil || chrte.handler == nil) {
 		var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
-		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid, cLang, targz)
+		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Txid, cLang, targz)
 		if err != nil {
 			chaincodeLogger.Errorf("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
@@ -518,7 +518,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 
 	if err == nil {
 		//send init (if (f,args)) and wait for ready state
-		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t, depTx)
+		err = chaincodeSupport.sendInitOrReady(context, t.Txid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t, depTx)
 		if err != nil {
 			chaincodeLogger.Errorf("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)

@@ -93,7 +93,7 @@ func addIndexDataForPersistence(block *protos.Block, blockNumber uint64, blockHa
 	transactions := block.GetTransactions()
 	for txIndex, tx := range transactions {
 		// add TxID -> (blockNumber,indexWithinBlock)
-		writeBatch.PutCF(cf, encodeTxIDKey(tx.Uuid), encodeBlockNumTxIndex(blockNumber, uint64(txIndex)))
+		writeBatch.PutCF(cf, encodeTxIDKey(tx.Txid), encodeBlockNumTxIndex(blockNumber, uint64(txIndex)))
 
 		txExecutingAddress := getTxExecutingAddress(tx)
 		addressToTxIndexesMap[txExecutingAddress] = append(addressToTxIndexesMap[txExecutingAddress], uint64(txIndex))

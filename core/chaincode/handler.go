@@ -1077,7 +1077,7 @@ func (handler *Handler) enterBusyState(e *fsm.Event, state string) {
 			// TODO: Need to handle timeout correctly
 			timeout := time.Duration(30000) * time.Millisecond
 
-			ccMsg, _ := createTransactionMessage(transaction.Uuid, chaincodeInput)
+			ccMsg, _ := createTransactionMessage(transaction.Txid, chaincodeInput)
 
 			// Execute the chaincode
 			//NOTE: when confidential C-call-C is understood, transaction should have the correct sec context for enc/dec
@@ -1355,7 +1355,7 @@ func (handler *Handler) handleQueryChaincode(msg *pb.ChaincodeMessage) {
 		// TODO: Need to handle timeout correctly
 		timeout := time.Duration(30000) * time.Millisecond
 
-		ccMsg, _ := createQueryMessage(transaction.Uuid, chaincodeInput)
+		ccMsg, _ := createQueryMessage(transaction.Txid, chaincodeInput)
 
 		// Query the chaincode
 		//NOTE: when confidential C-call-C is understood, transaction should have the correct sec context for enc/dec
