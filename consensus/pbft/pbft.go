@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
 	"fmt"
@@ -72,13 +72,13 @@ func loadConfig() (config *viper.Viper) {
 
 	config.SetConfigName("config")
 	config.AddConfigPath("./")
-	config.AddConfigPath("../consensus/obcpbft/")
-	config.AddConfigPath("../../consensus/obcpbft")
+	config.AddConfigPath("../consensus/pbft/")
+	config.AddConfigPath("../../consensus/pbft")
 	// Path to look for the config file in based on GOPATH
 	gopath := os.Getenv("GOPATH")
 	for _, p := range filepath.SplitList(gopath) {
-		obcpbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/obcpbft")
-		config.AddConfigPath(obcpbftpath)
+		pbftpath := filepath.Join(p, "src/github.com/hyperledger/fabric/consensus/pbft")
+		config.AddConfigPath(pbftpath)
 	}
 
 	err := config.ReadInConfig()

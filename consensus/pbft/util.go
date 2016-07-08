@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
 	"encoding/base64"

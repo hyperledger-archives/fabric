@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package obcpbft
+package pbft
 
 import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
 
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 )
 
 // viewChangeQuorumEvent is returned to the event loop when a new ViewChange message is received which is part of a quorum cert
