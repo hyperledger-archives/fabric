@@ -212,7 +212,7 @@ func (chaincodeSupport *ChaincodeSupport) registerHandler(chaincodehandler *Hand
 
 	//now we are ready to receive messages and send back responses
 	chaincodehandler.txCtxs = make(map[string]*transactionContext)
-	chaincodehandler.uuidMap = make(map[string]bool)
+	chaincodehandler.txidMap = make(map[string]bool)
 	chaincodehandler.isTransaction = make(map[string]bool)
 
 	chaincodeLogger.Debugf("registered handler complete for chaincode %s", key)
@@ -481,7 +481,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		}
 
 		//hopefully we are restarting from existing image and the deployed transaction exists
-		depTx, ledgerErr = ledger.GetTransactionByUUID(chaincode)
+		depTx, ledgerErr = ledger.GetTransactionByID(chaincode)
 		if ledgerErr != nil {
 			return cID, cMsg, fmt.Errorf("Could not get deployment transaction for %s - %s", chaincode, ledgerErr)
 		}

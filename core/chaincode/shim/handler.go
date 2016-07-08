@@ -54,7 +54,7 @@ type Handler struct {
 	// Multiple queries (and one transaction) with different Uuids can be executing in parallel for this chaincode
 	// responseChannel is the channel on which responses are communicated by the shim to the chaincodeStub.
 	responseChannel map[string]chan pb.ChaincodeMessage
-	// Track which UUIDs are transactions and which are queries, to decide whether get/put state and invoke chaincode are allowed.
+	// Track which TXIDs are transactions and which are queries, to decide whether get/put state and invoke chaincode are allowed.
 	isTransaction map[string]bool
 	nextState     chan *nextStateInfo
 }
@@ -120,21 +120,21 @@ func (handler *Handler) deleteChannel(uuid string) {
 	}
 }
 
-// markIsTransaction marks a UUID as a transaction or a query; true = transaction, false = query
-func (handler *Handler) markIsTransaction(uuid string, isTrans bool) bool {
+// markIsTransaction marks a TXID as a transaction or a query; true = transaction, false = query
+func (handler *Handler) markIsTransaction(txid string, isTrans bool) bool {
 	if handler.isTransaction == nil {
 		return false
 	}
 	handler.Lock()
 	defer handler.Unlock()
-	handler.isTransaction[uuid] = isTrans
+	handler.isTransaction[txid] = isTrans
 	return true
 }
 
-func (handler *Handler) deleteIsTransaction(uuid string) {
+func (handler *Handler) deleteIsTransaction(txid string) {
 	handler.Lock()
 	if handler.isTransaction != nil {
-		delete(handler.isTransaction, uuid)
+		delete(handler.isTransaction, txid)
 	}
 	handler.Unlock()
 }
