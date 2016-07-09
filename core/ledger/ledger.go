@@ -180,6 +180,10 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	ledger.blockchain.blockPersistenceStatus(true)
 
 	sendProducerBlockEvent(block)
+
+	//send chaincode events from transaction results
+	sendChaincodeEvents(transactionResults)
+
 	if len(transactionResults) != 0 {
 		ledgerLogger.Debug("There were some erroneous transactions. We need to send a 'TX rejected' message here.")
 	}
@@ -490,4 +494,15 @@ func sendProducerBlockEvent(block *protos.Block) {
 	}
 
 	producer.Send(producer.CreateBlockEvent(block))
+}
+
+//send chaincode events created by transactions
+func sendChaincodeEvents(trs []*protos.TransactionResult) {
+	if trs != nil {
+		for _, tr := range trs {
+			if tr.ChaincodeEvent != nil {
+				producer.Send(producer.CreateChaincodeEvent(tr.ChaincodeEvent))
+			}
+		}
+	}
 }
