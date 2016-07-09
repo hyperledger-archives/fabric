@@ -1,31 +1,70 @@
-## Setting Up a Network For Development
+## Setting Up a Network
 
-This document covers setting up a network on your local machine for development using Docker containers.
+This document covers setting up a network on your local machine for various development and testing activities. Unless you are intending to contribute to the development of the Hyperledger Fabric project, you'll probably want to follow the more commonly used approach below - [leveraging published Docker images](#leveraging-published Docker-images) for the various Hyperledger Fabric components, directly. Otherwise, skip down to the [secondary approach](#building-your-own-images) below.
 
-All commands should be run from within the Vagrant environment described in [Setting Up Development Environment](devenv.md).
-See [Logging Control](logging-control.md) for information on controlling
-logging output from the `peer` and chaincodes.
+### Leveraging published Docker images
 
+This approach simply leverages the Docker images that the Hyperledger Fabric project publishes to [DockerHub](https://hub.docker.com/u/hyperledger/dashboard/) and either Docker commands or Docker Compose descriptions of the network one wishes to create.
 
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca. Furthermore, if you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
+#### Installing Docker
 
-### Setting up Docker image
-To create a Docker image for the `hyperledger/fabric`, first clean out any active containers (hyperledger/fabric-peer and chaincode) using `docker ps -a` and `docker rm` commands. Second, remove any old images with `docker images` and `docker rmi` commands. **Careful:** Do not remove any other images (like busybox or hyperledger/fabric-baseimage) as they are needed for a correct execution.
+With this approach, there are multiple choices as to how to run Docker. Using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between the two when it comes to configuring a peer network. We'll call those out where appropriate, below when we get to the point of actually running the various components.
 
-Now we are ready to build a new docker image:
+Once you have Docker (1.11 or greater) installed and running, and
+before starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
 
 ```
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make peer-image
+$ docker pull hyperledger/fabric-peer:latest
+...
+Digest: sha256:3c4cf3888de72ad2c634daf94235ffc3c096c11e1b4145d0fa6f2917e26958e8
+Status: Downloaded newer image for hyperledger/fabric-peer:latest
+$ docker pull hyperledger/fabric-membersrvc:latest
+...
+Digest: sha256:0f28776f4de0f015b78ede6b936cd74a36e8fa9dddb743fa219f23a02d5f66b2
+Status: Downloaded newer image for hyperledger/fabric-membersrvc:latest
 ```
 
-Check the available images again with `docker images`, and you should see `hyperledger/fabric-peer` image.
+### Building your own images
+
+**Note:** _This approach is not necessarily recommended for most users_. If you have pulled images from DockerHub as described in the previous section, you may proceed to the [next step](#Starting-up-validating-peers).
+
+The second approach would be to leverage the [development environment](devenv.md) setup (which we will assume you have already established) to build and deploy your own binaries and/or Docker images from a clone of the [hyperledger/fabric](https://github.com/hyperledger/fabric) GitHub repository. This approach is suitable for developers that might wish to contribute directly to the Hyperledger Fabric project, or that wish to deploy from a fork of the Hyperledger code base.
+
+The following commands should be run from _within_ the Vagrant environment described in [Setting Up Development Environment](devenv.md).
+
+To create the Docker image for the `hyperledger/fabric-peer`:
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric
+make peer-image
+```
+
+To create the Docker image for the `hyperledger/fabric-membersrvc`:
+
+```
+make membersrvc-image
+```
 
 ### Starting up validating peers
-From the Vagrant environment, find out which IP address your docker0 interface is on with `ip add` command. For example,
+
+Check the available images again with `docker images`. You should see `hyperledger/fabric-peer` and `hyperledger/fabric-membersrvc` images. For example,
 
 ```
-vagrant@vagrant-ubuntu-trusty-64:/opt/gopath/src/github.com/hyperledger/fabric$ ip add
+$ docker images
+REPOSITORY                      TAG                 IMAGE ID            CREATED             SIZE
+hyperledger/fabric-membersrvc   latest              7d5f6e0bcfac        12 days ago         1.439 GB
+hyperledger/fabric-peer         latest              82ef20d7507c        12 days ago         1.445 GB
+```
+If you don't see these, go back to the previous step.
+
+With the relevant Docker images in hand, we can start running the peer and membersrvc services.
+
+#### Determine value for CORE_VM_ENDPOINT variable
+
+Next, we need to determine the address of your docker daemon for the CORE_VM_ENDPOINT. If you are working within the Vagrant development environment, or a Docker Toolbox environment, you can determine this with the `ip add` command. For example,
+
+```
+$ ip add
 
 <<< detail removed >>>
 
@@ -37,32 +76,125 @@ vagrant@vagrant-ubuntu-trusty-64:/opt/gopath/src/github.com/hyperledger/fabric$ 
        valid_lft forever preferred_lft forever
 ```
 
-Your output might contain something like `inet 172.17.0.1/16 scope global docker0`. That means docker0 interface is on IP address 172.17.0.1. Use that IP address for the `CORE_VM_ENDPOINT` option. For more information on the environment variables, see `core.yaml` configuration file in the `fabric` repository.
+Your output might contain something like `inet 172.17.0.1/16 scope global docker0`. That means the docker0 interface is on IP address 172.17.0.1. Use that IP address for the `CORE_VM_ENDPOINT` option. For more information on the environment variables, see `core.yaml` configuration file in the `fabric` repository.
 
-The ID value of `CORE_PEER_ID` must be lowercase since we use the ID as part of chaincode containers we build, and docker does not accept uppercase. The ID must also be unique for each validating peer.
+If you are using the native Docker for Mac or Windows, the value for `CORE_VM_ENDPOINT` should be set to `unix:///var/run/docker.sock`. \[TODO] double check this
 
-By default, we are using a consensus plugin called `NOOPS`, which doesn't really do consensus. If you want to use some other consensus plugin, see Using Consensus Plugin section at the end of the document.
+#### Assigning a value for CORE_PEER_ID
 
-#### Start up the first validating peer:
+The ID value of `CORE_PEER_ID` must be unique for each validating peer, and it must be a lowercase string. We often use a convention of naming the validating peers vpN where N is an integer starting with 0 for the root node and incrementing N by 1 for each additional peer node started. eg. vp0, vp1, vp2, ...
+
+#### Consensus
+
+By default, we are using a consensus plugin called `NOOPS`, which doesn't really do consensus. If you are running a single peer node, running anything other than `NOOPS` makes little sense. If you want to use some other consensus plugin in the context of multiple peer nodes, please see the [Using a Consensus Plugin](#using-a-consensus-plugin) section, below.
+
+#### Docker Compose
+
+We'll be using Docker Compose to launch our various Fabric component containers, as this is the simplest approach. You should have it installed from the initial setup steps. Installing Docker Toolbox or any of the native Docker runtimes should have installed Compose.
+
+#### Start up a validating peer:
+
+Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID to vp0 and CORE_VM_ENDPOINT asabove. Here's the docker-compose.yml for launching a single container within a **Vagrant** environment:
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger/fabric-peer peer node start
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+    - CORE_LOGGING_LEVEL=DEBUG
+  command: peer node start
+```
+You can launch this Compose file as follows, from the same directory as the docker-compose.yml file:
+
+```
+$ docker-compose up
 ```
 
-If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included:
+Here's the corresponding Docker command:
+```
+$ docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger/fabric-peer peer node start
+```
+
+If you are running Docker for Mac or Windows, we'll need to explicitly map the ports, and we will need a different value for CORE_VM_ENDPOINT as we discussed above.
+
+Here's the docker-compose.yml for Docker on Mac or Windows:
+
+```
+vp0:
+  image: hyperledger/fabric-peer
+  ports:
+    - "5000:5000"
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
+    - CORE_LOGGING_LEVEL=DEBUG
+  command: peer node start
+```
+
+This single peer configuration, running `NOOPS` consensus should satisfy many development/test scenarios. For instance, if you are simply developing and testing chaincode; this should be adequate unless your chaincode is leveraging membership services for identity, access control, confidentiality and privacy.
+
+#### Running with membership services
+
+TBD
+<!-- This needs some serious attention
+
+If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included. Additionally, the fabric-membersrvc container must be started before the peer(s) are launched. Hence we will need to insert a delay in launching the peer command. Here's the docker-compose.yml for a single peer with membership services running in a **Vagrant** environment:
+
+```
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+  - CORE_PEER_ADDRESSAUTODETECT=true
+  - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+  - CORE_LOGGING_LEVEL=DEBUG
+  - CORE_PEER_ID=vp0
+  - CORE_PEER_TLS_ENABLED=true
+  - CORE_PEER_TLS_SERVERHOSTOVERRIDE=OBC
+  - CORE_PEER_TLS_CERT_FILE=./bddtests/tlsca.cert
+  - CORE_PEER_TLS_KEY_FILE=./bddtests/tlsca.priv
+  command: sh -c "sleep 5; peer node start"
+
+membersrvc:
+   image: hyperledger/fabric-membersrvc
+   command: membersrvc
+```
 
 ```
 docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=vp0_secret  hyperledger/fabric-peer peer node start
 ```
 
 Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0` and `vp0_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
+-->
 
-#### Start up the second validating peer:
-We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable. We'll use `vp1` as the ID for the second validating peer.
+#### Start up additional validating peers:
+
+We'll use `vp1` as the ID for the second validating peer. If using Docker Compose, we can simply link the two nodes.
+Here's the docker-compse.yml for a **Vagrant** environment with two peer nodes - vp0 and vp1:
+```
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+    - CORE_LOGGING_LEVEL=DEBUG
+  command: peer node start
+vp1:
+  extends:
+    service: vp0
+  environment:
+    - CORE_PEER_ID=vp1
+    - CORE_PEER_DISCOVERY_ROOTNODE=vp0:30303
+  links:
+    - vp0
+```
+
+If we wanted to use the docker commandline to launch another peer, we need to get the IP address of the first validating peer, which will act as the root node to which the new peer(s) will connect. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable.
 
 ```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp1 -e CORE_SECURITY_ENROLLSECRET=vp1_secret -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger/fabric-peer peer node start
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger/fabric-peer peer node start
 ```
+<!-- This needs to be sorted out with a revamped security section
 
 Again, the validating peer `enrollID` and `enrollSecret` (`vp1` and `vp1_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
 
@@ -78,6 +210,8 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 peer network login jim
 **Note:** The certificate authority allows the enrollID and enrollSecret credentials to be used only *once*. Therefore, login by the same user from any other validating peer will result in an error. Currently, the application layer is responsible for duplicating the crypto material returned from the CA to other peer nodes. If you want to test secure transactions from more than one peer node without replicating the returned key and certificate, you can log in with a different user on other peer nodes.
 
 ### Deploy, Invoke, and Query a Chaincode
+
+
 **Note:** When security is enabled, modify the CLI commands to deploy, invoke, or query a chaincode to pass the username of a logged in user. To log in a registered user through the CLI, execute the login command from the section above. On the CLI the username is passed with the -u parameter.
 
 We can use the sample chaincode to test the network. You may find the chaincode here `$GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02`.
@@ -131,15 +265,25 @@ With security enabled, modify the command as follows:
 ```
 CORE_PEER_ADDRESS=172.17.0.2:30303 CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode query -u jim -l golang -n <name_value_returned_from_deploy_command> -c '{"Function": "query", "Args": ["a"]}'
 ```
+-->
 
-### Using Consensus Plugin
+### Using a Consensus Plugin
 A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
 
 1. In `core.yaml`, set the `peer.validator.consensus` value to `pbft`
-2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
+2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpN` where `N` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
 3. In `consensus/pbft/config.yaml`, set the `general.mode` value to `batch` and the `general.N` value to the number of validating peers on the network, also set `general.batchsize` to the number of transactions per batch.
 4. In `consensus/pbft/config.yaml`, optionally set timer values for the batch period (`general.timeout.batch`), the acceptable delay between request and execution (`general.timeout.request`), and for view-change (`general.timeout.viewchange`)
 
 See `core.yaml` and `consensus/pbft/config.yaml` for more detail.
 
 All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=batch`
+
+### Logging control
+
+See [Logging Control](logging-control.md) for information on controlling
+logging output from the `peer` and chaincodes.
+
+<!--
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca. Furthermore, if you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
+-->
