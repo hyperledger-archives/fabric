@@ -2,7 +2,9 @@
 
 Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. This document describes how to write, build, and test chaincode in a local development environment.
 
-Multiple terminal windows inside the Vagrant development environment are required. One Vagrant terminal runs the validating peer; another Vagrant terminal runs the chaincode; the third Vagrant terminal runs the CLI or REST API commands to execute transactions. When running with security enabled, an additional fourth Vagrant terminal window is required to run the <b>Certificate Authority (CA)</b> server. Detailed instructions are provided in the sections below:
+These instructions apply to developing Chaincode in Go or Java. However, if developing Chaincode in Java, please see the [Java Chaincode setup](JAVAChaincode.md) instructions first, to be sure your environment is properly configured.
+
+Multiple terminal windows inside the Vagrant development environment are required. One terminal runs the validating peer; another terminal runs the chaincode; the third terminal runs the CLI or REST API commands to execute transactions. When running with security enabled, an additional fourth terminal window is required to run the <b>Certificate Authority (CA)</b> server. Detailed instructions are provided in the sections below:
 
 * [Security Setup (optional)](#security-setup-optional)
 * [Vagrant Terminal 1 (validating peer)](#vagrant-terminal-1-validating-peer)
@@ -13,7 +15,7 @@ Multiple terminal windows inside the Vagrant development environment are require
     * [Chaincode query via CLI and REST](#chaincode-query-via-cli-and-rest)
 * [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled)
 
-See the [logging control](../dev-setup/logging-control.md) reference for information on controlling
+See the [logging control](../Setup/logging-control.md) reference for information on controlling
 logging output from the `peer` and chaincodes.
 
 ###Security Setup (optional)

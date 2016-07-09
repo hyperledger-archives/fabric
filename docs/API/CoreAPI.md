@@ -11,7 +11,7 @@ This document covers the available APIs for interacting with a peer node. Three 
    * [Marbles Demo Application](#marbles-demo-application)
    * [Commercial Paper Demo Application](#commercial-paper-demo-application)
 
-**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional) before proceeding.
+**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/docs/Setup/Chaincode-setup.md#security-setup-optional) before proceeding.
 
 ## CLI
 

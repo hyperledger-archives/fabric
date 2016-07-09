@@ -1,7 +1,9 @@
-# Java chaincode 
+## Java chaincode
 
-Note: This guide generally assumes you have followed the development environment setup tutorial [here](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md).
-## To get started developing Java chaincode: 
+Note: This guide generally assumes you have followed the Chaincode development environment setup tutorial [here](https://github.com/hyperledger/fabric/blob/master/docs/Setup/Chaincode-setup.md).
+
+### To get started developing Java chaincode
+
 1. Ensure you have gradle
   * Download the binary distribution from [http://gradle.org/gradle-download/](http://gradle.org/gradle-download/)
   * Unpack, move to the desired location, and add gradle's bin directory to your system path
@@ -11,17 +13,22 @@ Note: This guide generally assumes you have followed the development environment
   * Additionally, you will need to have the [`JAVA HOME`](https://docs.oracle.com/cd/E19182-01/821-0917/6nluh6gq9/index.html) variable set to your **JDK** installation in your system path
 3. From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+    ```
     vagrant ssh
+    ```
 
-4. Build and run the peer process. 
+4. Build and run the peer process.
 
+    ```
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
     peer node start
+    ```
 
 5. The following steps is for deploying chaincode in non-dev mode.
 
 	* Deploy the chaincode,
+
 ```
 	peer chaincode deploy -l java -n map -p /opt/gopath/src/github.com/hyperledger/fabric/core/chaincode/shim/java -c '{"Function": "init", "Args": ["a","100", "b", "200"]}'
 ```
@@ -60,7 +67,8 @@ Note: This guide generally assumes you have followed the development environment
 * To develop your own chaincodes, simply extend the Chaincode class (demonstrated in the SimpleSample Example under the examples package)
 
 
-## Java chaincode deployment in DEV Mode
+### Java chaincode deployment in DEV Mode
+
 1. Follow the step 1 to 3 as above,
 2. Build and run the peer process
 ```    
@@ -104,6 +112,3 @@ SimpleSample
 19:12:25.667 [crypto] main -> INFO 002 Log level recognized 'info', set to INFO
 {"Name":"b","Amount":"210"}
 ```
-
-
-

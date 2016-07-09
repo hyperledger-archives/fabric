@@ -22,14 +22,14 @@ check whether logging modules actually do or will exist. Also note that the
 logging module system does not understand hierarchy or wildcarding: You may
 see module names like "foo/bar" in the code, but the logging system only sees
 a flat string. It doesn't understand that "foo/bar" is related to "foo" in any
-way, or that "foo/*" might indicate all "submodules" of foo.
+way, or that "foo/\*" might indicate all "submodules" of foo.
 
 ## peer
 
 The logging level of the `peer` command can be controlled from the command line for each invocation using the `--logging-level` flag, for example
 
     peer node start --logging-level=debug
-	
+
 The default logging level for each individual `peer` subcommand can also be
 set in the
 [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
@@ -45,9 +45,9 @@ The full logging level specification for the `peer` is of the form
 
     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
 
-A logging level by itself is taken as the overall default. Otherwise, overrides for individual or groups of modules can be specified using the 
+A logging level by itself is taken as the overall default. Otherwise, overrides for individual or groups of modules can be specified using the
 
-    <module>[,<module>...]=<level> 
+    <module>[,<module>...]=<level>
 
 syntax. Examples of <level> specifications (valid for all of
 `--logging-level`, environment variable and

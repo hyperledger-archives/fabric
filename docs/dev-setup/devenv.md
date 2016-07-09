@@ -54,6 +54,12 @@ cd $GOPATH/src/github.com/hyperledger/fabric/devenv
 vagrant up
 ```
 
+### Building the fabric
+
+Once you have your vagrant development environment established, you can proceed to [build and test](build.md) the fabric.
+
+### Notes
+
 **NOTE:** If you intend to run the development environment behind an HTTP Proxy, you need to configure the guest so that the provisioning process may complete.  You can achieve this via the *vagrant-proxyconf* plugin. Install with `vagrant plugin install vagrant-proxyconf` and then set the VAGRANT_HTTP_PROXY and VAGRANT_HTTPS_PROXY environment variables *before* you execute `vagrant up`. More details are available here: https://github.com/tmatilai/vagrant-proxyconf/
 
 **NOTE:** The first time you run this command it may take quite a while to complete (it could take 30 minutes or more depending on your environment) and at times it may look like it's not doing anything. As long you don't get any error messages just leave it alone, it's all good, it's just cranking.

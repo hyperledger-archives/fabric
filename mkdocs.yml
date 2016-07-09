@@ -5,17 +5,20 @@ repo_url: https://github.com/hyperledger/fabric
 site_description: 'Welcome to the Hyperledger fabric documentation'
 
 pages:
-- HOME: index.md
-- Getting Started: README.md
-- TravisCI Readme: TravisCI_Readme.md
+- Home: README.md
 - Glossary: glossary.md
 - Protocol Spec: protocol-spec.md
 
+- Setup:
+  - Fabric Developer Setup: dev-setup/devenv.md
+  - Chaincode or Application Developer Setup: Setup/Chaincode-setup.md
+  - Fabric Network Setup: Setup/Network-setup.md
+  - CA Setup: Setup/ca-setup.md
+
 - API:
-  - ChainCode APIs: API/ChaincodeAPI.md
-  - CoreAPI: API/CoreAPI.md
-  - MemberServicesAPI: API/MemberServicesAPI.md
-  - SandboxSetup: API/SandboxSetup.md
+  - Chaincode APIs: API/ChaincodeAPI.md
+  - Core API: API/CoreAPI.md
+  - CA API: API/MemberServicesAPI.md
 
 - FAQ:
   - ChainCodeFAQ: FAQ/chaincode_FAQ.md
@@ -28,7 +31,6 @@ pages:
   - Usecase: biz/usecases.md
 
 - Dev setup:
-  - CA Setup: dev-setup/ca-setup.md
   - Devenv: dev-setup/devenv.md
   - Devnet Setup: dev-setup/devnet-setup.md
   - Install: dev-setup/install.md

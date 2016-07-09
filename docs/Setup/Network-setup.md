@@ -8,7 +8,9 @@ This approach simply leverages the Docker images that the Hyperledger Fabric pro
 
 #### Installing Docker
 
-With this approach, there are multiple choices as to how to run Docker. Using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between the two when it comes to configuring a peer network. We'll call those out where appropriate, below when we get to the point of actually running the various components.
+With this approach, there are multiple choices as to how to run Docker. Using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between how Docker runs natively on Mac and Windows versus in a virtualized context on Linux. We'll call those out where appropriate, below when we get to the point of actually running the various components.
+
+#### Pulling the images from DockerHub
 
 Once you have Docker (1.11 or greater) installed and running, and
 before starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
@@ -100,6 +102,7 @@ Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID t
 vp0:
   image: hyperledger/fabric-peer
   environment:
+    - CORE_PEER_ID=vp0
     - CORE_PEER_ADDRESSAUTODETECT=true
     - CORE_VM_ENDPOINT=http://172.17.0.1:2375
     - CORE_LOGGING_LEVEL=DEBUG
@@ -113,7 +116,7 @@ $ docker-compose up
 
 Here's the corresponding Docker command:
 ```
-$ docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger/fabric-peer peer node start
+$ docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_LOGGING_LEVEL=DEBUG -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true hyperledger/fabric-peer peer node start
 ```
 
 If you are running Docker for Mac or Windows, we'll need to explicitly map the ports, and we will need a different value for CORE_VM_ENDPOINT as we discussed above.
@@ -134,9 +137,10 @@ vp0:
 
 This single peer configuration, running `NOOPS` consensus should satisfy many development/test scenarios. For instance, if you are simply developing and testing chaincode; this should be adequate unless your chaincode is leveraging membership services for identity, access control, confidentiality and privacy.
 
-#### Running with membership services
+#### Running with the CA
 
-TBD
+If you want to take advantage of security (authentication and authorization), privacy and confidentiality, then you'll need to run the Fabric's certificate authority (CA). Please refer to the [CA Setup](#Setup/ca-setup.md) instructions.
+
 <!-- This needs some serious attention
 
 If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included. Additionally, the fabric-membersrvc container must be started before the peer(s) are launched. Hence we will need to insert a delay in launching the peer command. Here's the docker-compose.yml for a single peer with membership services running in a **Vagrant** environment:
@@ -169,7 +173,7 @@ Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0` and `vp0_
 
 #### Start up additional validating peers:
 
-We'll use `vp1` as the ID for the second validating peer. If using Docker Compose, we can simply link the two nodes.
+Following the pattern we established [above](#Assigning-a-value-for-CORE_PEER_ID) we'll use `vp1` as the ID for the second validating peer. If using Docker Compose, we can simply link the two peer nodes.
 Here's the docker-compse.yml for a **Vagrant** environment with two peer nodes - vp0 and vp1:
 ```
 vp0:
@@ -285,5 +289,5 @@ See [Logging Control](logging-control.md) for information on controlling
 logging output from the `peer` and chaincodes.
 
 <!--
-**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../API/SandboxSetup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca. Furthermore, if you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
+**Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../Setup/Chaincode-setup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca. Furthermore, if you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 -->
