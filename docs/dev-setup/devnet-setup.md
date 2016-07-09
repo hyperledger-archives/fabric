@@ -4,7 +4,7 @@ This document covers setting up a network on your local machine for various deve
 
 ### Leveraging published Docker images
 
-This approach simply leverages the Docker images that the Hyperledger Fabric project publishes to [DockerHub](https://hub.docker.com/u/hyperledger/dashboard/) and either Docker commands or Docker Compose descriptions of the network one wishes to create.
+This approach simply leverages the Docker images that the Hyperledger Fabric project publishes to [DockerHub](https://hub.docker.com/u/hyperledger/) and either Docker commands or Docker Compose descriptions of the network one wishes to create.
 
 #### Installing Docker
 
@@ -94,7 +94,7 @@ We'll be using Docker Compose to launch our various Fabric component containers,
 
 #### Start up a validating peer:
 
-Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID to vp0 and CORE_VM_ENDPOINT asabove. Here's the docker-compose.yml for launching a single container within a **Vagrant** environment:
+Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID to vp0 and CORE_VM_ENDPOINT as above. Here's the docker-compose.yml for launching a single container within a **Vagrant** environment:
 
 ```
 vp0:
