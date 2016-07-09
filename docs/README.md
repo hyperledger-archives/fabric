@@ -1,5 +1,5 @@
 ## Hyperledger Fabric Documentation
-The Hyperledger [fabric](https://github.com/hyperledger/fabric) is an implementation of blockchain technology, that has been collaboratively developed under the Linux Foundation's [Hyperledger Project](http://hyperledger.org). It leverages familiar and proven technologies, and offers a modular architecture that allows pluggable implementations of various function including membership services, consensus, and smart contracts (chaincode) execution. It features powerful container technology to host any mainstream language for smart contracts development.
+The Hyperledger [fabric](https://github.com/hyperledger/fabric) is an implementation of blockchain technology, that has been collaboratively developed under the Linux Foundation's [Hyperledger Project](http://hyperledger.org). It leverages familiar and proven technologies, and offers a modular architecture that allows pluggable implementations of various function including membership services, consensus, and smart contracts (Chaincode) execution. It features powerful container technology to host any mainstream language for smart contracts development.
 
 To contribute to this documentation, create an issue for any requests for clarification or to highlight any errors, or you may fork and update the [source](https://github.com/hyperledger/fabric), and submit a pull request.
 
@@ -9,10 +9,9 @@ Below, you'll find the following sections:
 - [Quickstart](#quickstart-documentation)
 - Developer guides
   - [Fabric developer guide](#fabric-developer-guide)
-  - [Chaincode developer guide](#chaincode-developer-guide)
+  - [Chaincode developer guide](#Chaincode-developer-guide)
   - [API developer guide](#api-developer-guide)
 - [Operations guide](#operations-guide)
-- [Security administration guides](#security-administration-guides)
 
 ## Getting started
 
@@ -27,12 +26,12 @@ If you are new to the project, you can begin by reviewing the following links. I
 
 ## Quickstart documentation
 
-- [Development environment set-up](dev-setup/devenv.md): if you are considering helping with development of the Hyperledger Fabric or Fabric-API projects themselves, this guide will help you install and configure all you'll need. The development environment is also useful (but, not necessary) for developing blockchain applications and/or chaincode.
+- [Development environment set-up](dev-setup/devenv.md): if you are considering helping with development of the Hyperledger Fabric or Fabric-API projects themselves, this guide will help you install and configure all you'll need. The development environment is also useful (but, not necessary) for developing blockchain applications and/or Chaincode.
 - [Network setup](Setup/Network-setup.md): This document covers setting up a network on your local machine for development.
-- [Chaincode development environment](Setup/Chaincode-setup.md): Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. This document describes how to write, build, and test chaincode in a local development environment.
+- [Chaincode development environment](Setup/Chaincode-setup.md): Chaincode developers need a way to test and debug their Chaincode without having to set up a complete peer network. This document describes how to write, build, and test Chaincode in a local development environment.
 - [APIs](API/CoreAPI.md): This document covers the available APIs for interacting with a peer node.
 
-## Fabric developer guide
+## Fabric developer's guide
 
 When you are ready to start building applications or to otherwise contribute to the project, we strongly recommend that you read our [protocol specification](protocol-spec.md) for the technical details. Procedurally, we use the agile methodology with a weekly sprint, organized by [issues](https://github.com/hyperledger/fabric/issues), so take a look to familiarize yourself with the current work.
 
@@ -46,25 +45,22 @@ When you are ready to start building applications or to otherwise contribute to 
 - [Coding in Go](dev-setup/install.md#coding-golang-): Some tips for developing with Go. -->
 - [License header](dev-setup/headers.txt): every source file must include this license header modified to include a copyright statement for the principle author(s).
 
-## Chaincode developer guide:
+## Chaincode developer's guide
 
-- [Setting up the development environment](dev-setup/devenv.md): when developing and testing chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same setup that Fabric developers use.
-- [Setting Up a Network For Development](Setup/Network-setup.md): alternately, you can follow these instructions for setting up a local network for chaincode development.
-- [Writing, Building, and Running Chaincode in a Development Environment](Setup/Chaincode-setup.md): a step-by-step guide to writing and testing chaincode.
-- [Chaincode FAQ](FAQ/chaincode_FAQ.md): a FAQ for all of your burning questions relating to chaincode.
+- [Setting up the development environment](dev-setup/devenv.md): when developing and testing Chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same setup that Fabric developers use.
+- [Setting Up a Network For Development](Setup/Network-setup.md): alternately, you can follow these instructions for setting up a local network for Chaincode development without the entire fabric development environment setup.
+- [Writing, Building, and Running Chaincode in a Development Environment](Setup/Chaincode-setup.md): a step-by-step guide to writing and testing Chaincode.
+- [Chaincode FAQ](FAQ/Chaincode_FAQ.md): a FAQ for all of your burning questions relating to Chaincode.
 
-## API developer guide
+## API developer's guide
 
 - [APIs - CLI, REST, and Node.js](API/CoreAPI.md)
      - [CLI](API/CoreAPI.md#cli): working with the command-line interface.
      - [REST](API/CoreAPI.md#rest-api): working with the REST API.
      - [Node.js SDK](../sdk/node/README.md): working with the Node.js SDK.
 
-## Operations guide:
+## Operations guide
 
-- [Setting Up a Network](Setup/Network-setup.md): instructions for setting up a Fabric network of peers.
-
-## Security administration guides:
-
-- [Certificate Authority (CA) Setup](Setup/ca-setup.md): setting up a CA.
-- [Application ACL](tech/application-ACL.md): working with access control lists.Â
+- [Setting Up a Network](Setup/Network-setup.md): instructions for setting up a network of fabric peers.
+- [Certificate Authority (CA) Setup](Setup/ca-setup.md): setting up a CA to support identity, security (authentication/authorization), privacy and confidentiality.
+- [Application ACL](tech/application-ACL.md): working with access control lists.

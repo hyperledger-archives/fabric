@@ -49,9 +49,16 @@ git clone https://github.com/<username>/fabric.git
 
 #### Boostrapping the VM using Vagrant
 
+Now you're ready to launch Vagrant.
+
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/devenv
 vagrant up
+```
+
+Go get coffee... this will take a few minutes. Once complete, you should be able to `ssh` into the Vagrant VM just created.
+```
+vagrant ssh
 ```
 
 ### Building the fabric
@@ -67,9 +74,11 @@ Once you have your vagrant development environment established, you can proceed 
 **NOTE to Windows 10 Users:** There is a known problem with vagrant on Windows 10 (see [mitchellh/vagrant#6754](https://github.com/mitchellh/vagrant/issues/6754)). If the `vagrant up` command fails it may be because you do not have Microsoft Visual C++ Redistributable installed. You can download the missing package at the following address: http://www.microsoft.com/en-us/download/details.aspx?id=8328
 
 
-Once complete, you should now be able to SSH into your new VM with the following command from the same directory.
+Once complete, you should now be able to `ssh` into your new VM with the following command from the same directory.
 
+    ```
     vagrant ssh
+    ```
 
 Once inside the VM, you can find the peer project under $GOPATH/src/github.com/hyperledger/fabric (as well as /hyperledger).
 

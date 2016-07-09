@@ -80,7 +80,7 @@ $ ip add
 
 Your output might contain something like `inet 172.17.0.1/16 scope global docker0`. That means the docker0 interface is on IP address 172.17.0.1. Use that IP address for the `CORE_VM_ENDPOINT` option. For more information on the environment variables, see `core.yaml` configuration file in the `fabric` repository.
 
-If you are using the native Docker for Mac or Windows, the value for `CORE_VM_ENDPOINT` should be set to `unix:///var/run/docker.sock`. \[TODO] double check this
+If you are using the native Docker for Mac or Windows, the value for `CORE_VM_ENDPOINT` should be set to `unix:///var/run/docker.sock`. \[TODO] double check this. I believe that `127.0.0.1:2375` also works.
 
 #### Assigning a value for CORE_PEER_ID
 
