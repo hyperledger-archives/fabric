@@ -159,7 +159,25 @@ func (ledger *Ledger) CommitTxBatch(id interface{}, transactions []*protos.Trans
 	writeBatch := gorocksdb.NewWriteBatch()
 	defer writeBatch.Destroy()
 	block := protos.NewBlock(transactions, metadata)
-	block.NonHashData = &protos.NonHashData{}
+
+	ccEvents := []*protos.ChaincodeEvent{}
+
+	if transactionResults != nil {
+		ccEvents = make([]*protos.ChaincodeEvent, len(transactionResults))
+		for i := 0; i < len(transactionResults); i++ {
+			if transactionResults[i].ChaincodeEvent != nil {
+				ccEvents[i] = transactionResults[i].ChaincodeEvent
+			} else {
+				//protobuf does not like elements of a repeated array to be nil
+				//we should discard empty events without chaincodeID when sending
+				//out events
+				ccEvents[i] = &protos.ChaincodeEvent{}
+			}
+		}
+	}
+
+	//store chaincode events directly in NonHashData. This will likely change in New Consensus where we can move them to Transaction
+	block.NonHashData = &protos.NonHashData{ChaincodeEvents: ccEvents}
 	newBlockNumber, err := ledger.blockchain.addPersistenceChangesForNewBlock(context.TODO(), block, stateHash, writeBatch)
 	if err != nil {
 		ledger.resetForNextTxGroup(false)
@@ -500,7 +518,9 @@ func sendProducerBlockEvent(block *protos.Block) {
 func sendChaincodeEvents(trs []*protos.TransactionResult) {
 	if trs != nil {
 		for _, tr := range trs {
-			if tr.ChaincodeEvent != nil {
+			//we store empty chaincode events in the protobuf repeated array to make protobuf happy.
+			//when we replay off a block ignore empty events
+			if tr.ChaincodeEvent != nil && tr.ChaincodeEvent.ChaincodeID != "" {
 				producer.Send(producer.CreateChaincodeEvent(tr.ChaincodeEvent))
 			}
 		}

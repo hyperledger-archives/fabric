@@ -17,6 +17,7 @@ limitations under the License.
 package protos
 
 import (
+	"runtime/debug"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -44,6 +45,7 @@ import (
 func (block *Block) Bytes() ([]byte, error) {
 	data, err := proto.Marshal(block)
 	if err != nil {
+debug.PrintStack()
 		logger.Errorf("Error marshalling block: %s", err)
 		return nil, fmt.Errorf("Could not marshal block: %s", err)
 	}
