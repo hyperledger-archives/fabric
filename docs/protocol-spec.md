@@ -9,42 +9,32 @@ The intended audience for this specification includes the following groups:
 - Blockchain vendors who want to implement blockchain systems that conform to this specification
 - Tool developers who want to extend the capabilities of the fabric
 - Application developers who want to leverage blockchain technologies to enrich their applications
-
-### Authors
-The following authors have written sections of this document:  Binh Q Nguyen, Elli Androulaki, Angelo De Caro, Sheehan Anderson, Manish Sethi, Thorsten Kramp, Alessandro Sorniotti, Marko Vukolic, Florian Simon Schubert, Jason K Yellick, Konstantinos Christidis, Srinivasan Muralidharan, Anna D Derbakova, Dulce Ponceleon, David Kravitz, Diego Masini.
-
-### Reviewers
-The following reviewers have contributed to this document:  Frank Lu, John Wolpert, Bishop Brock, Nitin Gaur, Sharon Weed, Konrad Pabjan.
-
-### Acknowledgements
-The following contributors have provided invaluable technical input to this specification:
-Gennaro Cuomo, Joseph A Latone, Christian Cachin
 ________________________________________________________
 
 ## Table of Contents
 #### 1. Introduction
 
-   - 1.1 What is the fabric?
-   - 1.2 Why the fabric?
-   - 1.3 Terminology
+   - [1.1 What is the fabric?](#1.1-What-is-the-fabric?)
+   - [1.2 Why the fabric?](#1.2-Why-the-fabric?)
+   - [1.3 Terminology](#1.3-Terminology)
 
 #### 2. Fabric
 
-   - 2.1 Architecture
-   - 2.1.1 Membership Services
-   - 2.1.2 Blockchain Services
-   - 2.1.3 Chaincode Services
-   - 2.1.4 Events
-   - 2.1.5 Application Programming Interface
-   - 2.1.6 Command Line Interface
-   - 2.2 Topology
-   - 2.2.1 Single Validating Peer
-   - 2.2.2 Multiple Validating Peers
-   - 2.2.3 Multichain
+   - [2.1 Architecture](#2.1-Architecture)
+   - [2.1.1 Membership Services](#2.1.1-Membership-Services)
+   - [2.1.2 Blockchain Services](#2.1.2-Blockchain-Services)
+   - [2.1.3 Chaincode Services](#2.1.3-Chaincode-Services)
+   - [2.1.4 Events](#2.1.4-Events)
+   - [2.1.5 Application Programming Interface](#2.1.5-Application-Programming-Interface)
+   - [2.1.6 Command Line Interface](#2.1.6-Command-Line-Interface)
+   - [2.2 Topology](#2.2-Topology)
+   - [2.2.1 Single Validating Peer](#2.2.1-Single-Validating-Peer)
+   - [2.2.2 Multiple Validating Peers](#2.2.2-Multiple-Validating-Peers)
+   - [2.2.3 Multichain](#2.2.3-Multichain)
 
 #### 3. Protocol
 
-   - 3.1 Message
+   - [3.1 Message](#3.1-Message)
    - 3.1.1 Discovery Messages
    - 3.1.2 Transaction Messages
    - 3.1.2.1 Transaction Data Structure
@@ -54,7 +44,7 @@ ________________________________________________________
    - 3.1.2.5 Query Transaction
    - 3.1.3 Synchronization Messages
    - 3.1.4 Consensus Messages
-   - 3.2 Ledger
+   - [3.2 Ledger](#3.2-Ledger)
    - 3.2.1 Blockchain
    - 3.2.1.1 Block
    - 3.2.1.2 Block Hashing
@@ -63,14 +53,14 @@ ________________________________________________________
    - 3.2.2 World State
    - 3.2.2.1 Hashing the world state
    - 3.2.2.1.1 Bucket-tree
-   - 3.3 Chaincode
+   - [3.3 Chaincode](#3.3-Chaincode)
    - 3.3.1 Virtual Machine Instantiation
    - 3.3.2 Chaincode Protocol
    - 3.3.2.1 Chaincode Deploy
    - 3.3.2.2 Chaincode Invoke
    - 3.3.2.3 Chaincode Query
    - 3.3.2.4 Chaincode State
-   - 3.4 Pluggable Consensus Framework
+   - [3.4 Pluggable Consensus Framework](#3.4-Pluggable-Consensus-Framework)
    - 3.4.1 Consenter interface
    - 3.4.2 Consensus Programming Interface
    - 3.4.3 Inquirer interface
@@ -88,13 +78,13 @@ ________________________________________________________
    - 3.4.9 RemoteLedgers interface
    - 3.4.10 Controller package
    - 3.4.11 Helper package
-   - 3.5 Events
+   - [3.5 Events](#3.5-Events)
    - 3.4.1 Event Stream
    - 3.4.2 Event Structure
    - 3.4.3 Event Adapters
 
 #### 4. Security
-   - 4. Security
+   - [4. Security](#4.-Security)
    - 4.1 Business security requirements
    - 4.2 User Privacy through Membership Services
    - 4.2.1 User/Client Enrollment Process
@@ -116,26 +106,30 @@ ________________________________________________________
    - 4.7.1 Simplified client
    - 4.7.1 Simplified transaction confidentiality
 
-#### 5. Byzantine Consensus
+#### [5. Byzantine Consensus](#5.-Byzantine-Consensus)
    - 5.1 Overview
    - 5.2 Core PBFT
 
-#### 6. Application Programming Interface
+#### [6. Application Programming Interface](#6.-Application-Programming-Interface)
    - 6.1 REST Service
    - 6.2 REST API
    - 6.3 CLI
 
-#### 7. Application Model
+#### [7. Application Model](#7.-Application-Model)
    - 7.1 Composition of an Application
    - 7.2 Sample Application
 
-#### 8. Future Directions
+#### [8. Future Directions](#8.-Future-Directions)
    - 8.1 Enterprise Integration
    - 8.2 Performance and Scalability
    - 8.3 Additional Consensus Plugins
    - 8.4 Additional Languages
 
-#### 9. References
+#### [9.1 Authors](#9.1-Authors)
+#### [9.2 Reviewers](#9.2-Reviewers)
+#### [9.3 Acknowledgements](#9.3-Acknowledgements)
+
+#### [10. References](#10.-References)
 
 ________________________________________________________
 
@@ -3055,8 +3049,17 @@ For example, a Bluemix PaaS application using Node.js might have a Web front-end
 
 ### 8.4 Additional Languages
 
+### 9.1 Authors
+The following authors have written sections of this document:  Binh Q Nguyen, Elli Androulaki, Angelo De Caro, Sheehan Anderson, Manish Sethi, Thorsten Kramp, Alessandro Sorniotti, Marko Vukolic, Florian Simon Schubert, Jason K Yellick, Konstantinos Christidis, Srinivasan Muralidharan, Anna D Derbakova, Dulce Ponceleon, David Kravitz, Diego Masini.
 
-## 9. References
+### 9.2 Reviewers
+The following reviewers have contributed to this document:  Frank Lu, John Wolpert, Bishop Brock, Nitin Gaur, Sharon Weed, Konrad Pabjan.
+
+### 9.3 Acknowledgements
+The following contributors have provided invaluable technical input to this specification:
+Gennaro Cuomo, Joseph A Latone, Christian Cachin
+
+## 10. References
 
 - [1] Miguel Castro, Barbara Liskov: Practical Byzantine fault tolerance and proactive recovery. ACM Trans. Comput. Syst. 20(4): 398-461 (2002)
 
