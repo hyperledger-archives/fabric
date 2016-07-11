@@ -162,14 +162,14 @@ make peer unit-test behave
 
 Development and build on Power (ppc64le) systems is done outside of vagrant as outlined [here](#building-outside-of-vagrant-). For ease of setting up the dev environment on Ubuntu, invoke [this script](https://github.com/hyperledger/fabric/tree/master/devenv/setupUbuntuOnPPC64le.sh) as root. This script has been validated on Ubuntu 16.04 and assumes certain things (like, development system has OS repositories in place, firewall setting etc) and in general can be improvised further.
 
-To get started on a fresh Ubuntu install
+To get started on Power server installed with Ubuntu, first ensure you have properly setup your Host's [GOPATH environment variable](https://github.com/golang/go/wiki/GOPATH). Then follow below instructions to build fabric code: 
+
 ```
-mkdir -p $HOME/git/src/github.com/hyperledger
-cd $HOME/git/src/github.com/hyperledger
+mkdir -p $GOPATH/src/github.com/hyperledger
+cd $GOPATH/src/github.com/hyperledger
 git clone https://github.com/hyperledger/fabric.git
 sudo ./fabric/devenv/setupUbuntuOnPPC64le.sh
-export GOPATH=$HOME/git
-cd $HOME/git/src/github.com/hyperledger/fabric
+cd $GOPATH/src/github.com/hyperledger/fabric
 make dist-clean all
 
 ```
