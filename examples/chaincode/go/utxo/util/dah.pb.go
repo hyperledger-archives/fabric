@@ -11,7 +11,7 @@ It is generated from these files:
 It has these top-level messages:
 	TX
 */
-package util
+package utxo
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
