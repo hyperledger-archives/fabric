@@ -31,9 +31,9 @@ If you are new to the project, you can begin by reviewing the following links. I
 - [Chaincode development environment](Setup/Chaincode-setup.md): Chaincode developers need a way to test and debug their Chaincode without having to set up a complete peer network. This document describes how to write, build, and test Chaincode in a local development environment.
 - [APIs](API/CoreAPI.md): This document covers the available APIs for interacting with a peer node.
 
-## Fabric developer's guide
+## Fabric developer guide
 
-When you are ready to start building applications or to otherwise contribute to the project, we strongly recommend that you read our [protocol specification](protocol-spec.md) for the technical details. Procedurally, we use the agile methodology with a weekly sprint, organized by [issues](https://github.com/hyperledger/fabric/issues), so take a look to familiarize yourself with the current work.
+When you are ready to start contributing to the Hyperledger fabric project, we strongly recommend that you read the [protocol specification](protocol-spec.md) for the technical details so that you have a better understanding of how the code fits together.
 
 - [Making code contributions](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md): First, you'll want to familiarize yourself with the project's contribution guidelines.
 - [Setting up the development environment](dev-setup/devenv.md): after that, you will want to set up your development environment.
@@ -45,14 +45,14 @@ When you are ready to start building applications or to otherwise contribute to 
 - [Coding in Go](dev-setup/install.md#coding-golang-): Some tips for developing with Go. -->
 - [License header](dev-setup/headers.txt): every source file must include this license header modified to include a copyright statement for the principle author(s).
 
-## Chaincode developer's guide
+## Chaincode developer guide
 
 - [Setting up the development environment](dev-setup/devenv.md): when developing and testing Chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same setup that Fabric developers use.
 - [Setting Up a Network For Development](Setup/Network-setup.md): alternately, you can follow these instructions for setting up a local network for Chaincode development without the entire fabric development environment setup.
 - [Writing, Building, and Running Chaincode in a Development Environment](Setup/Chaincode-setup.md): a step-by-step guide to writing and testing Chaincode.
 - [Chaincode FAQ](FAQ/Chaincode_FAQ.md): a FAQ for all of your burning questions relating to Chaincode.
 
-## API developer's guide
+## API developer guide
 
 - [APIs - CLI, REST, and Node.js](API/CoreAPI.md)
      - [CLI](API/CoreAPI.md#cli): working with the command-line interface.
