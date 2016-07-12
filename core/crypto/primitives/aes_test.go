@@ -338,3 +338,81 @@ func TestCBCEncrypt_EmptyText(t *testing.T) {
 	}
 	t.Log("Cipher: ", cipher)
 }
+
+func TestCBCPKCS7Encrypt_IVIsRandom(t *testing.T) {
+	// Encrypt two times with same key. The first 16 bytes should be
+	// different if IV is random.
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+	t.Log("Key 1", key)
+
+	var msg = []byte("a message to encrypt")
+
+	cipher1, err := CBCPKCS7Encrypt(key, msg)
+	if err != nil {
+		t.Fatalf("Error encrypting the message.")
+	}
+
+	// expecting a different IV if same message is encrypted with same key
+	cipher2, err := CBCPKCS7Encrypt(key, msg)
+	if err != nil {
+		t.Fatalf("Error encrypting the message.")
+	}
+
+	iv1 := cipher1[:aes.BlockSize]
+	iv2 := cipher2[:aes.BlockSize]
+
+	t.Log("Cipher 1: ", iv1)
+	t.Log("Cipher 2: ", iv2)
+	t.Log("bytes.Equal: ", bytes.Equal(iv1, iv2))
+
+	if bytes.Equal(iv1, iv2) {
+		t.Fatal("Error: ciphers contain identical initialisation vectors.")
+	}
+
+}
+
+func TestCBCPKCS7Encrypt_CipherLengthCorrect(t *testing.T) {
+	// Check that the cipher lengths are as expected.
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	// length of message < aes.BlockSize (16 bytes)
+	// --> expected cipher length = IV length (1 block) + 1 block message
+	//     =
+	var msg = []byte("short message")
+	cipher, err := CBCPKCS7Encrypt(key, msg)
+	if err != nil {
+		t.Fatal("Error encrypting the message.", cipher)
+	}
+
+	expectedLength := aes.BlockSize + aes.BlockSize
+	if len(cipher) != expectedLength {
+		t.Fatalf("Cipher length incorrect: expected %d, got %d", expectedLength, len(cipher))
+	}
+}
+
+func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
+
+	defer func() {
+		recover()
+	}()
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	decryptionKey := make([]byte, 32)
+	copy(decryptionKey, key[:])
+	decryptionKey[0] = key[0] + 1
+
+	var msg = []byte("a message to be encrypted")
+
+	encrypted, _ := CBCEncrypt(key, msg)
+	decrypted, _ := CBCDecrypt(decryptionKey, encrypted)
+
+	if string(msg[:]) == string(decrypted[:]) {
+		t.Fatalf("Encryption->Decryption with different keys shouldn't return original message")
+	}
+
+}
+
