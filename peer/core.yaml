@@ -56,18 +56,16 @@ logging:
     #
     # 3. The environment variables CORE_LOGGING_[NODE|NETWORK|CHAINCODE]
     #    otherwise apply to the respective peer commands if defined as non-empty
-    #    strings. 
+    #    strings.
     #
     # 4. Otherwise, the specifications below apply.
     #
     # Developers: Please see fabric/docs/dev-setup/logging-control.md for more
-    # options. 
+    # options.
 
     node:      info
     network:   warning
     chaincode: warning
-
-    crypto:    info # This should not be here; See issue #769
 
 ###############################################################################
 #
