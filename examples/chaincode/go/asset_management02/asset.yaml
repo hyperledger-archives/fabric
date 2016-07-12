@@ -44,7 +44,7 @@ tca:
 aca:
     attributes:
         attribute-entry-0: admin;bank_a;role;issuer;2015-01-01T00:00:00-03:00;;
-        attribute-entry-1: alice;bank_a;role;client;2016-01-01T00:00:00-03:00;;		
+        attribute-entry-1: alice;bank_a;role;client;2016-01-01T00:00:00-03:00;;
         attribute-entry-2: alice;bank_a;account1;22222-00001;2016-01-01T00:00:00-03:00;;
         attribute-entry-3: alice;bank_a;account2;22222-00002;2016-01-01T00:00:00-03:00;;
         attribute-entry-4: alice;bank_a;account3;22222-00003;2016-01-01T00:00:00-03:00;;
@@ -79,9 +79,9 @@ eca:
                   - institution_a
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                alice: 1 NPKYL39uKbkj bank_a	00001
-                bob: 1 DRJ23pEQl16a bank_a	00002
-                admin: 1 6avZQLwcUe9b bank_a	00003
+                alice: 1 NPKYL39uKbkj bank_a
+                bob: 1 DRJ23pEQl16a bank_a
+                admin: 1 6avZQLwcUe9b bank_a
 
                 vp: 4 f3489fy98ghf
 

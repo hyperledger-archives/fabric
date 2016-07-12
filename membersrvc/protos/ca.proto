@@ -147,10 +147,9 @@ message Registrar {
 message RegisterUserReq {
     Identity id = 1;
     Role role = 2;
-    string account = 3;
-    string affiliation = 4;
-    Registrar registrar = 5;
-    Signature sig = 6;
+    string affiliation = 3;
+    Registrar registrar = 4;
+    Signature sig = 5;
 }
 
 message ReadUserSetReq {
