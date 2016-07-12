@@ -157,8 +157,6 @@ export interface RegistrationRequest {
     // Fabric roles include: 'client', 'peer', 'validator', 'auditor'
     // Default value: ['client']
     roles?:string[];
-    // Account name (TODO: remove when account is removed from member services)
-    account:string;
     // Affiliation for a user
     affiliation:string;
     // 'registrar' enables this identity to register other members with types
@@ -2293,7 +2291,6 @@ class MemberServicesImpl implements MemberServices {
         let protoReq = new _caProto.RegisterUserReq();
         protoReq.setId({id:req.enrollmentID});
         protoReq.setRole(rolesToMask(req.roles));
-        protoReq.setAccount(req.account);
         protoReq.setAffiliation(req.affiliation);
         // Create registrar info
         let protoRegistrar = new _caProto.Registrar();

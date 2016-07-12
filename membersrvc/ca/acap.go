@@ -72,7 +72,7 @@ func (acap *ACAP) FetchAttributes(ctx context.Context, in *pb.ACAFetchAttrReq) (
 	}
 
 	var id, affiliation string
-	id, _, affiliation, err = acap.aca.parseEnrollID(cert.Subject.CommonName)
+	id, affiliation, err = acap.aca.parseEnrollID(cert.Subject.CommonName)
 	if err != nil {
 		return &pb.ACAFetchAttrResp{Status: pb.ACAFetchAttrResp_FAILURE}, err
 	}
@@ -161,7 +161,7 @@ func (acap *ACAP) RequestAttributes(ctx context.Context, in *pb.ACAAttrReq) (*pb
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), err
 	}
 	var id, affiliation string
-	id, _, affiliation, err = acap.aca.parseEnrollID(cert.Subject.CommonName)
+	id, affiliation, err = acap.aca.parseEnrollID(cert.Subject.CommonName)
 	if err != nil {
 		return acap.createRequestAttributeResponse(pb.ACAAttrResp_FAILURE, nil), err
 	}

@@ -73,9 +73,9 @@ eca:
                   - institution_a
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                alice: 1 NPKYL39uKbkj bank_a	00001
-                bob: 1 DRJ23pEQl16a bank_a	00002
-                admin: 1 6avZQLwcUe9b bank_a	00003
+                alice: 1 NPKYL39uKbkj bank_a
+                bob: 1 DRJ23pEQl16a bank_a
+                admin: 1 6avZQLwcUe9b bank_a
 
                 vp: 4 f3489fy98ghf
 
@@ -245,7 +245,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        
+
 
     # TLS Settings for p2p communications
     tls:
