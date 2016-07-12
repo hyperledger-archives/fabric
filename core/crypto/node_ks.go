@@ -331,7 +331,7 @@ func (ks *keyStore) createKeyStoreIfNotExists() error {
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			ks.node.Debugf("Failed creating db At [%s]: ", ks.node.conf.getKeyStoreFilePath(), err.Error())
+			ks.node.Errorf("Failed creating db At [%s]: ", ks.node.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}
