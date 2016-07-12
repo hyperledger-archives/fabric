@@ -1366,27 +1366,17 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
                 | a  |
         Then I should get a JSON response with "result.message" = "0"
 
-        Given I stop peers:
-                | vp1 | vp2 |
-
         When I invoke chaincode "authorizable_counter" function name "increment" with attributes "position" on "vp0"
                 |arg1|
                 | a  |
         Then I should have received a transactionID
 
-        Given I start peers:
-                | vp1 | vp2 |
-        And I wait "15" seconds
-
         When I invoke chaincode "authorizable_counter" function name "increment" on "vp0" "8" times
                 |arg1|arg2|arg3|
                 | a  | b  | 10 |
         Then I should have received a transactionID
-        Then I wait up to "60" seconds for transaction to be committed to peers:
+        Then I wait up to "30" seconds for transaction to be committed to peers:
                 | vp0  | vp1 | vp2 | vp3 |
-
-        Then I wait "30" seconds
-        # For the view to change to "vp3" or "vp1"
 
         When I query chaincode "authorizable_counter" function name "read" with value "a" on peers:
                 | vp0  | vp1 | vp2 | vp3 |
