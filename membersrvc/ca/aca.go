@@ -300,6 +300,9 @@ func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
 func (aca *ACA) populateAttribute(tx *sql.Tx, attr *AttributePair) error {
 	fmt.Printf("*********************** ATTR %v %v %v\n", attr.GetID(), attr.attributeName, string(attr.attributeValue))
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	var count int
 	err := tx.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName()).Scan(&count)
@@ -339,6 +342,9 @@ func (aca *ACA) fetchAndPopulateAttributes(id, affiliation string) error {
 
 func (aca *ACA) findAttribute(owner *AttributeOwner, attributeName string) (*AttributePair, error) {
 	var count int
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		owner.GetID(), owner.GetAffiliation(), attributeName).Scan(&count)
