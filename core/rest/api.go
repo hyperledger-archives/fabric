@@ -19,14 +19,14 @@ package rest
 import (
 	"errors"
 	"fmt"
+	"google/protobuf"
 
 	"golang.org/x/net/context"
-
-	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/ledger"
 	pb "github.com/hyperledger/fabric/protos"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -106,7 +106,13 @@ func (s *ServerOpenchain) GetBlockByNumber(ctx context.Context, num *pb.BlockNum
 			deploymentSpec := &pb.ChaincodeDeploymentSpec{}
 			err := proto.Unmarshal(transaction.Payload, deploymentSpec)
 			if err != nil {
-				return nil, err
+				if !viper.GetBool("security.privacy") {
+					return nil, err
+				}
+				//if privacy is enabled, payload is encrypted and unmarshal will
+				//likely fail... given we were going to just set the CodePackage
+				//to nil anyway, just recover and continue
+				deploymentSpec = &pb.ChaincodeDeploymentSpec{}
 			}
 			deploymentSpec.CodePackage = nil
 			deploymentSpecBytes, err := proto.Marshal(deploymentSpec)
