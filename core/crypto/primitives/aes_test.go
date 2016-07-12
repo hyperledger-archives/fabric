@@ -275,3 +275,66 @@ func TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage(t *testing.T) {
 	}
 
 }
+
+func TestCBCPKCS7Encrypt_EmptyText(t *testing.T) {
+	// Encrypt an empty message. Mainly to document
+	// a borderline case. Checking as well that the
+	// cipher length is as expected.
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	t.Log("Generated key: ", key)
+
+	var msg = []byte("")
+	t.Log("Message length: ", len(msg))
+
+	cipher, encErr := CBCPKCS7Encrypt(key, msg)
+	if encErr != nil {
+		t.Fatalf("Error encrypting message %v", encErr)
+	}
+
+	t.Log("Cipher length: ", len(cipher))
+
+	// expected cipher length: 32
+	// with padding, at least one block gets encrypted
+	// the first block is the IV
+	var expectedLength = aes.BlockSize + aes.BlockSize
+
+	if len(cipher) != expectedLength {
+		t.Fatalf("Cipher length is wrong. Expected %d, got %d",
+			expectedLength, len(cipher))
+	}
+	t.Log("Cipher: ", cipher)
+}
+
+func TestCBCEncrypt_EmptyText(t *testing.T) {
+	// Encrypt an empty message. Mainly to document
+	// a borderline case. Checking as well that the
+	// cipher length is as expected.
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	t.Log("Generated key: ", key)
+
+	var msg = []byte("")
+	t.Log("Message length: ", len(msg))
+
+	cipher, encErr := CBCEncrypt(key, msg)
+	if encErr != nil {
+		t.Fatalf("Error encrypting message %v", encErr)
+	}
+
+	t.Log("Cipher length: ", len(cipher))
+
+	// expected cipher length: aes.BlockSize
+	// the first and only block is the IV
+	var expectedLength = aes.BlockSize
+
+	if len(cipher) != expectedLength {
+		t.Fatalf("Cipher length is wrong. Expected %d, got %d",
+			expectedLength, len(cipher))
+	}
+	t.Log("Cipher: ", cipher)
+}
