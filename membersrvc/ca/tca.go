@@ -240,8 +240,8 @@ func (tca *TCA) startTCAA(srv *grpc.Server) {
 }
 
 func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	var sets = []*TCertSet{}
 	var err error
