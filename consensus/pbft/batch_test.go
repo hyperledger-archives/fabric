@@ -187,7 +187,9 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	execute()
 
 	if b.reqStore.outstandingRequests.Len() != 0 {
-		t.Fatalf("All requests should have been executed and deleted after exec")
+		config := loadConfig()
+		config.Set("general.batchsize", 2)
+		newObcBatch(0, config, omni)
 	}
 
 	// Simulate changing views, with a request in the qSet, and one outstanding which is not
