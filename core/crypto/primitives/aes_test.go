@@ -416,3 +416,29 @@ func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 
 }
 
+func TestCBCEncryptCBCDecrypt(t *testing.T) {
+	// Encrypt with CBCEncrypt and Decrypt with CBCDecrypt
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	var msg = []byte("a 16 byte messag")
+
+	encrypted, encErr := CBCEncrypt(key, msg)
+
+	if encErr != nil {
+		t.Fatalf("Error encrypting message %v", encErr)
+	}
+
+	decrypted, dErr := CBCDecrypt(key, encrypted)
+
+	if dErr != nil {
+		t.Fatalf("Error encrypting message %v", dErr)
+	}
+
+	if string(msg[:]) != string(decrypted[:]) {
+		t.Fatalf("Encryption->Decryption with same key should result in original message")
+	}
+
+}
+
