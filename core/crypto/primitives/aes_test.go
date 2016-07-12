@@ -380,15 +380,19 @@ func TestCBCPKCS7Encrypt_CipherLengthCorrect(t *testing.T) {
 	// length of message < aes.BlockSize (16 bytes)
 	// --> expected cipher length = IV length (1 block) + 1 block message
 	//     =
-	var msg = []byte("short message")
-	cipher, err := primitives.CBCPKCS7Encrypt(key, msg)
-	if err != nil {
-		t.Fatal("Error encrypting the message.", cipher)
-	}
+	var msg = []byte("0123456789ABCDEF")
 
-	expectedLength := aes.BlockSize + aes.BlockSize
-	if len(cipher) != expectedLength {
-		t.Fatalf("Cipher length incorrect: expected %d, got %d", expectedLength, len(cipher))
+	for i := 1; i < aes.BlockSize; i++ {
+
+		cipher, err := primitives.CBCPKCS7Encrypt(key, msg[:i])
+		if err != nil {
+			t.Fatal("Error encrypting the message.", cipher)
+		}
+
+		expectedLength := aes.BlockSize + aes.BlockSize
+		if len(cipher) != expectedLength {
+			t.Fatalf("Cipher length incorrect: expected %d, got %d", expectedLength, len(cipher))
+		}
 	}
 }
 
