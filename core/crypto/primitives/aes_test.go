@@ -217,13 +217,13 @@ func TestCBCEncryptCBCPKCS7Decrypt_ExpectingFailure(t *testing.T) {
 
 	var msg = []byte("a 16 byte messag")
 
-	encrypted, encErr := CBCEncrypt(key, msg)
+	encrypted, encErr := primitives.CBCEncrypt(key, msg)
 
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
 
-	decrypted, dErr := CBCPKCS7Decrypt(key, encrypted)
+	decrypted, dErr := primitives.CBCPKCS7Decrypt(key, encrypted)
 
 	if dErr != nil {
 		// expected behaviour, decryption fails.
@@ -252,13 +252,13 @@ func TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage(t *testing.T) {
 	//                0123456789ABCDEF
 	var msg = []byte("a 16 byte messag")
 
-	encrypted, encErr := CBCPKCS7Encrypt(key, msg)
+	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, msg)
 
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
 
-	decrypted, dErr := CBCDecrypt(key, encrypted)
+	decrypted, dErr := primitives.CBCDecrypt(key, encrypted)
 
 	if dErr != nil {
 		t.Fatalf("Error encrypting message %v, %v", dErr, decrypted)
@@ -289,7 +289,7 @@ func TestCBCPKCS7Encrypt_EmptyText(t *testing.T) {
 	var msg = []byte("")
 	t.Log("Message length: ", len(msg))
 
-	cipher, encErr := CBCPKCS7Encrypt(key, msg)
+	cipher, encErr := primitives.CBCPKCS7Encrypt(key, msg)
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
@@ -321,7 +321,7 @@ func TestCBCEncrypt_EmptyText(t *testing.T) {
 	var msg = []byte("")
 	t.Log("Message length: ", len(msg))
 
-	cipher, encErr := CBCEncrypt(key, msg)
+	cipher, encErr := primitives.CBCEncrypt(key, msg)
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
@@ -348,13 +348,13 @@ func TestCBCPKCS7Encrypt_IVIsRandom(t *testing.T) {
 
 	var msg = []byte("a message to encrypt")
 
-	cipher1, err := CBCPKCS7Encrypt(key, msg)
+	cipher1, err := primitives.CBCPKCS7Encrypt(key, msg)
 	if err != nil {
 		t.Fatalf("Error encrypting the message.")
 	}
 
 	// expecting a different IV if same message is encrypted with same key
-	cipher2, err := CBCPKCS7Encrypt(key, msg)
+	cipher2, err := primitives.CBCPKCS7Encrypt(key, msg)
 	if err != nil {
 		t.Fatalf("Error encrypting the message.")
 	}
@@ -381,7 +381,7 @@ func TestCBCPKCS7Encrypt_CipherLengthCorrect(t *testing.T) {
 	// --> expected cipher length = IV length (1 block) + 1 block message
 	//     =
 	var msg = []byte("short message")
-	cipher, err := CBCPKCS7Encrypt(key, msg)
+	cipher, err := primitives.CBCPKCS7Encrypt(key, msg)
 	if err != nil {
 		t.Fatal("Error encrypting the message.", cipher)
 	}
@@ -407,8 +407,8 @@ func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 
 	var msg = []byte("a message to be encrypted")
 
-	encrypted, _ := CBCEncrypt(key, msg)
-	decrypted, _ := CBCDecrypt(decryptionKey, encrypted)
+	encrypted, _ := primitives.CBCEncrypt(key, msg)
+	decrypted, _ := primitives.CBCDecrypt(decryptionKey, encrypted)
 
 	if string(msg[:]) == string(decrypted[:]) {
 		t.Fatalf("Encryption->Decryption with different keys shouldn't return original message")
@@ -424,13 +424,13 @@ func TestCBCEncryptCBCDecrypt(t *testing.T) {
 
 	var msg = []byte("a 16 byte messag")
 
-	encrypted, encErr := CBCEncrypt(key, msg)
+	encrypted, encErr := primitives.CBCEncrypt(key, msg)
 
 	if encErr != nil {
 		t.Fatalf("Error encrypting message %v", encErr)
 	}
 
-	decrypted, dErr := CBCDecrypt(key, encrypted)
+	decrypted, dErr := primitives.CBCDecrypt(key, encrypted)
 
 	if dErr != nil {
 		t.Fatalf("Error encrypting message %v", dErr)
@@ -441,4 +441,3 @@ func TestCBCEncryptCBCDecrypt(t *testing.T) {
 	}
 
 }
-
