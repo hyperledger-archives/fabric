@@ -36,14 +36,14 @@ func (sk *aesSecretKeyImpl) GetRand() io.Reader {
 	return sk.r
 }
 
-type aes256GSMStreamCipherImpl struct {
+type aes256GCMStreamCipherImpl struct {
 	forEncryption bool
 	gcm           cipher.AEAD
 	nonceSize     int
 }
 
 // Init initializes this cipher with the passed parameters
-func (sc *aes256GSMStreamCipherImpl) Init(forEncryption bool, params primitives.CipherParameters) error {
+func (sc *aes256GCMStreamCipherImpl) Init(forEncryption bool, params primitives.CipherParameters) error {
 	var aesKey *aesSecretKeyImpl
 
 	switch sk := params.(type) {
@@ -75,7 +75,7 @@ func (sc *aes256GSMStreamCipherImpl) Init(forEncryption bool, params primitives.
 }
 
 // Process processes the byte array given in input
-func (sc *aes256GSMStreamCipherImpl) Process(msg []byte) ([]byte, error) {
+func (sc *aes256GCMStreamCipherImpl) Process(msg []byte) ([]byte, error) {
 	if sc.forEncryption {
 		nonce, err := sc.generateNonce()
 		if err != nil {
@@ -105,14 +105,14 @@ func (sc *aes256GSMStreamCipherImpl) Process(msg []byte) ([]byte, error) {
 	return out, nil
 }
 
-func (sc *aes256GSMStreamCipherImpl) generateNonce() ([]byte, error) {
+func (sc *aes256GCMStreamCipherImpl) generateNonce() ([]byte, error) {
 	return primitives.GetRandomBytes(sc.nonceSize)
 }
 
-type aes256GSMStreamCipherSPIImpl struct {
+type aes256GCMStreamCipherSPIImpl struct {
 }
 
-func (spi *aes256GSMStreamCipherSPIImpl) GenerateKey() (primitives.SecretKey, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) GenerateKey() (primitives.SecretKey, error) {
 	key, err := primitives.GetRandomBytes(32)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (spi *aes256GSMStreamCipherSPIImpl) GenerateKey() (primitives.SecretKey, er
 	return &aesSecretKeyImpl{key, rand.Reader}, nil
 }
 
-func (spi *aes256GSMStreamCipherSPIImpl) GenerateKeyAndSerialize() (primitives.SecretKey, []byte, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) GenerateKeyAndSerialize() (primitives.SecretKey, []byte, error) {
 	key, err := primitives.GetRandomBytes(32)
 	if err != nil {
 		return nil, nil, err
@@ -130,7 +130,7 @@ func (spi *aes256GSMStreamCipherSPIImpl) GenerateKeyAndSerialize() (primitives.S
 	return &aesSecretKeyImpl{key, rand.Reader}, utils.Clone(key), nil
 }
 
-func (spi *aes256GSMStreamCipherSPIImpl) NewSecretKey(r io.Reader, params interface{}) (primitives.SecretKey, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) NewSecretKey(r io.Reader, params interface{}) (primitives.SecretKey, error) {
 	switch t := params.(type) {
 	case []byte:
 		if len(t) != 32 {
@@ -146,8 +146,8 @@ func (spi *aes256GSMStreamCipherSPIImpl) NewSecretKey(r io.Reader, params interf
 }
 
 // NewStreamCipherForEncryptionFromKey creates a new StreamCipher for encryption from a secret key
-func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromKey(secret primitives.SecretKey) (primitives.StreamCipher, error) {
-	sc := aes256GSMStreamCipherImpl{}
+func (spi *aes256GCMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromKey(secret primitives.SecretKey) (primitives.StreamCipher, error) {
+	sc := aes256GCMStreamCipherImpl{}
 	if err := sc.Init(true, secret); err != nil {
 		return nil, err
 	}
@@ -156,13 +156,13 @@ func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromKey(sec
 }
 
 // NewStreamCipherForDecryptionFromKey creates a new StreamCipher for decryption from a secret key
-func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromSerializedKey(secret []byte) (primitives.StreamCipher, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromSerializedKey(secret []byte) (primitives.StreamCipher, error) {
 	key, err := spi.NewSecretKey(nil, secret)
 	if err != nil {
 		return nil, err
 	}
 
-	sc := aes256GSMStreamCipherImpl{}
+	sc := aes256GCMStreamCipherImpl{}
 	if err := sc.Init(true, key); err != nil {
 		return nil, err
 	}
@@ -171,8 +171,8 @@ func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForEncryptionFromSeriali
 }
 
 // NewStreamCipherForDecryptionFromKey creates a new StreamCipher for decryption from a secret key
-func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromKey(secret primitives.SecretKey) (primitives.StreamCipher, error) {
-	sc := aes256GSMStreamCipherImpl{}
+func (spi *aes256GCMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromKey(secret primitives.SecretKey) (primitives.StreamCipher, error) {
+	sc := aes256GCMStreamCipherImpl{}
 	if err := sc.Init(false, secret); err != nil {
 		return nil, err
 	}
@@ -181,13 +181,13 @@ func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromKey(sec
 }
 
 // NewStreamCipherForDecryptionFromKey creates a new StreamCipher for decryption from a secret key
-func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromSerializedKey(secret []byte) (primitives.StreamCipher, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromSerializedKey(secret []byte) (primitives.StreamCipher, error) {
 	key, err := spi.NewSecretKey(nil, secret)
 	if err != nil {
 		return nil, err
 	}
 
-	sc := aes256GSMStreamCipherImpl{}
+	sc := aes256GCMStreamCipherImpl{}
 	if err := sc.Init(false, key); err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (spi *aes256GSMStreamCipherSPIImpl) NewStreamCipherForDecryptionFromSeriali
 }
 
 // SerializePrivateKey serializes a private key
-func (spi *aes256GSMStreamCipherSPIImpl) SerializeSecretKey(secret primitives.SecretKey) ([]byte, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) SerializeSecretKey(secret primitives.SecretKey) ([]byte, error) {
 	if secret == nil {
 		return nil, nil
 	}
@@ -210,14 +210,14 @@ func (spi *aes256GSMStreamCipherSPIImpl) SerializeSecretKey(secret primitives.Se
 }
 
 // DeserializePrivateKey deserializes to a private key
-func (spi *aes256GSMStreamCipherSPIImpl) DeserializeSecretKey(bytes []byte) (primitives.SecretKey, error) {
+func (spi *aes256GCMStreamCipherSPIImpl) DeserializeSecretKey(bytes []byte) (primitives.SecretKey, error) {
 	if len(bytes) >= 32 {
 		return &aesSecretKeyImpl{bytes[:32], rand.Reader}, nil
 	}
 	return nil, primitives.ErrInvalidKeyParameter
 }
 
-// NewAES256GSMSPI returns a new SPI instance for AES256 in GSM mode
-func NewAES256GSMSPI() primitives.StreamCipherSPI {
-	return &aes256GSMStreamCipherSPIImpl{}
+// NewAES256GCMSPI returns a new SPI instance for AES256 in GCM mode
+func NewAES256GCMSPI() primitives.StreamCipherSPI {
+	return &aes256GCMStreamCipherSPIImpl{}
 }

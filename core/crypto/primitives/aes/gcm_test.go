@@ -24,8 +24,8 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
-func TestAES256GSMSPIGenerateKey(t *testing.T) {
-	spi := NewAES256GSMSPI()
+func TestAES256GCMSPIGenerateKey(t *testing.T) {
+	spi := NewAES256GCMSPI()
 
 	// Generate Key
 	key, err := spi.GenerateKey()
@@ -63,8 +63,8 @@ func TestAES256GSMSPIGenerateKey(t *testing.T) {
 	}
 }
 
-func TestAES256GSMSPIGenerateKeyAndSerialize(t *testing.T) {
-	spi := NewAES256GSMSPI()
+func TestAES256GCMSPIGenerateKeyAndSerialize(t *testing.T) {
+	spi := NewAES256GCMSPI()
 
 	// Generate Key and serialize
 	key, keySer, err := spi.GenerateKeyAndSerialize()
@@ -119,8 +119,8 @@ func TestAES256GSMSPIGenerateKeyAndSerialize(t *testing.T) {
 	}
 }
 
-func TestAES256GSMSPINewStreamCipher(t *testing.T) {
-	spi := NewAES256GSMSPI()
+func TestAES256GCMSPINewStreamCipher(t *testing.T) {
+	spi := NewAES256GCMSPI()
 
 	_, err := spi.NewStreamCipherForEncryptionFromKey(nil)
 	if err == nil {
@@ -154,8 +154,8 @@ func TestAES256GSMSPINewStreamCipher(t *testing.T) {
 
 }
 
-func TestAES256GSMSPIDencryption(t *testing.T) {
-	spi := NewAES256GSMSPI()
+func TestAES256GCMSPIDencryption(t *testing.T) {
+	spi := NewAES256GCMSPI()
 
 	// Generate Key
 	key, err := spi.GenerateKey()
@@ -190,8 +190,8 @@ func TestAES256GSMSPIDencryption(t *testing.T) {
 
 }
 
-func TestAES256GSMSPI(t *testing.T) {
-	spi := NewAES256GSMSPI()
+func TestAES256GCMSPI(t *testing.T) {
+	spi := NewAES256GCMSPI()
 
 	// Gen Key
 
