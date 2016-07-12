@@ -136,18 +136,17 @@ func (eca *ECA) populateUsersTable() {
 		if err != nil {
 			Panic.Panicln(err)
 		}
-		var affiliation, affiliationRole, memberMetadata, registrar string
-		if len(vals) >= 4 {
+		var affiliation, memberMetadata, registrar string
+		if len(vals) >= 3 {
 			affiliation = vals[2]
-			affiliationRole = vals[3]
-			if len(vals) >= 5 {
-				memberMetadata = vals[4]
-				if len(vals) >= 6 {
-					registrar = vals[5]
+			if len(vals) >= 4 {
+				memberMetadata = vals[3]
+				if len(vals) >= 5 {
+					registrar = vals[4]
 				}
 			}
 		}
-		eca.registerUser(id, affiliation, affiliationRole, pb.Role(role), registrar, memberMetadata, vals[1])
+		eca.registerUser(id, affiliation, pb.Role(role), registrar, memberMetadata, vals[1])
 	}
 }
 

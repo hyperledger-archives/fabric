@@ -528,9 +528,9 @@ func (ca *CA) requireAffiliation(role pb.Role) bool {
 }
 
 // validateAndGenerateEnrollID validates the affiliation subject
-func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole string, role pb.Role) (string, error) {
+func (ca *CA) validateAndGenerateEnrollID(id, affiliation string, role pb.Role) (string, error) {
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Println("Validating and generating enrollID for user id: " + id + ", affiliation: " + affiliation + ", affiliationRole: " + affiliationRole + ", role: " + roleStr + ".")
+	Trace.Println("Validating and generating enrollID for user id: " + id + ", affiliation: " + affiliation + ", role: " + roleStr + ".")
 
 	// Check whether the affiliation is required for the current user.
 	//
@@ -547,7 +547,7 @@ func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole strin
 			return "", errors.New("Invalid affiliation group " + affiliation)
 		}
 
-		return ca.generateEnrollID(id, affiliationRole, affiliation)
+		return ca.generateEnrollID(id, affiliation)
 	}
 
 	return "", nil
@@ -555,11 +555,11 @@ func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole strin
 
 // registerUser registers a new member with the CA
 //
-func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role, registrar, memberMetadata string, opt ...string) (string, error) {
+func (ca *CA) registerUser(id, affiliation string, role pb.Role, registrar, memberMetadata string, opt ...string) (string, error) {
 	memberMetadata = removeQuotes(memberMetadata)
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Printf("Received request to register user with id: %s, affiliation: %s, affiliationRole: %s, role: %s, registrar: %s, memberMetadata: %s\n",
-		id, affiliation, affiliationRole, roleStr, registrar, memberMetadata)
+	Trace.Printf("Received request to register user with id: %s, affiliation: %s, role: %s, registrar: %s, memberMetadata: %s\n",
+		id, affiliation, roleStr, registrar, memberMetadata)
 
 	var enrollID, tok string
 	var err error
@@ -579,7 +579,7 @@ func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role
 		}
 	}
 
-	enrollID, err = ca.validateAndGenerateEnrollID(id, affiliation, affiliationRole, role)
+	enrollID, err = ca.validateAndGenerateEnrollID(id, affiliation, role)
 	if err != nil {
 		return "", err
 	}
@@ -736,32 +736,31 @@ func (ca *CA) readAffiliationGroups() ([]*AffiliationGroup, error) {
 	return groupList, nil
 }
 
-func (ca *CA) generateEnrollID(id string, role string, affiliation string) (string, error) {
-	if id == "" || role == "" || affiliation == "" {
-		return "", errors.New("Please provide all the input parameters, id, role and affiliation")
+func (ca *CA) generateEnrollID(id string, affiliation string) (string, error) {
+	if id == "" || affiliation == "" {
+		return "", errors.New("Please provide all the input parameters, id and role")
 	}
 
-	if strings.Contains(id, "\\") || strings.Contains(role, "\\") || strings.Contains(affiliation, "\\") {
+	if strings.Contains(id, "\\") || strings.Contains(affiliation, "\\") {
 		return "", errors.New("Do not include the escape character \\ as part of the values")
 	}
 
-	return id + "\\" + affiliation + "\\" + role, nil
+	return id + "\\" + affiliation, nil
 }
 
-func (ca *CA) parseEnrollID(enrollID string) (id string, role string, affiliation string, err error) {
+func (ca *CA) parseEnrollID(enrollID string) (id string, affiliation string, err error) {
 
 	if enrollID == "" {
-		return "", "", "", errors.New("Input parameter missing")
+		return "", "", errors.New("Input parameter missing")
 	}
 
 	enrollIDSections := strings.Split(enrollID, "\\")
 
-	if len(enrollIDSections) != 3 {
-		return "", "", "", errors.New("Either the userId, Role or affiliation is missing from the enrollmentID")
+	if len(enrollIDSections) != 2 {
+		return "", "", errors.New("Either the userId or affiliation is missing from the enrollmentID. EnrollID was " + enrollID)
 	}
 
 	id = enrollIDSections[0]
-	role = enrollIDSections[2]
 	affiliation = enrollIDSections[1]
 	err = nil
 	return

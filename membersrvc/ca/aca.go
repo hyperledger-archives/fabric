@@ -298,8 +298,6 @@ func (aca *ACA) populateAttributes(attrs []*AttributePair) error {
 }
 
 func (aca *ACA) populateAttribute(tx *sql.Tx, attr *AttributePair) error {
-	fmt.Printf("*********************** ATTR %v %v %v\n", attr.GetID(), attr.attributeName, string(attr.attributeValue))
-
 	var count int
 	err := tx.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		attr.GetID(), attr.GetAffiliation(), attr.GetAttributeName()).Scan(&count)
