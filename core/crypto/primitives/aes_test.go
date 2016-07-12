@@ -199,3 +199,79 @@ func TestPKCS7UnPadding(t *testing.T) {
 		t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
 	}
 }
+
+func TestCBCEncryptCBCPKCS7Decrypt_ExpectingFailure(t *testing.T) {
+	// When encrypting a message that does not need padding, i.e. a message
+	// whose length is a multiple of the block size, with CBCEncrypt, it
+	// cannot be decrypted with CBCPKCS7DEcrypt.
+	//
+	// The intend of this test is to document this behaviour for clarity.
+	//
+	// The reason is that the section 10.3 Note 2 in #PKCS7 states that
+	// an extra block is appended to the message for padding. Since this
+	// extra block is missing when using CBCEncrypt for encryption,
+	// CBCPKCS7Decrypt fails.
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	var msg = []byte("a 16 byte messag")
+
+	encrypted, encErr := CBCEncrypt(key, msg)
+
+	if encErr != nil {
+		t.Fatalf("Error encrypting message %v", encErr)
+	}
+
+	decrypted, dErr := CBCPKCS7Decrypt(key, encrypted)
+
+	if dErr != nil {
+		// expected behaviour, decryption fails.
+		t.Logf("Expected error decrypting message %v, decrypted message = %v", dErr, decrypted)
+	}
+}
+
+func TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage(t *testing.T) {
+	// When encrypting a message that does not need padding, i.e. a message
+	// whose length is a multiple of the block size, with CBCPKCS7Encrypt, it
+	// can be decrypted with CBCDecrypt but the returned message is corrupted.
+	//
+	// The intend of this test is to document this behaviour for clarity.
+	//
+	// The reason is that the section 10.3 Note 2 in #PKCS7 states that
+	// an extra block is appended to the message for padding. Since this
+	// extra block is added when using CBCPKCS7Encrypt for encryption,
+	// CBCDecrypt returns the original message plus this extra block.
+	//
+	// Note:
+	// the same applies for messages of arbitrary length.
+
+	key := make([]byte, 32)
+	rand.Reader.Read(key)
+
+	//                0123456789ABCDEF
+	var msg = []byte("a 16 byte messag")
+
+	encrypted, encErr := CBCPKCS7Encrypt(key, msg)
+
+	if encErr != nil {
+		t.Fatalf("Error encrypting message %v", encErr)
+	}
+
+	decrypted, dErr := CBCDecrypt(key, encrypted)
+
+	if dErr != nil {
+		t.Fatalf("Error encrypting message %v, %v", dErr, decrypted)
+	}
+
+	if string(msg[:]) != string(decrypted[:aes.BlockSize]) {
+		t.Log("msg: ", msg)
+		t.Log("decrypted: ", decrypted[:aes.BlockSize])
+		t.Fatalf("Encryption->Decryption with same key should result in original message")
+	}
+
+	if !bytes.Equal(decrypted[aes.BlockSize:], bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)) {
+		t.Fatal("Expected extra block with padding in encrypted message", decrypted)
+	}
+
+}
