@@ -17,11 +17,12 @@ limitations under the License.
 package crypto
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
-	"fmt"
 )
 
 func (client *clientImpl) createTransactionNonce() ([]byte, error) {
