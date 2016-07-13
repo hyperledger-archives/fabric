@@ -109,6 +109,12 @@ eca:
                 test_vp8: 4 BxP7QNh778gI
                 test_vp9: 4 wu3F1EwJWHvQ
 
+# Uncomment this section to activate devnet setup as specficied in
+# devnet-setup.md
+#
+#               vp0: 4 vp0_secret
+#               vp1: 4 vp1_secret
+
                 test_user0: 1 MS9qrN8hFjlE bank_a        00001
                 test_user1: 1 jGlNl6ImkuDo institution_a 00007
                 test_user2: 1 zMflqOKezFiA bank_c        00008
