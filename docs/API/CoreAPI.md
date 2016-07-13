@@ -33,14 +33,14 @@ You will see output similar to the example below (**NOTE:** rootcommand below is
       network     network specific commands.
       chaincode   chaincode specific commands.
       help        Help about any command
-    
+
     Flags:
       -h, --help[=false]: help for peer
           --logging-level="": Default logging level and overrides, see core.yaml for full syntax
           --test.coverprofile="coverage.cov": Done
       -v, --version[=false]: Show current version number of fabric peer server
-    
-    
+
+
     Use "peer [command] --help" for more information about a command.
 
 ```
