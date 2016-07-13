@@ -213,7 +213,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var customIDgenAlg = strings.ToLower(chaincodeInvocationSpec.IdGenerationAlg)
 	var id string
 	var generr error
-	id, generr = util.GenerateIDWithAlg(&customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args)
+	id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args)
 	if generr != nil {
 		return nil, generr
 	}
@@ -444,7 +444,7 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 			return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}, nil
 		}
 
-		tid, generr := util.GenerateIDWithAlg(nil, executeWithBinding.ChaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args)
+		tid, generr := util.GenerateIDWithAlg("", executeWithBinding.ChaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args)
 		if generr != nil {
 			return nil, fmt.Errorf("Error: cannot generate TX ID (executing with binding)")
 		}
