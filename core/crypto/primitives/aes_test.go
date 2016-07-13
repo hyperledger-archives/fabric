@@ -267,7 +267,7 @@ func TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage(t *testing.T) {
 	if string(msg[:]) != string(decrypted[:aes.BlockSize]) {
 		t.Log("msg: ", msg)
 		t.Log("decrypted: ", decrypted[:aes.BlockSize])
-		t.Fatalf("Encryption->Decryption with same key should result in original message")
+		t.Fatal("Encryption->Decryption with same key should result in original message")
 	}
 
 	if !bytes.Equal(decrypted[aes.BlockSize:], bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)) {
@@ -356,7 +356,7 @@ func TestCBCPKCS7Encrypt_IVIsRandom(t *testing.T) {
 	// expecting a different IV if same message is encrypted with same key
 	cipher2, err := primitives.CBCPKCS7Encrypt(key, msg)
 	if err != nil {
-		t.Fatalf("Error encrypting the message.")
+		t.Fatal("Error encrypting the message.")
 	}
 
 	iv1 := cipher1[:aes.BlockSize]
@@ -415,7 +415,7 @@ func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 	decrypted, _ := primitives.CBCDecrypt(decryptionKey, encrypted)
 
 	if string(msg[:]) == string(decrypted[:]) {
-		t.Fatalf("Encryption->Decryption with different keys shouldn't return original message")
+		t.Fatal("Encryption->Decryption with different keys shouldn't return original message")
 	}
 
 }
@@ -441,7 +441,7 @@ func TestCBCEncryptCBCDecrypt(t *testing.T) {
 	}
 
 	if string(msg[:]) != string(decrypted[:]) {
-		t.Fatalf("Encryption->Decryption with same key should result in original message")
+		t.Fatal("Encryption->Decryption with same key should result in original message")
 	}
 
 }
