@@ -83,15 +83,6 @@ func TestMain(m *testing.M) {
 		os.Exit(ret)
 	}
 
-	//properties["security.multithreading.enabled"] = "false"
-	//Third scenario using confidentialityProtocolVersion = 1.1
-	/*
-		properties["security.confidentialityProtocolVersion"] = "1.1"
-		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
-		if ret != 0 {
-			os.Exit(ret)
-		}
-	*/
 	//Fourth scenario with security level = 384
 	properties["security.hashAlgorithm"] = "SHA3"
 	properties["security.level"] = "384"

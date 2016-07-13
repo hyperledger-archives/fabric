@@ -32,83 +32,11 @@ import (
 
 func (validator *validatorImpl) GetStateEncryptor(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
 	switch executeTx.ConfidentialityProtocolVersion {
-	case "1.1":
-		return validator.getStateEncryptor1_1(deployTx, executeTx)
 	case "1.2":
 		return validator.getStateEncryptor1_2(deployTx, executeTx)
 	}
 
 	return nil, utils.ErrInvalidConfidentialityLevel
-}
-
-func (validator *validatorImpl) getStateEncryptor1_1(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
-	// Check nonce
-	if deployTx.Nonce == nil || len(deployTx.Nonce) == 0 {
-		return nil, errors.New("Invalid deploy nonce.")
-	}
-	if executeTx.Nonce == nil || len(executeTx.Nonce) == 0 {
-		return nil, errors.New("Invalid invoke nonce.")
-	}
-	// Check ChaincodeID
-	if deployTx.ChaincodeID == nil {
-		return nil, errors.New("Invalid deploy chaincodeID.")
-	}
-	if executeTx.ChaincodeID == nil {
-		return nil, errors.New("Invalid execute chaincodeID.")
-	}
-	// Check that deployTx and executeTx refers to the same chaincode
-	if !reflect.DeepEqual(deployTx.ChaincodeID, executeTx.ChaincodeID) {
-		return nil, utils.ErrDifferentChaincodeID
-	}
-	// Check the confidentiality protocol version
-	if deployTx.ConfidentialityProtocolVersion != executeTx.ConfidentialityProtocolVersion {
-		return nil, utils.ErrDifferrentConfidentialityProtocolVersion
-	}
-
-	validator.Debugf("Parsing transaction. Type [%s]. Confidentiality Protocol Version [%d]", executeTx.Type.String(), executeTx.ConfidentialityProtocolVersion)
-
-	// client.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := validator.enrollChainKey.([]byte)
-
-	if executeTx.Type == obc.Transaction_CHAINCODE_QUERY {
-		validator.Debug("Parsing Query transaction...")
-
-		// Compute deployTxKey key from the deploy transaction. This is used to decrypt the actual state
-		// of the chaincode
-		deployTxKey := primitives.HMAC(enrollChainKey, deployTx.Nonce)
-
-		// Compute the key used to encrypt the result of the query
-		queryKey := primitives.HMACTruncated(enrollChainKey, append([]byte{6}, executeTx.Nonce...), primitives.AESKeyLength)
-
-		// Init the state encryptor
-		se := queryStateEncryptor{}
-		err := se.init(validator.nodeImpl, queryKey, deployTxKey)
-		if err != nil {
-			return nil, err
-		}
-
-		return &se, nil
-	}
-
-	// Compute deployTxKey key from the deploy transaction
-	deployTxKey := primitives.HMAC(enrollChainKey, deployTx.Nonce)
-
-	// Mask executeTx.Nonce
-	executeTxNonce := primitives.HMACTruncated(deployTxKey, primitives.Hash(executeTx.Nonce), primitives.NonceSize)
-
-	// Compute stateKey to encrypt the states and nonceStateKey to generates IVs. This
-	// allows validators to reach consesus
-	stateKey := primitives.HMACTruncated(deployTxKey, append([]byte{3}, executeTxNonce...), primitives.AESKeyLength)
-	nonceStateKey := primitives.HMAC(deployTxKey, append([]byte{4}, executeTxNonce...))
-
-	// Init the state encryptor
-	se := stateEncryptorImpl{}
-	err := se.init(validator.nodeImpl, stateKey, nonceStateKey, deployTxKey, executeTxNonce)
-	if err != nil {
-		return nil, err
-	}
-
-	return &se, nil
 }
 
 func (validator *validatorImpl) getStateEncryptor1_2(deployTx, executeTx *obc.Transaction) (StateEncryptor, error) {
