@@ -19,7 +19,6 @@ package util
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"math/big"
@@ -32,12 +31,12 @@ import (
 )
 
 type alg struct {
-	hashFun func([]byte) string
-	decoder func(string) ([]byte, error)
+	hashFun func([]string) string
 }
 
+var defaultAlg = "sha256"
 var availableIDgenAlgs = map[string]alg{
-	"sha256base64": alg{GenerateIDfromTxSHAHash, base64.StdEncoding.DecodeString},
+	defaultAlg: alg{GenerateIDfromTxSHAHash},
 }
 
 // ComputeCryptoHash should be used in openchain code so that we can change the actual algo used for crypto-hash at one place
@@ -102,20 +101,23 @@ func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
 }
 
 // GenerateIDfromTxSHAHash generates SHA256 hash using Tx payload
-func GenerateIDfromTxSHAHash(txData []byte) string {
-	txHash := sha256.Sum256(txData)
-	return fmt.Sprintf("%x", txHash)
+func GenerateIDfromTxSHAHash(payload []string) string {
+	h := sha256.New()
+	for _, part := range payload {
+		utf8bytes := []byte(part)
+		h.Write(utf8bytes)
+	}
+	return fmt.Sprintf("%x", h.Sum([]byte{}))
 }
 
 // GenerateIDWithAlg generates an ID using a custom algorithm
-func GenerateIDWithAlg(customIDgenAlg string, encodedPayload string) (string, error) {
-	var alg = availableIDgenAlgs[customIDgenAlg]
-	if alg.hashFun != nil && alg.decoder != nil {
-		var payload, err = alg.decoder(encodedPayload)
-		if err != nil {
-			return "", err
-		}
-		return alg.hashFun(payload), nil
+func GenerateIDWithAlg(customIDgenAlg *string, strPayload []string) (string, error) {
+	if customIDgenAlg == nil {
+		customIDgenAlg = &defaultAlg
+	}
+	var alg = availableIDgenAlgs[*customIDgenAlg]
+	if alg.hashFun != nil {
+		return alg.hashFun(strPayload), nil
 	}
 	return "", fmt.Errorf("Wrong ID generation algorithm was given.")
 }
