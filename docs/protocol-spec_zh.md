@@ -7,7 +7,7 @@
 这份规范的目标读者包括：
 
 - 想实现符合这份规范的区块链的厂商
-- 想扩展fabric功能的工具开发者
+- 想扩展 fabric 功能的工具开发者
 - 想利用区块链技术来丰富他们应用的应用开发者
 
 ### 作者     
@@ -24,8 +24,8 @@ ________________________________________________________
 ## 目录
 #### 1. 介绍
 
-   - 1.1 什么是fabric?
-   - 1.2 为什么是fabric?
+   - 1.1 什么是 fabric ?
+   - 1.2 为什么是 fabric ?
    - 1.3 术语
 
 #### 2. Fabric
@@ -38,8 +38,8 @@ ________________________________________________________
    - 2.1.5 应用程序接口
    - 2.1.6 命令行界面
    - 2.2 拓扑
-   - 2.2.1 单验证Peer
-   - 2.2.2 多验证Peers
+   - 2.2.1 单验证 Peer
+   - 2.2.2 多验证 Peers
    - 2.2.3 多链
 
 #### 3. 协议
@@ -57,19 +57,19 @@ ________________________________________________________
    - 3.2 总账
    - 3.2.1 区块链
    - 3.2.1.1 块
-   - 3.2.1.2 块Hashing
+   - 3.2.1.2 块 Hashing
    - 3.2.1.3 非散列数据(NonHashData)
    - 3.2.1.4 交易
    - 3.2.2 世界状态(World State)
-   - 3.2.2.1 世界状态的Hashing
+   - 3.2.2.1 世界状态的 Hashing
    - 3.2.2.1.1 Bucket-tree
    - 3.3 Chaincode
-   - 3.3.1 Virtual Machine实例化 
-   - 3.3.2 Chaincode协议
-   - 3.3.2.1 Chaincode部署
-   - 3.3.2.2 Chaincode调用
-   - 3.3.2.3 Chaincode查询
-   - 3.3.2.4 Chaincode状态
+   - 3.3.1 Virtual Machine 实例化 
+   - 3.3.2 Chaincode 协议
+   - 3.3.2.1 Chaincode 部署
+   - 3.3.2.2 Chaincode 调用
+   - 3.3.2.3 Chaincode 查询
+   - 3.3.2.4 Chaincode 状态
    - 3.4 可插拔的共识框架
    - 3.4.1 共识者接口
    - 3.4.2 共识程序接口
@@ -140,18 +140,18 @@ ________________________________________________________
 ## 1. 介绍    
 这份文档规范了适用于工业界的区块链的概念，架构和协议。
 
-### 1.1 什么是fabric?
-fabric是在系统中数字事件，交易调用，不同参与者共享的总账。总账只能通过共识的参与者来更新，而且一旦被记录，信息永远不能被修改。每一个记录的事件都可以根据参与者的协议进行加密验证。
+### 1.1 什么是 fabric?
+fabric 是在系统中数字事件，交易调用，不同参与者共享的总账。总账只能通过共识的参与者来更新，而且一旦被记录，信息永远不能被修改。每一个记录的事件都可以根据参与者的协议进行加密验证。
 
 交易是安全的，私有的并且可信的。每个参与者通过向网络membership服务证明自己的身份来访问系统。交易是通过发放给各个的参与者，不可连接的，提供在网络上完全匿名的证书来生成的。交易内容通过复杂的密钥加密来保证只有参与者才能看到，确保业务交易私密性。
 
 总账可以按照规定规则来审计全部或部分总账分录。在与参与者合作中，审计员可以通过基于时间的证书来获得总账的查看，连接交易来提供实际的资产操作。
 
-fabric是区块链技术的一种实现，比特币是可以在fabric上构建的一种简单应用。它通过模块化的架构来允许组件的“插入-运行”来实现这份协议规范。它具有强大的容器技术来支持任何主流的语言来开发智能合约。利用熟悉的和被证明的技术是fabric的座右铭。
+fabric 是区块链技术的一种实现，比特币是可以在fabric上构建的一种简单应用。它通过模块化的架构来允许组件的“插入-运行”来实现这份协议规范。它具有强大的容器技术来支持任何主流的语言来开发智能合约。利用熟悉的和被证明的技术是fabric的座右铭。
 
-### 1.2 为什么是fabric?
+### 1.2 为什么是 fabric?
 
-早期的区块链技术提供一个目的集合，但是通常对具体的工业应用支持的不是很好。为了满足现代市场的需求，fabric是基于工业关注点针对特定行业的多种多样的需求来设计的，并引入了这个领域内的开拓者的经验，如扩展性。fabric为权限网络，隐私，和多个区块链网络的私密信息提供一种新的方法。
+早期的区块链技术提供一个目的集合，但是通常对具体的工业应用支持的不是很好。为了满足现代市场的需求，fabric 是基于工业关注点针对特定行业的多种多样的需求来设计的，并引入了这个领域内的开拓者的经验，如扩展性。fabric 为权限网络，隐私，和多个区块链网络的私密信息提供一种新的方法。
 
 ### 1.3 术语    
 以下术语在此规范的有限范围内定义，以帮助读者清楚准确的了解这里所描述的概念。
@@ -194,46 +194,46 @@ fabric是由下面这个小节所描述的核心组件所组成的。
 (TCA)）颁发匿名证书。这样的证书，如交易证书，被用来对提交交易授权。交易证书存储在区块链中，并对审计集群授权，否则交易是不可链接的。
 
 ### 2.1.2 区块链服务     
-区块链服务通过HTTP/2上的点对点（peer-to-peer）协议来管理分布式总账。为了提供最高效的哈希算法来维护世界状态的复制，数据结构进行了高度的优化。每个部署中可以插入和配置不同的共识算法（PBFT, Raft, PoW, PoS）。
+区块链服务通过 HTTP/2 上的点对点（peer-to-peer）协议来管理分布式总账。为了提供最高效的哈希算法来维护世界状态的复制，数据结构进行了高度的优化。每个部署中可以插入和配置不同的共识算法（PBFT, Raft, PoW, PoS）。
 
 ### 2.1.3 链码服务    
-链码服务提供一个安全的，轻量的沙箱在验证节点上执行链码。环境是一个“锁定的”且安全的包含签过名的安全操作系统镜像和链码语言，Go，Java和Node.js的运行时和SDK层。可以根据需要来启用其他语言。    
+链码服务提供一个安全的，轻量的沙箱在验证节点上执行链码。环境是一个“锁定的”且安全的包含签过名的安全操作系统镜像和链码语言，Go，Java 和 Node.js 的运行时和 SDK 层。可以根据需要来启用其他语言。    
 
 ### 2.1.4 事件    
-验证peers和链码可以向在网络上监听并采取行动的应用发送事件。这是一些预定义好的事件集合，链码可以生成客户化的事件。事件会被一个或多个事件适配器消费。之后适配器可能会把事件投递到其他设备，如Web hooks或Kafka。    
+验证 peers 和链码可以向在网络上监听并采取行动的应用发送事件。这是一些预定义好的事件集合，链码可以生成客户化的事件。事件会被一个或多个事件适配器消费。之后适配器可能会把事件投递到其他设备，如 Web hooks 或 Kafka。    
 
 ### 2.1.5 应用编程接口(API)
-fabric的主要接口是REST API，并通过Swagger 2.0 来改变。API允许注册用户，区块链查询和发布交易。链码与执行交易的堆间的交互和交易的结果查询会由API集合来规范。
+fabric的主要接口是 REST API，并通过 Swagger 2.0 来改变。API 允许注册用户，区块链查询和发布交易。链码与执行交易的堆间的交互和交易的结果查询会由 API 集合来规范。
 
 ### 2.1.6 命令行界面(CLI)
-CLI包含REST API的一个子集使得开发者能更快的测试链码或查询交易状态。CLI是通过Go语言来实现，并可在多种操作系统上操作。
+CLI包含REST API的一个子集使得开发者能更快的测试链码或查询交易状态。CLI 是通过 Go 语言来实现，并可在多种操作系统上操作。
 
 ### 2.2 拓扑
-fabric的一个部署是由成员服务，多个验证peers、非验证peers和一个或多个应用所组成一个链。也可以有多个链，各个链具有不同的操作参数和安全要求。
+fabric 的一个部署是由成员服务，多个验证 peers、非验证 peers 和一个或多个应用所组成一个链。也可以有多个链，各个链具有不同的操作参数和安全要求。
 
 ### 2.2.1 单验证Peer    
-功能上讲，一个非验证peer是验证peer的子集；非验证peer上的功能都可以在验证peer上启用，所以在最简单的网络上只有一个验证peer组成。这个配置通常使用在开发环境：单个验证peer在编辑-编译-调试周期中被启动。
+功能上讲，一个非验证 peer 是验证 peer 的子集；非验证 peer 上的功能都可以在验证 peer 上启用，所以在最简单的网络上只有一个验证peer组成。这个配置通常使用在开发环境：单个验证 peer 在编辑-编译-调试周期中被启动。
 
 ![Single Validating Peer](images/top-single-peer.png)
 
-单个验证peer不需要共识，默认情况下使用`noops`插件来处理接收到的交易。这使得在开发中，开发人员能立即收到返回。
+单个验证 peer 不需要共识，默认情况下使用`noops`插件来处理接收到的交易。这使得在开发中，开发人员能立即收到返回。
 
-### 2.2.2 多验证Peer    
-生产或测试网络需要有多个验证和非验证peers组成。非验证peer可以为验证peer分担像API请求处理或事件处理这样的压力。
+### 2.2.2 多验证 Peer    
+生产或测试网络需要有多个验证和非验证 peers 组成。非验证 peer 可以为验证 peer 分担像 API 请求处理或事件处理这样的压力。
 
 ![Multiple Validating Peers](images/top-multi-peer.png)
 
-网状网络（每个验证peer需要和其它验证peer都相连）中的验证peer来传播信息。一个非验证peer连接到附近的，允许它连接的验证peer。当应用可能直接连接到验证peer时，非验证peer是可选的。
+网状网络（每个验证peer需要和其它验证peer都相连）中的验证 peer 来传播信息。一个非验证 peer 连接到附近的，允许它连接的验证 peer。当应用可能直接连接到验证 peer 时，非验证 peer 是可选的。
 
 ### 2.2.3 多链 
-验证和非验证peer的各个网络组成一个链。可以根据不同的需求创建不同的链，就像根据不同的目的创建不同的Web站点。
+验证和非验证 peer 的各个网络组成一个链。可以根据不同的需求创建不同的链，就像根据不同的目的创建不同的 Web 站点。
 
 
 ## 3. 协议
-fabric的点对点（peer-to-peer）通信是建立在允许双向的基于流的消息[gRPC](http://www.grpc.io/docs/)上的。它使用[Protocol Buffers](https://developers.google.com/protocol-buffers)来序列化peer之间传输的数据结构。Protocol buffers是语言无关，平台无关并具有可扩展机制来序列化结构化的数据的技术。数据结构，消息和服务是使用 [proto3 language](https://developers.google.com/protocol-buffers/docs/proto3)注释来描述的。
+fabric的点对点（peer-to-peer）通信是建立在允许双向的基于流的消息[gRPC](http://www.grpc.io/docs/)上的。它使用[Protocol Buffers](https://developers.google.com/protocol-buffers)来序列化peer之间传输的数据结构。Protocol buffers 是语言无关，平台无关并具有可扩展机制来序列化结构化的数据的技术。数据结构，消息和服务是使用 [proto3 language](https://developers.google.com/protocol-buffers/docs/proto3)注释来描述的。
 
 ### 3.1 消息
-消息在节点之间通过`Message`proto结构封装来传递的，可以分为4种类型：发现（Discovery）, 交易（Transaction）, 同步(Synchronization)和共识(Consensus)。每种类型在`payload`中定义了多种子类型。    
+消息在节点之间通过`Message`proto 结构封装来传递的，可以分为 4 种类型：发现（Discovery）, 交易（Transaction）, 同步(Synchronization)和共识(Consensus)。每种类型在`payload`中定义了多种子类型。    
 
 ```
 message Message {
@@ -271,7 +271,7 @@ message Message {
 `payload`是由不同的消息类型所包含的不同的像`Transaction`或`Response`这样的对象的不透明的字节数组。例如：`type`为`CHAIN_TRANSACTION`那么`payload`就是一个`Transaction`对象。
 
 ### 3.1.1 发现消息    
-在启动时，如果`CORE_PEER_DISCOVERY_ROOTNODE`被指定，那么peer就会运行发现协议。`CORE_PEER_DISCOVERY_ROOTNODE`是网络（任意peer）中扮演用来发现所有peer的起点角色的另一个peer的IP地址。协议序列以`payload`是一个包含：
+在启动时，如果`CORE_PEER_DISCOVERY_ROOTNODE`被指定，那么 peer 就会运行发现协议。`CORE_PEER_DISCOVERY_ROOTNODE`是网络（任意peer）中扮演用来发现所有 peer 的起点角色的另一个 peer 的 IP 地址。协议序列以`payload`是一个包含：
 
 ```
 message HelloMessage {
@@ -300,15 +300,15 @@ message PeerID {
 
 **域的定义:**
 
-- `PeerID` 是在启动时或配置文件中定义的peer的任意名字
-- `PeerEndpoint` 描述了端点和它是验证还是非验证peer
-- `pkiID` 是peer的加密ID
-- `address` 以`ip:port`这样的格式表示的peer的主机名或IP和端口
-- `blockNumber` 是peer的区块链的当前的高度
+- `PeerID` 是在启动时或配置文件中定义的 peer 的任意名字
+- `PeerEndpoint` 描述了端点和它是验证还是非验证 peer
+- `pkiID` 是 peer 的加密ID
+- `address` 以`ip:port`这样的格式表示的 peer 的主机名或IP和端口
+- `blockNumber` 是 peer 的区块链的当前的高度
 
-如果收到的`DISC_HELLO` 消息的块的高度比当前peer的块的高度高，那么它马上初始化同步协议来追上当前的网络。    
+如果收到的`DISC_HELLO` 消息的块的高度比当前 peer 的块的高度高，那么它马上初始化同步协议来追上当前的网络。    
 
-`DISC_HELLO`之后，peer会周期性的发送`DISC_GET_PEERS`来发现任意想要加入网络的peer。收到`DISC_GET_PEERS`后，peer会发送`payload`
+`DISC_HELLO`之后，peer 会周期性的发送`DISC_GET_PEERS`来发现任意想要加入网络的 peer。收到`DISC_GET_PEERS`后，peer 会发送`payload`
 包含`PeerEndpoint`的数组的`DISC_PEERS`作为响应。这是不会使用其它的发现消息类型。
 
 ### 3.1.2 交易消息    
@@ -364,7 +364,7 @@ enum ConfidentialityLevel {
 - `payloadHash` - `TransactionPayload.payload`所定义的哈希字节.
 - `metadata` - 应用可能使用的，由自己定义的任意交易相关的元数据
 - `uuid` - 交易的唯一ID
-- `timestamp` - peer收到交易时的时间戳
+- `timestamp` - peer 收到交易时的时间戳
 - `confidentialityLevel` - 数据保密的级别。当前有两个级别。未来可能会有多个级别。
 - `nonce` - 为安全而使用
 - `cert` - 交易者的证书
@@ -411,7 +411,7 @@ message ChaincodeInput {
 - `secureContext` - 交易者的安全上下文
 - `metadata` - 应用想要传递下去的任何数据
 
-当peer收到`chaincodeSpec`后以合适的交易消息包装它并广播到网络
+当 peer 收到`chaincodeSpec`后以合适的交易消息包装它并广播到网络
 
 ### 3.1.2.3 部署交易    
 部署交易的类型是`CHAINCODE_DEPLOY`，且它的payload包含`ChaincodeDeploymentSpec`对象。
@@ -428,7 +428,7 @@ message ChaincodeDeploymentSpec {
 - `effectiveDate` - 链码准备好可被调用的时间
 - `codePackage` - 链码源码的gzip
 
-当验证peer部署链码时，它通常会校验`codePackage`的哈希来保证交易被部署到网络后没有被篡改。
+当验证 peer 部署链码时，它通常会校验`codePackage`的哈希来保证交易被部署到网络后没有被篡改。
 
 ### 3.1.2.4 调用交易
 
@@ -444,7 +444,7 @@ message ChaincodeInvocationSpec {
 查询交易除了消息类型是`CHAINCODE_QUERY`其它和调用交易一样
 
 ### 3.1.3 同步消息    
-同步协议以3.1.1节描述的，当peer知道它自己的区块落后于其它peer或和它们不一样后所发起的。peer广播`SYNC_GET_BLOCKS`，`SYNC_STATE_GET_SNAPSHOT`或`SYNC_STATE_GET_DELTAS`并分别接收`SYNC_BLOCKS`, `SYNC_STATE_SNAPSHOT`或 `SYNC_STATE_DELTAS`。
+同步协议以3.1.1节描述的，当 peer 知道它自己的区块落后于其它 peer 或和它们不一样后所发起的。peer 广播`SYNC_GET_BLOCKS`，`SYNC_STATE_GET_SNAPSHOT`或`SYNC_STATE_GET_DELTAS`并分别接收`SYNC_BLOCKS`, `SYNC_STATE_SNAPSHOT`或 `SYNC_STATE_DELTAS`。
 
 安装的共识插件（如：pbft）决定同步协议是如何被应用的。每个小时是针对具体的状态来设计的：
 
@@ -477,7 +477,7 @@ message SyncStateSnapshotRequest {
 }
 ```
 
-`correlationId`是请求peer用来追踪响应消息的。接受peer回复`payload`为`SyncStateSnapshot`实例的`SYNC_STATE_SNAPSHOT`信息
+`correlationId`是请求 peer 用来追踪响应消息的。接受 peer 回复`payload`为`SyncStateSnapshot`实例的`SYNC_STATE_SNAPSHOT`信息
 
 ```
 message SyncStateSnapshot {
@@ -497,7 +497,7 @@ message SyncStateDeltasRequest {
     SyncBlockRange range = 1;
 }
 ```
-接收peer使用包含 `SyncStateDeltas`实例的`payload`的`SYNC_STATE_DELTAS`信息来响应
+接收 peer 使用包含 `SyncStateDeltas`实例的`payload`的`SYNC_STATE_DELTAS`信息来响应
 
 ```
 message SyncStateDeltas {
@@ -508,7 +508,7 @@ message SyncStateDeltas {
 delta可能以顺序（从i到j）或倒序（从j到i）来表示状态转变
 
 ### 3.1.4 共识消息    
-共识处理交易，一个`CONSENSUS`消息是由共识框架接收到`CHAIN_TRANSACTION`消息时在内部初始化的。框架把`CHAIN_TRANSACTION`转换为 `CONSENSUS`然后以相同的`payload`广播到验证peer。共识插件接收这条消息并根据内部算法来处理。插件可能创建自定义的子类型来管理共识有穷状态机。3.4节会介绍详细信息。
+共识处理交易，一个`CONSENSUS`消息是由共识框架接收到`CHAIN_TRANSACTION`消息时在内部初始化的。框架把`CHAIN_TRANSACTION`转换为 `CONSENSUS`然后以相同的`payload`广播到验证 peer。共识插件接收这条消息并根据内部算法来处理。插件可能创建自定义的子类型来管理共识有穷状态机。3.4节会介绍详细信息。
 
 
 ### 3.2 总账
@@ -561,7 +561,7 @@ message BlockTransactions {
 
 #### 3.2.1.3 非散列数据(NonHashData)    
 
-NonHashData消息是用来存储不需要所有peer都具有相同值的块元数据。他们是建议值。
+NonHashData消息是用来存储不需要所有 peer 都具有相同值的块元数据。他们是建议值。
 
 ```
 message NonHashData {
@@ -597,12 +597,12 @@ message TransactionResult {
 
 ### 3.2.2 世界状态    
 
-peer的*世界状态*涉及到所有被部署的链码的*状态*集合。进一步说，链码的状态由键值对集合来表示。所以，逻辑上说，peer的世界状态也是键值对的集合，其中键有元组`{chaincodeID, ckey}`组成。这里我们使用术语`key`来标识世界状态的键，如：元组`{chaincodeID, ckey}` ，而且我们使用`cKey`来标识链码中的唯一键。
+peer 的*世界状态*涉及到所有被部署的链码的*状态*集合。进一步说，链码的状态由键值对集合来表示。所以，逻辑上说，peer 的世界状态也是键值对的集合，其中键有元组`{chaincodeID, ckey}`组成。这里我们使用术语`key`来标识世界状态的键，如：元组`{chaincodeID, ckey}` ，而且我们使用`cKey`来标识链码中的唯一键。
 
 为了下面描述的目的，假定`chaincodeID`是有效的utf8字符串，且`ckey`和`value`是一个或多个任意的字节的序列
 
 #### 3.2.2.1 世界状态的哈希
-当网络活动时，很多像交易提交和同步peer这样的场合可能需要计算peer观察到的世界状态的加密-哈希。例如，共识协议可能需要保证网络中*最小*数量的peer观察到同样的世界状态。
+当网络活动时，很多像交易提交和同步 peer 这样的场合可能需要计算 peer 观察到的世界状态的加密-哈希。例如，共识协议可能需要保证网络中*最小*数量的 peer 观察到同样的世界状态。
 
 应为计算世界状态的加密-哈希是一个非常昂贵的操作，组织世界状态来使得当它改变时能高效效的计算加密-哈希是非常可取的。将来，可以根据不同的负载条件来设计不同的组织形式。
 
@@ -655,11 +655,11 @@ peer的*世界状态*涉及到所有被部署的链码的*状态*集合。进一
   - 那些没有变化的桶的计算会被跳过
   - merkle-tree的宽度和深度可以通过配置`numBuckets`和`maxGroupingAtEachLevel`参数来控制。树的不同深度和宽度对性能和不同的资源都会产生不同的影响。
 
-在一个具体的部署中，所有的peer都期望使用相同的`numBuckets, maxGroupingAtEachLevel, 和 hashFunction`的配置。进一步说，如果任何一个配置在之后的阶段被改变，那么这些改变需要应用到所有的peer中，来保证peer节点之间的加密-哈希的比较是有意义的。即使，这可能会导致基于实现的已有数据的迁移。例如：一种实现希望存储树中所有节点最后计算的加密-哈希，那么它就需要被重新计算。
+在一个具体的部署中，所有的 peer 都期望使用相同的`numBuckets, maxGroupingAtEachLevel, 和 hashFunction`的配置。进一步说，如果任何一个配置在之后的阶段被改变，那么这些改变需要应用到所有的 peer 中，来保证 peer 节点之间的加密-哈希的比较是有意义的。即使，这可能会导致基于实现的已有数据的迁移。例如：一种实现希望存储树中所有节点最后计算的加密-哈希，那么它就需要被重新计算。
 
 
 ### 3.3 链码（Chaincode）    
-链码是在交易（参看3.1.2节）被部署是分发到网络上，并被所有验证peer通过隔离的沙箱来管理的应用级代码。尽管任意的虚拟技术都可以支持沙箱，现在是通过Docker容器来运行链码的。这节中描述的协议可以启用不同虚拟实现的插入与运行。
+链码是在交易（参看3.1.2节）被部署是分发到网络上，并被所有验证 peer 通过隔离的沙箱来管理的应用级代码。尽管任意的虚拟技术都可以支持沙箱，现在是通过Docker容器来运行链码的。这节中描述的协议可以启用不同虚拟实现的插入与运行。
 
 
 ### 3.3.1 虚拟机实例化    
@@ -675,10 +675,10 @@ type VM interface {
 
 fabric在处理链码上的部署交易或其他交易时，如果这个链码的VM未启动（崩溃或之前的不活动导致的关闭）时实例化VM。每个链码镜像通过`build`函数构建，通过`start`函数启动，并使用`stop`函数停止。
 
-一旦链码容器被启动，它使用gRPC来连接到启动这个链码的验证peer，并为链码上的调用和查询交易建立通道。
+一旦链码容器被启动，它使用gRPC来连接到启动这个链码的验证 peer，并为链码上的调用和查询交易建立通道。
 
 ### 3.3.2 链码协议     
-验证peer和它的链码之间是通过gRPC流来通信的。链码容器上有shim层来处理链码与验证peer之间的protobuf消息协议。
+验证 peer 和它的链码之间是通过gRPC流来通信的。链码容器上有shim层来处理链码与验证 peer 之间的protobuf消息协议。
 
 ```
 message ChaincodeMessage {
@@ -718,7 +718,7 @@ message ChaincodeMessage {
 
 消息的类型在下面的小节中描述
 
-链码实现被验证peer在处理部署，调用或查询交易时调用的`Chaincode`接口
+链码实现被验证 peer 在处理部署，调用或查询交易时调用的`Chaincode`接口
 
 ```
 type Chaincode interface {
@@ -730,17 +730,17 @@ type Chaincode interface {
 `Init`, `Invoke` 和 `Query`函数使用`function` and `args`参数来支持多种交易。`Init`是构造函数，它只在部署交易是被执行。`Query`函数是不允许修改链码的状态的；它只能读取和计算并以byte数组的形式返回。    
 
 ### 3.3.2.1 链码部署    
-当部署时（链码容器已经启动），shim层发送一次性的具有包含`ChaincodeID`的`payload`的`REGISTER`消息给验证peer。然后peer以`REGISTERED`或`ERROR`来响应成功或失败。当收到`ERROR`后shim关闭连接并退出。     
+当部署时（链码容器已经启动），shim层发送一次性的具有包含`ChaincodeID`的`payload`的`REGISTER`消息给验证 peer。然后 peer 以`REGISTERED`或`ERROR`来响应成功或失败。当收到`ERROR`后shim关闭连接并退出。     
 
-注册之后，验证peer发送具有包含`ChaincodeInput`对象的`INIT`消息。shim使用从`ChaincodeInput`获得的参数来调用`Init`函数，通过像设置持久化状态这样操作来初始化链码。
+注册之后，验证 peer 发送具有包含`ChaincodeInput`对象的`INIT`消息。shim使用从`ChaincodeInput`获得的参数来调用`Init`函数，通过像设置持久化状态这样操作来初始化链码。
 
 shim根据`Init`函数的返回值，响应`RESPONSE`或`ERROR`消息。如果没有错误，那么链码初始化完成，并准备好接收调用和查询交易。
 
 ### 3.3.2.2 链码调用    
-当处理调用交易时，验证peer发送`TRANSACTION`消息给链码容器的shim，由它来调用链码的`Invoke`函数，并传递从`ChaincodeInput`得到的参数。shim响应`RESPONSE`或`ERROR`消息来表示函数完成。如果接收到`ERROR`函数，`payload`包含链码所产生的错误信息。
+当处理调用交易时，验证 peer 发送`TRANSACTION`消息给链码容器的shim，由它来调用链码的`Invoke`函数，并传递从`ChaincodeInput`得到的参数。shim响应`RESPONSE`或`ERROR`消息来表示函数完成。如果接收到`ERROR`函数，`payload`包含链码所产生的错误信息。
 
 ### 3.3.2.3 来代码查询    
-与调用交易一样，验证peer发送`QUERY`消息给链码容器的shim，由它来调用链码的`Query`函数，并传递从`ChaincodeInput`得到的参数。`Query`函数可能会返回状态值或错误，它会把它通过`RESPONSE`或`ERROR`消息来传递给验证peer。
+与调用交易一样，验证 peer 发送`QUERY`消息给链码容器的shim，由它来调用链码的`Query`函数，并传递从`ChaincodeInput`得到的参数。`Query`函数可能会返回状态值或错误，它会把它通过`RESPONSE`或`ERROR`消息来传递给验证 peer。
 
 ### 3.3.2.4 链码状态    
 每个链码可能都定义了它自己的持久化状态变量。例如，一个链码可能创建电视，汽车或股票这样的资产来保存资产属性。当`Invoke`函数处理时，链码可能会更新状态变量，例如改变资产所有者。链码会根据下面这些消息类型类操作状态变量：
@@ -771,7 +771,7 @@ message RangeQueryState {
 }
 ```
 
-`startKey`和`endKey`假设是通过字典排序的. 验证peer响应一个`payload`是`RangeQueryStateResponse`对象的`RESPONSE`消息
+`startKey`和`endKey`假设是通过字典排序的. 验证 peer 响应一个`payload`是`RangeQueryStateResponse`对象的`RESPONSE`消息
 
 ```
 message RangeQueryStateResponse {
@@ -802,10 +802,10 @@ message RangeQueryStateClose {
 ```
 
 #### INVOKE_CHAINCODE
-链码可以通过发送`payload`包含 `ChaincodeSpec`对象的`INVOKE_CHAINCODE`消息给验证peer来在相同的交易上下文中调用另一个链码
+链码可以通过发送`payload`包含 `ChaincodeSpec`对象的`INVOKE_CHAINCODE`消息给验证 peer 来在相同的交易上下文中调用另一个链码
 
 #### QUERY_CHAINCODE
-链码可以通过发送`payload`包含 `ChaincodeSpec`对象的`QUERY_CHAINCODE`消息给验证peer来在相同的交易上下文中查询另一个链码
+链码可以通过发送`payload`包含 `ChaincodeSpec`对象的`QUERY_CHAINCODE`消息给验证 peer 来在相同的交易上下文中查询另一个链码
 
 
 ### 3.4 插拔式共识框架
@@ -814,15 +814,15 @@ message RangeQueryStateClose {
 
   - `consensus.Consenter`: 允许共识插件从网络上接收消息的接口
   - `consensus.CPI`:  共识编程接口_Consensus Programming Interface_ (`CPI`) 是共识插件用来与栈交互的，这个接口可以分为两部分：
-	  - `consensus.Communicator`: 用来发送（广播或单播）消息到其他的验证peer
+	  - `consensus.Communicator`: 用来发送（广播或单播）消息到其他的验证 peer
 	  - `consensus.LedgerStack`: 这个接口使得执行框架像总账一样方便
 
-就像下面描述的细节一样，`consensus.LedgerStack`封装了其他接口，`consensus.Executor`接口是共识框架的核心部分。换句话说，`consensus.Executor`接口允许一个（批量）交易启动，执行，根据需要回滚，预览和提交。每一个共识插件都需要满足以所有验证peer上全序的方式把批量（块）交易（通过`consensus.Executor.CommitTxBatch`）被提交到总账中（参看下面的`consensus.Executor`接口获得详细细节）。
+就像下面描述的细节一样，`consensus.LedgerStack`封装了其他接口，`consensus.Executor`接口是共识框架的核心部分。换句话说，`consensus.Executor`接口允许一个（批量）交易启动，执行，根据需要回滚，预览和提交。每一个共识插件都需要满足以所有验证 peer 上全序的方式把批量（块）交易（通过`consensus.Executor.CommitTxBatch`）被提交到总账中（参看下面的`consensus.Executor`接口获得详细细节）。
 
 当前，共识框架由`consensus`, `controller`和`helper`这三个包组成。使用`controller`和`helper`包的主要原因是防止Go语言的“循环引入”和当插件更新时的最小化代码变化。
 
-- `controller` 包规范了验证peer所使用的共识插件
-- `helper` 是围绕公式插件的垫片，它是用来与剩下的栈交互的，如为其他peer维护消息。
+- `controller` 包规范了验证 peer 所使用的共识插件
+- `helper` 是围绕公式插件的垫片，它是用来与剩下的栈交互的，如为其他 peer 维护消息。
 
 这里有2个共识插件提供：`pbft`和`noops`：
 
@@ -839,7 +839,7 @@ type Consenter interface {
 ```
 `Consenter`接口是插件对（外部的）客户端请求的入口，当处理共识时，共识消息在内部（如从共识模块）产生。NewConsenter`创建`Consenter`插件。`RecvMsg`以到达共识的顺序来处理进来的交易。
 
-阅读下面的`helper.HandleMessage`来理解peer是如何和这个接口来交互的。
+阅读下面的`helper.HandleMessage`来理解 peer 是如何和这个接口来交互的。
 
 ### 3.4.2 `CPI`接口    
 
@@ -867,7 +867,7 @@ type Inquirer interface {
         GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
 }
 ```
-这个接口是`consensus.CPI`接口的一部分。它是用来获取网络中验证peer的（`GetNetworkHandles`）处理，以及那些验证peer的明细(`GetNetworkInfo`)：
+这个接口是`consensus.CPI`接口的一部分。它是用来获取网络中验证 peer 的（`GetNetworkHandles`）处理，以及那些验证 peer 的明细(`GetNetworkInfo`)：
 
 注意pees由`pb.PeerID`对象确定。这是一个protobuf消息，当前定义为（注意这个定义很可能会被修改）：
 
@@ -887,7 +887,7 @@ type Communicator interface {
 	Unicast(msg *pb.Message, receiverHandle *pb.PeerID) error
 }
 ```
-这个接口是`consensus.CPI`接口的一部分。它是用来与网络上其它peer通信的（`helper.Broadcast`, `helper.Unicast`）：
+这个接口是`consensus.CPI`接口的一部分。它是用来与网络上其它 peer 通信的（`helper.Broadcast`, `helper.Unicast`）：
 
 ### 3.4.5 `SecurityUtils`接口 
 
@@ -1113,7 +1113,7 @@ type RemoteLedgers interface {
   	GetRemoteBlocks(peerID uint64, start, finish uint64) (<-chan *pb.SyncBlocks, error)
   	```
 
-    这个函数尝试从由`peerID`指定的peer中取出由`start`和`finish`标识的范围中的`*pb.SyncBlocks`流。一般情况下，由于区块链必须是从结束到开始这样的顺序来验证的，所以`start`是比`finish`更高的块编号。由于慢速的结构，其它请求的返回可能出现在这个通道中，所以调用者必须验证返回的是期望的块。第二次以同样的`peerID`来调用这个方法会导致第一次的通道关闭。
+    这个函数尝试从由`peerID`指定的 peer 中取出由`start`和`finish`标识的范围中的`*pb.SyncBlocks`流。一般情况下，由于区块链必须是从结束到开始这样的顺序来验证的，所以`start`是比`finish`更高的块编号。由于慢速的结构，其它请求的返回可能出现在这个通道中，所以调用者必须验证返回的是期望的块。第二次以同样的`peerID`来调用这个方法会导致第一次的通道关闭。
 
 
   -  
@@ -1121,14 +1121,14 @@ type RemoteLedgers interface {
    	GetRemoteStateSnapshot(peerID uint64) (<-chan *pb.SyncStateSnapshot, error)
    	```
 
-    这个函数尝试从由`peerID`指定的peer中取出`*pb.SyncStateSnapshot`流。为了应用结果，首先需要通过`WritableLedger`的`EmptyState`调用来清空存在在状态，然后顺序应用包含在流中的变化量。
+    这个函数尝试从由`peerID`指定的 peer 中取出`*pb.SyncStateSnapshot`流。为了应用结果，首先需要通过`WritableLedger`的`EmptyState`调用来清空存在在状态，然后顺序应用包含在流中的变化量。
 
   -
   	```
    	GetRemoteStateDeltas(peerID uint64, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
    	```
 
-    这个函数尝试从由`peerID`指定的peer中取出由`start`和`finish`标识的范围中的`*pb.SyncStateDeltas`流。由于慢速的结构，其它请求的返回可能出现在这个通道中，所以调用者必须验证返回的是期望的块变化量。第二次以同样的`peerID`来调用这个方法会导致第一次的通道关闭。
+    这个函数尝试从由`peerID`指定的 peer 中取出由`start`和`finish`标识的范围中的`*pb.SyncStateDeltas`流。由于慢速的结构，其它请求的返回可能出现在这个通道中，所以调用者必须验证返回的是期望的块变化量。第二次以同样的`peerID`来调用这个方法会导致第一次的通道关闭。
 
 
 ### 3.4.10 `controller`包    
@@ -1140,7 +1140,7 @@ type RemoteLedgers interface {
 ```
 func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 ```
-这个函数读取为`peer`过程指定的`core.yaml`配置文件中的`peer.validator.consensus`的值。键`peer.validator.consensus`的有效值指定运行`noops`还是`obcpbft`共识。（注意，它最终被改变为`noops`或`custom`。在`custom`情况下，验证peer将会运行由`consensus/config.yaml`中定义的共识插件）
+这个函数读取为`peer`过程指定的`core.yaml`配置文件中的`peer.validator.consensus`的值。键`peer.validator.consensus`的有效值指定运行`noops`还是`obcpbft`共识。（注意，它最终被改变为`noops`或`custom`。在`custom`情况下，验证 peer 将会运行由`consensus/config.yaml`中定义的共识插件）
 
 插件的作者需要编辑函数体，来保证路由到它们包中正确的构造函数。例如，对于`obcpbft` 我们指向`obcpft.GetPlugin`构造器。
 
@@ -1150,7 +1150,7 @@ func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 
 #### 3.4.11.1 高层次概述    
 
-验证peer通过`helper.NewConsesusHandler`函数(一个处理器工厂)，为每个连接的peer建立消息处理器(`helper.ConsensusHandler`)。每个进来的消息都会检查它的类型(`helper.HandleMessage`)；如果这是为了共识必须到达的消息，它会传递到peer的共识对象(`consensus.Consenter`)。其它的信息会传递到栈中的下一个信息处理器。
+验证 peer 通过`helper.NewConsesusHandler`函数(一个处理器工厂)，为每个连接的 peer 建立消息处理器(`helper.ConsensusHandler`)。每个进来的消息都会检查它的类型(`helper.HandleMessage`)；如果这是为了共识必须到达的消息，它会传递到 peer 的共识对象(`consensus.Consenter`)。其它的信息会传递到栈中的下一个信息处理器。
 
 #### 3.4.11.2 helper.ConsensusHandler
 
@@ -1166,7 +1166,7 @@ type ConsensusHandler struct {
 }
 ```
 
-共识中的上下文，我们只关注域`coordinator`和`consenter`。`coordinator`就像名字隐含的那样，它被用来在peer的信息处理器之间做协调。例如，当peer希望`Broadcast`时，对象被访问。共识需要到达的共识者会接收到消息并处理它们。
+共识中的上下文，我们只关注域`coordinator`和`consenter`。`coordinator`就像名字隐含的那样，它被用来在 peer 的信息处理器之间做协调。例如，当 peer 希望`Broadcast`时，对象被访问。共识需要到达的共识者会接收到消息并处理它们。
 
 注意，`fabric/peer/peer.go`定义了`peer.MessageHandler` (接口)，和`peer.MessageHandlerCoordinator`（接口）类型。
 
@@ -1336,12 +1336,12 @@ consumerClient.Stop()
 
 ![figure-architecture](./images/sec-sec-arch.png)
 
- * Peers, 它们被分为验证peer和非验证peer。验证peer（也被称为验证器）是为了规范并处理（有效性检查，执行并添加到区块链中）用户消息（交易）提交到网络上。非验证peer（也被称为peer）代表用户接受用户交易，并通过一些基本的有效性检查，然后把交易发送到它们附近的验证peer。peer维护一个最新的区块链副本，只是为了做验证，而不会执行交易(处理过程也被称为*交易验证*)。
+ * Peers, 它们被分为验证 peer 和非验证 peer。验证 peer（也被称为验证器）是为了规范并处理（有效性检查，执行并添加到区块链中）用户消息（交易）提交到网络上。非验证 peer（也被称为 peer）代表用户接受用户交易，并通过一些基本的有效性检查，然后把交易发送到它们附近的验证 peer。peer 维护一个最新的区块链副本，只是为了做验证，而不会执行交易(处理过程也被称为*交易验证*)。
  * 注册到我们的成员服务管理系统的终端用户是在获取被系统认定的*身份*的所有权之后，并将获取到的证书安装到客户端软件后，提交交易到系统。
  * 客户端软件，为了之后能完成注册到我们成员服务和提交交易到系统所需要安装在客户端的软件
- * 在线钱包，用户信任的用来维护他们证书的实体，并独自根据用户的请求向网络提交交易。在线钱包配置在他们自己的客户端软件中。这个软件通常是轻量级的，它只需有对自己和自己的钱包的请求做授权。也有peer为一些用户扮演*在线钱包*的角色，在接下来的会话中，对在线钱包做了详细区分。
+ * 在线钱包，用户信任的用来维护他们证书的实体，并独自根据用户的请求向网络提交交易。在线钱包配置在他们自己的客户端软件中。这个软件通常是轻量级的，它只需有对自己和自己的钱包的请求做授权。也有 peer 为一些用户扮演*在线钱包*的角色，在接下来的会话中，对在线钱包做了详细区分。
 
-希望使用fabric的用户，通过提供之前所讨论的身份所有权，在成员管理系统中开立一个账户，新的链码被链码创建者（开发）以开发者的形式通过客户端软件部署交易的手段，公布到区块链网络中。这样的交易是第一次被peer或验证器接收到，并流传到整个验证器网络中，这个交易被区块链网络执行并找到自己的位置。用户同样可以通过调用交易调用一个已经部署了的链码
+希望使用fabric的用户，通过提供之前所讨论的身份所有权，在成员管理系统中开立一个账户，新的链码被链码创建者（开发）以开发者的形式通过客户端软件部署交易的手段，公布到区块链网络中。这样的交易是第一次被 peer 或验证器接收到，并流传到整个验证器网络中，这个交易被区块链网络执行并找到自己的位置。用户同样可以通过调用交易调用一个已经部署了的链码
 
 下一节提供了由商业目标所驱动的安全性需求的摘要。然后我们游览一下安全组件和它们的操作，以及如何设计来满足安全需求。
 
@@ -1404,7 +1404,7 @@ B2B系统对交易的隐私有着强烈的需求，如：允许系统的终端�
 *TLS证书颁发机构(TLS-CA):* 负责签发允许用户访问其网络的TLS证书和凭证。它验证用户提供的包含该用户的特定信息的，用来签发TLS证书的，证书或证据。
 
 *注册证书(ECerts)*
-ECerts是长期证书。它们是颁发给所有角色的，如用户，非验证peer，验证peer。在给用户颁发的情况下，谁向区块链提交候选人申请谁就拥有TCerts（在下面讨论），ECerts有两种可能的结构和使用模式：
+ECerts是长期证书。它们是颁发给所有角色的，如用户，非验证 peer，验证 peer。在给用户颁发的情况下，谁向区块链提交候选人申请谁就拥有TCerts（在下面讨论），ECerts有两种可能的结构和使用模式：
 
  * Model A: ECerts 包含所有者的身份/注册ID，并可以在交易中为TCert请求提供只用来对名义实体身份做验证。它们包含两个密钥对的公共部分：签名密钥对和加密/密钥协商密钥对。 ECerts是每个人都可以访问。 
 
@@ -1429,7 +1429,7 @@ TCerts可容纳的加密或密钥协议的公共密钥（以及数字签名的�
 * Validity period – 该交易证书可用于交易的外/外部签名的时间窗口。
 
 这里至少有三种方式来配置考虑了隐藏注册ID域密钥的分配方案：
-*(a)* Pre-K在注册期间发给用户，peer和审计员，并对TCA和授权的审计员可用。它可能，例如由K<sub>chain</sub>派生（会在这个规范的后面描述）或为了链码的保密性使用独立的key(s)。
+*(a)* Pre-K在注册期间发给用户，peer 和审计员，并对TCA和授权的审计员可用。它可能，例如由K<sub>chain</sub>派生（会在这个规范的后面描述）或为了链码的保密性使用独立的key(s)。
 
 *(b)* Pre-K对验证器，TCA和授权的审计员可用。K是在验证器成功响应用户的查询交易（通过TLS）后可用给的。查询交易可以使用与调用交易相同的格式。对应下面的例1，如果查询用户又有部署交易的ACL中的一张TCert，那么就可以得到创建这个部署交易的用户的注册ID（enrollmentID）。对应下面的例2，如果查询所使用TCert的注册ID（enrollmentID）与部署交易中访问控制域的其中一个隶属关系/角色匹配，那么就可以得到创建这个部署交易的用户的注册ID（enrollmentID）。
 
@@ -1462,7 +1462,7 @@ TLS-Certs 是用于系统/组件到系统/组件间通讯所使用的证书。�
 
 ![Registration](./images/sec-registration-high-level.png)
 
-*离线处理:* 在第一步中，每个用户/非验证peer/验证peer有权在线下将较强的识别凭证（身份证明）到导入到注册机构（RA）。这需要在频外给RA提供为用户创建（存储）账号的证据凭证。第二步，RA返回对应的用户名/密码和信任锚点（这个实现中是TLS-CA Cert）给用户。如果用户访问了本地客户端，那么这是客户端可以以TLS-CA证书作为信任锚点来提供安全保障的一种方法。
+*离线处理:* 在第一步中，每个用户/非验证 peer /验证 peer 有权在线下将较强的识别凭证（身份证明）到导入到注册机构（RA）。这需要在频外给RA提供为用户创建（存储）账号的证据凭证。第二步，RA返回对应的用户名/密码和信任锚点（这个实现中是TLS-CA Cert）给用户。如果用户访问了本地客户端，那么这是客户端可以以TLS-CA证书作为信任锚点来提供安全保障的一种方法。
 
 *在线阶段:* 第三步，用户连接客户端来请求注册到系统中。用户发送它的用户名和密码给客户端。客户端代表用户发送请求给PKI框架。第四步，接受包，第五步，包含其中一些对应于由客户端私有/秘密密钥的若干证书。一旦客户端验证包中所有加密材料是正确/有效的，他就把证书存储在本地并通知用户。这时候用户注册就完成了。
 
@@ -1474,7 +1474,7 @@ TCA和TLS-CA这些实体。第一步只收，RA调用“AddEntry”函数为它�
 同样的，在第七步，客户端发送包含它的公钥和身份的注册信息到TLS-CA。TLS-CA验证该用户在数据库中真实存在。TLS-CA生成，签名包含用户TLS公钥的一张TLS-Cert（步骤8）。TLS-CA发送TLS-Cert和它的证书（TLS-CA Cert）。第九步类似于第六步，客户端验证TLS Cert中的公钥是最初由客户端提交的，TLS Cert中的信息是完整且形式正确。在第十步，客户端在本地存储中保存这两张证书的所有证书。这时候用户就注册完成了。
 
 
-在这个版本的实现中验证器的注册过程和peer的是一样的。尽管，不同的实现可能使得验证器直接通过在线过程来注册。
+在这个版本的实现中验证器的注册过程和 peer 的是一样的。尽管，不同的实现可能使得验证器直接通过在线过程来注册。
 
 ![Figure 5](./images/sec-request-tcerts-deployment.png)
 ![Figure 6](./images/sec-request-tcerts-invocation.png)
@@ -1549,7 +1549,7 @@ Validators receive the confidential transactions, and pass them through the foll
 
 #### 4.3.2 交易保密性
 
-在开发人员的要求下，交易机密性要求链码的原文，即代码，描述，是不能被未授权的实体（即，未被开发人员授权的用户或peer）访问或推导（assuming a computational attacker）出来。对于后者，*部署*和*调用*交易的内容始终被隐藏对链码的保密需求是至关重要的。本着同样的精神，未授权方，不应该能联系链码（调用交易）与链码本身（部署交易）之间的调用关系或他们之间的调用。
+在开发人员的要求下，交易机密性要求链码的原文，即代码，描述，是不能被未授权的实体（即，未被开发人员授权的用户或 peer）访问或推导（assuming a computational attacker）出来。对于后者，*部署*和*调用*交易的内容始终被隐藏对链码的保密需求是至关重要的。本着同样的精神，未授权方，不应该能联系链码（调用交易）与链码本身（部署交易）之间的调用关系或他们之间的调用。
 
 
 任何候选的解决方案的附加要求是，满足并支持底层的成员服务的隐私和安全规定。此外，在fabric中他不应该阻止任何链码函数的调用访问控制，或在应用上实现强制的访问控制机制(参看4.4小结)。
@@ -1951,7 +1951,7 @@ TLS CA需要给（非验证）peer，验证器，和单独的客户端（或具�
 这一小节列出了当前版本的fabric的限制。
 具体的关注点是客户端操作和交易保密性设计，如4.7.1和4.7.2所述。
 
- - 客户端注册和交易的创建是由受信任不会模拟用户的非验证peer来完全执行。参看4.7.1节得到更多j信息。
+ - 客户端注册和交易的创建是由受信任不会模拟用户的非验证 peer 来完全执行。参看4.7.1节得到更多j信息。
  - 链码只能被系统的成员实体访问是保密性的最低要求，即，注册到我们成员服务的验证器和用户，其它的都不能访问。后者包含可以访问到存储区域维护的总账，或者可以看到在验证器网络上公布的交易。第一个发布版本在4.7.2小节中详细介绍。
  - 代码为注册CA（ECA）和交易CA（TCA）使用自签名的证书
  - 防重放攻击机制还不可用
@@ -1960,11 +1960,11 @@ TLS CA需要给（非验证）peer，验证器，和单独的客户端（或具�
 
 #### 4.7.1 简化客户端
 
-客户端的注册和交易的创建是由非验证peer以在线钱包的角色全部执行的。
-集体的，终端用户利用注册证书<username, password> 在非验证peer开立账户，并使用这些证书进一步授权peer建立代表用户的交易。
-需要注意的是，这样的设计不会为peer代表用户提交的交易提供安全**授权**，如恶意peer可以模拟用户。
+客户端的注册和交易的创建是由非验证 peer 以在线钱包的角色全部执行的。
+集体的，终端用户利用注册证书<username, password> 在非验证 peer 开立账户，并使用这些证书进一步授权 peer 建立代表用户的交易。
+需要注意的是，这样的设计不会为 peer 代表用户提交的交易提供安全**授权**，如恶意 peer 可以模拟用户。
 网上钱包的涉及安全问题设计规范的详细信息，可以在4.5节找到。
-目前用户可以注册和执行交易的peer是一。
+目前用户可以注册和执行交易的 peer 数量是一。
 
 #### 4.7.2 简化交易保密
 
@@ -2045,7 +2045,7 @@ iTx)保存计数器crt<sub>state</sub>初始设置为0。然后，每次必须�
   - `obc-batch.go`， `obc-classic`的变种，为PBFT添加批量能力；
   - `obc-sieve.go`， core PBFT消费者，实现Sieve共识协议和`innerCPI`接口， 调用`CPI interface`.
 
-总之，除了调用发送消息给其他peer(`innerCPI.broadcast` 和 `innerCPI.unicast`)，`innerCPI`接口定义了给消费者暴露的共识协议。
+总之，除了调用发送消息给其他 peer(`innerCPI.broadcast` 和 `innerCPI.unicast`)，`innerCPI`接口定义了给消费者暴露的共识协议。
 这使用了用来表示信息的原子投递的`innerCPI.execute`调用的一个经典的*总序（原子）广播* API[2]。经典的总序广播在*external validity* checks [2]中详细讨论(`innerCPI.verify`)和一个功能相似的对不可靠的领导失败的检查&Omega; [3] (`innerCPI.viewChange`).
 
 除了`innerCPI`， core PBFT 定义了core PBFT的方法。core PBFT最重要的方法是`request`有效地调用总序广播原语[2]。在下文中，我们首先概述core PBFT的方法和``innerCPI``接口的明细。然后，我们简要地描述，这将在更多的细节Sieve共识协议。
@@ -2075,7 +2075,7 @@ newPbftCore构造器使用指定的`id`来实例化一个新的PBFT箱子实例�
 ## 6. 应用编程接口
 fabric的主要接口是REST API。 REST API允许应用注册用户，查询区块链，并发布交易。 CLI为了开发，同样提供有效API的子集。CLI允许开发人员能够快速测试链码或查询交易状态。
 
-应用程序通过REST API与非验证的peer节点，这将需要某种形式的认证，以确保实体有适当的权限进行交互。该应用程序是负责实现合适的身份验证机制和peer节点随后将使用客户身份对发出消息签名。
+应用程序通过REST API与非验证的 peer 节点，这将需要某种形式的认证，以确保实体有适当的权限进行交互。该应用程序是负责实现合适的身份验证机制和 peer 节点随后将使用客户身份对发出消息签名。
 
 ![Reference architecture](images/refarch-api.png) <p>
 
@@ -2087,18 +2087,18 @@ fabric API 设计涵盖的类别如下，虽然当前版本的其中一些实现
 *  Transaction - 总账上的执行单元
 *  Chaincode - 总账上运行的程序
 *  Blockchain - 总账的内容
-*  Network - 区块链peer网络的信息
+*  Network - 区块链 peer 网络的信息
 *  Storage - 文件或文档的外部存储
 *  Event Stream - 区块链上订阅/发布事件
 
 ## 6.1 REST Service
-REST服务可以（通过配置）在验证和非验证peer被启用，但是建议在生产环境中只启用非验证peer的REST服务。
+REST服务可以（通过配置）在验证和非验证 peer 被启用，但是建议在生产环境中只启用非验证 peer 的REST服务。
 
 ```
 func StartOpenchainRESTServer(server *oc.ServerOpenchain, devops *oc.Devops)
 ```
 
-这个函数读取`core.yaml``peer`处理的配置文件中的`rest.address`。`rest.address`键定义了peer的HTTP REST服务默认监听的地址和端口。
+这个函数读取`core.yaml``peer`处理的配置文件中的`rest.address`。`rest.address`键定义了 peer 的HTTP REST服务默认监听的地址和端口。
 
 假定REST服务接收来已经认证的终端用户的应用请求。
 
@@ -2390,9 +2390,9 @@ POST host:port/chaincode/
 
 #### 6.2.1.4 网络API
 
-使用网络API来获取组成区块链fabric的peer节点的网络信息
+使用网络API来获取组成区块链 fabric 的 peer 节点的网络信息
 
-/network/peers端点返回的目标peer节点的所有现有的网络连接的列表。该列表包括验证和非验证peer。peer的列表被返回类型`PeersMessage`是包含`PeerEndpoint`的数组，在第[3.1.1]（#311-discovery-messages发现的消息）定义。
+/network/peers 端点返回的目标 peer 节点的所有现有的网络连接的列表。该列表包括验证和非验证 peer。peer 的列表被返回类型`PeersMessage`是包含`PeerEndpoint`的数组，在第[3.1.1]（#311-discovery-messages发现的消息）定义。
 
 
 ```
@@ -2642,11 +2642,11 @@ Some of the available command line arguments for the `peer` command are listed b
 
 上述所有命令并非完全在当前版本中实现。如下所述全面支持的命令是有助于链码的开发和调试的。
 
-所有peer节点的设置都被列在`core.yaml`这个`peer`处理的配置文件中，可能通过命令行的环境变量而被修改。如，设置`peer.id`或 `peer.ddressAutoDetect`，只需要传递`CORE_PEER_ID=vp1`和`CORE_PEER_ADDRESSAUTODETECT=true`给命令行。
+所有 peer 节点的设置都被列在`core.yaml`这个`peer`处理的配置文件中，可能通过命令行的环境变量而被修改。如，设置`peer.id`或 `peer.ddressAutoDetect`，只需要传递`CORE_PEER_ID=vp1`和`CORE_PEER_ADDRESSAUTODETECT=true`给命令行。
 
 #### 6.3.1.1 peer
 
-`peer`CLI命令在开发和生产环境中都会执行peer处理。开发模式会在本地运行单个peer节点和本地的链码部署。这使得在链码开修改和调试代码，不需要启动一个完整的网络。在开发模式启动peer的一个例子：
+`peer`CLI命令在开发和生产环境中都会执行 peer 处理。开发模式会在本地运行单个 peer 节点和本地的链码部署。这使得在链码开修改和调试代码，不需要启动一个完整的网络。在开发模式启动 peer 的一个例子：
 
 ```
 ./peer peer --peer-chaincodedev
@@ -2690,7 +2690,7 @@ Enter password for user 'jim': ************
 
 #### 6.3.1.3 链码部署
 
-`deploy`CLI命令为链码和接下来的部署包到验证peer创建docker镜像。如下面的例子。
+`deploy`CLI命令为链码和接下来的部署包到验证 peer 创建 docker 镜像。如下面的例子。
 
 ```
 ./peer chaincode deploy -p github.com/hyperledger/fabric/example/chaincode/go/chaincode_example02 -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
@@ -2751,7 +2751,7 @@ Enter password for user 'jim': ************
 </ul>
 <p>
 
-例如，使用Node.js的一个Bluemix PaaS的应用程序可能有一个Web前端用户界面或与Cloudant数据服务后端模型中的原生移动应用。控制逻辑可以被1或多个链码交互以处理对区块链交易。
+例如，使用 Node.js 的一个 Bluemix PaaS 的应用程序可能有一个 Web 前端用户界面或与 Cloudant 数据服务后端模型中的原生移动应用。控制逻辑可以被 1 或多个链码交互以处理对区块链交易。
 
 </td>
 </tr>
