@@ -90,16 +90,11 @@ pip install behave nose docker-compose
 ################
 #grpcio package
 
-git clone https://github.com/grpc/grpc.git
+git clone https://github.com/gongsu832/grpc.git
 cd grpc
+git submodule update --init
 pip install -rrequirements.txt
 git checkout tags/release-0_13_1
-sed -i -e "s/boringssl.googlesource.com/github.com\/linux-on-ibm-z/" .gitmodules
-git submodule sync
-git submodule update --init
-cd third_party/boringssl
-git checkout s390x-big-endian
-cd ../..
 GRPC_PYTHON_BUILD_WITH_CYTHON=1 pip install .
 
 # updater-server, update-engine, and update-service-common dependencies (for running locally)
