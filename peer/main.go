@@ -313,7 +313,7 @@ func main() {
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if mainCmd.Execute() != nil {
-		//os.Exit(1)
+		os.Exit(1)
 	}
 	logger.Info("Exiting.....")
 }
