@@ -476,6 +476,11 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 
 	if t.Type != pb.Transaction_CHAINCODE_DEPLOY {
 		ledger, ledgerErr := ledger.GetLedger()
+
+		if chaincodeSupport.userRunsCC {
+			chaincodeLogger.Error("You are attempting to perform an action other than Deploy on Chaincode that is not ready and you are in developer mode. Did you forget to Deploy your chaincode?")
+		}
+
 		if ledgerErr != nil {
 			return cID, cMsg, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 		}
