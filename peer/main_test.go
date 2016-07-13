@@ -39,5 +39,5 @@ func TestSystem(t *testing.T) {
 	// if *systemTest {
 	// 	main()
 	// }
-	main()
+	//main()
 }
