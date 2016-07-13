@@ -127,7 +127,7 @@ func (vm *DockerVM) deployImage(client *docker.Client, ccid ccintf.CCID, args []
 		return err
 	}
 
-	dockerLogger.Debug("Created image: %s", id)
+	dockerLogger.Debugf("Created image: %s", id)
 
 	return nil
 }

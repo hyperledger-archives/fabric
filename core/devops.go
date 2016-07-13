@@ -221,7 +221,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		id = util.GenerateUUID()
 	}
-	devopsLogger.Info("Transaction ID: %v", id)
+	devopsLogger.Infof("Transaction ID: %v", id)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
