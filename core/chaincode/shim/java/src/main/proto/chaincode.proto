@@ -18,7 +18,7 @@ syntax = "proto3";
 
 package protos;
 
-import "chaincode/shim/java/src/main/proto/chaincodeevent.proto";
+import "chaincodeevent.proto";
 import "google/protobuf/timestamp.proto";
 
 
