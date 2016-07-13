@@ -141,7 +141,7 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	omni := &omniProto{}
 	config := loadConfig()
 	config.Set("general.batchsize", 2)
-	b := newObcBatch(0, loadConfig(), omni)
+	b := newObcBatch(0, config, omni)
 	defer b.Close() // The broadcasting threads only cause problems here... but this test stalls without them
 
 	transactionsBroadcast := 0
@@ -189,9 +189,7 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	execute()
 
 	if b.reqStore.outstandingRequests.Len() != 0 {
-		config := loadConfig()
-		config.Set("general.batchsize", 2)
-		newObcBatch(0, config, omni)
+		t.Fatalf("All requests should have been executed and deleted after exec")
 	}
 
 	// Simulate changing views, with a request in the qSet, and one outstanding which is not
