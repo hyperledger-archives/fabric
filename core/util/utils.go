@@ -111,11 +111,11 @@ func GenerateIDfromTxSHAHash(payload []string) string {
 }
 
 // GenerateIDWithAlg generates an ID using a custom algorithm
-func GenerateIDWithAlg(customIDgenAlg *string, strPayload []string) (string, error) {
-	if customIDgenAlg == nil {
-		customIDgenAlg = &defaultAlg
+func GenerateIDWithAlg(customIDgenAlg string, strPayload []string) (string, error) {
+	if customIDgenAlg == "" {
+		customIDgenAlg = defaultAlg
 	}
-	var alg = availableIDgenAlgs[*customIDgenAlg]
+	var alg = availableIDgenAlgs[customIDgenAlg]
 	if alg.hashFun != nil {
 		return alg.hashFun(strPayload), nil
 	}
