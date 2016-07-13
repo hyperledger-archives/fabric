@@ -27,7 +27,7 @@ func (peer *peerImpl) initKeyStore() error {
 	// create tables
 	peer.Debugf("Create Table [%s] if not exists", "Certificates")
 	if _, err := peer.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS Certificates (id VARCHAR, certsign BLOB, certenc BLOB, PRIMARY KEY (id))"); err != nil {
-		peer.Debugf("Failed creating table [%s].", err.Error())
+		peer.Errorf("Failed creating table [%s].", err.Error())
 		return err
 	}
 

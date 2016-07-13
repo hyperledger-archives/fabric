@@ -325,13 +325,13 @@ func (ks *keyStore) createKeyStoreIfNotExists() error {
 	if !missing {
 		// Check keystore file
 		missing, err = utils.FileMissing(ks.node.conf.getKeyStorePath(), ks.node.conf.getKeyStoreFilename())
-		ks.node.Debugf("Keystore [%s] missing [%t]:[%s]", ks.node.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
+		ks.node.Errorf("Keystore [%s] missing [%t]:[%s]", ks.node.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			ks.node.Debugf("Failed creating db At [%s]: ", ks.node.conf.getKeyStoreFilePath(), err.Error())
+			ks.node.Errorf("Failed creating db At [%s]: [%s]", ks.node.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}

@@ -48,7 +48,7 @@ func Init() (err error) {
 
 	log.Debugf("Working at security level [%d]", securityLevel)
 	if err = primitives.InitSecurityLevel(hashAlgorithm, securityLevel); err != nil {
-		log.Debugf("Failed setting security level: [%s]", err)
+		log.Errorf("Failed setting security level: [%s]", err)
 
 		return
 	}
