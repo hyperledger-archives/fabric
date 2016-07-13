@@ -21,12 +21,16 @@ logging output from the `peer` and chaincodes.
 ###Security Setup (optional)
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+```
     vagrant ssh
+```
 
 To set up the local development environment with security enabled, you must first build and run the <b>Certificate Authority (CA)</b> server:
 
+```
     cd $GOPATH/src/github.com/hyperledger/fabric
     make membersrvc && membersrvc
+```
 
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the `eca.users` section of the configuration file. To register additional users with the CA for testing, modify the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional `enrollmentID` and `enrollmentPW` pairs. Note the integer that precedes the `enrollmentPW`. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
@@ -35,34 +39,46 @@ Running the above commands builds and runs the CA server with the default setup,
 
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+```
     vagrant ssh
+```
 
 Build and run the peer process to enable security and privacy after setting `security.enabled` and `security.privacy` settings to `true`.
 
+```
     cd $GOPATH/src/github.com/hyperledger/fabric
     make peer
     peer node start --peer-chaincodedev
+```
 
 Alternatively, enable security and privacy on the peer with environment variables:
 
+```
     CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer node start --peer-chaincodedev
+```
 
 ###Vagrant Terminal 2 (chaincode)
 
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+```
     vagrant ssh
+```
 
 Build the <b>chaincode_example02</b> code, which is provided in the source code repository:
 
+```
     cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
     go build
+```
 
 When you are ready to start creating your own chaincode, create a new subdirectory inside of /fabric/examples/go/chaincode to store your chaincode files. You can copy the <b>chaincode_example02</b> file to the new directory and modify it.
 
 Run the following chaincode command to start and register the chaincode with the validating peer (started in Vagrant terminal 1):
 
+```
     CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+```
 
 The chaincode console will display the message "Received REGISTERED, ready for invocations", which indicates that the chaincode is ready to receive requests. Follow the steps below to send a chaincode deploy, invoke or query transaction. If the "Received REGISTERED" message is not displayed, then an error has occurred during the deployment; revisit the previous steps to resolve the issue.
 
@@ -80,12 +96,16 @@ With security enabled, the CLI commands and REST payloads must be modified to in
 
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+```
     vagrant ssh
+```
 
 Register the user though the CLI, substituting for `<username>` appropriately:
 
+```
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     peer network login <username>
+```
 
 The command will prompt for a password, which must match the `enrollmentPW` listed for the target user in the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the `enrollmentPW`, an error will result.
 

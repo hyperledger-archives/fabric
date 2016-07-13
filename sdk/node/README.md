@@ -138,49 +138,47 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
 
 ## Getting Set Up
 
+First, you'll want to have a running peer node and CA. You can follow the instructions for setting up a network [here](../../docs/Setup/ca-setup.md#Operating-the-CA), and start a single peer node and CA.
+
 ### Chaincode Deployment Directory Structure
 
 To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. These instructions will demonstrate how to properly set up the directory structure to deploy *chaincode_example02* in network mode.
 
-The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the `chaincode_example02` project may be placed inside `$GOPATH/src/` as shown below.
+The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the [chaincode_example02](https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go) project may be placed inside `$GOPATH/src/` as shown below.
 
 ```
-$GOPATH/src/github.com/chaincode_example02/
+mkdir -p $GOPATH/src/github.com/chaincode_example02/
+cd $GOPATH/src/github.com/chaincode_example02
+curl GET https://raw.githubusercontent.com/hyperledger/fabric/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go > chaincode_example02.go
 ```
 
-The chaincode project directory must contain project related code and also a `vendor` folder which contains the entire Hyperledger Fabric source tree. Currently, this is still a dependency to have the chaincode project deploy successfully. However, the entire fabric directory is not packaged into the deploy transaction when the payload is generated. The deployment process selects a specific set of files when creating the transaction payload. Correct project directory structure is shown below.
+Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH`, you will need to vendor the dependencies. In your chaincode source directory, run the following commands:
 
 ```
-ls -la $GOPATH/src/github.com/chaincode_example02/
-.
-..
-chaincode_example02.go
-vendor
-
-ls -la $GOPATH/src/github.com/chaincode_example02/vendor/github.com/hyperledger/
-.
-..
-fabric
+go get -u github.com/kardianos/govendor
+cd $GOPATH/src/github.com/chaincode_example02
+govendor init
+govendor fetch github.com/hyperledger/fabric
 ```
 
-Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH` together with the `vendor` directory containing the Hyperledger Fabric, you need to verify that the chaincode builds in this directory. To do so execute `go build`. This step verifies that all of the chaincode dependencies are present.
+Now, execute `go build` to verify that all of the chaincode dependencies are present.
 
 ```
-cd $GOPATH/src/github.com/chaincode_example02/
 go build
 ```
 
-Once the chaincode is built, you need to verify that [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) unit test file points to the appropriate chaincode project path. The default directory is set to `github.com/chaincode_example02/` as shown below.
+Next, we will switch over to the node sdk directory in the fabric repo to run the node sdk tests, to make sure you have everything properly set up. Verify that the [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) unit test file points to the correct chaincode project path. The default directory is set to `github.com/chaincode_example02/` as shown below. If you placed the sample chaincode elsewhere, then you will need to change that.
 
 ```
 // Path to the local directory containing the chaincode project under $GOPATH
 var testChaincodePath = "github.com/chaincode_example02/";
 ```
 
-Set the `DEPLOY_MODE` environment variable to `net` and run the chain-tests as follows:
+**Note:** You will need to run `npm install` the first time you run the sdk tests, to install all of the dependencies. Set the `DEPLOY_MODE` environment variable to `net` and run the chain-tests as follows:
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
+npm install
 export DEPLOY_MODE='net'
 node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 ```
@@ -224,12 +222,8 @@ This is needed to allow the peer to connect to the member services using TLS, ot
 ## Running Unit Tests
 HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The unit [test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
 
-<<<<<<< HEAD
 ### Running the SDK unit tests
-HFC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). To run the unit tests, execute the following commands.
-=======
-To run the unit tests, execute the following commands.
->>>>>>> 90a9eb05d8cbea8fabb4e23b42c27c641408f9e7
+HFC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). To run the unit tests, execute the following commands:
 
     cd $GOPATH/src/github.com/hyperledger/fabric
     make node-sdk-unit-tests

@@ -1769,11 +1769,11 @@ export class TransactionContext extends events.EventEmitter {
                         let nonceRaw = new Buffer(self.nonce);
                         let bindingMsg = Buffer.concat([certRaw, nonceRaw]);
                         // debug('========== Binding Msg [%s]', bindingMsg.toString('hex'));
-                        this.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
-                        // debug('========== Binding [%s]', this.binding.toString('hex'));
+                        self.binding = new Buffer(self.chain.cryptoPrimitives.hash(bindingMsg), 'hex');
+                        // debug('========== Binding [%s]', self.binding.toString('hex'));
                         let ctor = chaincodeSpec.getCtorMsg().toBuffer();
                         // debug('========== Ctor [%s]', ctor.toString('hex'));
-                        let txmsg = Buffer.concat([ctor, this.binding]);
+                        let txmsg = Buffer.concat([ctor, self.binding]);
                         // debug('========== Payload||binding [%s]', txmsg.toString('hex'));
                         let mdsig = self.chain.cryptoPrimitives.ecdsaSign(request.userCert.privateKey.getPrivate('hex'), txmsg);
                         let sigma = new Buffer(mdsig.toDER());

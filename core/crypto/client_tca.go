@@ -78,7 +78,7 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 	client.Debug("Loading TCertOwnerKDFKey...")
 
 	if !client.ks.isAliasSet(client.conf.getTCertOwnerKDFKeyFilename()) {
-		client.Debug("Failed loading TCertOwnerKDFKey. Key is missing.")
+		client.Error("Failed loading TCertOwnerKDFKey. Key is missing.")
 
 		return nil
 	}
@@ -100,7 +100,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	// DER to x509
 	x509Cert, err := primitives.DERToX509Certificate(der)
 	if err != nil {
-		client.Debugf("Failed parsing certificate [% x]: [%s].", der, err)
+		client.Errorf("Failed parsing certificate [% x]: [%s].", der, err)
 
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// DER to x509
 	x509Cert, err := primitives.DERToX509Certificate(certBlk.tCertDER)
 	if err != nil {
-		client.Debugf("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
+		client.Errorf("Failed parsing certificate [% x]: [%s].", certBlk.tCertDER, err)
 
 		return
 	}
@@ -382,7 +382,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 	// Contact the TCA
 	TCertOwnerKDFKey, certDERs, err := client.callTCACreateCertificateSet(num, attributes)
 	if err != nil {
-		client.Debugf("Failed contacting TCA [%s].", err.Error())
+		client.Errorf("Failed contacting TCA [%s].", err.Error())
 
 		return err
 	}
@@ -418,7 +418,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		x509Cert, err := primitives.DERToX509Certificate(certDERs[i].Cert)
 		prek0 := certDERs[i].Prek0
 		if err != nil {
-			client.Debugf("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
+			client.Errorf("Failed parsing certificate [% x]: [%s].", certDERs[i].Cert, err)
 
 			continue
 		}

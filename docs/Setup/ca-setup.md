@@ -76,6 +76,16 @@ membersrvc:
   command: membersrvc
 ```
 
+The corresponding docker-compose.yml for running Docker on Mac or Windows natively looks like this:
+
+```
+membersrvc:
+  image: hyperledger/fabric-membersrvc
+  ports:
+    - "50051:50051"
+  command: membersrvc
+```
+
 If you are launching one or more `peer` nodes in the same docker-compose.yml, then you will want to add a delay to the start of the peer to allow sufficient time for the CA to start, before the peer attempts to connect to it.
 
 ```
@@ -88,6 +98,32 @@ vp0:
     - CORE_PEER_ADDRESSAUTODETECT=true
     - CORE_VM_ENDPOINT=http://172.17.0.1:2375
     - CORE_LOGGING_LEVEL=DEBUG
+    - CORE_PEER_ID=vp0
+    - CORE_SECURITY_ENROLLID=test_vp0
+    - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
+  links:
+    - membersrvc
+  command: sh -c "sleep 5; peer node start"
+```
+
+The corresponding docker-compose.yml for running Docker on Mac or Windows natively looks like this:
+
+```
+membersrvc:
+  image: hyperledger/fabric-membersrvc
+  ports:
+    - "50051:50051"
+  command: membersrvc
+vp0:
+  image: hyperledger/fabric-peer
+  ports:
+    - "5000:5000"
+    - "30303:30303"
+    - "30304:30304"
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
+    - CORE_LOGGING_LEVEL=WARNING
     - CORE_PEER_ID=vp0
     - CORE_SECURITY_ENROLLID=test_vp0
     - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
@@ -114,3 +150,33 @@ The CA can be started with the following command:
 **Note:** the CA must be started before any of the fabric peer nodes, to allow the CA to have initialized before any peer nodes attempt to connect to it.
 
 The CA looks for an `membersrvc.yaml` configuration file in $GOPATH/src/github.com/hyperledger/fabric/membersrvc.  If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
+
+<!-- This needs some serious attention
+
+If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included. Additionally, the fabric-membersrvc container must be started before the peer(s) are launched. Hence we will need to insert a delay in launching the peer command. Here's the docker-compose.yml for a single peer with membership services running in a **Vagrant** environment:
+
+```
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+  - CORE_PEER_ADDRESSAUTODETECT=true
+  - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+  - CORE_LOGGING_LEVEL=DEBUG
+  - CORE_PEER_ID=vp0
+  - CORE_PEER_TLS_ENABLED=true
+  - CORE_PEER_TLS_SERVERHOSTOVERRIDE=OBC
+  - CORE_PEER_TLS_CERT_FILE=./bddtests/tlsca.cert
+  - CORE_PEER_TLS_KEY_FILE=./bddtests/tlsca.priv
+  command: sh -c "sleep 5; peer node start"
+
+membersrvc:
+   image: hyperledger/fabric-membersrvc
+   command: membersrvc
+```
+
+```
+docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=vp0_secret  hyperledger/fabric-peer peer node start
+```
+
+Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0` and `vp0_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
+-->

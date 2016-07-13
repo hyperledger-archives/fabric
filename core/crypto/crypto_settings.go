@@ -29,22 +29,7 @@ var (
 // Init initializes the crypto layer. It load from viper the security level
 // and the logging setting.
 func Init() (err error) {
-	// Init log
-	log.ExtraCalldepth++
-
-	level, err := logging.LogLevel(viper.GetString("logging.crypto"))
-	if err == nil {
-		// No error, use the setting
-		logging.SetLevel(level, "crypto")
-		log.Infof("Log level recognized '%s', set to %s", viper.GetString("logging.crypto"),
-			logging.GetLevel("crypto"))
-	} else {
-		log.Warningf("Log level not recognized '%s', defaulting to %s: %s", viper.GetString("logging.crypto"),
-			logging.GetLevel("crypto"), err)
-	}
-
 	// Init security level
-
 	securityLevel := 256
 	if viper.IsSet("security.level") {
 		ovveride := viper.GetInt("security.level")
@@ -63,7 +48,7 @@ func Init() (err error) {
 
 	log.Debugf("Working at security level [%d]", securityLevel)
 	if err = primitives.InitSecurityLevel(hashAlgorithm, securityLevel); err != nil {
-		log.Debugf("Failed setting security level: [%s]", err)
+		log.Errorf("Failed setting security level: [%s]", err)
 
 		return
 	}

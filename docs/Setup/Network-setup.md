@@ -8,6 +8,8 @@ This approach simply leverages the Docker images that the Hyperledger Fabric pro
 
 #### Installing Docker
 
+**Note:** When running Docker _natively_ on Mac and Windows, there is no IP forwarding support available. Hence, running more than one fabric-peer image is not advised because you do not want to have multiple processes binding to the same port. For most application and chaincode development/testing running with a single fabric peer should not be an issue unless you are interested in performance and resilience testing the fabric's capabilities, such as consensus. For more advanced testing, we strongly recommend using the fabric's Vagrant [development environment](../dev-setup/devenv.md).
+
 With this approach, there are multiple choices as to how to run Docker. Using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between how Docker runs natively on Mac and Windows versus in a virtualized context on Linux. We'll call those out where appropriate, below when we get to the point of actually running the various components.
 
 #### Pulling the images from DockerHub
@@ -96,7 +98,7 @@ We'll be using Docker Compose to launch our various Fabric component containers,
 
 #### Start up a validating peer:
 
-Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID to vp0 and CORE_VM_ENDPOINT as above. Here's the docker-compose.yml for launching a single container within a **Vagrant** environment:
+Let's launch the first validating peer (the root node). We'll set CORE_PEER_ID to vp0 and CORE_VM_ENDPOINT as above. Here's the docker-compose.yml for launching a single container within the **Vagrant** [development environment](../dev-setup/devenv.md):
 
 ```
 vp0:
@@ -128,6 +130,8 @@ vp0:
   image: hyperledger/fabric-peer
   ports:
     - "5000:5000"
+    - "30303:30303"
+    - "30304:30304"
   environment:
     - CORE_PEER_ADDRESSAUTODETECT=true
     - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
@@ -135,41 +139,11 @@ vp0:
   command: peer node start
 ```
 
-This single peer configuration, running `NOOPS` consensus should satisfy many development/test scenarios. For instance, if you are simply developing and testing chaincode; this should be adequate unless your chaincode is leveraging membership services for identity, access control, confidentiality and privacy.
+This single peer configuration, running the `NOOPS` 'consensus' plugin, should satisfy many development/test scenarios. `NOOPS` is not really providing consensus, it is essentially a no-op that simulates consensus. For instance, if you are simply developing and testing chaincode; this should be adequate unless your chaincode is leveraging membership services for identity, access control, confidentiality and privacy.
 
 #### Running with the CA
 
 If you want to take advantage of security (authentication and authorization), privacy and confidentiality, then you'll need to run the Fabric's certificate authority (CA). Please refer to the [CA Setup](#Setup/ca-setup.md) instructions.
-
-<!-- This needs some serious attention
-
-If starting the peer with security/privacy enabled, environment variables for security, CA address and peer's ID and password must be included. Additionally, the fabric-membersrvc container must be started before the peer(s) are launched. Hence we will need to insert a delay in launching the peer command. Here's the docker-compose.yml for a single peer with membership services running in a **Vagrant** environment:
-
-```
-vp0:
-  image: hyperledger/fabric-peer
-  environment:
-  - CORE_PEER_ADDRESSAUTODETECT=true
-  - CORE_VM_ENDPOINT=http://172.17.0.1:2375
-  - CORE_LOGGING_LEVEL=DEBUG
-  - CORE_PEER_ID=vp0
-  - CORE_PEER_TLS_ENABLED=true
-  - CORE_PEER_TLS_SERVERHOSTOVERRIDE=OBC
-  - CORE_PEER_TLS_CERT_FILE=./bddtests/tlsca.cert
-  - CORE_PEER_TLS_KEY_FILE=./bddtests/tlsca.priv
-  command: sh -c "sleep 5; peer node start"
-
-membersrvc:
-   image: hyperledger/fabric-membersrvc
-   command: membersrvc
-```
-
-```
-docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=vp0_secret  hyperledger/fabric-peer peer node start
-```
-
-Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0` and `vp0_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
--->
 
 #### Start up additional validating peers:
 
