@@ -21,6 +21,7 @@ pages:
   - Chaincode APIs: API/ChaincodeAPI.md
   - Core API: API/CoreAPI.md
   - CA API: API/MemberServicesAPI.md
+  - System chaincode: Systemchaincode/noop.md
 
 - FAQ:
   - ChainCodeFAQ: FAQ/chaincode_FAQ.md

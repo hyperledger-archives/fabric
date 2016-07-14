@@ -4,6 +4,8 @@ Chaincode developers need a way to test and debug their chaincode without having
 
 These instructions apply to _developing_ chaincode in Go or Java. They do not apply to running in a production environment. However, if _developing_ chaincode in Java, please see the [Java chaincode setup](JAVAchaincode.md) instructions first, to be sure your environment is properly configured.
 
+**Note:** We have added support for [System chaincode](../SystemChaincode/noop.md).
+
 ## Choices
 
 Once again, you have the choice of using one of the following approaches:
