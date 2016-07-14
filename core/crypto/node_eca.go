@@ -113,11 +113,6 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 		return err
 	}
 
-	// Code for confidentiality 1.1
-	//if err := node.ks.storeKey(node.conf.getEnrollmentChainKeyFilename(), enrollChainKey); err != nil {
-	//	node.error("Failed storing enrollment chain key [id=%s]: [%s]", enrollID, err)
-	//	return err
-
 	// Code for confidentiality 1.2
 	// Store enrollment chain key
 	if node.eType == NodeValidator {
@@ -222,16 +217,7 @@ func (node *nodeImpl) loadEnrollmentID() error {
 func (node *nodeImpl) loadEnrollmentChainKey() error {
 	node.Debug("Loading enrollment chain key...")
 
-	// Code for confidentiality 1.1
-	//enrollChainKey, err := node.ks.loadKey(node.conf.getEnrollmentChainKeyFilename())
-	//if err != nil {
-	//	node.error("Failed loading enrollment chain key [%s].", err.Error())
-	//
-	//	return err
-	//}
-	//node.enrollChainKey = enrollChainKey
-
-	// Code for confidentiality 1.1
+	// Code for confidentiality 1.2
 	if node.eType == NodeValidator {
 		// enrollChainKey is a secret key
 		enrollChainKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentChainKeyFilename())
