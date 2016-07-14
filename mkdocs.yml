@@ -5,13 +5,14 @@ repo_url: https://github.com/hyperledger/fabric
 site_description: 'Welcome to the Hyperledger fabric documentation'
 
 pages:
-- Home: README.md
+- Home: index.md
 - Glossary: glossary.md
 - Protocol Spec: protocol-spec.md
 
 - Setup:
   - Fabric Developer Setup: dev-setup/devenv.md
   - Chaincode or Application Developer Setup: Setup/Chaincode-setup.md
+  - Java Chaincode Setup: Setup/JAVAchaincode.md
   - Fabric Network Setup: Setup/Network-setup.md
   - CA Setup: Setup/ca-setup.md
 
@@ -29,12 +30,6 @@ pages:
 
 - Biz:
   - Usecase: biz/usecases.md
-
-- Dev setup:
-  - Devenv: dev-setup/devenv.md
-  - Devnet Setup: dev-setup/devnet-setup.md
-  - Install: dev-setup/install.md
-  - Logging Control: dev-setup/logging-control.md
 
 - Tech:
   - Application ACL: tech/application-ACL.md

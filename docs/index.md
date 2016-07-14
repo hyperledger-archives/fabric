@@ -38,7 +38,7 @@ When you are ready to start contributing to the Hyperledger fabric project, we s
 - [Making code contributions](https://github.com/hyperledger/fabric/blob/master/CONTRIBUTING.md): First, you'll want to familiarize yourself with the project's contribution guidelines.
 - [Setting up the development environment](dev-setup/devenv.md): after that, you will want to set up your development environment.
 - [Building the fabric core](dev-setup/build.md): next, try building the project in your local development environment to ensure that everything is set up correctly.
-- [Building outside of Vagrant](dev-setup/build.md#building-outside-of-vagrant-): for the adventurous, you might try to build outside of the standard Vagrant development environment.
+- [Building outside of Vagrant](dev-setup/build.md#building-outside-of-vagrant): for the adventurous, you might try to build outside of the standard Vagrant development environment.
 - [Logging control](Setup/logging-control.md): describes how to tweak the logging levels of various components within the fabric.
 <!-- - [Generating grpc code](dev-setup/build.md#generating-grpc-code-): we use gRPC for interprocess communications. If you add or modify any of the protobuf specifications, you'll want to know how to generate the gRPC code.
 - [Adding or updating Go packages](dev-setup/install.md#adding-or-updating-go-packages-): if you need to add or remove dependencies, you will need to follow this process.
