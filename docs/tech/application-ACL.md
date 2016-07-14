@@ -119,26 +119,26 @@ message Transaction {
     bytes payload;
     bytes metadata;
 
-    ... 
+    ...
 }
 ```
 
-Another way to achieve this is to have the payload containing the metadata itself.
+Another way to achieve this is to have the payload contain the metadata itself.
 
 ### Validators
 
-To assist chaincode execution, the validators provide the chaincode additional information, like the metadata and the binding.
+To assist chaincode execution, the validators provide the chaincode additional information, such as the metadata and the binding.
 
 ## Application-level access control
 
 ### Deploy Transaction
 
-Alice has full control on the deployment transaction's metadata.
+Alice has full control over the deployment transaction's metadata.
 In particular, the metadata can be used to store a list of ACLs (one per function), or a list of roles.
-To define each of these lists/roles, Alice can use any TCerts/ECerts of the users who have been assigned
-that privilege or role. The latter is done offline.
+To define each of these lists/roles, Alice can use any TCerts/ECerts of the users who have been
+granted that (access control) privilege or have been assigned that role. The latter is done offline.
 
-Now, Alice requires that to invoke the *hello* function, a certain message *M* has to be authenticated by an authorized invoker (Bob, in our case).
+Now, Alice requires that in order to invoke the *hello* function, a certain message *M* has to be authenticated by an authorized invoker (Bob, in our case).
 We distinguish the following two cases:
 
 1. *M* is one of the chaincode's function arguments;
@@ -149,9 +149,9 @@ We distinguish the following two cases:
 To invoke *hello*, Bob needs to sign *M* using the TCert/ECert Alice has used to name him in the deployment transaction's metadata.
 Let's call this certificate CertBob. At this point Bob does the following:   
 
-1. Bob gets a CertificateHandler for CertBob, *cHandlerBob*;
-2. Bob gets a new TransactionHandler to issue the execute transaction, *txHandler* relative to his next available TCert or his ECert;
-3. Bob gets *txHandler*'s *binding* by invoking *txHandler.getBinding()*;
+1. Bob obtains a *CertificateHandler* for CertBob, *cHandlerBob*;
+2. Bob obtains a new *TransactionHandler* to issue the execute transaction, *txHandler* relative to his next available TCert or his ECert;
+3. Bob obtains *txHandler*'s *binding* by invoking *txHandler.getBinding()*;
 4. Bob signs *'M || txBinding'* by invoking *cHandlerBob.Sign('M || txBinding')*, let *signature* be the output of the signing function;
 5. Bob issues a new execute transaction by invoking, *txHandler.NewChaincodeExecute(...)*. Now, *signature* can be included
   in the transaction as one of the argument to be passed to the function or as transaction metadata.
