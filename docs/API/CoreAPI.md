@@ -53,7 +53,7 @@ below:
 
 Command | **stdout** result in the event of success
 --- | ---
-`peer version`     | String form of `peer.version` defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
+`version`          | String form of `peer.version` defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
 `node start`       | N/A
 `node status`      | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
 `node stop`        | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
