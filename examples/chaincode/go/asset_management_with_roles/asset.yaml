@@ -228,7 +228,7 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
+        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops
         # if the given value is not recognized, we will default to noops
         consensus: noops
 

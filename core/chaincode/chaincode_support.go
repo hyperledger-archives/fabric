@@ -511,7 +511,7 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		var targz io.Reader = bytes.NewBuffer(cds.CodePackage)
 		_, err = chaincodeSupport.launchAndWaitForRegister(context, cds, cID, t.Uuid, cLang, targz)
 		if err != nil {
-			chaincodeLogger.Debugf("launchAndWaitForRegister failed %s", err)
+			chaincodeLogger.Errorf("launchAndWaitForRegister failed %s", err)
 			return cID, cMsg, err
 		}
 	}
@@ -520,11 +520,11 @@ func (chaincodeSupport *ChaincodeSupport) Launch(context context.Context, t *pb.
 		//send init (if (f,args)) and wait for ready state
 		err = chaincodeSupport.sendInitOrReady(context, t.Uuid, chaincode, f, initargs, chaincodeSupport.ccStartupTimeout, t, depTx)
 		if err != nil {
-			chaincodeLogger.Debugf("sending init failed(%s)", err)
+			chaincodeLogger.Errorf("sending init failed(%s)", err)
 			err = fmt.Errorf("Failed to init chaincode(%s)", err)
 			errIgnore := chaincodeSupport.Stop(context, cds)
 			if errIgnore != nil {
-				chaincodeLogger.Debugf("stop failed %s(%s)", errIgnore, err)
+				chaincodeLogger.Errorf("stop failed %s(%s)", errIgnore, err)
 			}
 		}
 		chaincodeLogger.Debug("sending init completed")

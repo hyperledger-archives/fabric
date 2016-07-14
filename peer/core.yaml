@@ -56,18 +56,18 @@ logging:
     #
     # 3. The environment variables CORE_LOGGING_[NODE|NETWORK|CHAINCODE]
     #    otherwise apply to the respective peer commands if defined as non-empty
-    #    strings. 
+    #    strings.
     #
     # 4. Otherwise, the specifications below apply.
     #
     # Developers: Please see fabric/docs/dev-setup/logging-control.md for more
-    # options. 
+    # options.
+    peer: warning
 
     node:      info
     network:   warning
     chaincode: warning
-
-    crypto:    info # This should not be here; See issue #769
+    version: warning
 
 ###############################################################################
 #
@@ -246,7 +246,8 @@ vm:
         # If you have your own ipam & dns-server for cluster you can use them to create container efficient.
         # NetworkMode Sets the networking mode for the container. Supported standard values are: `host`(default),`bridge`,`ipvlan`,`none`
         # dns A list of DNS servers for the container to use.
-        # note: not support customize for `Privileged`
+        # note: not support customize for `Privileged` `Binds` `Links` `PortBindings`
+        # not support set LogConfig using Environment Variables
         # LogConfig sets the logging driver (Type) and related options (Config) for Docker
         # you can refer https://docs.docker.com/engine/admin/logging/overview/ for more detail configruation.
         hostConfig:
@@ -258,6 +259,7 @@ vm:
                 Config:
                     max-size: "50m"
                     max-file: "5"
+            Memory: 2147483648
 ###############################################################################
 #
 #    Chaincode section

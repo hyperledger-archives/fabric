@@ -221,7 +221,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		id = util.GenerateUUID()
 	}
-	devopsLogger.Info("Transaction ID: %v", id)
+	devopsLogger.Infof("Transaction ID: %v", id)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -251,7 +251,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		if !invoke && nil != sec && viper.GetBool("security.privacy") {
 			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
-				devopsLogger.Debugf("Failed decrypting query transaction result %s", string(resp.Msg[:]))
+				devopsLogger.Errorf("Failed decrypting query transaction result %s", string(resp.Msg[:]))
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			}
 		}

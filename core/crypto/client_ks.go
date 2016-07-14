@@ -28,13 +28,13 @@ func (client *clientImpl) initKeyStore() error {
 	// create tables
 	client.Debugf("Create Table if not exists [TCert] at [%s].", client.conf.getKeyStorePath())
 	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS TCerts (id INTEGER, attrhash VARCHAR, cert BLOB, prkz BLOB, PRIMARY KEY (id))"); err != nil {
-		client.Debugf("Failed creating table [%s].", err)
+		client.Errorf("Failed creating table [%s].", err)
 		return err
 	}
 
 	client.Debugf("Create Table if not exists [UsedTCert] at [%s].", client.conf.getKeyStorePath())
 	if _, err := client.ks.sqlDB.Exec("CREATE TABLE IF NOT EXISTS UsedTCert (id INTEGER, attrhash VARCHAR, cert BLOB, prkz BLOB, PRIMARY KEY (id))"); err != nil {
-		client.Debugf("Failed creating table [%s].", err)
+		client.Errorf("Failed creating table [%s].", err)
 		return err
 	}
 

@@ -24,7 +24,7 @@ import (
 
 	"github.com/hyperledger/fabric/consensus"
 	"github.com/hyperledger/fabric/consensus/noops"
-	"github.com/hyperledger/fabric/consensus/obcpbft"
+	"github.com/hyperledger/fabric/consensus/pbft"
 )
 
 var logger *logging.Logger // package-level logger
@@ -40,7 +40,7 @@ func NewConsenter(stack consensus.Stack) consensus.Consenter {
 	plugin := strings.ToLower(viper.GetString("peer.validator.consensus.plugin"))
 	if plugin == "pbft" {
 		logger.Infof("Creating consensus plugin %s", plugin)
-		return obcpbft.GetPlugin(stack)
+		return pbft.GetPlugin(stack)
 	}
 	logger.Info("Creating default consensus plugin (noops)")
 	return noops.GetNoops(stack)
