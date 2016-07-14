@@ -9,31 +9,31 @@ This document assumes that you already have set up a Node.js development environ
 We publish the `hfc` node module to `npm`. To install `hfc` from npm simply execute the following command:
 
 ```
-    npm install -g hfc
+npm install -g hfc
 ```
 
 ## Overview
 
 The sections in this document are as follows:
 
-* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of it's common capabilities.  This is demonstrated by example.
+* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of it's common capabilities. This is demonstrated by example.
 
-* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and how to [run the unit tests](#running-unit-tests).  Looking at the implementation of the unit tests will also help you learn more about the APIs by example, including asset management and confidentiality.
+* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and how to [run the unit tests](#running-unit-tests). Looking at the implementation of the unit tests will also help you learn more about the APIs by example, including asset management and confidentiality.
 
 ## Getting Started
-This purpose of this section is to help you quickly get a feel for HFC and how you may use it.  It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
+This purpose of this section is to help you quickly get a feel for HFC and how you may use it. It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
 
 ### Some basic terminology
-First, there is some basic terminology you should understand.  In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
+First, there is some basic terminology you should understand. In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
 
-Think of **registration** as *issuing a user invitation* to join a blockchain.  It consists of adding a new user name (also called an *enrollment ID*) to the membership service configuration.  This can be done programatically with the `Member.register` method, or by adding the enrollment ID directly to the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file.
+Think of **registration** as *issuing a user invitation* to join a blockchain. It consists of adding a new user name (also called an *enrollment ID*) to the membership service configuration. This can be done programatically with the `Member.register` method, or by adding the enrollment ID directly to the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file.
 
-Think of **enrollment** as *accepting a user invitation* to join a blockchain.  This is always done by the entity that will transact on the blockchain.  This can be done programatically via the `Member.enroll` method.
+Think of **enrollment** as *accepting a user invitation* to join a blockchain. This is always done by the entity that will transact on the blockchain. This can be done programatically via the `Member.enroll` method.
 
 ### Learn by example
 The best way to quickly learn HFC is by example.
 
-The following example demonstrates a typical web app.  The web app authenticates a user and then transacts on a blockchain on behalf of that user.
+The following example demonstrates a typical web app. The web app authenticates a user and then transacts on a blockchain on behalf of that user.
 
 ```
 /**
@@ -196,7 +196,7 @@ server:
             file: "/var/hyperledger/production/.membersrvc/tlsca.priv"
 ```
 
-This is needed to instruct the member services on which tls cert and key to use.  
+This is needed to instruct the member services on which tls cert and key to use.
 
 - Modify `$GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml` as follows:
 
