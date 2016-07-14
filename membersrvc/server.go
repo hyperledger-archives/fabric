@@ -88,6 +88,9 @@ func main() {
 	}
 
 	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
+	// cache configure
+	ca.CacheConfiguration()
+
 	ca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
 	aca := ca.NewACA()

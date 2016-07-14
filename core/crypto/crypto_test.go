@@ -1512,6 +1512,7 @@ func setup() {
 
 func initPKI() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	ca.CacheConfiguration() // Need cache the configuration first
 	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
