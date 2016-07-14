@@ -184,7 +184,7 @@ fabric 是区块链技术的一种实现，比特币是可以在fabric上构建�
 fabric是由下面这个小节所描述的核心组件所组成的。
 
 ### 2.1 架构     
-这个架构参考关注在三个类别中：会籍(Membership)，区块链(Blockchan)和链码(chaincode)。这些类别是逻辑结构，而不是物理上的把不同的组件分割到独立的进程，地址空间，（虚拟）机器中。
+这个架构参考关注在三个类别中：会员(Membership)，区块链(Blockchan)和链码(chaincode)。这些类别是逻辑结构，而不是物理上的把不同的组件分割到独立的进程，地址空间，（虚拟）机器中。
 
 ![Reference architecture](images/refarch.png)
 
