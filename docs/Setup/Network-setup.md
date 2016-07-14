@@ -26,9 +26,9 @@ before starting any of the fabric components, you will need to first pull the fa
 
 **Note:** _This approach is not necessarily recommended for most users_. If you have pulled images from DockerHub as described in the previous section, you may proceed to the [next step](#Starting-up-validating-peers).
 
-The second approach would be to leverage the [development environment](devenv.md) setup (which we will assume you have already established) to build and deploy your own binaries and/or Docker images from a clone of the [hyperledger/fabric](https://github.com/hyperledger/fabric) GitHub repository. This approach is suitable for developers that might wish to contribute directly to the Hyperledger Fabric project, or that wish to deploy from a fork of the Hyperledger code base.
+The second approach would be to leverage the [development environment](../dev-setup/devenv.md) setup (which we will assume you have already established) to build and deploy your own binaries and/or Docker images from a clone of the [hyperledger/fabric](https://github.com/hyperledger/fabric) GitHub repository. This approach is suitable for developers that might wish to contribute directly to the Hyperledger Fabric project, or that wish to deploy from a fork of the Hyperledger code base.
 
-The following commands should be run from _within_ the Vagrant environment described in [Setting Up Development Environment](devenv.md).
+The following commands should be run from _within_ the Vagrant environment described in [Setting Up Development Environment](../dev-setup/devenv.md).
 
 To create the Docker image for the `hyperledger/fabric-peer`:
 

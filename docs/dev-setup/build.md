@@ -18,7 +18,7 @@ make peer
 
 To see what commands are available, simply execute the following commands:
 ```
-$ peer help
+peer help
 ```
 
 You should see the following output:
@@ -39,7 +39,6 @@ You should see the following output:
 
 
     Use "peer [command] --help" for more information about a command.
-
 ```
 
 The `node start` command will initiate a peer process, with which one can interact by executing other commands. For example, the `node status` command will return the status of the running peer. The full list of commands is the following:
@@ -66,14 +65,14 @@ The `node start` command will initiate a peer process, with which one can intera
 Use the following sequence to run all unit tests
 
 ```
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make unit-test
+cd $GOPATH/src/github.com/hyperledger/fabric
+make unit-test
 ```
 
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and call/excecute
 
 ```
-    go test -v -run=TestGetFoo
+go test -v -run=TestGetFoo
 ```
 
 ### Running Node.js Unit Tests

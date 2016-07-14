@@ -9,7 +9,7 @@ Below, you'll find the following sections:
 - [Quickstart](#quickstart-documentation)
 - Developer guides
   - [Fabric developer guide](#fabric-developer-guide)
-  - [Chaincode developer guide](#Chaincode-developer-guide)
+  - [Chaincode developer guide](#chaincode-developer-guide)
   - [API developer guide](#api-developer-guide)
 - [Operations guide](#operations-guide)
 
@@ -22,7 +22,6 @@ If you are new to the project, you can begin by reviewing the following links. I
 - [Canonical use cases](biz/usecases.md)
 - [Glossary](glossary.md): to understand the terminology that we use throughout the Fabric project's documentation.
 - [Fabric FAQs](https://github.com/hyperledger/fabric/tree/master/docs/FAQ)
-- [Consensus Algorithms FAQ](FAQ/consensus_FAQ.md)
 
 ## Quickstart documentation
 
@@ -40,9 +39,6 @@ When you are ready to start contributing to the Hyperledger fabric project, we s
 - [Building the fabric core](dev-setup/build.md): next, try building the project in your local development environment to ensure that everything is set up correctly.
 - [Building outside of Vagrant](dev-setup/build.md#building-outside-of-vagrant): for the adventurous, you might try to build outside of the standard Vagrant development environment.
 - [Logging control](Setup/logging-control.md): describes how to tweak the logging levels of various components within the fabric.
-<!-- - [Generating grpc code](dev-setup/build.md#generating-grpc-code-): we use gRPC for interprocess communications. If you add or modify any of the protobuf specifications, you'll want to know how to generate the gRPC code.
-- [Adding or updating Go packages](dev-setup/install.md#adding-or-updating-go-packages-): if you need to add or remove dependencies, you will need to follow this process.
-- [Coding in Go](dev-setup/install.md#coding-golang-): Some tips for developing with Go. -->
 - [License header](dev-setup/headers.txt): every source file must include this license header modified to include a copyright statement for the principle author(s).
 
 ## Chaincode developer guide
@@ -50,7 +46,7 @@ When you are ready to start contributing to the Hyperledger fabric project, we s
 - [Setting up the development environment](dev-setup/devenv.md): when developing and testing Chaincode, or an application that leverages the fabric API or SDK, you'll probably want to run the fabric locally on your laptop to test. You can use the same setup that Fabric developers use.
 - [Setting Up a Network For Development](Setup/Network-setup.md): alternately, you can follow these instructions for setting up a local network for Chaincode development without the entire fabric development environment setup.
 - [Writing, Building, and Running Chaincode in a Development Environment](Setup/Chaincode-setup.md): a step-by-step guide to writing and testing Chaincode.
-- [Chaincode FAQ](FAQ/Chaincode_FAQ.md): a FAQ for all of your burning questions relating to Chaincode.
+- [Chaincode FAQ](FAQ/chaincode_FAQ.md): a FAQ for all of your burning questions relating to Chaincode.
 
 ## API developer guide
 
