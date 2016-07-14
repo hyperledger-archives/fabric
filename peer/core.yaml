@@ -413,7 +413,7 @@ security:
     multithreading:
       enabled: false
 
-    # Confidentiality protocol version could supported: 1.2
+    # Confidentiality protocol versions supported: 1.2
     confidentialityProtocolVersion: 1.2
 
 ################################################################################
