@@ -1,6 +1,6 @@
 ## Writing, Building, and Running Chaincode in a Development Environment
 
-Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. By default, when you want to interact with chaincode, you need to first `Deploy` it using the CLI, REST API or SDK. Upon receiving this request, the peer node would typically spin up a Docker container with the relevant chaincode. This can make things rather complicated for debugging chaincode under development, because of the turnaround time with the `launch chaincode - debug docker container - fix problem - launch chaincode - lather - rinse - repeat` cycle. As such, the fabric peer has a `--peer-chaincodedev` flag that can be passed on start-up to instruct the peer node not to deploy the chaincode as a Docker container.
+Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. By default, when you want to interact with chaincode, you need to first `Deploy` it using the CLI, REST API, gRPC API, or SDK. Upon receiving this request, the peer node would typically spin up a Docker container with the relevant chaincode. This can make things rather complicated for debugging chaincode under development, because of the turnaround time with the `launch chaincode - debug docker container - fix problem - launch chaincode - lather - rinse - repeat` cycle. As such, the fabric peer has a `--peer-chaincodedev` flag that can be passed on start-up to instruct the peer node not to deploy the chaincode as a Docker container.
 
 These instructions apply to _developing_ chaincode in Go or Java. They do not apply to running in a production environment. However, if _developing_ chaincode in Java, please see the [Java chaincode setup](JAVAchaincode.md) instructions first, to be sure your environment is properly configured.
 
@@ -12,8 +12,7 @@ Once again, you have the choice of using one of the following approaches:
 - [Option 2](#Option-2-Docker-for-Mac-or-Windows) using Docker for Mac or Windows
 - [Option 3](#Option-3-Docker-Toolbox) using Docker toolbox
 
-Using options *2* and *3* allow you to avoid having to build from and keep current a clone of the fabric GitHub repos.
-Instead, you can simply pull and run the `fabric-peer` and `fabric-membersrvc` images directly from DockerHub.
+By using options *2* or *3*, above, you avoid having to build everything from scratch, and there's no need to keep a clone of the fabric GitHub repos current/up-to-date. Instead, you can simply pull and run the `fabric-peer` and `fabric-membersrvc` images directly from DockerHub.
 
 You will need multiple terminal windows - essentially one for each component. One runs the validating peer; another  runs the chaincode; the third runs the CLI or REST API commands to execute transactions. Finally, when running with security enabled, an additional fourth window is required to run the **Certificate Authority (CA)** server. Detailed instructions are provided in the sections below.
 
@@ -208,7 +207,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
   * [chaincode invoke via CLI and REST](#chaincode-invoke-via-cli-and-rest)
   * [chaincode query via CLI and REST](#chaincode-query-via-cli-and-rest)
 
-If you were running with security enabled, see [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled) to learn how to clean up the temp files.
+If you were running with security enabled, see [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled) to learn how to clean up the temporary files.
 
 See the [logging control](../Setup/logging-control.md) reference for information on controlling
 logging output from the `peer` and chaincodes.
