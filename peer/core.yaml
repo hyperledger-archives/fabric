@@ -62,10 +62,12 @@ logging:
     #
     # Developers: Please see fabric/docs/dev-setup/logging-control.md for more
     # options.
+    peer: warning
 
     node:      info
     network:   warning
     chaincode: warning
+    version: warning
 
 ###############################################################################
 #
