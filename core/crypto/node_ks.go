@@ -337,7 +337,7 @@ func (ks *keyStore) createKeyStoreIfNotExists() error {
 	if !missing {
 		// Check keystore file
 		missing, err = utils.FileMissing(ks.node.conf.getKeyStorePath(), ks.node.conf.getKeyStoreFilename())
-		ks.node.Errorf("Keystore [%s] missing [%t]:[%s]", ks.node.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
+		ks.node.Debugf("Keystore [%s] missing [%t]:[%s]", ks.node.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
 	}
 
 	if missing {
