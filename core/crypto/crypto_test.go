@@ -264,6 +264,55 @@ func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
 	}
 }
 
+func TestTLSCertificateDeletion(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
+
+	peer, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+
+	if peer.ks.certMissing(peer.conf.getTLSCertFilename()) {
+		t.Fatal("TLS shouldn't be missing after peer registration")
+	}
+
+	if err := peer.deleteTLSCertificate(conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed deleting TLS certificate [%s]", err)
+	}
+
+	if !peer.ks.certMissing(peer.conf.getTLSCertFilename()) {
+		t.Fatal("TLS certificate should be missing after deletion")
+	}
+}
+
+func TestRegistrationAfterDeletingTLSCertificate(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
+
+	peer, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+
+	if err := peer.deleteTLSCertificate(conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed deleting TLS certificate [%s]", err)
+	}
+
+	if _, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+}
+
+func registerAndReturnPeer(name string, pwd []byte, enrollID, enrollPWD string) (*peerImpl, error) {
+	peer := newPeer()
+	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD, nil); err != nil {
+		return nil, err
+	}
+	if err := peer.close(); err != nil {
+		return nil, err
+	}
+	return peer, nil
+}
+
 func TestInitialization(t *testing.T) {
 	// Init fake client
 	client, err := InitClient("", nil)
