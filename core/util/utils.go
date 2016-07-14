@@ -119,7 +119,7 @@ func GenerateIDWithAlg(customIDgenAlg string, strPayload []string) (string, erro
 	if alg.hashFun != nil {
 		return alg.hashFun(strPayload), nil
 	}
-	return "", fmt.Errorf("Wrong ID generation algorithm was given.")
+	return "", fmt.Errorf("Wrong ID generation algorithm was given: %s", customIDgenAlg)
 }
 
 func idBytesToStr(id []byte) string {
