@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -72,7 +73,11 @@ type AffiliationGroup struct {
 }
 
 var (
-	mutex = &sync.Mutex{}
+	mutex          = &sync.Mutex{}
+	caOrganization string
+	caCountry      string
+	rootPath       string
+	caDir          string
 )
 
 // NewCertificateSpec creates a new certificate spec
@@ -115,6 +120,13 @@ func NewDefaultCertificateSpec(id string, pub interface{}, usage x509.KeyUsage, 
 func NewDefaultCertificateSpecWithCommonName(id string, commonName string, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	serialNumber := big.NewInt(1)
 	return NewDefaultPeriodCertificateSpecWithCommonName(id, commonName, serialNumber, pub, usage, opt...)
+}
+
+func CacheConfiguration() {
+	caOrganization = viper.GetString("pki.ca.subject.organization")
+	caCountry = viper.GetString("pki.ca.subject.country")
+	rootPath = viper.GetString("server.rootpath")
+	caDir = viper.GetString("server.cadir")
 }
 
 // GetID returns the spec's ID field/value
@@ -162,13 +174,13 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 // GetOrganization returns the spec's Organization field/value
 //
 func (spec *CertificateSpec) GetOrganization() string {
-	return viper.GetString("pki.ca.subject.organization")
+	return caOrganization
 }
 
 // GetCountry returns the spec's Country field/value
 //
 func (spec *CertificateSpec) GetCountry() string {
-	return viper.GetString("pki.ca.subject.country")
+	return caCountry
 }
 
 // GetSubjectKeyID returns the spec's subject KeyID
@@ -208,7 +220,7 @@ func initializeCommonTables(db *sql.DB) error {
 // NewCA sets up a new CA.
 func NewCA(name string, initTables TableInitializer) *CA {
 	ca := new(CA)
-	ca.path = viper.GetString("server.rootpath") + "/" + viper.GetString("server.cadir")
+	ca.path = filepath.Join(rootPath, caDir)
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
