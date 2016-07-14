@@ -123,7 +123,7 @@ vp0:
   environment:
     - CORE_PEER_ADDRESSAUTODETECT=true
     - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
-    - CORE_LOGGING_LEVEL=WARNING
+    - CORE_LOGGING_LEVEL=DEBUG
     - CORE_PEER_ID=vp0
     - CORE_SECURITY_ENROLLID=test_vp0
     - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
@@ -137,14 +137,14 @@ vp0:
 The CA can be built with the following command executed in the `membersrvc` directory:
 
 ```
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make membersrvc
+cd $GOPATH/src/github.com/hyperledger/fabric
+make membersrvc
 ```
 
 The CA can be started with the following command:
 
 ```
-    build/bin/membersrvc
+build/bin/membersrvc
 ```
 
 **Note:** the CA must be started before any of the fabric peer nodes, to allow the CA to have initialized before any peer nodes attempt to connect to it.

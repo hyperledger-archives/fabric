@@ -18,14 +18,8 @@ Once you have Docker (1.11 or greater) installed and running, and
 before starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
 
 ```
-$ docker pull hyperledger/fabric-peer:latest
-...
-Digest: sha256:3c4cf3888de72ad2c634daf94235ffc3c096c11e1b4145d0fa6f2917e26958e8
-Status: Downloaded newer image for hyperledger/fabric-peer:latest
-$ docker pull hyperledger/fabric-membersrvc:latest
-...
-Digest: sha256:0f28776f4de0f015b78ede6b936cd74a36e8fa9dddb743fa219f23a02d5f66b2
-Status: Downloaded newer image for hyperledger/fabric-membersrvc:latest
+  docker pull hyperledger/fabric-peer:latest
+  docker pull hyperledger/fabric-membersrvc:latest
 ```
 
 ### Building your own images
