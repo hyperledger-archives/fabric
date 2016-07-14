@@ -31,8 +31,13 @@ var keyValStorePath2 = keyValStorePath + "2";
 //
 test('registrar test', function (t) {
     registrarTest(function(err) {
-        if (err) fail(t, "registrarTest", err);
-        else pass(t, "registrarTest");
+        if (err) {
+          fail(t, "registrarTest", err);
+          // Exit the test script after a failure
+          process.exit(1);
+        } else {
+          pass(t, "registrarTest");
+        }
     });
 });
 
@@ -41,8 +46,13 @@ test('registrar test', function (t) {
 //
 test('enroll again', function (t) {
     enrollAgain(function(err) {
-        if (err) fail(t, "enrollAgain", err);
-        else pass(t, "enrollAgain");
+        if (err) {
+          fail(t, "enrollAgain", err);
+          // Exit the test script after a failure
+          process.exit(1);
+        } else {
+          pass(t, "enrollAgain");
+        }
     });
 });
 
@@ -147,6 +157,6 @@ function pass(t, msg) {
 }
 
 function fail(t, msg, err) {
-    t.pass("Failure: [" + msg + "]: [" + err + "]");
+    t.fail("Failure: [" + msg + "]: [" + err + "]");
     t.end(err);
 }
