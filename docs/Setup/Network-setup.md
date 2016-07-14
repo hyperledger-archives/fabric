@@ -14,8 +14,8 @@ With this approach, there are multiple choices as to how to run Docker. Using [D
 
 #### Pulling the images from DockerHub
 
-Once you have Docker (1.11 or greater) installed and running, and
-before starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
+Once you have Docker (1.11 or greater) installed and running, 
+prior to starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
 
 ```
   docker pull hyperledger/fabric-peer:latest
