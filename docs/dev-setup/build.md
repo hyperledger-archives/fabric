@@ -183,7 +183,7 @@ There is a **core.yaml** file that contains the configuration for the peer proce
 
 ## Logging
 
-Logging utilizes the [go-logging](https://github.com/op/go-logging) library.  
+Logging utilizes the [go-logging](https://github.com/op/go-logging) library. 
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 

@@ -1,24 +1,24 @@
 ## Certificate Authority (CA) Setup
 
-The _Certificate Authority_ (CA) provides a number of certificate services to users of a blockchain.  More specifically, these services relate to _user enrollment_, _transactions_ invoked on the blockchain, and _TLS_-secured connections between users or components of the blockchain.
+The _Certificate Authority_ (CA) provides a number of certificate services to users of a blockchain. More specifically, these services relate to _user enrollment_, _transactions_ invoked on the blockchain, and _TLS_-secured connections between users or components of the blockchain.
 
 This guide builds on either the [fabric developer's setup](../dev-setup/devenv.md) or the prerequisites articulated in the [fabric network setup](Network-setup.md) guide. If you have not already set up your environment with one of those guides, please do so before continuing.
 
 ### Enrollment Certificate Authority
 
-The _enrollment certificate authority_ (ECA) allows new users to register with the blockchain network and enables registered users to request an _enrollment certificate pair_.  One certificate is for data signing, one is for data encryption.  The public keys to be embedded in the certificates have to be of type ECDSA, whereby the key for data encryption is then converted by the user to be used in an [ECIES](https://en.wikipedia.org/wiki/Integrated_Encryption_Scheme) (Elliptic Curve Integrated Encryption System) fashion.
+The _enrollment certificate authority_ (ECA) allows new users to register with the blockchain network and enables registered users to request an _enrollment certificate pair_. One certificate is for data signing, one is for data encryption. The public keys to be embedded in the certificates have to be of type ECDSA, whereby the key for data encryption is then converted by the user to be used in an [ECIES](https://en.wikipedia.org/wiki/Integrated_Encryption_Scheme) (Elliptic Curve Integrated Encryption System) fashion.
 
 ### Transaction Certificate Authority
 
-Once a user is enrolled, he or she can also request _transaction certificates_ from the _transaction certificate authority_ (TCA). These certificates are to be used for deploying Chaincode and for invoking Chaincode transactions on the blockchain.  Although a single _transaction certificate_ can be used for multiple transactions, for privacy reasons it is recommended that a new _transaction certificate_ be used for each transaction.
+Once a user is enrolled, he or she can also request _transaction certificates_ from the _transaction certificate authority_ (TCA). These certificates are to be used for deploying Chaincode and for invoking Chaincode transactions on the blockchain. Although a single _transaction certificate_ can be used for multiple transactions, for privacy reasons it is recommended that a new _transaction certificate_ be used for each transaction.
 
 ### TLS Certificate Authority
 
-In addition to _enrollment certificates_ and _transaction certificates_, users will need _TLS certificates_ to secure their communication channels.  _TLS certificates_ can be requested from the _TLS certificate authority_ (TLSCA).
+In addition to _enrollment certificates_ and _transaction certificates_, users will need _TLS certificates_ to secure their communication channels. _TLS certificates_ can be requested from the _TLS certificate authority_ (TLSCA).
 
 ## Configuration
 
-All CA services are provided by a single process, which can be configured by setting parameters in the CA configuration file `membersrvc.yaml`, which is located in the same directory as the CA binary.  More specifically, the following parameters can be set:
+All CA services are provided by a single process, which can be configured by setting parameters in the CA configuration file `membersrvc.yaml`, which is located in the same directory as the CA binary. More specifically, the following parameters can be set:
 
 - `server.gomaxprocs`: limits the number of operating system threads used by the CA.
 - `server.rootpath`: the root path of the directory where the CA stores its state.
@@ -33,7 +33,7 @@ Furthermore, logging levels can be enabled/disabled by adjusting the following s
 - `logging.error`
 - `logging.panic`
 
-Alternatively, these fields can be set via environment variables, which---if set---have precedence over entries in the yaml file.  The corresponding environment variables are named as follows:
+Alternatively, these fields can be set via environment variables, which---if set---have precedence over entries in the yaml file. The corresponding environment variables are named as follows:
 
 ```
     MEMBERSRVC_CA_SERVER_GOMAXPROCS
@@ -60,7 +60,7 @@ The role value is simply a bitmask of the following:
 
 For example, a peer that is also a validator would have a role value of 6.
 
-When the CA is started for the first time, it will generate all of its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and writes this state to the directory given in its configuration.  The certificates for the CA services (i.e., for the ECA, TCA, and TLSCA) are self-signed as the current default.  If those certificates shall be signed by some root CA, this can be done manually by using the `*.priv` and `*.pub` private and public keys in the CA state directory, and replacing the self-signed `*.cert` certificates with root-signed ones..  The next time the CA is launched, it will read and use those root-signed certificates.
+When the CA is started for the first time, it will generate all of its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and writes this state to the directory given in its configuration. The certificates for the CA services (i.e., for the ECA, TCA, and TLSCA) are self-signed as the current default. If those certificates shall be signed by some root CA, this can be done manually by using the `*.priv` and `*.pub` private and public keys in the CA state directory, and replacing the self-signed `*.cert` certificates with root-signed ones.. The next time the CA is launched, it will read and use those root-signed certificates.
 
 ## Operating the CA
 
@@ -149,7 +149,7 @@ build/bin/membersrvc
 
 **Note:** the CA must be started before any of the fabric peer nodes, to allow the CA to have initialized before any peer nodes attempt to connect to it.
 
-The CA looks for an `membersrvc.yaml` configuration file in $GOPATH/src/github.com/hyperledger/fabric/membersrvc.  If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
+The CA looks for an `membersrvc.yaml` configuration file in $GOPATH/src/github.com/hyperledger/fabric/membersrvc. If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
 
 <!-- This needs some serious attention
 
