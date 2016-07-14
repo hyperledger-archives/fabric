@@ -79,7 +79,7 @@ docker pull hyperledger/fabric-membersrvc:latest
 
 ### Running the Peer and CA
 
-To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we''ll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
+To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we'll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
 
 ```
 membersrvc:
@@ -124,7 +124,7 @@ First, pull the latest images published by the Hyperledger fabric project from D
 
 ### Running the Peer and CA
 
-To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we''ll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
+To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we'll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
 
 ```
 membersrvc:
