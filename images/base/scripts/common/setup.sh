@@ -83,7 +83,12 @@ fi
 
 # First install protoc
 cd /tmp
-git clone https://github.com/google/protobuf.git
+if [ x$MACHINE = xs390x ]
+then
+    git clone https://github.com/linux-on-ibm-z/protobuf.git
+else
+    git clone https://github.com/google/protobuf.git
+fi
 cd protobuf
 git checkout v3.0.0-beta-3
 #unzip needed for ./autogen.sh
@@ -100,15 +105,9 @@ apt-get install -y build-essential libtool
 #
 #./configure
 ./configure --prefix=/usr
-
-if [ x$MACHINE = xs390x ]
-then
-    echo FIXME: protobufs wont compile on 390, missing atomic call
-else
-    make
-    make check
-    make install
-fi
+make
+make check
+make install
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 cd ~/
 
