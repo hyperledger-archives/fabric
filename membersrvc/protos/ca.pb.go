@@ -338,9 +338,9 @@ func (m *Registrar) GetId() *Identity {
 type RegisterUserReq struct {
 	Id          *Identity  `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	Role        Role       `protobuf:"varint,2,opt,name=role,enum=protos.Role" json:"role,omitempty"`
-	Affiliation string     `protobuf:"bytes,3,opt,name=affiliation" json:"affiliation,omitempty"`
-	Registrar   *Registrar `protobuf:"bytes,4,opt,name=registrar" json:"registrar,omitempty"`
-	Sig         *Signature `protobuf:"bytes,5,opt,name=sig" json:"sig,omitempty"`
+	Affiliation string     `protobuf:"bytes,4,opt,name=affiliation" json:"affiliation,omitempty"`
+	Registrar   *Registrar `protobuf:"bytes,5,opt,name=registrar" json:"registrar,omitempty"`
+	Sig         *Signature `protobuf:"bytes,6,opt,name=sig" json:"sig,omitempty"`
 }
 
 func (m *RegisterUserReq) Reset()         { *m = RegisterUserReq{} }
