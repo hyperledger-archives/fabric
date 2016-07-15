@@ -139,7 +139,7 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey
 
 func getPaddingFromValue(attributeValue []byte) []byte {
 	padding := sha256.Sum256(attributeValue)
-	return padding[:16]
+	return padding[:lenPadding]
 }
 
 func verifyPadding(attributeValue []byte, padding []byte) bool {
