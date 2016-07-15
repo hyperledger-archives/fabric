@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
 )
 
-func checkInit(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, args []string) {
+func checkInit(t *testing.T, stub *shim.MockStub, args []string) {
 	_, err := stub.MockInit("1", "init", args)
 	if err != nil {
 		fmt.Println("Init failed", err)
@@ -43,7 +43,7 @@ func checkState(t *testing.T, stub *shim.MockStub, name string, value string) {
 	}
 }
 
-func checkQuery(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, name string, value string) {
+func checkQuery(t *testing.T, stub *shim.MockStub, name string, value string) {
 	bytes, err := stub.MockQuery("query", []string{name})
 	if err != nil {
 		fmt.Println("Query", name, "failed", err)
@@ -59,7 +59,7 @@ func checkQuery(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, na
 	}
 }
 
-func checkInvoke(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, args []string) {
+func checkInvoke(t *testing.T, stub *shim.MockStub, args []string) {
 	_, err := stub.MockInvoke("1", "query", args)
 	if err != nil {
 		fmt.Println("Invoke", args, "failed", err)

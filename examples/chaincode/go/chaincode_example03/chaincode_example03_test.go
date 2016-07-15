@@ -24,14 +24,11 @@ import (
 )
 
 func checkInit(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, args []string) {
-	//stub.MockTransactionStart("1")
-	//_, err := scc.Init(stub, "init", args)
 	_, err := stub.MockInit("1", "init", args)
 	if err != nil {
 		fmt.Println("Init failed", err)
 		t.FailNow()
 	}
-	//stub.MockTransactionEnd("1")
 }
 
 func checkState(t *testing.T, stub *shim.MockStub, name string, value string) {
@@ -66,7 +63,7 @@ func checkQuery(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, ar
 }
 
 func checkInvoke(t *testing.T, scc *main.SimpleChaincode, stub *shim.MockStub, args []string) {
-	_, err := scc.Invoke(stub, "query", args)
+	_, err := stub.MockInvoke("1", "query", args)
 	if err != nil {
 		fmt.Println("Invoke", args, "failed", err)
 		t.FailNow()
