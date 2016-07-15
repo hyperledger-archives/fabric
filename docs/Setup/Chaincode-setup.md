@@ -176,7 +176,7 @@ cd $GOPATH/src/github.com/chaincode_example02
 curl GET https://raw.githubusercontent.com/hyperledger/fabric/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go > chaincode_example02.go
 ```
 
-Next, you'll need to clone the Hyperledger fabric to your local $GOPATH, so that you can build your chaincode. **Note:** this is a temporary stop-gap until we can provide an indepdendent package for the chaincode shim.
+Next, you'll need to clone the Hyperledger fabric to your local $GOPATH, so that you can build your chaincode. **Note:** this is a temporary stop-gap until we can provide an independent package for the chaincode shim.
 
 ```
 mkdir -p $GOPATH/src/github.com/hyperledger
