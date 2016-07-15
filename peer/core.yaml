@@ -60,7 +60,7 @@ logging:
     #
     # 4. Otherwise, the specifications below apply.
     #
-    # Developers: Please see fabric/docs/dev-setup/logging-control.md for more
+    # Developers: Please see fabric/docs/Setup/logging-control.md for more
     # options.
     peer: warning
 
