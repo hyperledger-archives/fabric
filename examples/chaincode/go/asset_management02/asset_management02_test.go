@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -69,24 +70,24 @@ func TestMain(m *testing.M) {
 	go initMembershipSrvc()
 
 	fmt.Println("Wait for some secs for OBCCA")
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	go initVP()
 
 	fmt.Println("Wait for some secs for VP")
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	go initAssetManagementChaincode()
 
 	fmt.Println("Wait for some secs for Chaincode")
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	if err := initClients(); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Wait for 10 secs for chaincode to be started")
-	time.Sleep(1 * time.Second)
+	fmt.Println("Wait for 5 secs for chaincode to be started")
+	time.Sleep(5 * time.Second)
 
 	ret := m.Run()
 
@@ -96,7 +97,22 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
-//test attribute based role access control
+//Test if the test chaincode can be succsessfully deployed
+func TestChaincodeDeploy(t *testing.T) {
+	// Administrator deploy the chaicode
+	adminCert, err := administrator.GetTCertificateHandlerNext()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deploy(adminCert); err != nil {
+		t.Fatal(err)
+	}
+}
+
+//TestAuthorization tests attribute based role access control by making sure
+//only callers with "issuer" role are allowed to invoke the ```assign```
+//method to allocate assets to investors.
 func TestAuthorization(t *testing.T) {
 	// test authorization, alice is not the issuer so she must not be allowed to
 
@@ -110,6 +126,7 @@ func TestAuthorization(t *testing.T) {
 	if err := assignOwnership(alice, aliceCert, "account1", "1000"); err == nil {
 		t.Fatal("Alice doesn't have the assigner role. Assignment should fail.")
 	} else {
+		fmt.Println(err)
 		fmt.Println("------------------------------------------------------------")
 		fmt.Println("------------------------------------------------------------")
 		fmt.Println("------------------------------PASS -------------------------")
@@ -118,17 +135,10 @@ func TestAuthorization(t *testing.T) {
 	}
 }
 
-//test the ability to assign assets accounts stored in TCerts
+// TestAssigningAssets the tests the ```assign``` method by making sure
+// authorized users (callers with 'issuer' role) can use the ```assign```
+// method to allocate assets to its investors
 func TestAssigningAssets(t *testing.T) {
-	// Administrator deploy the chaicode
-	adminCert, err := administrator.GetTCertificateHandlerNext("role")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := deploy(adminCert); err != nil {
-		t.Fatal(err)
-	}
 
 	// create certs carring account IDs for Alice and Bob
 	aliceCert1, err := alice.GetTCertificateHandlerNext("role", "account1", "contactInfo")
@@ -363,7 +373,7 @@ func assignOwnership(assigner crypto.Client, newOwnerCert crypto.CertificateHand
 		return err
 	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "assignOwnership", Args: []string{string(newOwnerCert.GetCertificate()), attributeName, amount}}
+	chaincodeInput := &pb.ChaincodeInput{Function: "assignOwnership", Args: []string{base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate()), attributeName, amount}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
@@ -409,7 +419,11 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 		return err
 	}
 
-	args := []string{string(ownerCert.GetCertificate()), fromAttributes, string(newOwnerCert.GetCertificate()), toAttributes, amount}
+	args := []string{base64.StdEncoding.EncodeToString(ownerCert.GetCertificate()),
+		fromAttributes,
+		base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate()),
+		toAttributes,
+		amount}
 	chaincodeInput := &pb.ChaincodeInput{Function: "transferOwnership", Args: args}
 
 	// Prepare spec and submit
@@ -513,7 +527,7 @@ func setup() {
 
 func initMembershipSrvc() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	ca.CacheConfiguration() // Cache configuration
 	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)

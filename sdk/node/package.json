@@ -1,8 +1,8 @@
 {
-  "name": "hlc",
-  "version": "0.0.11",
+  "name": "hfc",
+  "version": "0.0.2",
   "bin": "./bin/main.js",
-  "typings": "hlc.d.ts",
+  "typings": "hfc.d.ts",
   "main": "index.js",
   "dependencies": {
     "aes-js": "^1.0.0",

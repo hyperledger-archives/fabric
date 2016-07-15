@@ -35,11 +35,6 @@ func (client *clientImpl) DecryptQueryResult(queryTx *obc.Transaction, ct []byte
 	var queryKey []byte
 
 	switch queryTx.ConfidentialityProtocolVersion {
-	case "1.1":
-		enrollChainKey := client.enrollChainKey.([]byte)
-		queryKey = primitives.HMACAESTruncated(enrollChainKey, append([]byte{6}, queryTx.Nonce...))
-		//	client.log.Info("QUERY Decrypting with key: ", utils.EncodeBase64(queryKey))
-		break
 	case "1.2":
 		queryKey = primitives.HMACAESTruncated(client.queryStateKey, append([]byte{6}, queryTx.Nonce...))
 	}

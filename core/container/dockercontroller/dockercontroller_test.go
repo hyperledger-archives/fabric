@@ -17,6 +17,8 @@ limitations under the License.
 package dockercontroller
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -37,4 +39,18 @@ func TestHostConfig(t *testing.T) {
 	testutil.AssertEquals(t, hostConfig.LogConfig.Type, "json-file")
 	testutil.AssertEquals(t, hostConfig.LogConfig.Config["max-size"], "50m")
 	testutil.AssertEquals(t, hostConfig.LogConfig.Config["max-file"], "5")
+}
+
+func TestGetDockerHostConfig(t *testing.T) {
+	os.Setenv("HYPERLEDGER_VM_DOCKER_HOSTCONFIG_NETWORKMODE", "overlay")
+	os.Setenv("HYPERLEDGER_VM_DOCKER_HOSTCONFIG_CPUSHARES", fmt.Sprint(1024*1024*1024*2))
+	config.SetupTestConfig("./../../../peer")
+	hostConfig := getDockerHostConfig()
+	testutil.AssertNotNil(t, hostConfig)
+	testutil.AssertEquals(t, hostConfig.NetworkMode, "overlay")
+	testutil.AssertEquals(t, hostConfig.LogConfig.Type, "json-file")
+	testutil.AssertEquals(t, hostConfig.LogConfig.Config["max-size"], "50m")
+	testutil.AssertEquals(t, hostConfig.LogConfig.Config["max-file"], "5")
+	testutil.AssertEquals(t, hostConfig.Memory, int64(1024*1024*1024*2))
+	testutil.AssertEquals(t, hostConfig.CPUShares, int64(1024*1024*1024*2))
 }

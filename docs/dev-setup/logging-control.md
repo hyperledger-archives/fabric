@@ -16,7 +16,13 @@ In pretty-printed logs the logging level is indicated both by color and by a 4-c
     16:47:09.635 [rest] StartOpenchainRESTServer -> INFO 035 Initializing the REST service...
     16:47:09.635 [main] serve -> INFO 036 Starting peer with id=name:"vp1" , network id=dev, address=9.3.158.178:30303, discovery.rootnode=, validator=true
 
-An arbitrary number of logging modules can be created at runtime, therefore there is no "master list" of modules, and logging control constructs can not check whether logging modules actually do or will exist.
+An arbitrary number of logging modules can be created at runtime, therefore
+there is no "master list" of modules, and logging control constructs can not
+check whether logging modules actually do or will exist. Also note that the
+logging module system does not understand hierarchy or wildcarding: You may
+see module names like "foo/bar" in the code, but the logging system only sees
+a flat string. It doesn't understand that "foo/bar" is related to "foo" in any
+way, or that "foo/*" might indicate all "submodules" of foo.
 
 ## peer
 
@@ -24,7 +30,12 @@ The logging level of the `peer` command can be controlled from the command line 
 
     peer node start --logging-level=debug
 	
-The default logging level for each individual `peer` subcommand can also be set in the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) file. For example the key `logging.peer` sets the default level for the `peer` subcommmand.
+The default logging level for each individual `peer` subcommand can also be
+set in the
+[core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
+file. For example the key `logging.node` sets the default level for the `node`
+subcommmand. Comments in the file also explain how the logging level can be
+overridden in various ways by using environment varaibles.
 
 Logging severity levels are specified using case-insensitive strings chosen from
 
@@ -38,7 +49,10 @@ A logging level by itself is taken as the overall default. Otherwise, overrides 
 
     <module>[,<module>...]=<level> 
 
-syntax. Examples of <level> specifications (valid for both `--logging-level` and [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) settings):
+syntax. Examples of <level> specifications (valid for all of
+`--logging-level`, environment variable and
+[core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
+settings):
 
     info                                       - Set default to INFO
     warning:main,db=debug:chaincode=info       - Default WARNING; Override for main,db,chaincode

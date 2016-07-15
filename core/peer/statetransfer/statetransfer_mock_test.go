@@ -624,17 +624,9 @@ func SimpleEncodeUint64(num uint64) []byte {
 
 func SimpleHashBlock(block *protos.Block) []byte {
 	buffer := make([]byte, binary.MaxVarintLen64)
-	if nil != block.NonHashData && nil != block.NonHashData.TransactionResults {
-		for _, txResult := range block.NonHashData.TransactionResults {
-			for i, b := range txResult.Result {
-				buffer[i%binary.MaxVarintLen64] += b
-			}
-		}
-	} else {
-		for _, transaction := range block.Transactions {
-			for i, b := range transaction.Payload {
-				buffer[i%binary.MaxVarintLen64] += b
-			}
+	for _, transaction := range block.Transactions {
+		for i, b := range transaction.Payload {
+			buffer[i%binary.MaxVarintLen64] += b
 		}
 	}
 	return []byte(fmt.Sprintf("BlockHash:%s-%s-%s", buffer, block.StateHash, block.ConsensusMetadata))

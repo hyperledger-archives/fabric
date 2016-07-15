@@ -55,7 +55,8 @@ If starting the peer with security/privacy enabled, environment variables for se
 docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp0 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp0 -e CORE_SECURITY_ENROLLSECRET=vp0_secret  hyperledger/fabric-peer peer node start
 ```
 
-Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0` and `vp0_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
+Additionally, the validating peer `enrollID` and `enrollSecret` (`vp0`
+and `vp0_secret`) has to be added to the eca.users section of [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
 
 #### Start up the second validating peer:
 We need to get the IP address of the first validating peer, which will act as the root node that the new peer will connect to. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable. We'll use `vp1` as the ID for the second validating peer.
@@ -64,7 +65,8 @@ We need to get the IP address of the first validating peer, which will act as th
 docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_SECURITY_ENABLED=true -e CORE_SECURITY_PRIVACY=true -e CORE_PEER_PKI_ECA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TCA_PADDR=172.17.0.1:50051 -e CORE_PEER_PKI_TLSCA_PADDR=172.17.0.1:50051 -e CORE_SECURITY_ENROLLID=vp1 -e CORE_SECURITY_ENROLLSECRET=vp1_secret -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger/fabric-peer peer node start
 ```
 
-Again, the validating peer `enrollID` and `enrollSecret` (`vp1` and `vp1_secret`) has to be added to [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
+Again, the validating peer `enrollID` and `enrollSecret` (`vp1` and
+`vp1_secret`) has to be added to eca.users section of [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
 
 You can start up a few more validating peers in a similar manner if you wish. Remember to change the peer ID and add the enrollID/enrollSecret to the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml).
 
@@ -137,9 +139,9 @@ A consensus plugin might require some specific configuration that you need to se
 
 1. In `core.yaml`, set the `peer.validator.consensus` value to `pbft`
 2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpX` where `X` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
-3. In `consensus/obcpbft/config.yaml`, set the `general.mode` value to `batch` and the `general.N` value to the number of validating peers on the network, also set `general.batchsize` to the number of transactions per batch.
-4. In `consensus/obcpbft/config.yaml`, optionally set timer values for the batch period (`general.timeout.batch`), the acceptable delay between request and execution (`general.timeout.request`), and for view-change (`general.timeout.viewchange`)
+3. In `consensus/pbft/config.yaml`, set the `general.mode` value to `batch` and the `general.N` value to the number of validating peers on the network, also set `general.batchsize` to the number of transactions per batch.
+4. In `consensus/pbft/config.yaml`, optionally set timer values for the batch period (`general.timeout.batch`), the acceptable delay between request and execution (`general.timeout.request`), and for view-change (`general.timeout.viewchange`)
 
-See `core.yaml` and `consensus/obcpbft/config.yaml` for more detail.
+See `core.yaml` and `consensus/pbft/config.yaml` for more detail.
 
 All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=batch`

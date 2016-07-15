@@ -18,7 +18,7 @@
  * © Copyright IBM Corp. 2016
  */
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -27,7 +27,7 @@ var fs = require('fs');
 //  Create a test chain
 //
 
-var chain = hlc.newChain("testChain");
+var chain = hfc.newChain("testChain");
 
 //
 // Configure the test chain
@@ -41,7 +41,7 @@ var chain = hlc.newChain("testChain");
 // to be used to authenticate the member services certificate.
 //
 
-chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
 if (fs.existsSync("tlsca.cert")) {
     chain.setMemberServicesUrl("grpcs://localhost:50051", fs.readFileSync('tlsca.cert'));
 } else {
@@ -266,6 +266,42 @@ test('Register and enroll a new user', function (t) {
 });
 
 //
+// Create and issue a chaincode deploy request with a missing chaincodeName
+// parameter (in development mode) and a missing chaincodePath parameter (in
+// network mode). The request is expected to fail with an error specifying
+// the missing parameter.
+//
+
+test('Deploy with missing chaincodeName or chaincodePath', function(t) {
+  t.plan(1);
+
+  // Construct the deploy request with a missing chaincodeName/chaincodePath
+  var deployRequest = {
+    // Function to trigger
+    fcn: "init",
+    // Arguments to the initializing function
+    args: ["a", initA, "b", initB]
+  };
+
+  // Trigger the deploy transaction
+  var deployTx = test_user_Member1.deploy(deployRequest);
+
+  // Print the deploy results
+  deployTx.on('complete', function(results) {
+    // Deploy request completed successfully
+    console.log(util.format("deploy results: %j",results));
+    // Set the testChaincodeID for subsequent tests
+    testChaincodeID = results.chaincodeID;
+    console.log("testChaincodeID:" + testChaincodeID);
+    t.fail(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
+  });
+  deployTx.on('error', function(err) {
+    // Deploy request failed
+    t.pass(util.format("Failed to deploy chaincode: request=%j, error=%j",deployRequest,err));
+  });
+});
+
+//
 // Create and issue a chaincode deploy request by the test user, who was
 // registered and enrolled in the UT above. Deploy a testing chaincode from
 // a local directory in the user's $GOPATH.
@@ -306,6 +342,38 @@ test('Deploy a chaincode by enrolled user', function(t) {
     // Deploy request failed
     t.fail(util.format("Failed to deploy chaincode: request=%j, error=%j",deployRequest,err));
   });
+});
+
+//
+// Create and issue a chaincode query request with a missing chaincodeID
+// parameter. The request is expected to fail with an error specifying
+// the missing parameter.
+//
+
+test('Query with missing chaincodeID', function (t) {
+    t.plan(1);
+
+    // Construct the query request with a missing chaincodeID
+    var queryRequest = {
+        // Function to trigger
+        fcn: "query",
+        // Existing state variable to retrieve
+        args: ["a"]
+    };
+
+    // Trigger the query transaction
+    test_user_Member1.setTCertBatchSize(1);
+    var queryTx = test_user_Member1.query(queryRequest);
+
+    // Print the query results
+    queryTx.on('complete', function (results) {
+        // Query completed successfully
+        t.fail(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
+    });
+    queryTx.on('error', function (err) {
+        // Query failed
+        t.pass(util.format("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err));
+    });
 });
 
 //
@@ -439,6 +507,37 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     queryTx.on('error', function (err) {
         // Query failed
         t.pass(util.format("Failed to query non-existing chaincode function: request=%j, error=%j",queryRequest,err));
+    });
+});
+
+//
+// Create and issue a chaincode invoke request with a missing chaincodeID
+// parameter. The request is expected to fail with an error specifying
+// the missing parameter.
+//
+
+test('Invoke with missing chaincodeID', function (t) {
+    t.plan(1);
+
+    // Construct the invoke request with missing chaincodeID
+    var invokeRequest = {
+        // Function to trigger
+        fcn: "invoke",
+        // Parameters for the invoke function
+        args: ["a", "b", deltaAB]
+    };
+
+    // Trigger the invoke transaction
+    var invokeTx = test_user_Member1.invoke(invokeRequest);
+
+    // Print the invoke results
+    invokeTx.on('submitted', function (results) {
+        // Invoke transaction submitted successfully
+        t.fail(util.format("Successfully submitted chaincode invoke transaction: request=%j, response=%j", invokeRequest,results));
+    });
+    invokeTx.on('error', function (err) {
+        // Invoke transaction submission failed
+        t.pass(util.format("Failed to submit chaincode invoke transaction: request=%j, error=%j", invokeRequest, err));
     });
 });
 

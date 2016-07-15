@@ -53,12 +53,12 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 	}
 
 	validator := newValidator()
-	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
+	if err := validator.register(name, pwd, enrollID, enrollPWD, nil); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
 			log.Errorf("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Infof("Registering vlidator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Infof("Registering validator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := validator.close()
 	if err != nil {
@@ -87,7 +87,7 @@ func InitValidator(name string, pwd []byte) (Peer, error) {
 	}
 
 	validator := newValidator()
-	if err := validator.init(name, pwd); err != nil {
+	if err := validator.init(name, pwd, nil); err != nil {
 		log.Errorf("Failed validator initialization [%s]: [%s]", name, err)
 
 		return nil, err
@@ -129,7 +129,7 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func newValidator() *validatorImpl {
-	return &validatorImpl{&peerImpl{&nodeImpl{}, sync.RWMutex{}, nil, false}, false, nil}
+	return &validatorImpl{&peerImpl{&nodeImpl{}, sync.RWMutex{}, nil}, nil}
 }
 
 func closeValidatorInternal(peer Peer, force bool) error {

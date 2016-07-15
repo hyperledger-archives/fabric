@@ -51,7 +51,7 @@ Feature: Network of Peers
       When I query chaincode "map" function name "get" on "vp0":
         | arg1|
         | key1 |
-      Then I should get a JSON response with "OK" = "value1"
+      Then I should get a JSON response with "result.message" = "value1"
 
       When I invoke chaincode "map" function name "put" on "vp0"
         | arg1 | arg2 |
@@ -65,7 +65,7 @@ Feature: Network of Peers
       When I query chaincode "map" function name "keys" on "vp0":
         ||
         ||
-      Then I should get a JSON response with "OK" = "["key1","key2"]"
+      Then I should get a JSON response with "result.message" = "["key1","key2"]"
 
       When I invoke chaincode "map" function name "remove" on "vp0"
         | arg1 | |
@@ -79,7 +79,7 @@ Feature: Network of Peers
       When I query chaincode "map" function name "keys" on "vp0":
         ||
         ||
-      Then I should get a JSON response with "OK" = "["key2"]"
+      Then I should get a JSON response with "result.message" = "["key2"]"
 
 # @doNotDecompose
   @wip
@@ -115,7 +115,7 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test1|
-      Then I should get a JSON response with "OK" = "{[string:"test1"  int32:10  int32:20 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test1"  int32:10  int32:20 ]}"
 
       When I invoke chaincode "table_test" function name "insertRowTableTwo" on "vp0"
         | arg1 | arg2 | arg3 | arg3 |
@@ -128,7 +128,7 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableTwo" on "vp0":
         | arg1 | arg2 | arg3 |
         | foo2 | 65   | bar8 |
-      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
 
       When I invoke chaincode "table_test" function name "replaceRowTableOne" on "vp0"
         | arg1 | arg2 | arg3 |
@@ -141,7 +141,7 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test1|
-      Then I should get a JSON response with "OK" = "{[string:"test1"  int32:30  int32:40 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test1"  int32:30  int32:40 ]}"
 
       When I invoke chaincode "table_test" function name "deleteRowTableOne" on "vp0"
         | arg1 |
@@ -154,12 +154,12 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test1|
-      Then I should get a JSON response with "OK" = "{[]}"
+      Then I should get a JSON response with "result.message" = "{[]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test2|
-      Then I should get a JSON response with "OK" = "{[string:"test2"  int32:10  int32:20 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test2"  int32:10  int32:20 ]}"
 
       When I invoke chaincode "table_test" function name "insertRowTableOne" on "vp0"
         | arg1 | arg2 | arg3 |
@@ -188,17 +188,17 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test3|
-      Then I should get a JSON response with "OK" = "{[string:"test3"  int32:10  int32:20 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test3"  int32:10  int32:20 ]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test4|
-      Then I should get a JSON response with "OK" = "{[string:"test4"  int32:10  int32:20 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test4"  int32:10  int32:20 ]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test5|
-      Then I should get a JSON response with "OK" = "{[string:"test5"  int32:10  int32:20 ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"test5"  int32:10  int32:20 ]}"
 
       When I invoke chaincode "table_test" function name "insertRowTableTwo" on "vp0"
         | arg1 | arg2 | arg3 | arg3 |
@@ -235,17 +235,17 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 | arg2 |
         | foo2 | 65   |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
+      Then I should get a JSON response with "result.message" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 | arg2 |
         | foo2 | 66   |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]}]"
+      Then I should get a JSON response with "result.message" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]}]"
 
       When I query chaincode "table_test" function name "getRowsTableTwo" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
+      Then I should get a JSON response with "result.message" = "[{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":37}},{"Value":{"Int32":65}},{"Value":{"String_":"bar12"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":34}},{"Value":{"Int32":65}},{"Value":{"String_":"bar8"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":36}},{"Value":{"Int32":65}},{"Value":{"String_":"bar11"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":38}},{"Value":{"Int32":66}},{"Value":{"String_":"bar10"}}]},{"columns":[{"Value":{"String_":"foo2"}},{"Value":{"Int32":35}},{"Value":{"Int32":65}},{"Value":{"String_":"bar10"}}]}]"
 
       When I invoke chaincode "table_test" function name "deleteAndRecreateTableOne" on "vp0"
         ||
@@ -258,27 +258,27 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test3|
-      Then I should get a JSON response with "OK" = "{[]}"
+      Then I should get a JSON response with "result.message" = "{[]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test4|
-      Then I should get a JSON response with "OK" = "{[]}"
+      Then I should get a JSON response with "result.message" = "{[]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test5|
-      Then I should get a JSON response with "OK" = "{[]}"
+      Then I should get a JSON response with "result.message" = "{[]}"
 
       When I query chaincode "table_test" function name "getRowTableOne" on "vp0":
         | arg1 |
         | test2|
-      Then I should get a JSON response with "OK" = "{[]}"
+      Then I should get a JSON response with "result.message" = "{[]}"
 
       When I query chaincode "table_test" function name "getRowTableTwo" on "vp0":
         | arg1 | arg2 | arg3 |
         | foo2 | 65   | bar8 |
-      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"foo2"  int32:34  int32:65  string:"bar8" ]}"
 
       When I invoke chaincode "table_test" function name "insertRowTableThree" on "vp0"
         | arg1 | arg2 | arg3 | arg4 | arg5 | arg6 | arg7 |
@@ -291,7 +291,7 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableThree" on "vp0":
         | arg1 |
         | foo2 |
-      Then I should get a JSON response with "OK" = "{[string:"foo2"  int32:-38  int64:-66  uint32:77  uint64:88  bytes:"hello"  bool:true ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"foo2"  int32:-38  int64:-66  uint32:77  uint64:88  bytes:"hello"  bool:true ]}"
 
       When I invoke chaincode "table_test" function name "insertRowTableFour" on "vp0"
         | arg1   |
@@ -304,12 +304,48 @@ Feature: Network of Peers
       When I query chaincode "table_test" function name "getRowTableFour" on "vp0":
         | arg1   |
         | foobar |
-      Then I should get a JSON response with "OK" = "{[string:"foobar" ]}"
+      Then I should get a JSON response with "result.message" = "{[string:"foobar" ]}"
 
       When I query chaincode "table_test" function name "getRowsTableFour" on "vp0":
         | arg1   |
         | foobar |
-      Then I should get a JSON response with "OK" = "[{"columns":[{"Value":{"String_":"foobar"}}]}]"
+      Then I should get a JSON response with "result.message" = "[{"columns":[{"Value":{"String_":"foobar"}}]}]"
+
+@doNotDecompose
+#    @wip
+	Scenario: chaincode example 01 single peer erroneous TX
+	    Given we compose "docker-compose-1.yml"
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "2"
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| 1  |
+	    Then I should have received a transactionID
+	    Then I wait up to "25" seconds for transaction to be committed to all peers
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "3"
+	    When requesting "/chain/blocks/2" from "vp0"
+	    Then I should get a JSON response containing "transactions" attribute
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| a  |
+	    Then I should have received a transactionID
+	    Then I wait "10" seconds
+        When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "4"
+        When requesting "/chain/blocks/3" from "vp0"
+	    Then I should get a JSON response containing no "transactions" attribute
 
 #    @doNotDecompose
 #    @wip
@@ -332,6 +368,27 @@ Feature: Network of Peers
 	    Then I wait up to "25" seconds for transaction to be committed to all peers
 	    Then I check the transaction ID if it is "ca978112-ca1b-bdca-fac2-31b39a23dc4d"
 
+    Scenario: chaincode example 01 single peer rejection message
+	    Given we compose "docker-compose-1-exp.yml"
+	    Given I start a listener
+	    Then I wait "5" seconds
+
+	    When requesting "/chain" from "vp0"
+	    Then I should get a JSON response with "height" = "1"
+	    When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example01" with ctor "init" to "vp0"
+		     | arg1 |  arg2 | arg3 | arg4 |
+		     |  a   |  100  |  b   |  200 |
+	    Then I should have received a chaincode name
+	    Then I wait up to "60" seconds for transaction to be committed to all peers
+
+        When I invoke chaincode "example1" function name "invoke" on "vp0"
+			|arg1|
+			| a  |
+	    Then I should have received a transactionID
+	    Then I wait "10" seconds
+
+	Then I should get a rejection message in the listener after stopping it
+
 #    @doNotDecompose
 #    @wip
 	Scenario: chaincode example 02 single peer
@@ -350,7 +407,7 @@ Feature: Network of Peers
         When I query chaincode "example2" function name "query" on "vp0":
             |arg1|
             |  a |
-	    Then I should get a JSON response with "OK" = "100"
+	    Then I should get a JSON response with "result.message" = "100"
 
 
         When I invoke chaincode "example2" function name "invoke" on "vp0"
@@ -365,12 +422,12 @@ Feature: Network of Peers
         When I query chaincode "example2" function name "query" on "vp0":
             |arg1|
             |  a |
-	    Then I should get a JSON response with "OK" = "90"
+	    Then I should get a JSON response with "result.message" = "90"
 
         When I query chaincode "example2" function name "query" on "vp0":
             |arg1|
             |  b |
-	    Then I should get a JSON response with "OK" = "210"
+	    Then I should get a JSON response with "result.message" = "210"
 
 #    @doNotDecompose
 #    @wip
@@ -388,7 +445,7 @@ Feature: Network of Peers
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
             |  a |
-	    Then I should get a JSON response from all peers with "OK" = "100"
+	    Then I should get a JSON response from all peers with "result.message" = "100"
 
         When I invoke chaincode "example2" function name "invoke" on "vp0"
 			|arg1|arg2|arg3|
@@ -399,7 +456,7 @@ Feature: Network of Peers
         When I query chaincode "example2" function name "query" on all peers:
             |arg1|
             |  a |
-	    Then I should get a JSON response from all peers with "OK" = "80"
+	    Then I should get a JSON response from all peers with "result.message" = "80"
 
 
 #    @doNotDecompose
@@ -429,7 +486,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "100"
+	    Then I should get a JSON response from peers with "result.message" = "100"
             | vp0  | vp1 | vp2 | vp3 |
 
         When I invoke chaincode "example2" function name "invoke" on "vp0"
@@ -441,7 +498,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "80"
+	    Then I should get a JSON response from peers with "result.message" = "80"
             | vp0  | vp1 | vp2 | vp3 |
 
     Examples: Consensus Options
@@ -487,7 +544,7 @@ Feature: Network of Peers
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
                     | vp0  | vp1 | vp2 | vp3 |
-	        Then I should get a JSON response from peers with "OK" = "130"
+	        Then I should get a JSON response from peers with "result.message" = "130"
                     | vp0  | vp1 | vp2 | vp3 |
 
         # STOPPING vp3!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -504,7 +561,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 |
-	    Then I should get a JSON response from peers with "OK" = "120"
+	    Then I should get a JSON response from peers with "result.message" = "120"
             | vp0  | vp1 | vp2 |
 
         # Now start vp3 again
@@ -523,7 +580,7 @@ Feature: Network of Peers
        Then I wait "60" seconds
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "20"
+	    Then I should get a JSON response from peers with "result.message" = "20"
             | vp0  | vp1 | vp2 | vp3 |
 
 
@@ -559,7 +616,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-	    Then I should get a JSON response from peers with "OK" = "100"
+	    Then I should get a JSON response from peers with "result.message" = "100"
             | vp0  | vp1 | vp2 | vp3 |
 
         Given I stop peers:
@@ -572,7 +629,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp3  |
-	    Then I should get a JSON response from peers with "OK" = "100"
+	    Then I should get a JSON response from peers with "result.message" = "100"
             | vp3  |
 
     Examples: Consensus Options
@@ -631,7 +688,7 @@ Feature: Network of Peers
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
            | vp0  | vp1 | vp2 | vp3 |
-       Then I should get a JSON response from peers with "OK" = "95"
+       Then I should get a JSON response from peers with "result.message" = "95"
            | vp0  | vp1 | vp2 | vp3 |
 
       # STOP vp2
@@ -649,7 +706,7 @@ Feature: Network of Peers
 
       When I query chaincode "example2" function name "query" with value "a" on peers:
         | vp0  | vp1 | vp3 |
-       Then I should get a JSON response from peers with "OK" = "90"
+       Then I should get a JSON response from peers with "result.message" = "90"
         | vp0 | vp1 | vp3 |
 
    Examples: Consensus Options
@@ -692,7 +749,7 @@ Feature: Network of Peers
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
          | vp0  | vp1 | vp2 | vp3 |
-     Then I should get a JSON response from peers with "OK" = "95"
+     Then I should get a JSON response from peers with "result.message" = "95"
          | vp0  | vp1 | vp2 | vp3 |
 
     # STOP vp2
@@ -708,7 +765,7 @@ Feature: Network of Peers
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
       | vp0 | vp3 |
-     Then I should get a JSON response from peers with "OK" = "95"
+     Then I should get a JSON response from peers with "result.message" = "95"
       | vp0 | vp3 |
 
  Examples: Consensus Options
@@ -750,7 +807,7 @@ Feature: Network of Peers
 
          When I query chaincode "example2" function name "query" with value "a" on peers:
               | vp0  | vp1 | vp2 |
-          Then I should get a JSON response from peers with "OK" = "50"
+          Then I should get a JSON response from peers with "result.message" = "50"
               | vp0  | vp1 | vp2 |
 
       Examples: Consensus Options
@@ -824,7 +881,7 @@ Feature: Network of Peers
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
                     | vp0  | vp1 | vp2 | vp3 |
-	        Then I should get a JSON response from peers with "OK" = "130"
+	        Then I should get a JSON response from peers with "result.message" = "130"
                     | vp0  | vp1 | vp2 | vp3 |
 
         # Stop vp1, vp2, vp3
@@ -845,7 +902,7 @@ Feature: Network of Peers
             | vp0  | vp1 | vp2 |
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 |
-	    Then I should get a JSON response from peers with "OK" = "120"
+	    Then I should get a JSON response from peers with "result.message" = "120"
             | vp0  | vp1 | vp2 |
 
 
@@ -894,7 +951,7 @@ Feature: Network of Peers
 
             When I query chaincode "example2" function name "query" with value "a" on peers:
                     | vp0  | vp1 | vp2 |
-	        Then I should get a JSON response from peers with "OK" = "101"
+	        Then I should get a JSON response from peers with "result.message" = "101"
                     | vp0  | vp1 | vp2 |
 
         # Now start vp3 again
@@ -913,11 +970,11 @@ Feature: Network of Peers
        Then I wait "20" seconds
         When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 |
-	    Then I should get a JSON response from peers with "OK" = "21"
+	    Then I should get a JSON response from peers with "result.message" = "21"
             | vp0  | vp1 | vp2 |
         When I unconditionally query chaincode "example2" function name "query" with value "a" on peers:
             | vp3  |
-	    Then I should get a JSON response from peers with "Error" = "Error: state may be inconsistent, cannot query"
+	    Then I should get a JSON response from peers with "error.data" = "Error when querying chaincode: Error: state may be inconsistent, cannot query"
             | vp3  |
 
 
@@ -953,7 +1010,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
              | vp0  | vp1 | vp2 |
-             Then I should get a JSON response from peers with "OK" = "100"
+             Then I should get a JSON response from peers with "result.message" = "100"
              | vp0  | vp1 | vp2 |
 
         When I invoke chaincode "example2" function name "invoke" on "vp0" "20" times
@@ -965,7 +1022,7 @@ Feature: Network of Peers
 
         When I query chaincode "example2" function name "query" with value "a" on peers:
              | vp0  | vp1 | vp2 |
-             Then I should get a JSON response from peers with "OK" = "80"
+             Then I should get a JSON response from peers with "result.message" = "80"
              | vp0  | vp1 | vp2 |
 
 #@doNotDecompose
@@ -1013,7 +1070,7 @@ Feature: Network of Peers
             And I wait "120" seconds
             When I query chaincode "example2" function name "query" with value "a" on peers:
                | vp1 | vp2 | vp3 |
-            Then I should get a JSON response from peers with "OK" = "95"
+            Then I should get a JSON response from peers with "result.message" = "95"
                | vp1 | vp2 | vp3 |
             Examples: Consensus Options
                |          ComposeFile                       |   WaitTime   |
@@ -1038,7 +1095,7 @@ Feature: Network of Peers
 
       Given I start peers:
             | vp0  |
-      And I wait "5" seconds
+      And I wait "10" seconds
 
       When requesting "/network/peers" from "vp1"
       Then I should get a JSON response with array "peers" contains "2" elements
@@ -1073,7 +1130,7 @@ Scenario: chaincode example02 with 4 peers, stop and start alternates, reverse
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
                           | vp0 | vp1  | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "1000"
+    Then I should get a JSON response from peers with "result.message" = "1000"
                           | vp0 |  vp1 | vp2 | vp3 |
 
     Given I stop peers:
@@ -1090,7 +1147,7 @@ Scenario: chaincode example02 with 4 peers, stop and start alternates, reverse
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
                           | vp0  | vp1 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "997"
+    Then I should get a JSON response from peers with "result.message" = "997"
                           | vp0  | vp1 | vp3 |
 
     Given I start peers:
@@ -1108,7 +1165,7 @@ Scenario: chaincode example02 with 4 peers, stop and start alternates, reverse
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
                           | vp0  | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "977"
+    Then I should get a JSON response from peers with "result.message" = "977"
                           | vp0  | vp2 | vp3 |
 
 @issue_1874a
@@ -1136,7 +1193,7 @@ Scenario: chaincode example02 with 4 peers, two stopped
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
         | vp0  | vp1 | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "100"
+    Then I should get a JSON response from peers with "result.message" = "100"
         | vp0  | vp1 | vp2 | vp3 |
 
     Given I stop peers:
@@ -1160,7 +1217,7 @@ Scenario: chaincode example02 with 4 peers, two stopped
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
         | vp0  | vp1 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "0"
+    Then I should get a JSON response from peers with "result.message" = "0"
         | vp0  | vp1 | vp3 |
 
 @issue_1874b
@@ -1188,7 +1245,7 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
         | vp0  | vp1 | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "100"
+    Then I should get a JSON response from peers with "result.message" = "100"
         | vp0  | vp1 | vp2 | vp3 |
 
     Given I stop peers:
@@ -1223,7 +1280,7 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
         | vp0  | vp1 | vp2 |
-    Then I should get a JSON response from peers with "OK" = "0"
+    Then I should get a JSON response from peers with "result.message" = "0"
         | vp0  | vp1 | vp2 |
 
 @issue_1874c
@@ -1251,7 +1308,7 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "100"
+    Then I should get a JSON response from peers with "result.message" = "100"
             | vp0  | vp1 | vp2 | vp3 |
 
     Given I stop peers:
@@ -1278,5 +1335,82 @@ Scenario: chaincode example02 with 4 peers, two stopped, bring back vp0
 
     When I query chaincode "example2" function name "query" with value "a" on peers:
             | vp0  | vp1 | vp2 | vp3 |
-    Then I should get a JSON response from peers with "OK" = "10"
+    Then I should get a JSON response from peers with "result.message" = "10"
             | vp0  | vp1 | vp2 | vp3 |
+
+    @issue_2116
+    #@doNotDecompose
+    Scenario Outline: chaincode authorizable_counter with 4 peers, two stopped, bring back both
+        Given we compose "<ComposeFile>"
+        And I register with CA supplying username "diego" and secret "DRJ23pEQl16a" on peers:
+                | vp0  |
+        And I use the following credentials for querying peers:
+                | peer |   username  |    secret    |
+                | vp0  |  test_user0 | MS9qrN8hFjlE |
+                | vp1  |  test_user1 | jGlNl6ImkuDo |
+                | vp2  |  test_user2 | zMflqOKezFiA |
+                | vp3  |  test_user3 | vWdLCE00vJy0 |
+
+        When requesting "/chain" from "vp0"
+        Then I should get a JSON response with "height" = "1"
+
+        When I deploy chaincode "github.com/hyperledger/fabric/examples/chaincode/go/authorizable_counter" with ctor "init" to "vp0"
+                | arg1 |
+                | 0    |
+        Then I should have received a chaincode name
+        Then I wait up to "60" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 |
+
+        When I query chaincode "authorizable_counter" function name "read" on "vp0":
+                |arg1|
+                | a  |
+        Then I should get a JSON response with "result.message" = "0"
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "position" on "vp0"
+                |arg1|
+                | a  |
+        Then I should have received a transactionID
+
+        When I invoke chaincode "authorizable_counter" function name "increment" on "vp0" "8" times
+                |arg1|arg2|arg3|
+                | a  | b  | 10 |
+        Then I should have received a transactionID
+        Then I wait up to "30" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        When I query chaincode "authorizable_counter" function name "read" with value "a" on peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Then I should get a JSON response from peers with "result.message" = "1"
+                | vp0  | vp1 | vp2 | vp3 |
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "company" on "vp0"
+                |arg1|
+                | a  |
+
+        When I invoke chaincode "authorizable_counter" function name "increment" with attributes "company, position, age" on "vp0"
+                |arg1|
+                | a  |
+
+        Then I wait up to "15" seconds for transaction to be committed to peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        When I query chaincode "authorizable_counter" function name "read" with value "a" on peers:
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Then I should get a JSON response from peers with "result.message" = "2"
+                | vp0  | vp1 | vp2 | vp3 |
+
+        Examples: Consensus Options
+        |          ComposeFile                   |   WaitTime    |
+        |   docker-compose-4-consensus-batch.yml docker-membersrvc-attributes-enabled.yml |      120      |
+        |   docker-compose-4-consensus-batch.yml docker-membersrvc-attributes-enabled.yml docker-membersrvc-attributes-encryption-enabled.yml |      120      |
+
+#    noop
+#    @doNotDecompose
+  Scenario: noop chaincode test
+    Given we compose "docker-compose-1.yml"
+      When I invoke master chaincode "noop" function name "execute" on "vp0"
+        |arg1|
+        | aa |
+      Then I should have received a transactionID

@@ -82,6 +82,11 @@ func LoggingInit(command string) {
 	loggingLogger.Debugf("Setting default logging level to %s for command '%s'", defaultLevel, command)
 }
 
+// DefaultLoggingLevel returns the fallback value for loggers to use if parsing fails
+func DefaultLoggingLevel() logging.Level {
+	return loggingDefaultLevel
+}
+
 // Initiate 'leveled' logging to stderr.
 func init() {
 

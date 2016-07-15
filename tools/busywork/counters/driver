@@ -219,13 +219,16 @@ Optional parameters. Default values are given after the colon:
     completes within each timeout period. 
 
 -convergeWait <duration> : 10s
+-convergePoll <duration> : 1s
 
     If the run is in -interlock mode, then the run will not finish until at
     least one peer has recorded every transaction. However due to delays and
     state transfer, there may be lagging peers that have not finished yet. In
     this case we do "strong reads" of the block height of every node, and do
     not start checking until there is 100% consensus on the block
-    height. These checks must converge within the -convergeWait time.
+    height. These checks must converge within the -convergeWait time. The
+    network is polled (and the current status printed) every -convergePoll
+    interval. 
 
 -finalWait <duration> : 10s    
 
@@ -311,6 +314,14 @@ Optional parameters. Default values are given after the colon:
 -timestamp | -noTimestamp : -noTimestamp
 
     If -timestamp is selected, the logs from this script will be timestamped.
+
+-traceInterlock : N/A
+
+    This is a debugging flag. If set, a timestamped trace of the interlock
+    operations of the clients is produced. Clients "interlock" after each
+    network burst if -interlock is selected, waiting until all transactions of
+    the burst are seen as having been committed to the blockchain.
+
 }
 
 ############################################################################
@@ -353,6 +364,7 @@ set options {
     {key     -interlockTimeout     parms(interlockTimeout)  60s}
     {key     {-interlockProgress -interlockAbsolute} parms(interlockProgress) 0}
     {key     -convergeWait         parms(convergeWait)      10s}
+    {key     -convergePoll         parms(convergePoll)      1s}
     {key     -finalWait            parms(finalWait)         10s}
     {bool    {-keepLog -noKeepLog} parms(keepLog)           0}
     {bool    {-force -noForce}     parms(force)             0}
@@ -364,6 +376,7 @@ set options {
     {key     -retry                parms(retry)             0}
     {key     -args                 parms(args)              {}}
     {bool    {-timestamp -noTimestamp} parms(timestamp)     0}
+    {bool    -traceInterlock       parms(traceInterlock)    0}
 }
 
 mapKeywordArgs $argv $options parms(explicitPeers)
@@ -817,13 +830,14 @@ oo::class create LimitedRandomBag {
 proc clientRoutine {i_logger} {
 
     clearAtExitHandlers
-    setLoggingPrefix client[parms client]
+    setLoggingPrefix client[format %3d [parms client]]
 
     $i_logger reset
 
     set peerBag [RandomBag new [parms peers]]
     set keyBag [LimitedRandomBag new [parms arrayKeys] [parms transactions]]
     set uuids {}
+    set tx 0
 
     while {1} {
 
@@ -835,10 +849,22 @@ proc clientRoutine {i_logger} {
             lappend netBurst $peerBurst
         }
 
-        if {[parms interlock]} {
+        if {[parms interlock] && ![null $uuids]} {
+
+            if {[parms traceInterlock]} {
+                set nTx [llength $uuids]
+                set range "$tx - [expr {$tx + $nTx} - 1]"
+                note {} "[timestamp]: Start Interlock: $range"
+                incr tx $nTx
+            }
 
             set unmatched \
                 [$i_logger waitUUIDs invoke $uuids [parms interlockTimeout]]
+
+            if {[parms traceInterlock]} {
+                note {} "[timestamp]: End   Interlock: $range"
+            }
+
             if {$unmatched ne {}} {
                 err err "Interlock timed out; Aborting"
                 err err "Unmatched UUIDs below"
@@ -945,9 +971,11 @@ if {$errors && ![parms force]} {
 
 # Finally, check the results for correctness. For the most accurate completed
 # transaction rates you need to -interlock, as it is likely that not all
-# invocations have been commited at this point if -interlock is not specified.
+# invocations have been commited at this point if -interlock is not
+# specified. We can't interlock NOOPS because the blockchains are not required
+# to be identical.
 
-if {[parms interlock]} {
+if {[parms interlock] && ![parms noops]} {
 
     # For interlocked runs, do "strong reads" of the block height until
     # consensus is reached.
@@ -963,8 +991,11 @@ if {[parms interlock]} {
         return [expr {[llength $heights] == 1}]
     }
     
-    note {} "Waiting up to [parms finalWait] for block-height consensus"
-    if {[waitFor [parms convergeWait] strongReadBlockHeight 1s]} {
+    note {} \
+        "Waiting up to [parms convergeWait] for block-height consensus, " \
+        "polling every [parms convergePoll]"
+    if {[waitFor \
+             [parms convergeWait] strongReadBlockHeight [parms convergePoll]]} {
         if {![parms force]} {
             set errors 1
             errorExit "Aborting due to block-height consensus timeout"

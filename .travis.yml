@@ -4,6 +4,9 @@ go:
 sudo: required
 services:
  - docker
+env:
+    - TEST_TARGET=unit-test
+    - TEST_TARGET=behave
 
 before_install:
 
@@ -39,14 +42,14 @@ before_script:
  - sudo rm -rf /var/hyperledger/ && sudo mkdir /var/hyperledger/ && sudo chown $USER:$USER /var/hyperledger
  - cd /$HOME/gopath/src/github.com/hyperledger/fabric
  - make linter
- - make unit-test
 
 script:
 
- - echo "Executing Behave test scripts"
+ - echo "Executing Tests"
  - cd $HOME/gopath/src/github.com/hyperledger/fabric
  - sed -i -e 's/172.17.0.1:2375\b/'"$ip:$port"'/g' $HOME/gopath/src/github.com/hyperledger/fabric/bddtests/compose-defaults.yml
- - make behave BEHAVE_OPTS="-D logs=Y -o testsummary.log"
+ - export BEHAVE_OPTS="-D logs=Y -o testsummary.log" #Defined to both jobs.
+ - make $TEST_TARGET
 
 after_failure:
 

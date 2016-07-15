@@ -33,8 +33,6 @@ type peerImpl struct {
 
 	nodeEnrollmentCertificatesMutex sync.RWMutex
 	nodeEnrollmentCertificates      map[string]*x509.Certificate
-
-	isInitialized bool
 }
 
 // Public methods
@@ -53,7 +51,7 @@ func (peer *peerImpl) GetEnrollmentID() string {
 // well formed with the respect to the security layer
 // prescriptions (i.e. signature verification).
 func (peer *peerImpl) TransactionPreValidation(tx *obc.Transaction) (*obc.Transaction, error) {
-	if !peer.isInitialized {
+	if !peer.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -167,51 +165,46 @@ func (peer *peerImpl) GetTransactionBinding(tx *obc.Transaction) ([]byte, error)
 
 // Private methods
 
-func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
-	if peer.isInitialized {
-		peer.Errorf("Registering [%s]...done! Initialization already performed", enrollID)
+func (peer *peerImpl) register(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string, regFunc registerFunc) error {
 
-		return utils.ErrAlreadyInitialized
-	}
-
-	// Register node
-	if err := peer.nodeImpl.register(eType, name, pwd, enrollID, enrollPWD); err != nil {
-		peer.Errorf("Failed registering [%s]: [%s]", enrollID, err)
+	if err := peer.nodeImpl.register(eType, name, pwd, enrollID, enrollPWD, regFunc); err != nil {
+		peer.Errorf("Failed registering peer [%s]: [%s]", enrollID, err)
 		return err
 	}
 
 	return nil
 }
 
-func (peer *peerImpl) init(eType NodeType, id string, pwd []byte) error {
-	if peer.isInitialized {
-		return utils.ErrAlreadyInitialized
+func (peer *peerImpl) init(eType NodeType, id string, pwd []byte, initFunc initalizationFunc) error {
+
+	peerInitFunc := func(eType NodeType, name string, pwd []byte) error {
+		// Initialize keystore
+		peer.Debug("Init keystore...")
+		err := peer.initKeyStore()
+		if err != nil {
+			if err != utils.ErrKeyStoreAlreadyInitialized {
+				peer.Error("Keystore already initialized.")
+			} else {
+				peer.Errorf("Failed initiliazing keystore [%s].", err)
+
+				return err
+			}
+		}
+		peer.Debug("Init keystore...done.")
+
+		// EnrollCerts
+		peer.nodeEnrollmentCertificates = make(map[string]*x509.Certificate)
+
+		if initFunc != nil {
+			return initFunc(eType, id, pwd)
+		}
+
+		return nil
 	}
 
-	// Register node
-	if err := peer.nodeImpl.init(eType, id, pwd); err != nil {
+	if err := peer.nodeImpl.init(eType, id, pwd, peerInitFunc); err != nil {
 		return err
 	}
-
-	// Initialize keystore
-	peer.Debug("Init keystore...")
-	err := peer.initKeyStore()
-	if err != nil {
-		if err != utils.ErrKeyStoreAlreadyInitialized {
-			peer.Error("Keystore already initialized.")
-		} else {
-			peer.Errorf("Failed initiliazing keystore [%s].", err)
-
-			return err
-		}
-	}
-	peer.Debug("Init keystore...done.")
-
-	// initialized
-	peer.isInitialized = true
-
-	// EnrollCerts
-	peer.nodeEnrollmentCertificates = make(map[string]*x509.Certificate)
 
 	return nil
 }
