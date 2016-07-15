@@ -18,6 +18,7 @@ package attributes
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
@@ -137,7 +138,8 @@ func ReadTCertAttribute(tcert *x509.Certificate, attributeName string, headerKey
 }
 
 func getPaddingFromValue(attributeValue []byte) []byte {
-	return primitives.Hash(attributeValue)[:lenPadding]
+	padding := sha256.Sum256(attributeValue)
+	return padding[:16]
 }
 
 func verifyPadding(attributeValue []byte, padding []byte) bool {
@@ -281,8 +283,8 @@ func CheckPaddingValue(value []byte) ([]byte, error) {
 	}
 	lenWithoutPadding := lenValue - lenPadding
 	value = value[0:lenWithoutPadding]
-	padding := getPaddingFromValue(value)
-	if bytes.Compare(padding[0:lenPadding], value[lenWithoutPadding:lenValue]) != 0 {
+	padding := value[lenWithoutPadding:lenValue]
+	if !verifyPadding(value, padding) {
 		return nil, errors.New("Invalid Padding")
 	}
 	return value, nil
