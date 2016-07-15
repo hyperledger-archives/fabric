@@ -13,7 +13,7 @@ The administrator interface of the ECA provides the following functions:
 	    rpc PublishCRL(ECertCRLReq) returns (CAStatus); // not yet implemented
 	}
 
-The `RegisterUser` function allows you to register a new user by specifiying their name and roles in the `RegisterUserReq` structure. If the user has not be registered before, the ECA registers the new user and returns a unique one-time password, which can be used by the user to request their enrollment certificate pair via the public interface of the ECA. Otherwise an error is returned.
+The `RegisterUser` function allows you to register a new user by specifiying their name and roles in the `RegisterUserReq` structure. If the user has not been registered before, the ECA registers the new user and returns a unique one-time password, which can be used by the user to request their enrollment certificate pair via the public interface of the ECA. Otherwise an error is returned.
 
 The `ReadUserSet` function allows only auditors to retrieve the list of users registered with the blockchain.
 
