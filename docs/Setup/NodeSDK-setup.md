@@ -140,7 +140,7 @@ First, you'll want to have a running peer node and CA. You can follow the instru
 
 ### Chaincode Deployment Directory Structure
 
-To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. These instructions will demonstrate how to properly set up the directory structure to deploy *chaincode_example02* in network mode.
+To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. The following instructions will demonstrate how to properly set up the directory structure to deploy *chaincode_example02* in network mode.
 
 The chaincode project must be placed under the `$GOPATH/src` directory. For example, the [chaincode_example02](https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go) project should be placed under `$GOPATH/src/` as shown below.
 
