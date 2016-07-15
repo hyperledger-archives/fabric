@@ -136,7 +136,7 @@ function handleUserRequest(userName, chaincodeID, fcn, args) {
 
 ## Getting Set Up
 
-First, you'll want to have a running peer node and CA. You can follow the instructions for setting up a network [here](../../docs/Setup/ca-setup.md#Operating-the-CA), and start a single peer node and CA.
+First, you'll want to have a running peer node and CA. You can follow the instructions for setting up a network [here](https://github.com/hyperledger/fabric/blob/master/docs/Setup/ca-setup.md#Operating-the-CA), and start a single peer node and CA.
 
 ### Chaincode Deployment Directory Structure
 

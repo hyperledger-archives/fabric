@@ -11,17 +11,20 @@ pages:
 - Usecases: biz/usecases.md
 
 - Setup:
-  - Fabric Developer Setup: dev-setup/devenv.md
-  - Chaincode or Application Developer Setup: Setup/Chaincode-setup.md
-  - Java Chaincode Setup: Setup/JAVAchaincode.md
+  - Development Environment: dev-setup/devenv.md
+  - Building Fabric: dev-setup/build.md
+  - Chaincode Setup: Setup/Chaincode-setup.md
+  - Java Chaincode Setup: Setup/JAVAChaincode.md
   - Fabric Network Setup: Setup/Network-setup.md
+  - NodeSDK Setup: Setup/NodeSDK-setup.md
   - CA Setup: Setup/ca-setup.md
+  - Logging: Setup/logging-control.md
 
 - API:
   - Chaincode APIs: API/ChaincodeAPI.md
   - Core API: API/CoreAPI.md
   - CA API: API/MemberServicesAPI.md
-  - System chaincode: Systemchaincode/noop.md
+  - System Chaincode: SystemChaincodes/noop.md
 
 - FAQ:
   - ChainCodeFAQ: FAQ/chaincode_FAQ.md

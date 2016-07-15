@@ -2,15 +2,15 @@
 
 Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. By default, when you want to interact with chaincode, you need to first `Deploy` it using the CLI, REST API, gRPC API, or SDK. Upon receiving this request, the peer node would typically spin up a Docker container with the relevant chaincode. This can make things rather complicated for debugging chaincode under development, because of the turnaround time with the `launch chaincode - debug docker container - fix problem - launch chaincode - lather - rinse - repeat` cycle. As such, the fabric peer has a `--peer-chaincodedev` flag that can be passed on start-up to instruct the peer node not to deploy the chaincode as a Docker container.
 
-The following instructions apply to _developing_ chaincode in Go or Java. They do not apply to running in a production environment. However, if _developing_ chaincode in Java, please see the [Java chaincode setup](JAVAchaincode.md) instructions first, to be sure your environment is properly configured.
+The following instructions apply to _developing_ chaincode in Go or Java. They do not apply to running in a production environment. However, if _developing_ chaincode in Java, please see the [Java chaincode setup](https://github.com/hyperledger/fabric/blob/master/docs/Setup/JAVAChaincode.md) instructions first, to be sure your environment is properly configured.
 
-**Note:** We have added support for [System chaincode](../SystemChaincode/noop.md).
+**Note:** We have added support for [System chaincode](https://github.com/hyperledger/fabric/blob/master/docs/SystemChaincodes/noop.md).
 
 ## Choices
 
 Once again, you have the choice of using one of the following approaches:
 
-- [Option 1](#Option-1-Vagrant-development-environment) using the **Vagrant** [development environment](../dev-setup/devenv.md) that is used for developing the fabric itself
+- [Option 1](#Option-1-Vagrant-development-environment) using the **Vagrant** [development environment](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devenv.md) that is used for developing the fabric itself
 - [Option 2](#Option-2-Docker-for-Mac-or-Windows) using Docker for Mac or Windows
 - [Option 3](#Option-3-Docker-Toolbox) using Docker toolbox
 
@@ -211,7 +211,7 @@ The chaincode console will display the message "Received REGISTERED, ready for i
 
 If you were running with security enabled, see [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled) to learn how to clean up the temporary files.
 
-See the [logging control](../Setup/logging-control.md) reference for information on controlling
+See the [logging control](https://github.com/hyperledger/fabric/blob/master/docs/Setup/logging-control.md) reference for information on controlling
 logging output from the `peer` and chaincodes.
 
 ### Terminal 3 (CLI or REST API)
