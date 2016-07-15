@@ -60,7 +60,7 @@ The role value is simply a bitmask of the following:
 
 For example, a peer that is also a validator would have a role value of 6.
 
-When the CA is started for the first time, it will generate all of its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and writes this state to the directory given in its configuration. The certificates for the CA services (i.e., for the ECA, TCA, and TLSCA) are self-signed as the current default. If those certificates shall be signed by some root CA, this can be done manually by using the `*.priv` and `*.pub` private and public keys in the CA state directory, and replacing the self-signed `*.cert` certificates with root-signed ones.. The next time the CA is launched, it will read and use those root-signed certificates.
+When the CA is started for the first time, it will generate all of its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and writes this state to the directory given in its configuration. The certificates for the CA services (i.e., for the ECA, TCA, and TLSCA) are self-signed as the current default. If those certificates shall be signed by some root CA, this can be done manually by using the `*.priv` and `*.pub` private and public keys in the CA state directory, and replacing the self-signed `*.cert` certificates with root-signed ones. The next time the CA is launched, it will read and use those root-signed certificates.
 
 ## Operating the CA
 
@@ -149,7 +149,7 @@ build/bin/membersrvc
 
 **Note:** the CA must be started before any of the fabric peer nodes, to allow the CA to have initialized before any peer nodes attempt to connect to it.
 
-The CA looks for an `membersrvc.yaml` configuration file in $GOPATH/src/github.com/hyperledger/fabric/membersrvc. If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and write each state to the directory given in the CA configuration.
+The CA looks for an `membersrvc.yaml` configuration file in $GOPATH/src/github.com/hyperledger/fabric/membersrvc. If the CA is started for the first time, it creates all its required state (e.g., internal databases, CA certificates, blockchain keys, etc.) and writes that state to the directory given in the CA configuration.
 
 <!-- This needs some serious attention
 
