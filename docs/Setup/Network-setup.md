@@ -10,11 +10,11 @@ This approach simply leverages the Docker images that the Hyperledger Fabric pro
 
 **Note:** When running Docker _natively_ on Mac and Windows, there is no IP forwarding support available. Hence, running more than one fabric-peer image is not advised because you do not want to have multiple processes binding to the same port. For most application and chaincode development/testing running with a single fabric peer should not be an issue unless you are interested in performance and resilience testing the fabric's capabilities, such as consensus. For more advanced testing, we strongly recommend using the fabric's Vagrant [development environment](../dev-setup/devenv.md).
 
-With this approach, there are multiple choices as to how to run Docker. Using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between how Docker runs natively on Mac and Windows versus in a virtualized context on Linux. We'll call those out where appropriate below, when we get to the point of actually running the various components.
+With this approach, there are multiple choices as to how to run Docker: using [Docker Toolbox](https://docs.docker.com/toolbox/overview/) or one of the new native Docker runtime environments for [Mac OSX](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/). There are some subtle differences between how Docker runs natively on Mac and Windows versus in a virtualized context on Linux. We'll call those out where appropriate below, when we get to the point of actually running the various components.
 
 #### Pulling the images from DockerHub
 
-Once you have Docker (1.11 or greater) installed and running, 
+Once you have Docker (1.11 or greater) installed and running,
 prior to starting any of the fabric components, you will need to first pull the fabric images from DockerHub.
 
 ```
@@ -80,7 +80,7 @@ If you are using the native Docker for Mac or Windows, the value for `CORE_VM_EN
 
 #### Assigning a value for CORE_PEER_ID
 
-The ID value of `CORE_PEER_ID` must be unique for each validating peer, and it must be a lowercase string. We often use a convention of naming the validating peers vpN where N is an integer starting with 0 for the root node and incrementing N by 1 for each additional peer node started. eg. vp0, vp1, vp2, ...
+The ID value of `CORE_PEER_ID` must be unique for each validating peer, and it must be a lowercase string. We often use a convention of naming the validating peers vpN where N is an integer starting with 0 for the root node and incrementing N by 1 for each additional peer node started. e.g. vp0, vp1, vp2, ...
 
 #### Consensus
 
@@ -161,7 +161,7 @@ vp1:
     - vp0
 ```
 
-If we wanted to use the docker commandline to launch another peer, we need to get the IP address of the first validating peer, which will act as the root node to which the new peer(s) will connect. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable.
+If we wanted to use the docker command line to launch another peer, we need to get the IP address of the first validating peer, which will act as the root node to which the new peer(s) will connect. The address is printed out on the terminal window of the first peer (e.g. 172.17.0.2) and should be passed in with the `CORE_PEER_DISCOVERY_ROOTNODE` environment variable.
 
 ```
 docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=vp1 -e CORE_PEER_ADDRESSAUTODETECT=true -e CORE_PEER_DISCOVERY_ROOTNODE=172.17.0.2:30303 hyperledger/fabric-peer peer node start
@@ -240,7 +240,7 @@ CORE_PEER_ADDRESS=172.17.0.2:30303 CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIV
 -->
 
 ### Using a Consensus Plugin
-A consensus plugin might require some specific configuration that you need to set up. For example, to use Byzantine consensus plugin provided as part of the fabric, perform the following configuration:
+A consensus plugin might require some specific configuration that you need to set up. For example, to use the Practical Byzantine Fault Tolerant (PBFT) consensus plugin provided as part of the fabric, perform the following configuration:
 
 1. In `core.yaml`, set the `peer.validator.consensus` value to `pbft`
 2. In `core.yaml`, make sure the `peer.id` is set sequentially as `vpN` where `N` is an integer that starts from `0` and goes to `N-1`. For example, with 4 validating peers, set the `peer.id` to`vp0`, `vp1`, `vp2`, `vp3`.
@@ -249,12 +249,12 @@ A consensus plugin might require some specific configuration that you need to se
 
 See `core.yaml` and `consensus/pbft/config.yaml` for more detail.
 
-All of these setting may be overriden via the command line environment variables, eg. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=batch`
+All of these setting may be overridden via the command line environment variables, e.g. `CORE_PEER_VALIDATOR_CONSENSUS_PLUGIN=pbft` or `CORE_PBFT_GENERAL_MODE=batch`
 
 ### Logging control
 
 See [Logging Control](logging-control.md) for information on controlling
-logging output from the `peer` and chaincodes.
+logging output from the `peer` and deployed chaincodes.
 
 <!--
 **Note:** When running with security enabled, follow the security setup instructions described in [Chaincode Development](../Setup/Chaincode-setup.md#security-setup-optional) to set up the CA server and log in registered users before sending chaincode transactions. In this case peers started using Docker images need to point to the correct CA address (default is localhost). CA addresses have to be specified in `peer/core.yaml` variables paddr of eca, tca and tlsca. Furthermore, if you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).

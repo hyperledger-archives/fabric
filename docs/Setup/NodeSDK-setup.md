@@ -1,6 +1,6 @@
-## Hyperledger Fabric Client SDK for Node.js
+## Hyperledger Fabric Client (HFC) SDK for Node.js
 
-The Hyperledger Fabric Client SDK (HFC) provides a powerful and easy to use API to interact with a Hyperledger Fabric blockchain.
+The Hyperledger Fabric Client (HFC) SDK provides a powerful and easy to use API to interact with a Hyperledger Fabric blockchain.
 
 This document assumes that you already have set up a Node.js development environment. If not, go [here](https://nodejs.org/en/download/package-manager/) to download and install Node.js for your OS. You'll also want the latest version of `npm` installed. For that, execute `sudo npm install npm -g` to get the latest version.
 
@@ -16,12 +16,12 @@ npm install -g hfc
 
 The sections in this document are as follows:
 
-* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of it's common capabilities. This is demonstrated by example.
+* The [Getting Started](#getting-started) section is intended to help you quickly get a feel for HFC, how to use it, and some of its common capabilities. This is demonstrated by example.
 
-* The [Getting Set Up](#getting-set-up) section shows you how to setup up your environment and how to [run the unit tests](#running-unit-tests). Looking at the implementation of the unit tests will also help you learn more about the APIs by example, including asset management and confidentiality.
+* The [Getting Set Up](#getting-set-up) section shows you how to set up up your environment and how to [run the unit tests](#running-unit-tests). Looking at the implementation of the unit tests will also help you learn more about the APIs by example, including asset management and confidentiality.
 
 ## Getting Started
-This purpose of this section is to help you quickly get a feel for HFC and how you may use it. It is not intended to demonstrate all of it's power, but to demonstrate common use cases by example.
+This purpose of this section is to help you quickly get a feel for HFC and how you may use it. It is not intended to demonstrate all of its power, but to demonstrate common use cases by example.
 
 ### Some basic terminology
 First, there is some basic terminology you should understand. In order to transact on a hyperledger blockchain, you must first have an identity which has been both **registered** and **enrolled**.
@@ -68,7 +68,7 @@ chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
 
 // Enroll "WebAppAdmin" which is already registered because it is
-// listed in fabric/membersrvc/membersrvc.yaml with it's one time password.
+// listed in fabric/membersrvc/membersrvc.yaml with its one time password.
 // If "WebAppAdmin" has already been registered, this will still succeed
 // because it stores the state in the KeyValStore
 // (i.e. in '/tmp/keyValStore' in this sample).
@@ -142,7 +142,7 @@ First, you'll want to have a running peer node and CA. You can follow the instru
 
 To have the chaincode deployment succeed in network mode, you must properly set up the chaincode project outside of your Hyperledger Fabric source tree. These instructions will demonstrate how to properly set up the directory structure to deploy *chaincode_example02* in network mode.
 
-The chaincode project must be placed inside the `src` directory in your local `$GOPATH`. For example, the [chaincode_example02](https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go) project may be placed inside `$GOPATH/src/` as shown below.
+The chaincode project must be placed under the `$GOPATH/src` directory. For example, the [chaincode_example02](https://github.com/hyperledger/fabric/blob/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go) project should be placed under `$GOPATH/src/` as shown below.
 
 ```
 mkdir -p $GOPATH/src/github.com/chaincode_example02/
@@ -150,7 +150,7 @@ cd $GOPATH/src/github.com/chaincode_example02
 curl GET https://raw.githubusercontent.com/hyperledger/fabric/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go > chaincode_example02.go
 ```
 
-Once you have placed your chaincode project inside the `src` directory in your local `$GOPATH`, you will need to vendor the dependencies. In your chaincode source directory, run the following commands:
+After you have placed your chaincode project under the `$GOPATH/src`, you will need to vendor the dependencies. From the directory containing your chaincode source, run the following commands:
 
 ```
 go get -u github.com/kardianos/govendor
@@ -172,7 +172,7 @@ Next, we will switch over to the node sdk directory in the fabric repo to run th
 var testChaincodePath = "github.com/chaincode_example02/";
 ```
 
-**Note:** You will need to run `npm install` the first time you run the sdk tests, to install all of the dependencies. Set the `DEPLOY_MODE` environment variable to `net` and run the chain-tests as follows:
+**Note:** You will need to run `npm install` the first time you run the sdk tests, in order to install all of the dependencies. Set the `DEPLOY_MODE` environment variable to `net` and run the chain-tests as follows:
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric/sdk/node
@@ -183,7 +183,7 @@ node test/unit/chain-tests.js | node_modules/.bin/tap-spec
 
 ### Enabling TLS
 
-If you wish to activate TLS connection with the member services the following actions are needed:
+If you wish to configure TLS with the Membership Services server, the following steps are required:
 
 - Modify `$GOPATH/src/github.com/hyperledger/fabric/membersrvc/membersrvc.yaml` as follows:
 
@@ -196,7 +196,7 @@ server:
             file: "/var/hyperledger/production/.membersrvc/tlsca.priv"
 ```
 
-This is needed to instruct the member services on which tls cert and key to use.
+To specify to the Membership Services (TLS) Certificate Authority (TLSCA) what X.509 v3 Certificate (with a corresponding Private Key) to use:
 
 - Modify `$GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml` as follows:
 
@@ -209,16 +209,16 @@ peer:
                 file: "/var/hyperledger/production/.membersrvc/tlsca.cert"
 ```
 
-This is needed to allow the peer to connect to the member services using TLS, otherwise the connection will fail.
+To configure the peer to connect to the Membership Services server over TLS (otherwise, the connection will fail).
 
-- Bootstrap your member services and the peer. This is needed in order to have the file *tlsca.cert* generated by the member services.
+- Bootstrap your Membership Services and the peer. This is needed in order to have the file *tlsca.cert* generated by the member services.
 
 - Copy `/var/hyperledger/production/.membersrvc/tlsca.cert` to `$GOPATH/src/github.com/hyperledger/fabric/sdk/node`.
 
 *Note:* If you cleanup the folder `/var/hyperledger/production` then don't forget to copy again the *tlsca.cert* file as described above.
 
 ## Running Unit Tests
-HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The unit [test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
+HLC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). The [unit test script](https://github.com/hyperledger/fabric/blob/master/sdk/node/bin/run-unit-tests.sh) builds and runs both the membership service server and the peer node for you, therefore you do not have to start those manually.
 
 ### Running the SDK unit tests
 HFC includes a set of unit tests implemented with the [tape framework](https://github.com/substack/tape). To run the unit tests, execute the following commands:
@@ -229,7 +229,7 @@ HFC includes a set of unit tests implemented with the [tape framework](https://g
 The following are brief descriptions of each of the unit tests that are being run.
 
 #### registrar
-The [registrar.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/registrar.js) test case exercises registering users with member services. It also tests registering a designated registrar user which can then register additional users.
+The [registrar.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/registrar.js) test case exercises registering users with Membership Services. It also tests registering a designated registrar user which can then register additional users.
 
 #### chain-tests
 The [chain-tests.js](https://github.com/hyperledger/fabric/blob/master/sdk/node/test/unit/chain-tests.js) test case exercises the [chaincode_example02.go](https://github.com/hyperledger/fabric/tree/master/examples/chaincode/go/chaincode_example02) chaincode when it has been deployed in both development mode and network mode.
