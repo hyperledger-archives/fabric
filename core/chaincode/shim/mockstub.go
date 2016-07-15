@@ -216,7 +216,11 @@ func (stub *MockStub) InvokeChaincode(chaincodeName string, function string, arg
 }
 
 func (stub *MockStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+	fmt.Println("MockStub", stub.Name, "Looking for peer chaincode", chaincodeName)
 	otherStub := stub.Invokables[chaincodeName]
+	if otherStub == nil {
+		return nil, errors.New("Could not find peer chaincode to query")
+	}
 	fmt.Println("MockStub", stub.Name, "Invoking peer chaincode", otherStub.Name, function, args)
 	bytes, err := otherStub.MockQuery(function, args)
 	fmt.Println("MockStub", stub.Name, "Invoked peer chaincode", otherStub.Name, "got", bytes, err)
