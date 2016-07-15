@@ -31,8 +31,6 @@ import (
 type validatorImpl struct {
 	*peerImpl
 
-	isInitialized bool
-
 	// Chain
 	chainPrivateKey primitives.PrivateKey
 }
@@ -129,15 +127,9 @@ func (validator *validatorImpl) Verify(vkID, signature, message []byte) error {
 
 // Private Methods
 
-func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string) error {
-	if validator.isInitialized {
-		validator.Errorf("Initialization already performed. %s", enrollID)
-
-		return utils.ErrAlreadyInitialized
-	}
-
+func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enrollPWD string, regFunc registerFunc) error {
 	// Register node
-	if err := validator.peerImpl.register(NodeValidator, id, pwd, enrollID, enrollPWD); err != nil {
+	if err := validator.peerImpl.register(NodeValidator, id, pwd, enrollID, enrollPWD, nil); err != nil {
 		validator.Errorf("Failed registering [%s]: [%s]", enrollID, err)
 		return err
 	}
@@ -145,27 +137,22 @@ func (validator *validatorImpl) register(id string, pwd []byte, enrollID, enroll
 	return nil
 }
 
-func (validator *validatorImpl) init(name string, pwd []byte) error {
-	if validator.isInitialized {
-		validator.Error("Already initializaed.")
+func (validator *validatorImpl) init(name string, pwd []byte, regFunc registerFunc) error {
 
-		return utils.ErrAlreadyInitialized
+	validatorInitFunc := func(eType NodeType, name string, pwd []byte) error {
+		// Init crypto engine
+		err := validator.initCryptoEngine()
+		if err != nil {
+			validator.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
+			return err
+		}
+
+		return nil
 	}
 
-	// Register node
-	if err := validator.peerImpl.init(NodeValidator, name, pwd); err != nil {
+	if err := validator.peerImpl.init(NodeValidator, name, pwd, validatorInitFunc); err != nil {
 		return err
 	}
-
-	// Init crypto engine
-	err := validator.initCryptoEngine()
-	if err != nil {
-		validator.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
-		return err
-	}
-
-	// initialized
-	validator.isInitialized = true
 
 	return nil
 }

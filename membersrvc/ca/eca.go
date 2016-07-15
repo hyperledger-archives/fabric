@@ -46,6 +46,7 @@ type ECA struct {
 	*CA
 	obcKey          []byte
 	obcPriv, obcPub []byte
+	gRPCServer      *grpc.Server
 }
 
 func initializeECATables(db *sql.DB) error {
@@ -55,7 +56,7 @@ func initializeECATables(db *sql.DB) error {
 // NewECA sets up a new ECA.
 //
 func NewECA() *ECA {
-	eca := &ECA{NewCA("eca", initializeECATables), nil, nil, nil}
+	eca := &ECA{CA: NewCA("eca", initializeECATables)}
 
 	{
 		// read or create global symmetric encryption key
@@ -182,16 +183,35 @@ func (eca *ECA) populateAffiliationGroupsTable() {
 // Start starts the ECA.
 //
 func (eca *ECA) Start(srv *grpc.Server) {
+	Info.Println("Starting ECA...")
+
 	eca.startECAP(srv)
 	eca.startECAA(srv)
+	eca.gRPCServer = srv
 
 	Info.Println("ECA started.")
 }
 
+// Stop stops the ECA services.
+func (eca *ECA) Stop() {
+	Info.Println("Stopping ECA services...")
+	if eca.gRPCServer != nil {
+		eca.gRPCServer.Stop()
+	}
+	err := eca.CA.Stop()
+	if err != nil {
+		Error.Println("ECA Error stopping services ", err)
+	} else {
+		Info.Println("ECA stopped")
+	}
+}
+
 func (eca *ECA) startECAP(srv *grpc.Server) {
 	pb.RegisterECAPServer(srv, &ECAP{eca})
+	Info.Println("ECA PUBLIC gRPC API server started")
 }
 
 func (eca *ECA) startECAA(srv *grpc.Server) {
 	pb.RegisterECAAServer(srv, &ECAA{eca})
+	Info.Println("ECA ADMIN gRPC API server started")
 }

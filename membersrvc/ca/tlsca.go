@@ -34,7 +34,8 @@ import (
 //
 type TLSCA struct {
 	*CA
-	eca *ECA
+	eca        *ECA
+	gRPCServer *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -56,7 +57,7 @@ func initializeTLSCATables(db *sql.DB) error {
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca}
+	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca, nil}
 
 	return tlsca
 }
@@ -76,6 +77,21 @@ func (tlsca *TLSCA) startTLSCAP(srv *grpc.Server) {
 
 func (tlsca *TLSCA) startTLSCAA(srv *grpc.Server) {
 	pb.RegisterTLSCAAServer(srv, &TLSCAA{tlsca})
+}
+
+// Stop stops the TCA services.
+func (tlsca *TLSCA) Stop() error {
+	Info.Println("Stopping the TLSCA services...")
+	if tlsca.gRPCServer != nil {
+		tlsca.gRPCServer.Stop()
+	}
+	err := tlsca.CA.Stop()
+	if err != nil {
+		Error.Println("Error stopping the TLSCA services ", err)
+	} else {
+		Info.Println("TLSCA services stopped")
+	}
+	return err
 }
 
 // ReadCACertificate reads the certificate of the TLSCA.

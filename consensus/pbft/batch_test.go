@@ -139,7 +139,9 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 
 func TestOutstandingReqsResubmission(t *testing.T) {
 	omni := &omniProto{}
-	b := newObcBatch(0, loadConfig(), omni)
+	config := loadConfig()
+	config.Set("general.batchsize", 2)
+	b := newObcBatch(0, config, omni)
 	defer b.Close() // The broadcasting threads only cause problems here... but this test stalls without them
 
 	transactionsBroadcast := 0

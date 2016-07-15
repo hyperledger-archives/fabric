@@ -441,7 +441,7 @@ func setup() {
 
 func initMemershipServices() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	ca.CacheConfiguration() // Cache configuration
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
 	tlsca = ca.NewTLSCA(eca)
