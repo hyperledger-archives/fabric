@@ -1,31 +1,12 @@
 #!/bin/bash
 
-set -e
-set -x
+set -eux
 
-# Compile proto files required by fabric
-protoc --go_out=plugins=grpc:$GOPATH/src /usr/include/google/protobuf/timestamp.proto
-protoc --go_out=plugins=grpc:$GOPATH/src /usr/include/google/protobuf/empty.proto
-
-# Compile protos in the proto folder
-cd $GOPATH/src/github.com/hyperledger/fabric/protos
-protoc --go_out=plugins=grpc:. *.proto
-
-
-# Compile core protos
-cd $GOPATH/src/github.com/hyperledger/fabric/core/
-for f in $(find $GOPATH/src/github.com/hyperledger/fabric/core/  -name '*.proto'); do
-	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/core/ --go_out=plugins=grpc:. $f
-done
-
-# Compile consensus protos
-cd $GOPATH/src/github.com/hyperledger/fabric/consensus/
-for f in $(find $GOPATH/src/github.com/hyperledger/fabric/consensus/  -name '*.proto'); do
-	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/consensus/ --go_out=plugins=grpc:. $f
-done
-
-# Compile membership services protos
-cd $GOPATH/src/github.com/hyperledger/fabric/membersrvc/
-for f in $(find $GOPATH/src/github.com/hyperledger/fabric/membersrvc/  -name '*.proto'); do
-	protoc --proto_path=$GOPATH/src/github.com/hyperledger/fabric/membersrvc/ --go_out=plugins=grpc:. $f
+# Compile protos
+ALL_PROTO_FILES="$(find . -name "*.proto" -exec readlink -f {} \;)"
+PROTO_DIRS="$(dirname $ALL_PROTO_FILES | sort | uniq)"
+PROTO_DIRS_WITHOUT_JAVA_AND_SDK="$(printf '%s\n' $PROTO_DIRS | grep -v "shim/java" | grep -v "/sdk")"
+for dir in $PROTO_DIRS_WITHOUT_JAVA_AND_SDK; do
+        cd "$dir"
+	protoc --proto_path="$dir" --go_out=plugins=grpc:. "$dir"/*.proto
 done
