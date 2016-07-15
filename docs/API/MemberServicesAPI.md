@@ -13,7 +13,7 @@ The administrator interface of the ECA provides the following functions:
 	    rpc PublishCRL(ECertCRLReq) returns (CAStatus); // not yet implemented
 	}
 
-The `RegisterUser` function allows you to register a new user by specifiying her name and roles in the `RegisterUserReq` structure.  If the user has not be registered before, the ECA registers the new user and returns a unique one-time password, which can be used by the user to request her enrollment certificate pair via the public interface of the ECA.  Otherwise an error is returned.
+The `RegisterUser` function allows you to register a new user by specifiying their name and roles in the `RegisterUserReq` structure. If the user has not been registered before, the ECA registers the new user and returns a unique one-time password, which can be used by the user to request their enrollment certificate pair via the public interface of the ECA. Otherwise an error is returned.
 
 The `ReadUserSet` function allows only auditors to retrieve the list of users registered with the blockchain.
 
@@ -29,7 +29,7 @@ The public interface of the ECA provides the following functions:
 
 The `ReadCACertificate` function returns the certificate of the ECA itself.
 
-The `CreateCertificatePair` functions allows a user to create and read her enrollment certificate pair.  For this, the user has to do two successive invocations of this functions.  Firstly, both the signature and encryption public keys have to be handed to the ECA together with the one-time password returned by the `RegisterUser` function invocation before.  The request has to be signed by the user's private signature key to demonstrate that the user is in possession of the private signature key indeed.  The ECA in return gives the user a challenge encrypted with the user's public encryption key.  The has to decrypt the challenge, thereby demonstrating that she is in possession of the private encryption key indeed, and re-issue the certificate creation request passing the decrypted challenge instead of the one-time password passed in the invocation.  If the challenge has been decrypted correctly, the ECA issues and returns the enrollment certificate pair for the user.
+The `CreateCertificatePair` function allows a user to create and read their enrollment certificate pair. For this, the user has to do two successive invocations of this function. Firstly, both the signature and encryption public keys have to be handed to the ECA together with the one-time password previously returned by the `RegisterUser` function invocation. The request has to be signed by the user's private signature key to demonstrate that the user is in possession of the private signature key. The ECA in return gives the user a challenge encrypted with the user's public encryption key. The user has to decrypt the challenge, thereby demonstrating that they are in possession of the private encryption key, and then re-issue the certificate creation request - this time with the decrypted challenge instead of the one-time password passed in the invocation. If the challenge has been decrypted correctly, the ECA issues and returns the enrollment certificate pair for the user.
 
 The `ReadCertificatePair` function allows any user of the blockchain to read the certificate pair of any other user of the blockchain.
 
