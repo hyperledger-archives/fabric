@@ -797,6 +797,19 @@ func TestPeerDeployTransaction(t *testing.T) {
 		}
 		tx.Cert = oldCert
 
+		// Test self signed certificate Cert
+		oldCert = tx.Cert
+		rawSelfSignedCert, _, err := primitives.NewSelfSignedCert()
+		if err != nil {
+			t.Fatalf("Failed creating self signed cert [%s]", err)
+		}
+		tx.Cert = rawSelfSignedCert
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. Invalid Cert. %s", err)
+		}
+		tx.Cert = oldCert
+
 		// Test invalid Signature
 		oldSig = tx.Signature
 		tx.Signature = []byte{0, 1, 2, 3, 4}
