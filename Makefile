@@ -152,7 +152,9 @@ build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
 	@echo "Building docker src-image"
 	@mkdir -p $(@D)
 	@cat images/src/Dockerfile.in > $(@D)/Dockerfile
-	@git ls-files | tar -jcT - > $(@D)/gopath.tar.bz2
+	@git ls-files | tar -cT - > $(@D)/gopath.tar
+	@tar --update -f $(@D)/gopath.tar `find * -name *.go` # Include Go files not tracked by Git (issue #2158)
+	@bzip2 -f $(@D)/gopath.tar
 	docker build -t $(PROJECT_NAME)-src:latest $(@D)
 	@touch $@
 
