@@ -187,4 +187,4 @@ Logging utilizes the [go-logging](https://github.com/op/go-logging) library.
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
-See [specific logging control](logging-control.md) instructions when running the peer process.
+See [specific logging control](https://github.com/hyperledger/fabric/blob/master/docs/Setup/logging-control.md) instructions when running the peer process.
