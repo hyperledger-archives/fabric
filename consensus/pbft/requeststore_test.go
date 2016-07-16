@@ -22,9 +22,9 @@ func TestOrderedRequests(t *testing.T) {
 	or := &orderedRequests{}
 	or.empty()
 
-	r1 := createPbftRequestWithChainTx(2, 1)
-	r2 := createPbftRequestWithChainTx(2, 2)
-	r3 := createPbftRequestWithChainTx(19, 1)
+	r1 := createPbftReq(2, 1)
+	r2 := createPbftReq(2, 2)
+	r3 := createPbftReq(19, 1)
 	if or.has(or.wrapRequest(r1).key) {
 		t.Errorf("should not have req")
 	}
@@ -62,7 +62,7 @@ func BenchmarkOrderedRequests(b *testing.B) {
 
 	reqs := make(map[string]*Request)
 	for i := 0; i < Nreq; i++ {
-		rc := or.wrapRequest(createPbftRequestWithChainTx(int64(i), 0))
+		rc := or.wrapRequest(createPbftReq(int64(i), 0))
 		reqs[rc.key] = rc.req
 	}
 	b.ResetTimer()

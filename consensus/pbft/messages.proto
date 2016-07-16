@@ -36,15 +36,15 @@ package pbft;
 
 message message {
     oneof payload {
-        request request = 1;
+        request_batch request_batch = 1;
         pre_prepare pre_prepare = 2;
         prepare prepare = 3;
         commit commit = 4;
         checkpoint checkpoint = 5;
         view_change view_change = 6;
         new_view new_view = 7;
-        fetch_request fetch_request = 8;
-        request return_request = 9;
+        fetch_request_batch fetch_request_batch = 8;
+        request_batch return_request_batch = 9;
     }
 }
 
@@ -58,22 +58,22 @@ message request {
 message pre_prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
-    string request_digest = 3;
-    request request = 4;
+    string batch_digest = 3;
+    request_batch request_batch = 4;
     uint64 replica_id = 5;
 }
 
 message prepare {
     uint64 view = 1;
     uint64 sequence_number = 2;
-    string request_digest = 3;
+    string batch_digest = 3;
     uint64 replica_id = 4;
 }
 
 message commit {
     uint64 view = 1;
     uint64 sequence_number = 2;
-    string request_digest = 3;
+    string batch_digest = 3;
     uint64 replica_id = 4;
 }
 
@@ -96,7 +96,7 @@ message view_change {
     }
     message PQ {
         uint64 sequence_number = 1;
-        string digest = 2;
+        string batch_digest = 2;
         uint64 view = 3;
     }
 
@@ -110,7 +110,7 @@ message view_change {
 }
 
 message PQset {
-        repeated view_change.PQ set = 1;
+    repeated view_change.PQ set = 1;
 }
 
 message new_view {
@@ -120,22 +120,23 @@ message new_view {
     uint64 replica_id = 4;
 }
 
-message fetch_request {
-    string request_digest = 1;
+message fetch_request_batch {
+    string batch_digest = 1;
     uint64 replica_id = 2;
 }
 
 // batch
 
-message request_block {
-    repeated request requests = 1;
+message request_batch {
+    repeated request batch = 1;
 };
 
 message batch_message {
     oneof payload {
         request request = 1;
-        bytes pbft_message = 4;
-        request complaint = 5;    // like request, but processed everywhere
+        request_batch request_batch = 2;
+        bytes pbft_message = 3;
+        request complaint = 4;    // like request, but processed everywhere
     }
 }
 
