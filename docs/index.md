@@ -53,7 +53,7 @@ When you are ready to start contributing to the Hyperledger fabric project, we s
 - [APIs - CLI, REST, and Node.js](API/CoreAPI.md)
      - [CLI](API/CoreAPI.md#cli): working with the command-line interface.
      - [REST](API/CoreAPI.md#rest-api): working with the REST API.
-     - [Node.js SDK](../sdk/node/README.md): working with the Node.js SDK.
+     - [Node.js SDK](https://github.com/hyperledger/fabric/blob/master/sdk/node/README.md): working with the Node.js SDK.
 
 ## Operations guide
 
