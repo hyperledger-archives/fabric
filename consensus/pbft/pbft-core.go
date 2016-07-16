@@ -98,7 +98,7 @@ type innerStack interface {
 	consensus.StatePersistor
 }
 
-// This structure handles is used for incoming PBFT bound messages
+// This structure is used for incoming PBFT bound messages
 type pbftMessage struct {
 	sender uint64
 	msg    *Message
@@ -195,10 +195,6 @@ type msgCert struct {
 type vcidx struct {
 	v  uint64
 	id uint64
-}
-
-type stateTransferMetadata struct {
-	sequenceNumber uint64
 }
 
 type sortableUint64Slice []uint64
@@ -664,8 +660,7 @@ func (instance *pbftCore) sendPrePrepare(req *Request, digest string) {
 		return
 	}
 
-	logger.Debugf("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s",
-		instance.id, instance.view, n, digest)
+	logger.Debugf("Primary %d broadcasting pre-prepare for view=%d/seqNo=%d and digest %s", instance.id, instance.view, n, digest)
 	instance.seqNo = n
 	preprep := &PrePrepare{
 		View:           instance.view,
@@ -695,7 +690,7 @@ outer:
 	for d, req := range instance.outstandingReqs {
 		for _, cert := range instance.certStore {
 			if cert.digest == d {
-				logger.Debugf("Replica %d already has certificate for request %s not going to resubmit", instance.id, d)
+				logger.Debugf("Replica %d already has certificate for request batch %s - not going to resubmit", instance.id, d)
 				continue outer
 			}
 		}
@@ -723,7 +718,7 @@ func (instance *pbftCore) recvPrePrepare(preprep *PrePrepare) error {
 		instance.id, preprep.ReplicaId, preprep.View, preprep.SequenceNumber)
 
 	if !instance.activeView {
-		logger.Debugf("Replica %d ignoring pre-prepare as we in a view change", instance.id)
+		logger.Debugf("Replica %d ignoring pre-prepare as we are in a view change", instance.id)
 		return nil
 	}
 
@@ -898,7 +893,7 @@ func (instance *pbftCore) recvCommit(commit *Commit) error {
 
 func (instance *pbftCore) updateHighStateTarget(target *stateUpdateTarget) {
 	if instance.highStateTarget != nil && instance.highStateTarget.seqNo >= target.seqNo {
-		logger.Debugf("Replica %d not update state target to seqNo %d, has target for seqNo %d", instance.id, target.seqNo, instance.highStateTarget.seqNo)
+		logger.Debugf("Replica %d not updating state target to seqNo %d, has target for seqNo %d", instance.id, target.seqNo, instance.highStateTarget.seqNo)
 		return
 	}
 
@@ -1242,7 +1237,8 @@ func (instance *pbftCore) recvCheckpoint(chkpt *Checkpoint) events.Event {
 		instance.id, chkpt.SequenceNumber, chkpt.Id)
 
 	if chkptID != chkpt.Id {
-		logger.Criticalf("Replica %d generated a checkpoint of %s, but a quorum of the network agrees on %s.  This is almost definitely non-deterministic chaincode.", instance.id, chkptID, chkpt.Id)
+		logger.Criticalf("Replica %d generated a checkpoint of %s, but a quorum of the network agrees on %s. This is almost definitely non-deterministic chaincode.",
+			instance.id, chkptID, chkpt.Id)
 		instance.stateTransfer(nil)
 	}
 
@@ -1306,7 +1302,7 @@ func (instance *pbftCore) recvReturnRequest(req *Request) events.Event {
 func (instance *pbftCore) innerBroadcast(msg *Message) error {
 	msgRaw, err := proto.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("[innerBroadcast] Cannot marshal message: %s", err)
+		return fmt.Errorf("Cannot marshal message %s", err)
 	}
 
 	doByzantine := false

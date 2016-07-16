@@ -340,8 +340,8 @@ func (instance *pbftCore) processNewView() events.Event {
 		speculativeLastExec = *instance.currentExec
 	}
 
-	// If we have no reached the sequence number, check to see if we can reach it without state transfer
-	// in general executions are better than state transfer
+	// If we have not reached the sequence number, check to see if we can reach it without state transfer
+	// In general, executions are better than state transfer
 	if speculativeLastExec < cp.SequenceNumber {
 		canExecuteToTarget := true
 	outer:
@@ -407,7 +407,7 @@ func (instance *pbftCore) processNewView() events.Event {
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
-			err = fmt.Errorf("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.Id)
+			err = fmt.Errorf("Replica %d received a view change whose hash could not be decoded (%s)", instance.id, cp.Id)
 			logger.Error(err.Error())
 			return nil
 		}

@@ -166,7 +166,7 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 		reqs[i] = createPbftRequestWithChainTx(int64(i), 0)
 	}
 
-	// Add three requests, with a batch size of 2
+	// Add four requests, with a batch size of 2
 	b.reqStore.storeOutstanding(reqs[0])
 	b.reqStore.storeOutstanding(reqs[1])
 	b.reqStore.storeOutstanding(reqs[2])

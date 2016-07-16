@@ -60,14 +60,9 @@ type batchMessage struct {
 	sender *pb.PeerID
 }
 
-type execInfo struct {
-	seqNo uint64
-	raw   []byte
-}
-
 // Event types
 
-// batchMessageEvent is sent when a consensus messages is received to be sent to pbft
+// batchMessageEvent is sent when a consensus message is received that is then to be sent to pbft
 type batchMessageEvent batchMessage
 
 // batchTimerEvent is sent when the batch timer expires

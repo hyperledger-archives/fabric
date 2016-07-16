@@ -38,7 +38,7 @@ func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
-		panic("Told deliver something which did not unmarshal")
+		panic("Asked to deliver something which did not unmarshal")
 	}
 
 	pe.manager.Queue() <- &pbftMessage{msg: msg, sender: senderID}
