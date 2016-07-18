@@ -1,0 +1,227 @@
+# Attributes use
+
+## Overview
+
+Support to attributes is a feature that allow chaincode makes use of data extended in transaction certificate. This attributes are certified for the Attributes Certificate Authority (ACA) so chaincode can trust in the authenticity of the attributes values.
+
+To view a complete documentation about attributes design please see ['Attributes support'](../docs/tech/attributes.md).
+
+## Example autorizable counter
+
+A common use case to makes use of attributes is Attributes Based Access Control (ABAC). This is a mechanism to allow or not a permission to a chaincode invoker based in its attribute values.
+
+['Authorizable counter'](../../examples/chaincode/go/authorizable_counter/authorizable_counter.go) is a simple example of ABAC, in this case only invoker whose attribute position has the value 'Software Engineer' will be able to increment the counter. In the other hand any invoker will be able to read the counter value.
+
+In order to implement this example we have used ['VerifyAttribyte' ](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim#ChaincodeStub.VerifyAttribute) function to check attribute value from chaincode code.
+
+```
+isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer")) // Here the ABAC API is called to verify the attribute, just if the value is verified the counter will be incremented.
+if isOk {
+    // Increment counter code
+}
+```
+
+The same behavior can be achieved making use of ['Attribute support'](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr) API, in this case an attribute handler must be instantiated.
+
+```
+attributesHandler, _ := attr.NewAttributesHandlerImpl(stub)
+isOk, _ := attributesHandler.VerifyAttribute("position", []byte("Software Engineer"))
+if isOk {
+    // Increment counter code
+}
+```
+If attributes are accessed more than once, use attributeHandler is more efficient due to the handler makes use of a cache to store values and keys.
+
+If you want to get the attribute value, in place of just verify it, you should use a code as the follow:
+
+```
+attributesHandler, _ := attr.NewAttributesHandlerImpl(stub)
+value, _ := attributesHandler.GetValue("position")
+```
+
+## Enabling attributes
+
+To make use of this feature the following property has to be set in membersrvc.yaml file:
+
+
+- aca.enabled = true
+
+Other way is using environment variables as follow:
+
+```
+MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
+```
+
+## Enabling attributes encryption*
+
+In order to make use of attribute encryption the following property has to be set in membersrvc.yaml file:
+
+- tca.attribute-encryption.enabled = true
+
+Or using environment variables as follow:
+
+```
+MEMBERSRVC_CA_ACA_ENABLED=true MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
+```
+
+### Deploy API making use of attributes
+
+#### CLI
+```
+$ ./peer chaincode deploy --help
+Deploy the specified chaincode to the network.
+
+Usage:
+  peer chaincode deploy [flags]
+
+Global Flags:
+  -a, --attributes="[]": User attributes for the chaincode in JSON format
+  -c, --ctor="{}": Constructor message for the chaincode in JSON format
+  -l, --lang="golang": Language the chaincode is written in
+      --logging-level="": Default logging level and overrides, see core.yaml for full syntax
+  -n, --name="": Name of the chaincode returned by the deploy transaction
+  -p, --path="": Path to chaincode
+      --test.coverprofile="coverage.cov": Done
+  -t, --tid="": Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64
+  -u, --username="": Username for chaincode operations when security is enabled
+  -v, --version[=false]: Display current version of fabric peer server
+```
+To deploy a chaincode with attributes 'company' and 'position' it should be written in this way:
+
+```
+./peer chaincode deploy -u userName -n mycc -c '{"Function":"init", "Args": []}' -a '["position", "company"]'
+
+```
+
+#### REST
+
+```
+POST host:port/chaincode
+
+{
+  "jsonrpc": "2.0",
+  "method": "deploy",
+  "params": {
+    "type": 1,
+    "chaincodeID":{
+        "name": "mycc"
+    },
+    "ctorMsg": {
+        "function":"init",
+        "args":[]
+    }
+    "attributes": ["position", "company"]
+  },
+  "id": 1
+}
+```
+
+### Invoke API making use of attributes
+
+#### CLI
+```
+$ ./peer chaincode invoke --help
+Invoke the specified chaincode.
+
+Usage:
+  peer chaincode invoke [flags]
+
+Global Flags:
+  -a, --attributes="[]": User attributes for the chaincode in JSON format
+  -c, --ctor="{}": Constructor message for the chaincode in JSON format
+  -l, --lang="golang": Language the chaincode is written in
+      --logging-level="": Default logging level and overrides, see core.yaml for full syntax
+  -n, --name="": Name of the chaincode returned by the deploy transaction
+  -p, --path="": Path to chaincode
+      --test.coverprofile="coverage.cov": Done
+  -t, --tid="": Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64
+  -u, --username="": Username for chaincode operations when security is enabled
+  -v, --version[=false]: Display current version of fabric peer server
+```
+To invoke 'autorizable counter' with attributes 'company' and 'position' it should be written in this way:
+
+```
+./peer chaincode invoke -u userName -n mycc -c '{"Function":"increment", "Args": []}' -a '["position", "company"]'
+
+```
+
+#### REST
+
+```
+POST host:port/chaincode
+
+{
+  "jsonrpc": "2.0",
+  "method": "invoke",
+  "params": {
+    "type": 1,
+    "chaincodeID":{
+        "name": "mycc"
+    },
+    "ctorMsg": {
+        "function":"increment",
+        "args":[]
+    }
+    "attributes": ["position", "company"]
+  },
+  "id": 1
+}
+```
+
+### Query API making use of attributes
+
+#### CLI
+```
+$ ./peer chaincode query --help
+Query using the specified chaincode.
+
+Usage:
+  peer chaincode query [flags]
+
+Flags:
+  -x, --hex[=false]: If true, output the query value byte array in hexadecimal. Incompatible with --raw
+  -r, --raw[=false]: If true, output the query value as raw bytes, otherwise format as a printable string
+
+
+Global Flags:
+  -a, --attributes="[]": User attributes for the chaincode in JSON format
+  -c, --ctor="{}": Constructor message for the chaincode in JSON format
+  -l, --lang="golang": Language the chaincode is written in
+      --logging-level="": Default logging level and overrides, see core.yaml for full syntax
+  -n, --name="": Name of the chaincode returned by the deploy transaction
+  -p, --path="": Path to chaincode
+      --test.coverprofile="coverage.cov": Done
+  -t, --tid="": Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64
+  -u, --username="": Username for chaincode operations when security is enabled
+  -v, --version[=false]: Display current version of fabric peer server
+```
+To query 'autorizable counter' with attributes 'company' and 'position' it should be written in this way:
+
+```
+./peer chaincode query -u userName -n mycc -c '{"Function":"read", "Args": []}' -a '["position", "company"]'
+
+```
+
+#### REST
+
+```
+POST host:port/chaincode
+
+{
+  "jsonrpc": "2.0",
+  "method": "query",
+  "params": {
+    "type": 1,
+    "chaincodeID":{
+        "name": "mycc"
+    },
+    "ctorMsg": {
+        "function":"read",
+        "args":[]
+    }
+    "attributes": ["position", "company"]
+  },
+  "id": 1
+}
+```
+* Attributes encryption is not yet available.
