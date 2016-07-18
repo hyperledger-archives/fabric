@@ -214,7 +214,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	var id string
 	var generr error
 	if customIDgenAlg != "" {
-		id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args[0])
+		id, generr = util.GenerateIDWithAlg(customIDgenAlg, chaincodeInvocationSpec.ChaincodeSpec.CtorMsg.Args)
 		if generr != nil {
 			return nil, generr
 		}

@@ -223,7 +223,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Init(stub, input.Function, input.Args)
+		res, err := handler.cc.Init(stub, stub.GetFunction(), stub.GetStringArgs())
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -290,7 +290,7 @@ func (handler *Handler) handleTransaction(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Invoke(stub, input.Function, input.Args)
+		res, err := handler.cc.Init(stub, stub.GetFunction(), stub.GetStringArgs())
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -337,7 +337,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		// Create the ChaincodeStub which the chaincode can use to callback
 		stub := new(ChaincodeStub)
 		stub.init(msg.Uuid, msg.SecurityContext)
-		res, err := handler.cc.Query(stub, input.Function, input.Args)
+		res, err := handler.cc.Init(stub, stub.GetFunction(), stub.GetStringArgs())
 
 		// delete isTransaction entry
 		handler.deleteIsTransaction(msg.Uuid)
@@ -740,7 +740,7 @@ func (handler *Handler) handleRangeQueryStateClose(id, uuid string) (*pb.RangeQu
 }
 
 // handleInvokeChaincode communicates with the validator to invoke another chaincode.
-func (handler *Handler) handleInvokeChaincode(chaincodeName string, function string, args []string, uuid string) ([]byte, error) {
+func (handler *Handler) handleInvokeChaincode(chaincodeName string, function string, args []byte, uuid string) ([]byte, error) {
 	// Check if this is a transaction
 	if !handler.isTransaction[uuid] {
 		return nil, errors.New("Cannot invoke chaincode in query context")
@@ -806,7 +806,7 @@ func (handler *Handler) handleInvokeChaincode(chaincodeName string, function str
 }
 
 // handleQueryChaincode communicates with the validator to query another chaincode.
-func (handler *Handler) handleQueryChaincode(chaincodeName string, function string, args []string, uuid string) ([]byte, error) {
+func (handler *Handler) handleQueryChaincode(chaincodeName string, function string, args []byte, uuid string) ([]byte, error) {
 	chaincodeID := &pb.ChaincodeID{Name: chaincodeName}
 	input := &pb.ChaincodeInput{Function: function, Args: args}
 	payload := &pb.ChaincodeSpec{ChaincodeID: chaincodeID, CtorMsg: input}

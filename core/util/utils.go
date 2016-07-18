@@ -86,15 +86,9 @@ func CreateUtcTimestamp() *gp.Timestamp {
 }
 
 //GenerateHashFromSignature returns a hash of the combined parameters
-func GenerateHashFromSignature(path string, ctor string, args []string) []byte {
-	fargs := ctor
-	if args != nil {
-		for _, str := range args {
-			fargs = fargs + str
-		}
-	}
+func GenerateHashFromSignature(path string, ctor string, args []byte) []byte {
+	fargs := ctor + string(args)
 	cbytes := []byte(path + fargs)
-
 	b := make([]byte, len(cbytes))
 	copy(b, cbytes)
 	hash := ComputeCryptoHash(b)
@@ -109,13 +103,9 @@ func GenerateUUIDfromTxSHAHash(txData []byte) string {
 }
 
 // GenerateIDWithAlg generates an ID using a custom algorithm
-func GenerateIDWithAlg(customIDgenAlg string, encodedPayload string) (string, error) {
+func GenerateIDWithAlg(customIDgenAlg string, payload []byte) (string, error) {
 	var alg = availableIDgenAlgs[customIDgenAlg]
 	if alg.hashFun != nil && alg.decoder != nil {
-		var payload, err = alg.decoder(encodedPayload)
-		if err != nil {
-			return "", err
-		}
 		return alg.hashFun(payload), nil
 	}
 	return "", fmt.Errorf("Wrong UUID generation algorithm was given.")
