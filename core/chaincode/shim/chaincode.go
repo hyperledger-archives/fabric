@@ -69,8 +69,8 @@ type ChaincodeStub struct {
 	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
 	chaincodeEvent  *pb.ChaincodeEvent
-    function         string
-    args            []byte
+	function        string
+	args            []byte
 }
 
 // Peer address derived from command line or env var
@@ -251,14 +251,14 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext) {
 	stub.UUID = uuid
 	stub.securityContext = secContext
-    stub.function = ""
-    stub.args = []byte{}
-    newCI := pb.ChaincodeInput{}
-    err := proto.Unmarshal(secContext.Payload, &newCI)
-    if err == nil {
-        stub.function = newCI.Function
-        stub.args =  []byte{} // newCI.Args
-    }
+	stub.function = ""
+	stub.args = []byte{}
+	newCI := pb.ChaincodeInput{}
+	err := proto.Unmarshal(secContext.Payload, &newCI)
+	if err == nil {
+		stub.function = newCI.Function
+		stub.args = []byte{} // newCI.Args
+	}
 }
 
 // --------- Security functions ----------
@@ -394,21 +394,21 @@ func (iter *StateRangeQueryIterator) Close() error {
 
 // ChaincodeInvocation functionality
 func (stub *ChaincodeStub) GetFunction() string {
-    return stub.function
+	return stub.function
 }
 
 func (stub *ChaincodeStub) GetArgs() []byte {
-    return stub.args
+	return stub.args
 }
 
 func (stub *ChaincodeStub) GetStringArgs() []string {
-    args := stub.GetArgs()
-    splittedargs := bytes.Split(args, []byte{})
-    strargs := make([]string, 0, len(splittedargs))
-    for _, bargs := range splittedargs {
-        strargs = append(strargs, string(bargs))
-    }
-    return strargs
+	args := stub.GetArgs()
+	splittedargs := bytes.Split(args, []byte{})
+	strargs := make([]string, 0, len(splittedargs))
+	for _, bargs := range splittedargs {
+		strargs = append(strargs, string(bargs))
+	}
+	return strargs
 }
 
 // TABLE FUNCTIONALITY
