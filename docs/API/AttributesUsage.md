@@ -1,18 +1,18 @@
-# Attributes use
+# Attributes usage
 
 ## Overview
 
-Support to attributes is a feature that allow chaincode makes use of data extended in transaction certificate. This attributes are certified for the Attributes Certificate Authority (ACA) so chaincode can trust in the authenticity of the attributes values.
+Support to attributes is a feature that allows chaincode make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
 
-To view a complete documentation about attributes design please see ['Attributes support'](../docs/tech/attributes.md).
+To view a complete documentation about attributes design please read ['Attributes support'](../docs/tech/attributes.md).
 
-## Example autorizable counter
+## Use case: Autorizable counter
 
-A common use case to makes use of attributes is Attributes Based Access Control (ABAC). This is a mechanism to allow or not a permission to a chaincode invoker based in its attribute values.
+A common use case to make use of attributes is Attributes Based Access Control (ABAC). This is a mechanism to grant specific permissions to a chaincode invoker based on its attribute values.
 
-['Authorizable counter'](../../examples/chaincode/go/authorizable_counter/authorizable_counter.go) is a simple example of ABAC, in this case only invoker whose attribute position has the value 'Software Engineer' will be able to increment the counter. In the other hand any invoker will be able to read the counter value.
+['Authorizable counter'](../../examples/chaincode/go/authorizable_counter/authorizable_counter.go) is a simple example of ABAC, in this case only invokers whose "position" attribute has the value 'Software Engineer' will be able to increment the counter. On the other hand any invoker will be able to read the counter value.
 
-In order to implement this example we have used ['VerifyAttribyte' ](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim#ChaincodeStub.VerifyAttribute) function to check attribute value from chaincode code.
+In order to implement this example we used ['VerifyAttribyte' ](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim#ChaincodeStub.VerifyAttribute) function to check the attribute value from the chaincode code.
 
 ```
 isOk, _ := stub.VerifyAttribute("position", []byte("Software Engineer")) // Here the ABAC API is called to verify the attribute, just if the value is verified the counter will be incremented.
@@ -21,7 +21,7 @@ if isOk {
 }
 ```
 
-The same behavior can be achieved making use of ['Attribute support'](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr) API, in this case an attribute handler must be instantiated.
+The same behavior can be achieved by making use of ['Attribute support'](https://godoc.org/github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr) API, in this case an attribute handler must be instantiated.
 
 ```
 attributesHandler, _ := attr.NewAttributesHandlerImpl(stub)
@@ -30,9 +30,9 @@ if isOk {
     // Increment counter code
 }
 ```
-If attributes are accessed more than once, use attributeHandler is more efficient due to the handler makes use of a cache to store values and keys.
+If attributes are accessed more than once, using attributeHandler is more efficient since the handler makes use of a cache to store values and keys.
 
-If you want to get the attribute value, in place of just verify it, you should use a code as the follow:
+In order to get the attribute value, in place of just verifying it, the following code can be used:
 
 ```
 attributesHandler, _ := attr.NewAttributesHandlerImpl(stub)
@@ -46,7 +46,7 @@ To make use of this feature the following property has to be set in membersrvc.y
 
 - aca.enabled = true
 
-Other way is using environment variables as follow:
+Another way is using environment variables:
 
 ```
 MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
@@ -54,11 +54,11 @@ MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
 
 ## Enabling attributes encryption*
 
-In order to make use of attribute encryption the following property has to be set in membersrvc.yaml file:
+In order to make use of attributes encryption the following property has to be set in membersrvc.yaml file:
 
 - tca.attribute-encryption.enabled = true
 
-Or using environment variables as follow:
+Or using environment variables:
 
 ```
 MEMBERSRVC_CA_ACA_ENABLED=true MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
@@ -86,7 +86,7 @@ Global Flags:
   -u, --username="": Username for chaincode operations when security is enabled
   -v, --version[=false]: Display current version of fabric peer server
 ```
-To deploy a chaincode with attributes 'company' and 'position' it should be written in this way:
+To deploy a chaincode with attributes 'company' and 'position' it should be written in the following way:
 
 ```
 ./peer chaincode deploy -u userName -n mycc -c '{"Function":"init", "Args": []}' -a '["position", "company"]'
@@ -138,7 +138,7 @@ Global Flags:
   -u, --username="": Username for chaincode operations when security is enabled
   -v, --version[=false]: Display current version of fabric peer server
 ```
-To invoke 'autorizable counter' with attributes 'company' and 'position' it should be written in this way:
+To invoke 'autorizable counter' with attributes 'company' and 'position' it should be written as follows:
 
 ```
 ./peer chaincode invoke -u userName -n mycc -c '{"Function":"increment", "Args": []}' -a '["position", "company"]'
