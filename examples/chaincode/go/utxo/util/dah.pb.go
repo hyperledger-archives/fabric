@@ -3,7 +3,7 @@
 // DO NOT EDIT!
 
 /*
-Package utxo is a generated protocol buffer package.
+Package util is a generated protocol buffer package.
 
 It is generated from these files:
 	dah.proto
@@ -11,7 +11,7 @@ It is generated from these files:
 It has these top-level messages:
 	TX
 */
-package utxo
+package util
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
