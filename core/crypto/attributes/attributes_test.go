@@ -18,6 +18,7 @@ package attributes
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -516,6 +517,53 @@ func TestBuildAttributesHeader_DuplicatedPosition(t *testing.T) {
 	_, err := BuildAttributesHeader(attributes)
 	if err == nil {
 		t.Fatalf("Error this tests should fail because header has two attributes with the same position")
+	}
+}
+
+func TestCheckPaddingValue_ShortValue(t *testing.T) {
+	value := []byte("short string")
+	_, err := CheckPaddingValue(value)
+	if err == nil {
+		t.Fatalf("An error should been raised because value is shorter than 'lenPadding'")
+	}
+}
+
+func TestCheckPaddingValue_InvalidPading(t *testing.T) {
+	value := []byte("a message")
+	invalidPadding := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+	value = append(value, invalidPadding...)
+	_, err := CheckPaddingValue(value)
+	if err == nil {
+		t.Fatalf("An error should been raised because padding is invalid")
+	}
+}
+
+func TestCheckPaddingValue(t *testing.T) {
+	orginalValue := []byte("a message")
+	sha := sha256.Sum256(orginalValue)
+	padding := sha[:16]
+	value := append(orginalValue, padding...)
+	unpaddedValue, err := CheckPaddingValue(value)
+	if err != nil {
+		t.Error(err)
+	}
+	if bytes.Compare(orginalValue, unpaddedValue) != 0 {
+		t.Errorf("Expected '%v' but result is '%v'", string(orginalValue), string(unpaddedValue))
+	}
+}
+
+func TestCheckPaddingValue_ModifiedValue(t *testing.T) {
+	orginalValue := []byte("a message")
+	sha := sha256.Sum256(orginalValue)
+	padding := sha[:16]
+	value := append(orginalValue, padding...)
+
+	//Modify value
+	value[0] = value[0] + 2
+
+	_, err := CheckPaddingValue(value)
+	if err == nil {
+		t.Fatalf("An error should been raised because padding is invalid")
 	}
 }
 
