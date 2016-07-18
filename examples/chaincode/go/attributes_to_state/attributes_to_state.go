@@ -21,77 +21,93 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 )
 
-// SimpleChaincode example simple Chaincode implementation
-type SimpleChaincode struct {
+// Attributes2State example simple Chaincode implementation
+type Attributes2State struct {
+}
+
+func (t *Attributes2State) setStateToAttributes(stub *shim.ChaincodeStub, args []string) error {
+	attrHandler, err := attr.NewAttributesHandlerImpl(stub)
+	if err != nil {
+		return err
+	}
+	for _, att := range args {
+		fmt.Println("Writting attribute " + att)
+		attVal, err := attrHandler.GetValue(att)
+		if err != nil {
+			return err
+		}
+		err = stub.PutState(att, attVal)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Init intializes the chaincode by reading the transaction attributes and storing
 // the attrbute values in the state
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	attributes, err := stub.CertAttributes()
+func (t *Attributes2State) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	err := t.setStateToAttributes(stub, args)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, att := range attributes {
-		fmt.Println("Writting attribute " + att)
-		var attVal []byte
-		attVal, err = stub.ReadCertAttribute(att)
-		if err != nil {
-			return nil, err
-		}
-		err = stub.PutState(att, attVal)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return nil, nil
 }
 
 // Invoke takes two arguements, a key and value, and stores these in the state
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var A string // Entities
-	var err error
-
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2")
+func (t *Attributes2State) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if function == "delete" {
+		return t.delete(stub, args)
 	}
 
-	A = args[0]
-
-	// Write the state back to the ledger
-	err = stub.PutState(A, []byte(args[1]))
+	if function != "submit" {
+		return nil, errors.New("Invalid invoke function name. Expecting \"submit\"")
+	}
+	err := t.setStateToAttributes(stub, args)
 	if err != nil {
 		return nil, err
 	}
-
 	return nil, nil
 }
 
 // Deletes an entity from state
-func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *Attributes2State) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3")
 	}
 
 	A := args[0]
 
-	// Delete the key from the state in ledger
-	err := stub.DelState(A)
+	valBytes, err := stub.GetState(A)
 	if err != nil {
-		return nil, errors.New("Failed to delete state")
+		return nil, err
 	}
 
+	if valBytes == nil {
+		return nil, errors.New("Entity not found")
+	}
+
+	isOk, err := stub.VerifyAttribute(A, valBytes)
+	if err != nil {
+		return nil, err
+	}
+	if isOk {
+		// Delete the key from the state in ledger
+		err = stub.DelState(A)
+		if err != nil {
+			return nil, errors.New("Failed to delete state")
+		}
+	}
 	return nil, nil
 }
 
 // Query callback representing the query of a chaincode
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	if function != "query" {
-		return nil, errors.New("Invalid query function name. Expecting \"query\"")
+func (t *Attributes2State) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	if function != "read" {
+		return nil, errors.New("Invalid query function name. Expecting \"read\"")
 	}
 	var A string // Entities
 	var err error
@@ -120,7 +136,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 }
 
 func main() {
-	err := shim.Start(new(SimpleChaincode))
+	err := shim.Start(new(Attributes2State))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
