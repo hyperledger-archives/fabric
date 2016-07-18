@@ -4,7 +4,7 @@
 
 Support to attributes is a feature that allows chaincode make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
 
-To view a complete documentation about attributes design please read ['Attributes support'](../docs/tech/attributes.md).
+To view a complete documentation about attributes design please read ['Attributes support'](../tech/attributes.md).
 
 ## Use case: Authorizable counter
 
