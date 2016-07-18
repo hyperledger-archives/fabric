@@ -6,7 +6,7 @@ Support to attributes is a feature that allows chaincode make use of extended da
 
 To view a complete documentation about attributes design please read ['Attributes support'](../docs/tech/attributes.md).
 
-## Use case: Autorizable counter
+## Use case: Authorizable counter
 
 A common use case to make use of attributes is Attributes Based Access Control (ABAC). This is a mechanism to grant specific permissions to a chaincode invoker based on its attribute values.
 
