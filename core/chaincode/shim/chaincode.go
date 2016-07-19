@@ -257,7 +257,9 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 	err := proto.Unmarshal(secContext.Payload, &newCI)
 	if err == nil {
 		stub.function = newCI.Function
-		stub.args = []byte{} // newCI.Args
+		stub.args = newCI.Args
+	} else {
+		panic("Arguments cannot be unmarshalled.")
 	}
 }
 
@@ -403,7 +405,7 @@ func (stub *ChaincodeStub) GetArgs() []byte {
 
 func (stub *ChaincodeStub) GetStringArgs() []string {
 	args := stub.GetArgs()
-	splittedargs := bytes.Split(args, []byte{})
+	splittedargs := bytes.Split(args, []byte{0})
 	strargs := make([]string, 0, len(splittedargs))
 	for _, bargs := range splittedargs {
 		strargs = append(strargs, string(bargs))

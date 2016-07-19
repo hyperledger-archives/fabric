@@ -58,7 +58,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 	// Create the Chaincode specification
 	chaincodeSpec := &protos.ChaincodeSpec{Type: protos.ChaincodeSpec_GOLANG,
 		ChaincodeID: &protos.ChaincodeID{Path: "Contracts"},
-		CtorMsg:     &protos.ChaincodeInput{Function: "Initialize", Args: []string{"param1"}}}
+		CtorMsg:     &protos.ChaincodeInput{Function: "Initialize", Args: []byte("param1")}}
 	chaincodeDeploymentSepc := &protos.ChaincodeDeploymentSpec{ChaincodeSpec: chaincodeSpec}
 	uuid := testutil.GenerateUUID(t)
 	newChaincodeTx, err := protos.NewChaincodeDeployTransaction(chaincodeDeploymentSepc, uuid)

@@ -1236,21 +1236,22 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 		msg.SecurityContext.Binding = binding
 		msg.SecurityContext.Metadata = tx.Metadata
 
-		if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
-			cis := &pb.ChaincodeInvocationSpec{}
-			if err := proto.Unmarshal(tx.Payload, cis); err != nil {
-				chaincodeLogger.Errorf("Failed getting payload [%s]", err)
-				return err
-			}
-
-			ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
-			if err != nil {
-				chaincodeLogger.Errorf("Failed getting ctorMsgRaw [%s]", err)
-				return err
-			}
-
-			msg.SecurityContext.Payload = ctorMsgRaw
+		// if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
+		// we always need to set this
+		cis := &pb.ChaincodeInvocationSpec{}
+		if err := proto.Unmarshal(tx.Payload, cis); err != nil {
+			chaincodeLogger.Errorf("Failed getting payload [%s]", err)
+			return err
 		}
+
+		ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
+		if err != nil {
+			chaincodeLogger.Errorf("Failed getting ctorMsgRaw [%s]", err)
+			return err
+		}
+
+		msg.SecurityContext.Payload = ctorMsgRaw
+		// }
 		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}
 	return nil

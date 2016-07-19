@@ -17,6 +17,7 @@ limitations under the License.
 package chaincode
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -337,7 +338,8 @@ func executeDeployTransaction(t *testing.T, url string) {
 	var ctxt = context.Background()
 
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
@@ -416,10 +418,11 @@ func checkFinalState(uuid string, chaincodeID string) error {
 }
 
 // Invoke chaincode_example02
-func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []string, destroyImage bool) error {
+func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args []byte, destroyImage bool) error {
 
 	f := "init"
-	argsDeploy := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	argsDeploy := bytes.Join(bargs, []byte{0})
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: argsDeploy}}
 	_, err := deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
@@ -454,7 +457,8 @@ func invokeExample02Transaction(ctxt context.Context, cID *pb.ChaincodeID, args 
 
 	// Test for delete state
 	f = "delete"
-	delArgs := []string{"a"}
+	bargs = [][]byte{[]byte("a")}
+	delArgs := bytes.Join(bargs, []byte{0})
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: delArgs}}
 	_, uuid, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_INVOKE)
 	if err != nil {
@@ -508,7 +512,8 @@ func TestExecuteInvokeTransaction(t *testing.T) {
 	url := "github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02"
 	chaincodeID := &pb.ChaincodeID{Path: url}
 
-	args := []string{"a", "b", "10"}
+	bargs := [][]byte{[]byte("a"), []byte("b"), []byte("10")}
+	args := bytes.Join(bargs, []byte{0})
 	err = invokeExample02Transaction(ctxt, chaincodeID, args, true)
 	if err != nil {
 		t.Fail()
@@ -533,12 +538,14 @@ func exec(ctxt context.Context, chaincodeID string, numTrans int, numQueries int
 		var spec *pb.ChaincodeSpec
 		if typ == pb.Transaction_CHAINCODE_INVOKE {
 			f := "invoke"
-			args := []string{"a", "b", "10"}
+			bargs := [][]byte{[]byte("a"), []byte("b"), []byte("10")}
+			args := bytes.Join(bargs, []byte{0})
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 		} else {
 			f := "query"
-			args := []string{"a"}
+			bargs := [][]byte{[]byte("a")}
+			args := bytes.Join(bargs, []byte{0})
 
 			spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: chaincodeID}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 		}
@@ -607,7 +614,8 @@ func TestExecuteQuery(t *testing.T) {
 
 	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -690,7 +698,8 @@ func TestExecuteInvokeInvalidTransaction(t *testing.T) {
 	chaincodeID := &pb.ChaincodeID{Path: url}
 
 	//FAIL, FAIL!
-	args := []string{"x", "-1"}
+	bargs := [][]byte{[]byte("x"), []byte("-1")}
+	args := bytes.Join(bargs, []byte{0})
 	err = invokeExample02Transaction(ctxt, chaincodeID, args, false)
 
 	//this HAS to fail with expectedDeltaStringPrefix
@@ -751,7 +760,8 @@ func TestExecuteInvalidQuery(t *testing.T) {
 
 	cID := &pb.ChaincodeID{Path: url}
 	f := "init"
-	args := []string{"a", "100"}
+	bargs := [][]byte{[]byte("a"), []byte("100")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -768,7 +778,8 @@ func TestExecuteInvalidQuery(t *testing.T) {
 	time.Sleep(time.Second)
 
 	f = "query"
-	args = []string{"b", "200"}
+	bargs = [][]byte{[]byte("b"), []byte("200")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// This query should fail as it attempts to put state
@@ -823,7 +834,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -844,7 +856,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
-	args = []string{"e", "0"}
+	bargs = [][]byte{[]byte("e"), []byte("0")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -863,7 +876,8 @@ func TestChaincodeInvokeChaincode(t *testing.T) {
 
 	// Invoke second chaincode, which will inturn invoke the first chaincode
 	f = "invoke"
-	args = []string{"e", "1"}
+	bargs = [][]byte{[]byte("e"), []byte("1")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode
@@ -936,7 +950,8 @@ func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -957,7 +972,8 @@ func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
-	args = []string{""}
+	bargs = [][]byte{[]byte("")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -976,7 +992,8 @@ func TestChaincodeInvokeChaincodeErrorCase(t *testing.T) {
 
 	// Invoke second chaincode, which will inturn invoke the first chaincode but pass bad params
 	f = chaincodeID1
-	args = []string{"invoke", "a"} //expect {"invoke", "a","b","10"}
+	bargs = [][]byte{[]byte("invoke"), []byte("a")}
+	args = bytes.Join(bargs, []byte{0}) //expect {"invoke", "a","b","10"}
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode
@@ -1013,7 +1030,8 @@ func chaincodeQueryChaincode(user string) error {
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}, SecureContext: user}
 
@@ -1031,7 +1049,8 @@ func chaincodeQueryChaincode(user string) error {
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
-	args = []string{"sum", "0"}
+	bargs = [][]byte{[]byte("sum"), []byte("0")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}, SecureContext: user}
 
@@ -1047,7 +1066,8 @@ func chaincodeQueryChaincode(user string) error {
 
 	// Invoke second chaincode, which will inturn query the first chaincode
 	f = "invoke"
-	args = []string{chaincodeID1, "sum"}
+	bargs = [][]byte{[]byte(chaincodeID1), []byte("sum")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}, SecureContext: user}
 	// Invoke chaincode
@@ -1070,7 +1090,8 @@ func chaincodeQueryChaincode(user string) error {
 
 	// Query second chaincode, which will inturn query the first chaincode
 	f = "query"
-	args = []string{chaincodeID1, "sum"}
+	bargs = [][]byte{[]byte(chaincodeID1), []byte("sum")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}, SecureContext: user}
 	// Invoke chaincode
@@ -1157,7 +1178,8 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 
 	cID1 := &pb.ChaincodeID{Path: url1}
 	f := "init"
-	args := []string{"a", "100", "b", "200"}
+	bargs := [][]byte{[]byte("a"), []byte("100"), []byte("b"), []byte("200")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec1 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID1, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -1178,7 +1200,8 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 
 	cID2 := &pb.ChaincodeID{Path: url2}
 	f = "init"
-	args = []string{""}
+	bargs = [][]byte{[]byte("")}
+	args = bytes.Join(bargs, []byte{0})
 
 	spec2 := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 
@@ -1197,7 +1220,8 @@ func TestChaincodeQueryChaincodeErrorCase(t *testing.T) {
 
 	// Invoke second chaincode, which will inturn invoke the first chaincode but pass bad params
 	f = chaincodeID1
-	args = []string{"query", "c"} //expect {"query", "a"}
+	bargs = [][]byte{[]byte("query"), []byte("c")}
+	args = bytes.Join(bargs, []byte{0}) //expect {"query", "a"}
 
 	spec2 = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID2, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	// Invoke chaincode
@@ -1318,7 +1342,7 @@ func TestRangeQuery(t *testing.T) {
 	url := "github.com/hyperledger/fabric/examples/chaincode/go/map"
 	cID := &pb.ChaincodeID{Path: url}
 
-	args := []string{}
+	args := []byte{}
 	f := "init"
 
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
@@ -1335,7 +1359,7 @@ func TestRangeQuery(t *testing.T) {
 
 	// Invoke second chaincode, which will inturn invoke the first chaincode
 	f = "keys"
-	args = []string{}
+	args = []byte{}
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
@@ -1388,7 +1412,7 @@ func TestGetEvent(t *testing.T) {
 	url := "github.com/hyperledger/fabric/examples/chaincode/go/eventsender"
 
 	cID := &pb.ChaincodeID{Path: url}
-	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: "init", Args: []string{}}}
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: "init", Args: []byte{}}}
 
 	_, err = deploy(ctxt, spec)
 	chaincodeID := spec.ChaincodeID.Name
@@ -1402,7 +1426,8 @@ func TestGetEvent(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	args := []string{"i", "am", "satoshi"}
+	bargs := [][]byte{[]byte("i"), []byte("am"), []byte("satoshi")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: "", Args: args}}
 
