@@ -64,7 +64,8 @@ type OpenchainDB struct {
 	mux          sync.Mutex
 }
 
-var openchainDB = Create()
+var openchainDB *OpenchainDB
+var once sync.Once
 
 // Create create an openchainDB instance
 func Create() *OpenchainDB {
@@ -73,8 +74,20 @@ func Create() *OpenchainDB {
 
 // GetDBHandle get an opened openchainDB singleton
 func GetDBHandle() *OpenchainDB {
-	openchainDB.Open()
 	return openchainDB
+}
+
+// Start the db
+func Start() {
+	once.Do(func() {
+		openchainDB = Create()
+	})
+	openchainDB.Open()
+}
+
+// Stop the db
+func Stop() {
+	openchainDB.Close()
 }
 
 // GetFromBlockchainCF get value for given key from column family - blockchainCF

@@ -41,6 +41,7 @@ func TestGetDBPathEmptyPath(t *testing.T) {
 		}
 	}()
 	defer viper.Set("peer.fileSystemPath", originalSetting)
+	Start()
 	GetDBHandle()
 }
 
@@ -82,6 +83,7 @@ func TestOpenDB_NonEmptyDirExists(t *testing.T) {
 
 func TestWriteAndRead(t *testing.T) {
 	openchainDB := GetDBHandle()
+	openchainDB.Open()
 	defer deleteTestDBPath()
 	defer openchainDB.Close()
 	performBasicReadWrite(openchainDB, t)
