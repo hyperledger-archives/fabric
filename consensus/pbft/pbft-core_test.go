@@ -717,59 +717,6 @@ func TestSendQueueThrottling(t *testing.T) {
 	}
 }
 
-// Test for issue #1091
-// Once the primary ran out of sequence numbers, it would queue requests into a map, and resubmit them in arbitrary order
-// This is incorrect, they need to be resubmitted in the order of their timestamps
-// This test is disabled as we no longer use a sortable slice when resubmitting request batches.
-/* func TestSendQueueOrdering(t *testing.T) {
-	prePreparesSent := 0
-
-	mock := &omniProto{}
-	instance := newPbftCore(0, loadConfig(), mock, &inertTimerFactory{})
-	instance.f = 1
-	instance.K = 2
-	instance.L = 100
-	lastTime := &gp.Timestamp{Seconds: 0, Nanos: 0}
-
-	instance.consumer = &omniProto{
-		broadcastImpl: func(p []byte) {
-			msg := &Message{}
-			err := proto.Unmarshal(p, msg)
-			if err != nil {
-				t.Fatalf("Error unmarshaling payload")
-				return
-			}
-			prePrep := msg.GetPrePrepare()
-			if prePrep == nil {
-				// not a preprepare, ignoring
-				return
-			}
-			req := prePrep.GetRequestBatch().GetBatch()[0]
-			if lastTime.Seconds > req.Timestamp.Seconds {
-				t.Fatalf("Did not arrive in order, got %d after %d", req.Timestamp.Seconds, lastTime.Seconds)
-			}
-			lastTime = req.Timestamp
-			t.Logf("Timestamp included in pre-prepare: %d", req.Timestamp.Seconds)
-
-			// As each pre-prepare is sent, delete it from the outstanding requests, like it executed
-			delete(instance.outstandingReqBatches, prePrep.BatchDigest)
-			prePreparesSent++
-		},
-	}
-	defer instance.close()
-
-	for j := 1; j <= 100; j++ {
-		events.SendEvent(instance, createPbftReqBatch(int64(j), 0)) // replica ID for req doesn't matter
-	}
-
-	instance.moveWatermarks(50)
-
-	expected := 100
-	if prePreparesSent != expected {
-		t.Fatalf("Expected to send only %d pre-prepares, but got %d messages", expected, prePreparesSent)
-	}
-} */
-
 // From issue #687
 func TestWitnessCheckpointOutOfBounds(t *testing.T) {
 	mock := &omniProto{}
