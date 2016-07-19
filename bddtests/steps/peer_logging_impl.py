@@ -26,10 +26,36 @@ import sys, requests, json
 
 import bdd_test_util
 
-@then('I wait up to {waitTime} seconds for an error in the logs for peer {peerName}')
+@then(u'I wait up to {waitTime} seconds for an error in the logs for peer {peerName}')
 def step_impl(context, waitTime, peerName):
-    pass
+    timeout = time.time() + waitTime
+    hasError = False
 
-@then('Then ensure after {waitTime} seconds there is no errors in the logs for peer {peerName}')
+    while timeout > time.time():
+        stdout, stderr = getPeerLogs(context, peerName)
+        hasError =  logHasError(stdout) or logHasError(stderr)
+
+        if hasError:
+            break
+
+        time.sleep(1.0)
+
+    assert hasError is True
+
+def getPeerLogs(context, peerName):
+    fullContainerName = bdd_test_util.fullNameFromContainerNamePart(peerName, context.compose_containers)
+    stdout, stderr, retcode = bdd_test_util.cli_call(context, ["docker", "logs", fullContainerName], expect_success=True)
+
+    return stdout, stderr
+
+def logHasError(logText):
+    # All logs are on STDERR, this seems to be an acceptable heuristic for detecting errors
+    return logText.find("-> ERRO") >= 0
+
+@then(u'ensure after {waitTime} seconds there are no errors in the logs for peer {peerName}')
 def step_impl(context, waitTime, peerName):
-    pass
+    time.sleep(float(waitTime))
+    stdout, stderr = getPeerLogs(context, peerName)
+
+    assert logHasError(stdout) is False
+    assert logHasError(stderr) is False

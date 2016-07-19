@@ -14,31 +14,31 @@ Feature: Peer Logging
     When I deploy chaincode with name "testCC" and with ctor "init" to "vp0"
         | arg1 |  arg2 | arg3 | arg4 |
 	    |  a   |  100  |  b   |  200 |
-    And I invoke chaincode "example2" function name "invoke" on "vp0"
+    And I invoke chaincode "example02" function name "invoke" on "vp0"
         |arg1|arg2|arg3|
 		| a  | b  | 10 |
-    Then ensure after 5 seconds there is no errors in the logs for peer vp0
+    Then ensure after 2 seconds there are no errors in the logs for peer vp0
 
     Scenario: Query is attempted after deploy in Dev Mode
     Given we compose "docker-compose-1-devmode.yml"
     When I deploy chaincode with name "testCC" and with ctor "init" to "vp0"
         | arg1 |  arg2 | arg3 | arg4 |
 	    |  a   |  100  |  b   |  200 |
-    And I query chaincode "example2" function name "query" on "vp0":
-            |arg1|
-            |  a |
-    Then ensure after 5 seconds there is no errors in the logs for peer vp0
+    And I query chaincode "example02" function name "query" on "vp0":
+        |arg1|
+        |  a |
+    Then ensure after 2 seconds there are no errors in the logs for peer vp0
 
     Scenario: Invoke is attempted before deploy in Dev Mode
     Given we compose "docker-compose-1-devmode.yml"
-    When I invoke chaincode "example2" function name "invoke" on "vp0"
+    When I invoke chaincode "example02" function name "invoke" on "vp0"
         |arg1|arg2|arg3|
 		| a  | b  | 10 |
     Then I wait up to 5 seconds for an error in the logs for peer vp0
 
     Scenario: Query is attempted before deploy in Dev Mode
     Given we compose "docker-compose-1-devmode.yml"
-    When I query chaincode "example2" function name "query" on "vp0":
-            |arg1|
-            |  a |
+    When I query chaincode "example02" function name "query" on "vp0":
+        |arg1|
+        |  a |
     Then I wait up to 5 seconds for an error in the logs for peer vp0
