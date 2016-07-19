@@ -94,9 +94,6 @@ git commit -m "Ignore build process [ci skip]"
 - What is the slack channel to view build results?
   - We are sending build notifications to hyperledger `#fabric-ci-status` slack channel. (User must join in #fabric-ci-status slack channel to receive build notifications)
   
-- What is build status `errored` mean?
-  - When "go build" and "Unit tests" fails, Travis stops the build process and exits and mark the build status as `errored`. When unit tests fail, Travis CI will not execute behave test scripts. `Failed`: If Behave test cases fail, Travis continues executing remaining test cases and exits with build status as `failed`.
-  
 - How to restart build without committing any changes to remote GitHub?
 
   - Apply `git commit --allow-empty -m "Empty commit" ` and do a git push or click on `Restart Job` (only users with push access to repository can do this) button on Travis CI home page.
