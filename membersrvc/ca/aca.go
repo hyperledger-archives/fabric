@@ -340,6 +340,9 @@ func (aca *ACA) fetchAndPopulateAttributes(id, affiliation string) error {
 func (aca *ACA) findAttribute(owner *AttributeOwner, attributeName string) (*AttributePair, error) {
 	var count int
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	err := aca.db.QueryRow("SELECT count(row) AS cant FROM Attributes WHERE id=? AND affiliation =? AND attributeName =?",
 		owner.GetID(), owner.GetAffiliation(), attributeName).Scan(&count)
 	if err != nil {
