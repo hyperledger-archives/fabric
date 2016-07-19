@@ -2,7 +2,7 @@
 
 ## Overview
 
-Support to attributes is a feature that allows chaincode make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
+Attributes is a feature that allows chaincode make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
 
 To view a complete documentation about attributes design please read ['Attributes support'](../tech/attributes.md).
 
@@ -30,7 +30,7 @@ if isOk {
     // Increment counter code
 }
 ```
-If attributes are accessed more than once, using attributeHandler is more efficient since the handler makes use of a cache to store values and keys.
+If attributes are accessed more than once, using `attributeHandler` is more efficient since the handler makes use of a cache to store values and keys.
 
 In order to get the attribute value, in place of just verifying it, the following code can be used:
 
