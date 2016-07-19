@@ -61,7 +61,7 @@ In order to make use of attributes encryption the following property has to be s
 Or using environment variables:
 
 ```
-MEMBERSRVC_CA_ACA_ENABLED=true MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
+MEMBERSRVC_CA_ACA_ENABLED=true MEMBERSRVC_CA_TCA_ATTRIBUTE-ENCRYPTION_ENABLED=true ./membersrvc
 ```
 
 ### Deploy API making use of attributes
