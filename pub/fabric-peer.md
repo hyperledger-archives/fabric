@@ -29,29 +29,41 @@ docker run --rm -it -e CORE_VM_ENDPOINT=http://172.17.0.1:2375 -e CORE_PEER_ID=v
 
 ### Natively on Mac or Windows
 
-If running Docker natively on Mac or Windows, the value of ```CORE_VM_ENDPOINT``` should be set to ```127.0.0.1``` (localhost).
+If running Docker natively on Mac or Windows, the value of ```CORE_VM_ENDPOINT``` should be set to ```unix:///var/run/docker.sock```.
 
 ### Using Docker Compose
 
 When running in Vagrant, you can use the docker-compose yaml files in the ```fabric/bddtests``` [directory](https://github.com/hyperledger/fabric/tree/master/bddtests) to start up a network of peers, with or without the membership services.
 
-When running natively on Mac or Windows, the following docker-compose.yml can be used to start a peer with, or without, the membersrvc service:
+When running natively on Mac or Windows, the following docker-compose.yml can be used to start a peer without the membership service:
 
 ```
-vp:
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+    - CORE_PEER_ID=vp0
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+    - CORE_LOGGING_LEVEL=DEBUG
+  command: peer node start
+```
+
+The following docker-compose.yml could be used for running Docker for Mac or Windows without the membership services:
+
+```
+vp0:
   image: hyperledger/fabric-peer
   ports:
-  - "5000:5000"
+    - "5000:5000"
+    - "30303:30303"
+    - "30304:30304"
   environment:
-  - CORE_PEER_ADDRESSAUTODETECT=true
-  - CORE_VM_ENDPOINT=http://127.0.0.1:2375
-  - CORE_LOGGING_LEVEL=DEBUG
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
+    - CORE_LOGGING_LEVEL=DEBUG
   command: peer node start
-membersrvc:
-  image: hyperledger/fabric-membersrvc
-  command: membersrvc
 ```
 
 ### Advanced Configuration
 
-Please visit the Hyperledger Fabric [documentation](http://hyperledger-fabric.readthedocs.io/en/latest/dev-setup/devnet-setup/) for more advanced configurations.
+Please refer to the Hyperledger Fabric [documentation](http://hyperledger-fabric.readthedocs.io/en/latest/Setup/Network-setup/) for more advanced configurations, including running with the companion membership services component.
