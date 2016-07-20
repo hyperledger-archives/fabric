@@ -12,7 +12,6 @@ Below, you'll find the following sections:
   - [Chaincode developer guide](#chaincode-developer-guide)
   - [API developer guide](#api-developer-guide)
 - [Operations guide](#operations-guide)
-- [Continuous Integration](https://github.com/hyperledger/fabric/blob/master/TravisCI_Readme.md)
 
 ## Getting started
 
