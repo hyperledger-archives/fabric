@@ -68,6 +68,7 @@ func TestCreateCertificateSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	const EXPECTED_TCERT_SUBJECT_COMMON_NAME_VALUE string = "Transaction Certificate"
 	ncerts := 1
 	for nattributes := -1; nattributes < 1; nattributes++ {
 		certificateSetRequest, err := buildCertificateSetRequest(enrollmentID, priv, ncerts, nattributes)
@@ -102,6 +103,19 @@ func TestCreateCertificateSet(t *testing.T) {
 		tcerts := response.GetCerts()
 		if len(tcerts.Certs) != ncerts {
 			t.Fatal(fmt.Errorf("Invalid tcert size. Expected: %v, Actual: %v", ncerts, len(tcerts.Certs)))
+		}
+
+		for pos, eachTCert := range tcerts.Certs {
+			tcert, err := x509.ParseCertificate(eachTCert.Cert)
+			if err != nil {
+				t.Fatalf("Error: %v\nCould not x509.ParseCertificate %v", err, eachTCert.Cert)
+			}
+
+			t.Logf("Examining TCert[%d]'s Subject: %v", pos, tcert.Subject)
+			if tcert.Subject.CommonName != EXPECTED_TCERT_SUBJECT_COMMON_NAME_VALUE {
+				t.Fatalf("The TCert's Subject.CommonName is '%s' which is different than '%s'", tcert.Subject.CommonName, EXPECTED_TCERT_SUBJECT_COMMON_NAME_VALUE)
+			}
+			t.Logf("Successfully verified that TCert[%d].Subject.CommonName == '%s'", pos, tcert.Subject.CommonName)
 		}
 	}
 }
@@ -143,7 +157,7 @@ func initTCA() (*TCA, error) {
 
 	//initialize logging to avoid panics in the current code
 	LogInit(os.Stdout, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	CacheConfiguration() // Cache configuration
 	eca := NewECA()
 	if eca == nil {
 		return nil, fmt.Errorf("Could not create a new ECA")

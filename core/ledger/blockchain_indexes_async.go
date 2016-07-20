@@ -210,7 +210,7 @@ func (indexer *blockchainIndexerAsync) stop() {
 // Since, we index blocks asynchronously, there may be a case when
 // a client query arrives before a block has been indexed.
 //
-// Do we really need strict symantics such that an index query results
+// Do we really need strict semantics such that an index query results
 // should include up to block number (or higher) that may have been committed
 // when user query arrives?
 // If a delay of a couple of blocks are allowed, we can get rid of this synchronization stuff

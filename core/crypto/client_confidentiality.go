@@ -34,55 +34,12 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 
 	client.Debugf("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
 	switch tx.ConfidentialityProtocolVersion {
-	case "1.1":
-		client.Debug("Using confidentiality protocol version 1.1")
-		return client.encryptTxVersion1_1(tx)
 	case "1.2":
 		client.Debug("Using confidentiality protocol version 1.2")
 		return client.encryptTxVersion1_2(tx)
 	}
 
 	return utils.ErrInvalidProtocolVersion
-}
-
-func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
-	// client.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := client.enrollChainKey.([]byte)
-
-	// Derive key
-	txKey := primitives.HMAC(enrollChainKey, tx.Nonce)
-
-	//	client.log.Info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
-	//	client.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	client.log.Info("Derived key  ", utils.EncodeBase64(txKey))
-
-	// Encrypt Payload
-	payloadKey := primitives.HMACAESTruncated(txKey, []byte{1})
-	encryptedPayload, err := primitives.CBCPKCS7Encrypt(payloadKey, tx.Payload)
-	if err != nil {
-		return err
-	}
-	tx.Payload = encryptedPayload
-
-	// Encrypt ChaincodeID
-	chaincodeIDKey := primitives.HMACAESTruncated(txKey, []byte{2})
-	encryptedChaincodeID, err := primitives.CBCPKCS7Encrypt(chaincodeIDKey, tx.ChaincodeID)
-	if err != nil {
-		return err
-	}
-	tx.ChaincodeID = encryptedChaincodeID
-
-	// Encrypt Metadata
-	if len(tx.Metadata) != 0 {
-		metadataKey := primitives.HMACAESTruncated(txKey, []byte{3})
-		encryptedMetadata, err := primitives.CBCPKCS7Encrypt(metadataKey, tx.Metadata)
-		if err != nil {
-			return err
-		}
-		tx.Metadata = encryptedMetadata
-	}
-
-	return nil
 }
 
 // chainCodeValidatorMessage1_2 represents a message to validators

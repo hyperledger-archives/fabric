@@ -149,6 +149,10 @@ func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{})
 	return nil
 }
 
+func (ks *keyStore) deletePrivateKeyInClear(alias string) error {
+	return os.Remove(ks.node.conf.getPathForAlias(alias))
+}
+
 func (ks *keyStore) loadPrivateKey(alias string) (interface{}, error) {
 	path := ks.node.conf.getPathForAlias(alias)
 	ks.node.Debugf("Loading private key [%s] at [%s]...", alias, path)
@@ -254,6 +258,14 @@ func (ks *keyStore) storeCert(alias string, der []byte) error {
 	return nil
 }
 
+func (ks *keyStore) certMissing(alias string) bool {
+	return !ks.isAliasSet(alias)
+}
+
+func (ks *keyStore) deleteCert(alias string) error {
+	return os.Remove(ks.node.conf.getPathForAlias(alias))
+}
+
 func (ks *keyStore) loadCert(alias string) ([]byte, error) {
 	path := ks.node.conf.getPathForAlias(alias)
 	ks.node.Debugf("Loading certificate [%s] at [%s]...", alias, path)
@@ -331,7 +343,7 @@ func (ks *keyStore) createKeyStoreIfNotExists() error {
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			ks.node.Debugf("Failed creating db At [%s]: ", ks.node.conf.getKeyStoreFilePath(), err.Error())
+			ks.node.Errorf("Failed creating db At [%s]: [%s]", ks.node.conf.getKeyStoreFilePath(), err.Error())
 			return nil
 		}
 	}

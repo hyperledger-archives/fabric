@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"net"
 	"os"
@@ -34,8 +35,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-
-	"google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -77,6 +76,31 @@ var mainCmd = &cobra.Command{
 	Use: "peer",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return core.CacheConfiguration()
+	},
+	PreRun: func(cmd *cobra.Command, args []string) {
+		core.LoggingInit("peer")
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		if versionFlag {
+			showVersion()
+		} else {
+			cmd.HelpFunc()(cmd, args)
+		}
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print fabric peer version.",
+	Long:  `Print current version of fabric peer server.`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		core.LoggingInit("version")
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		showVersion()
 	},
 }
 
@@ -185,6 +209,9 @@ var (
 	customIDGenAlg          string
 )
 
+// Peer command version flag
+var versionFlag bool
+
 var chaincodeCmd = &cobra.Command{
 	Use:   chainFuncName,
 	Short: fmt.Sprintf("%s specific commands.", chainFuncName),
@@ -236,6 +263,8 @@ func main() {
 	// Define command-line flags that are valid for all peer commands and
 	// subcommands.
 	mainFlags := mainCmd.PersistentFlags()
+	mainFlags.BoolVarP(&versionFlag, "version", "v", false, "Display current version of fabric peer server")
+
 	mainFlags.String("logging-level", "", "Default logging level and overrides, see core.yaml for full syntax")
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
 	testCoverProfile := ""
@@ -243,29 +272,24 @@ func main() {
 
 	// Set the flags on the node start command.
 	flags := nodeStartCmd.Flags()
-	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
-	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
-	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
-	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
-
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
-	viper.BindPFlag("peer.tls.enabled", flags.Lookup("peer-tls-enabled"))
-	viper.BindPFlag("peer.tls.cert.file", flags.Lookup("peer-tls-cert-file"))
-	viper.BindPFlag("peer.tls.key.file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer.gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer.discovery.enabled", flags.Lookup("peer-discovery-enabled"))
+	var alternativeCfgPath = os.Getenv("PEER_CFG_PATH")
+	if alternativeCfgPath != "" {
+		logger.Info("User defined config file path: %s", alternativeCfgPath)
+		viper.AddConfigPath(alternativeCfgPath) // Path to look for the config file in
+	} else {
+		viper.AddConfigPath("./") // Path to look for the config file in
+		// Path to look for the config file in based on GOPATH
+		gopath := os.Getenv("GOPATH")
+		for _, p := range filepath.SplitList(gopath) {
+			peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
+			viper.AddConfigPath(peerpath)
+		}
+	}
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
-	viper.AddConfigPath("./")    // Path to look for the config file in
-	// Path to look for the config file in based on GOPATH
-	gopath := os.Getenv("GOPATH")
-	for _, p := range filepath.SplitList(gopath) {
-		peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
-		viper.AddConfigPath(peerpath)
-	}
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
@@ -275,11 +299,11 @@ func main() {
 	nodeCmd.AddCommand(nodeStartCmd)
 	nodeCmd.AddCommand(nodeStatusCmd)
 
-	nodeStopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
+	nodeStopCmd.Flags().StringVar(&stopPidFile, "stop-peer-pid-file", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
 	nodeCmd.AddCommand(nodeStopCmd)
 
+	mainCmd.AddCommand(versionCmd)
 	mainCmd.AddCommand(nodeCmd)
-
 	// Set the flags on the login command.
 	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
 
@@ -319,7 +343,7 @@ func main() {
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if mainCmd.Execute() != nil {
-		//os.Exit(1)
+		os.Exit(1)
 	}
 	logger.Info("Exiting.....")
 }
@@ -387,6 +411,11 @@ func getSecHelper() (crypto.Peer, error) {
 		}
 	})
 	return secHelper, err
+}
+
+func showVersion() {
+	version := viper.GetString("peer.version")
+	fmt.Printf("Fabric peer server version %s\n", version)
 }
 
 func serve(args []string) error {
@@ -465,9 +494,7 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	discInstance := core.NewStaticDiscovery(viper.GetString("peer.discovery.rootnode"))
-
-	//create the peerServer....
+	// Create the peerServer
 	if peer.ValidatorEnabled() {
 		logger.Debug("Running as validating peer - making genesis block if needed")
 		makeGenesisError := genesis.MakeGenesis()
@@ -475,10 +502,10 @@ func serve(args []string) error {
 			return makeGenesisError
 		}
 		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
-		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine, discInstance)
+		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
-		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler, discInstance)
+		peerServer, err = peer.NewPeerWithHandler(secHelperFunc, peer.NewPeerHandler)
 	}
 
 	if err != nil {
@@ -488,7 +515,6 @@ func serve(args []string) error {
 	}
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -512,11 +538,8 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNodes := discInstance.GetRootNodes()
-
-	logger.Infof("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=[%v], validator=%v",
-		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNodes, peer.ValidatorEnabled())
+	logger.Infof("Starting peer with ID=%s, network ID=%s, address=%s, rootnodes=%v, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, viper.GetString("peer.discovery.rootnode"), peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
@@ -545,7 +568,7 @@ func serve(args []string) error {
 		return err
 	}
 
-	//start the event hub server
+	// Start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
 	}

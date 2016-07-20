@@ -170,11 +170,6 @@ var _ = Describe("Ledger", func() {
 			Expect(err).To(BeNil())
 			nonHashData := block.GetNonHashData()
 			Expect(nonHashData).ToNot(BeNil())
-			Expect(nonHashData.TransactionResults).ToNot(BeNil())
-			Expect(len(nonHashData.TransactionResults)).ToNot(Equal(0))
-			Expect(nonHashData.TransactionResults[0].Uuid).To(Equal(uuid))
-			Expect(nonHashData.TransactionResults[0].Error).To(Equal("bad"))
-			Expect(nonHashData.TransactionResults[0].ErrorCode).To(Equal(uint32(500)))
 		})
 	})
 

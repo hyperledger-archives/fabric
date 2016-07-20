@@ -231,7 +231,7 @@ func (handler *Handler) handleInit(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
+			chaincodeLogger.Errorf("[%s]Init failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_ERROR)
 			nextStateMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_ERROR, Payload: payload, Uuid: msg.Uuid, ChaincodeEvent: stub.chaincodeEvent}
 			return
 		}
@@ -345,7 +345,7 @@ func (handler *Handler) handleQuery(msg *pb.ChaincodeMessage) {
 		if err != nil {
 			payload := []byte(err.Error())
 			// Send ERROR message to chaincode support and change state
-			chaincodeLogger.Debugf("[%s]Query execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
+			chaincodeLogger.Errorf("[%s]Query execution failed. Sending %s", shortuuid(msg.Uuid), pb.ChaincodeMessage_QUERY_ERROR)
 			serialSendMsg = &pb.ChaincodeMessage{Type: pb.ChaincodeMessage_QUERY_ERROR, Payload: payload, Uuid: msg.Uuid}
 			return
 		}

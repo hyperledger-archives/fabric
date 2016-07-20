@@ -127,7 +127,7 @@ func (testWrapper *blockchainTestWrapper) populateBlockChainWithSampleData() (bl
 	// -----------------------------</Block 2>------------------------------------
 
 	// -----------------------------<Block 3>-------------------------------------
-	// Create a transaction'
+	// Create a transaction
 	transaction3a, err := protos.NewTransaction(protos.ChaincodeID{Path: "MyContract"}, testutil.GenerateUUID(testWrapper.t), "setX", []string{"{x: \"hello\"}"})
 	if err != nil {
 		return nil, nil, err
@@ -164,7 +164,7 @@ type ledgerTestWrapper struct {
 }
 
 func createFreshDBAndTestLedgerWrapper(tb testing.TB) *ledgerTestWrapper {
-	testDBWrapper.CreateFreshDB(tb)
+	testDBWrapper.CleanDB(tb)
 	ledger, err := GetNewLedger()
 	testutil.AssertNoError(tb, err, "Error while constructing ledger")
 	return &ledgerTestWrapper{ledger, tb}

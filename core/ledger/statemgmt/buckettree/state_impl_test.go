@@ -24,7 +24,7 @@ import (
 )
 
 func TestStateImpl_ComputeHash_AllInMemory_NoContents(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	hash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(statemgmt.NewStateDelta())
 	testutil.AssertEquals(t, hash, nil)
@@ -298,7 +298,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 	// simple test... not using custom hasher
 	conf = newConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl
 	stateDelta := statemgmt.NewStateDelta()
@@ -382,7 +382,7 @@ func TestStateImpl_DB_Changes(t *testing.T) {
 }
 
 func TestStateImpl_DB_EmptyArrayValues(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl
 	stateDelta := statemgmt.NewStateDelta()

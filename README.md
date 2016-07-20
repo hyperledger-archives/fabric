@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/fabric)](https://goreportcard.com/report/github.com/hyperledger/fabric)
 [![GoDoc](https://godoc.org/github.com/hyperledger/fabric?status.svg)](https://godoc.org/github.com/hyperledger/fabric)
+[![Documentation Status](https://readthedocs.org/projects/hyperledger-fabric/badge/?version=latest)](http://hyperledger-fabric.readthedocs.io/en/latest/?badge=latest)
 
 # Incubation Notice
 This project is a Hyperledger project in _Incubation_. It was proposed to the community and documented [here](https://goo.gl/RYQZ5N). Information on what _Incubation_ entails can be found in the [Hyperledger Project Lifecycle document](https://goo.gl/4edNRc).
@@ -21,10 +22,10 @@ The project's [maintainers](MAINTAINERS.txt): are responsible for reviewing and 
 We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
 
 ## Installing the fabric
-[Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
+[Installation](docs/Setup/Network-setup.md): Describes how to install the blockchain fabric and use project tools.
 
 ## Documentation
-Project documentation can be found [here](docs/README.md).
+Project documentation can be found [here](http://hyperledger-fabric.readthedocs.io/en/latest/).
 
 ## Still Have Questions?
 For general purpose questions, please use [StackOverflow](http://stackoverflow.com/questions/tagged/hyperledger).

@@ -27,8 +27,6 @@ import (
 type clientImpl struct {
 	*nodeImpl
 
-	isInitialized bool
-
 	// Chain
 	chainPublicKey primitives.PublicKey
 	queryStateKey  []byte
@@ -41,7 +39,7 @@ type clientImpl struct {
 // NewChaincodeDeployTransaction is used to deploy chaincode.
 func (client *clientImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -68,7 +66,7 @@ func (client *clientImpl) GetNextTCerts(nCerts int, attributes ...string) (tCert
 	}
 
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -88,7 +86,7 @@ func (client *clientImpl) GetNextTCerts(nCerts int, attributes ...string) (tCert
 // NewChaincodeInvokeTransaction is used to invoke chaincode's functions.
 func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -111,7 +109,7 @@ func (client *clientImpl) NewChaincodeExecute(chaincodeInvocation *obc.Chaincode
 // NewChaincodeQuery is used to query chaincode's functions.
 func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributes ...string) (*obc.Transaction, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -134,7 +132,7 @@ func (client *clientImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeIn
 // GetEnrollmentCertHandler returns a CertificateHandler whose certificate is the enrollment certificate
 func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -152,7 +150,7 @@ func (client *clientImpl) GetEnrollmentCertificateHandler() (CertificateHandler,
 // GetTCertHandlerNext returns a CertificateHandler whose certificate is the next available TCert
 func (client *clientImpl) GetTCertificateHandlerNext(attributes ...string) (CertificateHandler, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -182,7 +180,7 @@ func (client *clientImpl) GetTCertificateHandlerNext(attributes ...string) (Cert
 // GetTCertHandlerFromDER returns a CertificateHandler whose certificate is the one passed
 func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (CertificateHandler, error) {
 	// Verify that the client is initialized
-	if !client.isInitialized {
+	if !client.IsInitialized() {
 		return nil, utils.ErrNotInitialized
 	}
 
@@ -206,74 +204,67 @@ func (client *clientImpl) GetTCertificateHandlerFromDER(tCertDER []byte) (Certif
 }
 
 func (client *clientImpl) register(id string, pwd []byte, enrollID, enrollPWD string) (err error) {
-	if client.isInitialized {
-		client.Errorf("Registering [%s]...done! Initialization already performed", id)
 
-		return
+	clentRegFunc := func(eType NodeType, name string, pwd []byte, enrollID, enrollPWD string) error {
+		client.Info("Register crypto engine...")
+		err = client.registerCryptoEngine()
+		if err != nil {
+			client.Errorf("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
+			return nil
+		}
+		client.Info("Register crypto engine...done.")
+		return nil
 	}
 
-	// Register node
-	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD); err != nil {
-		return
+	if err = client.nodeImpl.register(NodeClient, id, pwd, enrollID, enrollPWD, clentRegFunc); err != nil {
+		client.Errorf("Failed registering client [%s]: [%s]", enrollID, err)
+		return err
 	}
 
-	client.Info("Register crypto engine...")
-	err = client.registerCryptoEngine()
-	if err != nil {
-		client.Errorf("Failed registering crypto engine [%s]: [%s].", enrollID, err.Error())
-		return
-	}
-	client.Info("Register crypto engine...done.")
-
-	return
+	return nil
 }
 
 func (client *clientImpl) init(id string, pwd []byte) error {
-	if client.isInitialized {
-		return utils.ErrAlreadyInitialized
-	}
 
-	// Register node
-	if err := client.nodeImpl.init(NodeClient, id, pwd); err != nil {
-		return err
-	}
+	clientInitFunc := func(eType NodeType, name string, pwd []byte) error {
+		// Initialize keystore
+		client.Debug("Init keystore...")
+		err := client.initKeyStore()
+		if err != nil {
+			if err != utils.ErrKeyStoreAlreadyInitialized {
+				client.Error("Keystore already initialized.")
+			} else {
+				client.Errorf("Failed initiliazing keystore [%s].", err.Error())
 
-	// Initialize keystore
-	client.Debug("Init keystore...")
-	err := client.initKeyStore()
-	if err != nil {
-		if err != utils.ErrKeyStoreAlreadyInitialized {
-			client.Error("Keystore already initialized.")
-		} else {
-			client.Errorf("Failed initiliazing keystore [%s].", err.Error())
+				return err
+			}
+		}
+		client.Debug("Init keystore...done.")
 
+		// Init crypto engine
+		err = client.initCryptoEngine()
+		if err != nil {
+			client.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
 			return err
 		}
+		return nil
 	}
-	client.Debug("Init keystore...done.")
 
-	// Init crypto engine
-	err = client.initCryptoEngine()
-	if err != nil {
-		client.Errorf("Failed initiliazing crypto engine [%s].", err.Error())
+	if err := client.nodeImpl.init(NodeClient, id, pwd, clientInitFunc); err != nil {
 		return err
 	}
-
-	// initialized
-	client.isInitialized = true
-
 	return nil
 }
 
 func (client *clientImpl) close() (err error) {
 	if client.tCertPool != nil {
 		if err = client.tCertPool.Stop(); err != nil {
-			client.Debugf("Failed closing TCertPool [%s]", err)
+			client.Errorf("Failed closing TCertPool [%s]", err)
 		}
 	}
 
 	if err = client.nodeImpl.close(); err != nil {
-		client.Debugf("Failed closing node [%s]", err)
+		client.Errorf("Failed closing node [%s]", err)
 	}
 	return
 }

@@ -18,7 +18,7 @@
  * © Copyright IBM Corp. 2016
  */
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -31,8 +31,13 @@ var keyValStorePath2 = keyValStorePath + "2";
 //
 test('registrar test', function (t) {
     registrarTest(function(err) {
-        if (err) fail(t, "registrarTest", err);
-        else pass(t, "registrarTest");
+        if (err) {
+          fail(t, "registrarTest", err);
+          // Exit the test script after a failure
+          process.exit(1);
+        } else {
+          pass(t, "registrarTest");
+        }
     });
 });
 
@@ -41,8 +46,13 @@ test('registrar test', function (t) {
 //
 test('enroll again', function (t) {
     enrollAgain(function(err) {
-        if (err) fail(t, "enrollAgain", err);
-        else pass(t, "enrollAgain");
+        if (err) {
+          fail(t, "enrollAgain", err);
+          // Exit the test script after a failure
+          process.exit(1);
+        } else {
+          pass(t, "enrollAgain");
+        }
     });
 });
 
@@ -52,33 +62,52 @@ function registrarTest(cb) {
    //
    // Create and configure the test chain
    //
-   var chain = hlc.newChain("testChain");
-   chain.setKeyValStore(hlc.newFileKeyValStore(keyValStorePath));
+   var chain = hfc.newChain("testChain");
+   var expect="";
+   var found="";
+
+   chain.setKeyValStore(hfc.newFileKeyValStore(keyValStorePath));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       if (err) return cb(err);
       chain.setRegistrar(admin);
       // Register and enroll webAdmin
-      registerAndEnroll("webAdmin", {roles:['client']}, chain, function(err,webAdmin) {
+      registerAndEnroll("webAdmin", "client", {roles:['client']}, chain, function(err,webAdmin) {
          if (err) return cb(err);
          chain.setRegistrar(webAdmin);
-         registerAndEnroll("webUser", null, chain, function(err, webUser) {
+         registerAndEnroll("webUser", "client", null, chain, function(err, webUser) {
             if (err) return cb(err);
-            chain.setRegistrar(webUser);
-            registerAndEnroll("webUser2", null, chain, function(err) {
-               if (!err) return cb(Error("webUser should not be allowed to register a client"));
-               return cb();
+            registerAndEnroll("auditor", "auditor", null, chain, function(err, auditor) {
+               if (!err) return cb(err);
+               expect="webAdmin may not register member of type auditor";
+               found = (err.toString()).match(expect);
+               if (!(found==expect)) cb(err);
+               registerAndEnroll("validator", "validator", null, chain, function(err, validator) {
+                  if (!err) return cb(err);
+                  expect="webAdmin may not register member of type validator";
+                  found = (err.toString()).match(expect);
+                  if (!(found==expect)) cb(err);
+                  chain.setRegistrar(webUser);
+                  registerAndEnroll("webUser2", "client", null, chain, function(err) {
+                     if (!err) return cb(Error("webUser should not be allowed to register a client"));
+                     expect="webUser may not register member of type client";
+                     found = (err.toString()).match(expect);
+                     if (!(found==expect)) cb(err);
+                     return cb();
+                  });
+               });
             });
          });
       });
    });
 }
 
-// Register and enroll user 'name' with registrar info 'registrar' for chain 'chain'
-function registerAndEnroll(name, registrar, chain, cb) {
+// Register and enroll user 'name' with role 'r' with registrar info 'registrar' for chain 'chain'
+function registerAndEnroll(name, r, registrar, chain, cb) {
     console.log("registerAndEnroll %s",name);
     // User is not enrolled yet, so perform both registration and enrollment
     var registrationRequest = {
+         roles: [ r ],
          enrollmentID: name,
          account: "bank_a",
          affiliation: "00001",
@@ -97,8 +126,8 @@ function enrollAgain(cb) {
    // This is necessary to start without a local cache.
    //
    fs.renameSync(keyValStorePath,keyValStorePath2);
-   var chain = hlc.newChain("testChain2");
-   chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+   var chain = hfc.newChain("testChain2");
+   chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.enroll("admin", "Xurw3yU9zI0l", function (err, admin) {
       rmdir(keyValStorePath);
@@ -128,6 +157,6 @@ function pass(t, msg) {
 }
 
 function fail(t, msg, err) {
-    t.pass("Failure: [" + msg + "]: [" + err + "]");
+    t.fail("Failure: [" + msg + "]: [" + err + "]");
     t.end(err);
 }

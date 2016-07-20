@@ -32,7 +32,7 @@ import (
 
 var (
 	dockerLogger = logging.MustGetLogger("dockercontroller")
-	hostConfig   = new(docker.HostConfig)
+	hostConfig   *docker.HostConfig
 )
 
 //DockerVM is a vm. It is identified by an image id
@@ -40,20 +40,64 @@ type DockerVM struct {
 	id string
 }
 
-func init() {
-	err := viper.UnmarshalKey("vm.docker.hostConfig", hostConfig)
+func getDockerHostConfig() *docker.HostConfig {
+	if hostConfig != nil {
+		return hostConfig
+	}
+	dockerKey := func(key string) string {
+		return "vm.docker.hostConfig." + key
+	}
+	getInt64 := func(key string) int64 {
+		defer func() {
+			if err := recover(); err != nil {
+				dockerLogger.Warningf("load vm.docker.hostConfig.%s failed, error: %v", key, err)
+			}
+		}()
+		n := viper.GetInt(dockerKey(key))
+		return int64(n)
+	}
+
+	var logConfig docker.LogConfig
+	err := viper.UnmarshalKey(dockerKey("LogConfig"), &logConfig)
 	if err != nil {
-		dockerLogger.Fatalf("Load docker HostConfig wrong, error: %s", err.Error())
+		dockerLogger.Warningf("load docker HostConfig.LogConfig failed, error: %s", err.Error())
+	}
+	networkMode := viper.GetString(dockerKey("NetworkMode"))
+	if networkMode == "" {
+		networkMode = "host"
+	}
+	dockerLogger.Debugf("docker container hostconfig NetworkMode: %s", networkMode)
+
+	hostConfig = &docker.HostConfig{
+		CapAdd:  viper.GetStringSlice(dockerKey("CapAdd")),
+		CapDrop: viper.GetStringSlice(dockerKey("CapDrop")),
+
+		DNS:         viper.GetStringSlice(dockerKey("Dns")),
+		DNSSearch:   viper.GetStringSlice(dockerKey("DnsSearch")),
+		ExtraHosts:  viper.GetStringSlice(dockerKey("ExtraHosts")),
+		NetworkMode: networkMode,
+		IpcMode:     viper.GetString(dockerKey("IpcMode")),
+		PidMode:     viper.GetString(dockerKey("PidMode")),
+		UTSMode:     viper.GetString(dockerKey("UTSMode")),
+		LogConfig:   logConfig,
+
+		ReadonlyRootfs:   viper.GetBool(dockerKey("ReadonlyRootfs")),
+		SecurityOpt:      viper.GetStringSlice(dockerKey("SecurityOpt")),
+		CgroupParent:     viper.GetString(dockerKey("CgroupParent")),
+		Memory:           getInt64("Memory"),
+		MemorySwap:       getInt64("MemorySwap"),
+		MemorySwappiness: getInt64("MemorySwappiness"),
+		OOMKillDisable:   viper.GetBool(dockerKey("OomKillDisable")),
+		CPUShares:        getInt64("CpuShares"),
+		CPUSet:           viper.GetString(dockerKey("Cpuset")),
+		CPUSetCPUs:       viper.GetString(dockerKey("CpusetCPUs")),
+		CPUSetMEMs:       viper.GetString(dockerKey("CpusetMEMs")),
+		CPUQuota:         getInt64("CpuQuota"),
+		CPUPeriod:        getInt64("CpuPeriod"),
+		BlkioWeight:      getInt64("BlkioWeight"),
 	}
 
-	if hostConfig.NetworkMode == "" {
-		hostConfig.NetworkMode = "host"
-	}
-
-	// not support customize
-	hostConfig.Privileged = false
-
-	dockerLogger.Debugf("Load docker HostConfig: %+v", hostConfig)
+	return hostConfig
 }
 
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
@@ -83,7 +127,7 @@ func (vm *DockerVM) deployImage(client *docker.Client, ccid ccintf.CCID, args []
 		return err
 	}
 
-	dockerLogger.Debug("Created image: %s", id)
+	dockerLogger.Debugf("Created image: %s", id)
 
 	return nil
 }
@@ -146,7 +190,7 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		}
 	}
 
-	err = client.StartContainer(containerID, hostConfig)
+	err = client.StartContainer(containerID, getDockerHostConfig())
 	if err != nil {
 		dockerLogger.Errorf("start-could not start container %s", err)
 		return err
