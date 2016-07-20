@@ -236,10 +236,7 @@ func (op *obcBatch) sendBatch() events.Event {
 	reqBatch := &RequestBatch{Batch: op.batchStore}
 	op.batchStore = nil
 	logger.Infof("Creating batch with %d requests", len(reqBatch.Batch))
-	return pbftMessageEvent{
-		msg:    &Message{Payload: &Message_RequestBatch{RequestBatch: reqBatch}},
-		sender: op.pbft.id,
-	}
+	return reqBatch
 }
 
 func (op *obcBatch) txToReq(tx []byte) *Request {
