@@ -28,7 +28,7 @@ import bdd_test_util
 
 @then(u'I wait up to {waitTime} seconds for an error in the logs for peer {peerName}')
 def step_impl(context, waitTime, peerName):
-    timeout = time.time() + waitTime
+    timeout = time.time() + float(waitTime)
     hasError = False
 
     while timeout > time.time():
@@ -49,7 +49,7 @@ def getPeerLogs(context, peerName):
     return stdout, stderr
 
 def logHasError(logText):
-    # All logs are on STDERR, this seems to be an acceptable heuristic for detecting errors
+    # This seems to be an acceptable heuristic for detecting errors
     return logText.find("-> ERRO") >= 0
 
 @then(u'ensure after {waitTime} seconds there are no errors in the logs for peer {peerName}')

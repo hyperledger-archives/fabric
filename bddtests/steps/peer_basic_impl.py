@@ -281,6 +281,15 @@ def getChaincodeTypeValue(chainLang):
         return 0
     return 1
 
+@when(u'I mock deploy chaincode with name "{chaincodeName}"')
+def step_impl(context, chaincodeName):
+    chaincode = {
+        "name": chaincodeName,
+        "language": "GOLANG"
+    }
+
+    context.chaincodeSpec = createChaincodeSpec(context, chaincode)
+
 @then(u'I should have received a chaincode name')
 def step_impl(context):
     if 'chaincodeSpec' in context:
