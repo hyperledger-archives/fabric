@@ -98,7 +98,6 @@ linter: node-sdk-ci gotools
 
 node-sdk-ci:
 	@echo "Jenkins CI node setup"
-	@chmod a+x scripts/nodesdk.sh
 	@./scripts/nodesdk.sh
 
 # We (re)build protoc-gen-go from within docker context so that
