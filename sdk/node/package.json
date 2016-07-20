@@ -1,6 +1,6 @@
 {
   "name": "hfc",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "bin": "./bin/main.js",
   "typings": "hfc.d.ts",
   "main": "index.js",

@@ -83,7 +83,7 @@ behave: behave-deps
 	@echo "Running behave tests"
 	@cd bddtests; behave $(BEHAVE_OPTS)
 
-linter: gotools
+linter: node-sdk-ci gotools
 	@echo "LINT: Running code checks.."
 	@echo "Running go vet"
 	go vet ./consensus/...
@@ -95,6 +95,11 @@ linter: gotools
 	go vet ./protos/...
 	@echo "Running goimports"
 	@./scripts/goimports.sh
+
+node-sdk-ci:
+	@echo "Jenkins CI node setup"
+	@chmod a+x scripts/nodesdk.sh
+	@./scripts/nodesdk.sh
 
 # We (re)build protoc-gen-go from within docker context so that
 # we may later inject the binary into a different docker environment
