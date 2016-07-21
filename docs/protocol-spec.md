@@ -2126,7 +2126,7 @@ the code-metadata fields near it), and provide those to containers for deploymen
 ### 4.5 Online wallet service
 
 
-This section describes the security design of a wallet service, which in this case is a node with which end-users can register, store their key material, and through which they can perform transactions.
+This section describes the security design of a wallet service, which in this case is a node with which end-users can register, store their key material and through which they can perform transactions.
 Because the wallet service is in possession of the user's key material, it is clear that without a secure authorization
 mechanism in place a malicious wallet service could successfully impersonate the user.
 We thus emphasize that this design corresponds to a wallet service that is **trusted** to only perform transactions
@@ -2197,7 +2197,7 @@ as depicted in Sections 4.7.1 and 4.7.2.
    See, Section 4.7.1 for more information.
  - A minimal set of confidentiality properties where a chaincode is accessible
    by any entity that is member of the system, i.e., validators and users who
-   have registered to our membership services, and not accessible by anyone else.
+   have registered through Hyperledger Fabric's Membership Services and is not accessible by anyone else.
    The latter include any party that has access to the storage area where the
    ledger is maintained, or other entities that are able to see the transactions
    that are announced in the validator network. The design of the first release
@@ -2213,7 +2213,7 @@ as depicted in Sections 4.7.1 and 4.7.2.
 
 #### 4.7.1 Simplified client
 
-Client side enrollment and transaction creation is performed entirely by a non-validating peer that plays the role of an online wallet.
+Client-side enrollment and transaction creation are performed entirely by a non-validating peer that plays the role of an online wallet.
 In particular, the end-user leverages their registration credentials <username, password> to open an account to a non-validating peer
 and uses these credentials to further authorize the peer to build transactions on the user's behalf. It needs to be noted, that such
 a design does not provide secure **authorization** for the peer to submit transactions on behalf of the user, as a malicious peer
