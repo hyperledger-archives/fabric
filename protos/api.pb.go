@@ -7,6 +7,7 @@ Package protos is a generated protocol buffer package.
 
 It is generated from these files:
 	api.proto
+	chaincodeevent.proto
 	chaincode.proto
 	devops.proto
 	events.proto
@@ -16,6 +17,7 @@ It is generated from these files:
 It has these top-level messages:
 	BlockNumber
 	BlockCount
+	ChaincodeEvent
 	ChaincodeID
 	ChaincodeInput
 	ChaincodeSpec
@@ -30,10 +32,15 @@ It has these top-level messages:
 	RangeQueryStateKeyValue
 	RangeQueryStateResponse
 	Secret
+	SigmaInput
+	ExecuteWithBinding
+	SigmaOutput
 	BuildResult
+	TransactionRequest
+	ChaincodeReg
 	Interest
 	Register
-	Generic
+	Rejection
 	Event
 	Transaction
 	TransactionBlock

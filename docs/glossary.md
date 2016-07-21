@@ -7,6 +7,12 @@
 <col>
 <col>
 <tr>
+<td width="20%"><b>Chain Member</b></td>
+<td>
+Entities that do not participate in the validation process of a blockchain network, but help to maintain the integrity of a network. Unlike Chain transactors, chain members maintain a local copy of the ledger.
+</td>
+</tr>
+<tr>
 <td width="20%"><b>Chain Transactor</b></td>
 <td>
 Entities that have permission to create transactions and query network data.
@@ -53,6 +59,30 @@ Roles: Chain Transactor
 Proprietor(s) setup and define the purpose of a chain network. They are the stakeholders of a network.
 <p><p>
 Roles: Chain Transactor, Chain Validator
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Owner</b></td>
+<td>
+Owners are stakeholders of a network that can validate transactions. After a network is first launched, its proprietor (who then becomes an owner) will invite business partners to co-own the network (by assigning them validating nodes). Any new owner added to a network must be approved by its existing owners.
+<p><p>
+Roles: Chain Transactor, Chain Validator
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Member</b></td>
+<td>
+Members are participants of a blockchain network that cannot validate transactions but has the right to add users to the network.
+<p><p>
+Roles: Chain Transactor, Chain Member
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Network Users</b></td>
+<td>
+End users of a network are also solution users. Unlike network owners and members, users do not own nodes. They transact with the network through an entry point offered by a member or an owner node.
+<p><p>
+Roles: Chain Transactor
 </td>
 </tr>
 <tr>
@@ -113,6 +143,37 @@ A special purpose chain created to run confidential business logic that is only 
 </tr>
 </table>
 
+
+&nbsp;
+
+## Network Management
+
+#### _Member management_
+---
+<table border="0">
+<col>
+<col>
+<tr>
+<td width="20%"><b>Owner Registration</b></td>
+<td>
+The process of registering and inviting new owner(s) to a blockchain network. Approval from existing network owners is required when adding or deleting a participant with ownership right
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Member Registration</b></td>
+<td>
+The process of registering and inviting new network members to a blockchain network.
+</td>
+</tr>
+<tr>
+<td width="20%"><b>User Registration</b></td>
+<td>
+The process of registering new users to a blockchain network. Both members and owners can register users on their own behalf as long as they follow the policy of their network.
+</td>
+</tr>
+</table>
+
+
 &nbsp;
 
 ## Transactions
@@ -143,15 +204,21 @@ Transactions that invoke a function on a chaincode.
 <col>
 <col>
 <tr>
-<td width="20%"><b>Public transaction</b></td>
+<td width="20%"><b>Public Transaction</b></td>
 <td>
 A transaction with its payload in the open. Anyone with access to a chain network can interrogate the details of public transactions.
 </td>
 </tr>
 <tr>
-<td width="20%"><b>Confidential transaction</b></td>
+<td width="20%"><b>Confidential Transaction</b></td>
 <td>
-A transaction with an encrypted payload. If the transaction is a deployment transaction, then all subsequent invocation transactions calling that deployed chaincode must also be confidential.
+A transaction with its payload cryptographically hidden such that no one besides the stakeholders of a transaction can interrogate its content.
+</td>
+</tr>
+<tr>
+<td width="20%"><b>Confidential Chaincode Transaction</b></td>
+<td>
+A transaction with its payload encrypted such that only validators can decrypt them. Chaincode confidentiality is determined during deploy time. If a chaincode is deployed as a confidential chaincode, then the payload of all subsequent invocation transactions to that chaincode will be encrypted.
 </td>
 </tr>
 </table>
@@ -201,7 +268,7 @@ Transactions between confidential chains and main chains. Chaincodes in a confid
 <tr>
 <td width="20%"><b>Non Validating Node (Peer)</b></td>
 <td>
-  Purpose: Constructs transactions and forwards them to validating nodes. Peer nodes keep a copy of all transaction records so that solution providers can query them locally. (Dev Team name: NVP - Non Validating Peer)
+  Purpose: Constructs transactions and forwards them to validating nodes. Peer nodes keep a copy of all transaction records so that solution providers can query them locally.
   <p><p>
   Key Roles:<p>
   1)	Manages and maintains user certificates issued by the membership service<p>
@@ -232,7 +299,7 @@ Transactions between confidential chains and main chains. Chaincodes in a confid
   Key Roles:<p>
   1)	Issues enrollment certificate to each end user and organization<p>
   2)	Issues transaction certificates associated to each end user and organization<p>
-  3)	Issues TLS certificates for secured communication between OBC entities<p>
+  3)	Issues TLS certificates for secured communication between Hyperledger fabric entities<p>
   4)	Issues chain specific keys
   <p><p>
   Owned by: Third party service provider
@@ -255,13 +322,13 @@ Assigns registration username & registration password pairs to network participa
 <tr>
 <td width="20%"><b>Enrollment Certificate Authority (ECA)</b></td>
 <td>
-Issues enrollment certificates (ECert) to network participants that have already registered with a membership service.  ECerts are long term certificates used to identify individual entities participating in one or more networks.
+Issues enrollment certificates (ECert) to network participants that have already registered with a membership service. ECerts are long term certificates used to identify individual entities participating in one or more networks.
 </td>
 </tr>
 <tr>
 <td width="20%"><b>Transaction Certificate Authority (TCA)</b></td>
 <td>
-Issues transaction certificates (TCerts) to ECert owners.  An infinite number of TCerts can be derived from each ECert. TCerts are used by network participants to send transactions. Depending on the level of security requirements, network participants may choose to use a new TCert for every transaction.
+Issues transaction certificates (TCerts) to ECert owners. An infinite number of TCerts can be derived from each ECert. TCerts are used by network participants to send transactions. Depending on the level of security requirements, network participants may choose to use a new TCert for every transaction.
 </td>
 </tr>
 <tr>
@@ -274,7 +341,7 @@ Issues TLS certificates to systems that transmit messages in a chain network. TL
 
 &nbsp;
 
-## OBC Entities
+## Hyperledger Fabric Entities
 
 #### _Chaincode_
 ---
@@ -310,7 +377,7 @@ Chaincodes deployed by confidential transactions that also embed the tokens of a
 <tr>
 <td width="20%"><b>Chaincode-State</b></td>
 <td>
-OBC provides state support; Chaincodes access internal state storage through state APIs. States are created and updated by transactions calling chaincode functions with state accessing logic.
+HPL provides state support; Chaincodes access internal state storage through state APIs. States are created and updated by transactions calling chaincode functions with state accessing logic.
 </td>
 </tr>
 <tr>
@@ -348,7 +415,7 @@ The main module on a node that is responsible to process transactions, deploy an
 <tr>
 <td width="20%"><b>Consensus</b></td>
 <td>
-The default consensus algorithm of OBC is called Sieve. It is a new algorithm, enhancing the “classic” PBFT mechanism in that it allows validating nodes to do a best effort in identifying non-deterministic transactions.
+The default consensus algorithm of Hyperledger fabric is an implementation of PBFT.
 </td>
 </tr>
 </table>

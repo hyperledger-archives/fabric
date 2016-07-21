@@ -17,14 +17,16 @@ server:
 
         # TLS certificate and key file paths
         tls:
-#              certfile: "/var/hyperledger/production/.membersrvc/tlsca.cert"
-#              keyfile: "/var/hyperledger/production/.membersrvc/tlsca.priv"
+            cert:
+                file:
+            key:
+                file:
 
 security:
     # Can be 256 or 384
     # Must be the same as in core.yaml
     level: 256
-    
+
     # Can be SHA2 or SHA3
     # Must be the same as in core.yaml
     hashAlgorithm: SHA3
@@ -47,21 +49,52 @@ logging:
 # - auditing client: AUDITOR
 #
 eca:
-        affiliation_groups:
+        # This hierarchy is used to create the Pre-key tree, affiliations is the top of this hierarchy, 'banks_and_institutions' is used to create the key associated to auditors of both banks and
+        # institutions, 'banks' is used to create a key associated to auditors of banks, 'bank_a' is used to create a key associated to auditors of bank_a, etc.
+        affiliations:
            banks_and_institutions:
               banks:
-                  bank_a:
-                  bank_b:
-                  bank_c:              		
+                  - bank_a
+                  - bank_b
+                  - bank_c
               institutions:
-                  institution_a:
+                  - institution_a
         users:
-                # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                lukas: 1 NPKYL39uKbkj bank_a	00001
+                #
+                # The fields of each user are as follows:
+                #    <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role> <JSON_Metadata>
+                #
+                # The optional JSON_Metadata field is of the following format:
+                #   { "registrar": { "roles": <array-of-role-names>, "delegateRoles": <array-of-role-names> } }
+                # The 'registrar' section is used to control access to registration of new users directly via the ECAA.RegisterUser GRPC call.
+                # (See the 'fabric/membersrvc/protos/ca.proto' file for the definition of ECAA.RegisterUser.)
+                # Note that this also controls who can register users via the client SDK.
+                #
+                # Only users with a 'registrar' section may be a registrar to register other users.  In particular,
+                # 1) the "roles" field specifies which member roles may be registered by this user, and
+                # 2) the "delegateRoles" field specifies which member roles may become the "roles" field of registered users.
+                # The valid role names are "client", "peer", "validator", and "auditor".
+                #
+                # Example1:
+                #    The 'admin' user below can register clients, peers, validators, or auditors; furthermore, the 'admin' user can register other
+                #    users who can then register clients only.
+                #
+                # Example2:
+                #    The 'WebAppAdmin' user below can register clients only, but none of the users registered by this user can register other users.
+                #
+                admin: 1 Xurw3yU9zI0l institution_a 00001 '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
+                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 '{"registrar":{"roles":["client"]}}'
+                lukas: 1 NPKYL39uKbkj bank_a 00001
                 system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
-                diego: 1 DRJ23pEQl16a institution_a	00003
-                jim: 1 6avZQLwcUe9b bank_a	00004
-                binhn: 1 7avZQLwcUe9q institution_a	00005
+                diego: 1 DRJ23pEQl16a institution_a 00003
+                jim: 1 6avZQLwcUe9b bank_a 00004
+                binhn: 1 7avZQLwcUe9q institution_a 00005
+
+                # Users for asset transfer with roles test located at
+                # sdk/node/test/unit/asset-mgmt-with-roles.js
+                alice: 1 CMS10pEQlB16 bank_a 00006
+                bob: 1 NOE63pEQbL25 bank_a 00007
+                assigner: 1 Tc43PeqBl11 bank_a 00008
 
                 vp: 4 f3489fy98ghf
 
@@ -76,44 +109,68 @@ eca:
                 test_vp8: 4 BxP7QNh778gI
                 test_vp9: 4 wu3F1EwJWHvQ
 
-                test_user0: 1 MS9qrN8hFjlE bank_a	00006
-                test_user1: 1 jGlNl6ImkuDo institution_a	00007
-                test_user2: 1 zMflqOKezFiA bank_c	00008
-                test_user3: 1 vWdLCE00vJy0 bank_a	00009
-                test_user4: 1 4nXSrfoYGFCP institution_a	00010
-                test_user5: 1 yg5DVhm0er1z bank_b	00011
-                test_user6: 1 b7pmSxzKNFiw bank_a	00012
-                test_user7: 1 YsWZD4qQmYxo institution_a	00013
-                test_user8: 1 W8G0usrU7jRk bank_a	00014
-                test_user9: 1 H80SiB5ODKKQ institution_a	00015
+# Uncomment this section to activate devnet setup as specficied in
+# devnet-setup.md
+#
+#               vp0: 4 vp0_secret
+#               vp1: 4 vp1_secret
 
-                test_nvp0: 2 iywrPBDEPl0K bank_a       00006        
-                test_nvp1: 2 DcYXuRSocuqd institution_a        00007
-                test_nvp2: 2 flpChShlY7xt bank_c       00008        
-                test_nvp3: 2 jeruawMomclo bank_a       00009        
-                test_nvp4: 2 RMYVxSZCk370 institution_a        00010
-                test_nvp5: 2 XHYVCIJGZGK7 bank_b       00011        
-                test_nvp6: 2 4cIn63j8ahYp bank_a       00012        
-                test_nvp7: 2 E7FAJUtWVn2h institution_a        00013
-                test_nvp8: 2 LJu8DkUilBEH bank_a       00014        
-                test_nvp9: 2 VlEsBsiyXSjw institution_a        00015
+                test_user0: 1 MS9qrN8hFjlE bank_a        00001
+                test_user1: 1 jGlNl6ImkuDo institution_a 00007
+                test_user2: 1 zMflqOKezFiA bank_c        00008
+                test_user3: 1 vWdLCE00vJy0 bank_a        00009
+                test_user4: 1 4nXSrfoYGFCP institution_a 00010
+                test_user5: 1 yg5DVhm0er1z bank_b        00011
+                test_user6: 1 b7pmSxzKNFiw bank_a        00012
+                test_user7: 1 YsWZD4qQmYxo institution_a 00013
+                test_user8: 1 W8G0usrU7jRk bank_a        00014
+                test_user9: 1 H80SiB5ODKKQ institution_a 00015
+
+                test_nvp0: 2 iywrPBDEPl0K bank_a        00006
+                test_nvp1: 2 DcYXuRSocuqd institution_a 00007
+                test_nvp2: 2 flpChShlY7xt bank_c        00008
+                test_nvp3: 2 jeruawMomclo bank_a        00009
+                test_nvp4: 2 RMYVxSZCk370 institution_a 00010
+                test_nvp5: 2 XHYVCIJGZGK7 bank_b        00011
+                test_nvp6: 2 4cIn63j8ahYp bank_a        00012
+                test_nvp7: 2 E7FAJUtWVn2h institution_a 00013
+                test_nvp8: 2 LJu8DkUilBEH bank_a        00014
+                test_nvp9: 2 VlEsBsiyXSjw institution_a 00015
 
 tca:
+          # Enabling/disabling attributes encryption, currently false is unique possible value due attributes encryption is not yet implemented.
           attribute-encryption:
                  enabled: false
+aca:
+          # Attributes is a list of the valid attributes to each user, attribute certificate authority is emulated temporarily using this file entries.
+          # In the future an external attribute certificate authority will be invoked. The format to each entry is:
+          #
+          #     attribute-entry-#:{userid};{affiliation};{attributeName};{attributeValue};{valid from};{valid to}
+          #
+          # If valid to is empty the attribute never expire, if the valid from is empty the attribute is valid from the time zero.
+          attributes:
+              attribute-entry-0: diego;institution_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+              attribute-entry-1: diego;institution_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
+              attribute-entry-2: diego;institution_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
+              attribute-entry-3: jim,;institution_a;company;ACompany;2001-02-02T00:00:00-03:00;;
+              attribute-entry-4: jim;institution_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
+              attribute-entry-5: binhn,;institution_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+              attribute-entry-6: binhn;institution_a;position;Technical Leader;2015-01-01T00:00:00-03:00;;
 
+              # User attributes for asset transfer with roles test located at
+              #sdk/node/test/unit/asset-mgmt-with-roles.js
+              attribute-entry-7: alice;bank_a;role;client;2016-01-01T00:00:00-03:00;;
+              attribute-entry-8: alice;bank_a;account;12345-56789;2016-01-01T00:00:00-03:00;;
+              attribute-entry-9: bob;bank_a;role;client;2015-02-02T00:00:00-03:00;;
+              attribute-entry-10: bob;bank_a;account;23456-67890;2015-02-02T00:00:00-03:00;;
+              attribute-entry-11: assigner;bank_a;role;assigner;2015-01-01T00:00:00-03:00;;
+
+          address: localhost:50051
+          server-name: acap
+          # Enabling/disabling Attribute Certificate Authority, if ACA is enabled attributes will be added into the TCert.
+          enabled: false
 pki:
-          validity-period:
-                 # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
-                 update: false
-                 chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
-                 # TLS Settings for communications to update the validity period
-                 tls:
-                         enabled: false
-                         cert:
-                                file: testdata/server1.pem
-                         key:
-                                file: testdata/server1.key
-                         # The server name use to verify the hostname returned by TLS handshake
-                         serverhostoverride:
-                 devops-address: 0.0.0.0:30303
+          ca:
+                 subject:
+                         organization: Hyperledger
+                         country: US

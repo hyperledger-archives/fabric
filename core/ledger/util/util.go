@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package util
@@ -26,19 +23,9 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// IsNil returns true if b is either nil or zero-length array
-func IsNil(b []byte) bool {
-	return b == nil || len(b) == 0
-}
-
-// NotNil returns true if b is a non-zero length array
-func NotNil(b []byte) bool {
-	return !IsNil(b)
-}
-
 // EncodeOrderPreservingVarUint64 returns a byte-representation for a uint64 number such that
 // all zero-bits starting bytes are trimmed in order to reduce the length of the array
-// For preserving the order in a default bytes-comparision, first byte contains the number of remaining bytes.
+// For preserving the order in a default bytes-comparison, first byte contains the number of remaining bytes.
 // The presence of first byte also allows to use the returned bytes as part of other larger byte array such as a
 // composite-key representation in db
 func EncodeOrderPreservingVarUint64(number uint64) []byte {

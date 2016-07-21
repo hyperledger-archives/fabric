@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package helper
@@ -22,31 +19,50 @@ package helper
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
 
-	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/consensus"
+	"github.com/hyperledger/fabric/consensus/executor"
+	"github.com/hyperledger/fabric/consensus/helper/persist"
+	"github.com/hyperledger/fabric/core/chaincode"
 	crypto "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	"github.com/hyperledger/fabric/core/peer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 // Helper contains the reference to the peer's MessageHandlerCoordinator
 type Helper struct {
-	coordinator peer.MessageHandlerCoordinator
-	secOn       bool
-	secHelper   crypto.Peer
-	curBatch    []*pb.Transaction // TODO, remove after issue 579
+	consenter    consensus.Consenter
+	coordinator  peer.MessageHandlerCoordinator
+	secOn        bool
+	valid        bool // Whether we believe the state is up to date
+	secHelper    crypto.Peer
+	curBatch     []*pb.Transaction       // TODO, remove after issue 579
+	curBatchErrs []*pb.TransactionResult // TODO, remove after issue 579
+	persist.Helper
+
+	executor consensus.Executor
 }
 
 // NewHelper constructs the consensus helper object
-func NewHelper(mhc peer.MessageHandlerCoordinator) consensus.Stack {
-	return &Helper{coordinator: mhc,
-		secOn:     viper.GetBool("security.enabled"),
-		secHelper: mhc.GetSecHelper()}
+func NewHelper(mhc peer.MessageHandlerCoordinator) *Helper {
+	h := &Helper{
+		coordinator: mhc,
+		secOn:       viper.GetBool("security.enabled"),
+		secHelper:   mhc.GetSecHelper(),
+		valid:       true, // Assume our state is consistent until we are told otherwise, TODO: revisit
+	}
+
+	h.executor = executor.NewImpl(h, h, mhc)
+	h.executor.Start()
+	return h
+}
+
+func (h *Helper) setConsenter(c consensus.Consenter) {
+	h.consenter = c
 }
 
 // GetNetworkInfo returns the PeerEndpoints of the current validator and the entire validating network
@@ -121,7 +137,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 		return nil
 	}
 
-	logger.Debug("Verify message from: %v", replicaID.Name)
+	logger.Debugf("Verify message from: %v", replicaID.Name)
 	_, network, err := h.GetNetworkInfo()
 	if err != nil {
 		return fmt.Errorf("Couldn't retrieve validating network's endpoints: %v", err)
@@ -130,7 +146,7 @@ func (h *Helper) Verify(replicaID *pb.PeerID, signature []byte, message []byte) 
 	// check that the sender is a valid replica
 	// if so, call crypto verify() with that endpoint's pkiID
 	for _, endpoint := range network {
-		logger.Debug("Endpoint name: %v", endpoint.ID.Name)
+		logger.Debugf("Endpoint name: %v", endpoint.ID.Name)
 		if *replicaID == *endpoint.ID {
 			cryptoID := endpoint.PkiID
 			return h.secHelper.Verify(cryptoID, signature, message)
@@ -149,7 +165,8 @@ func (h *Helper) BeginTxBatch(id interface{}) error {
 	if err := ledger.BeginTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to begin transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 
@@ -162,9 +179,26 @@ func (h *Helper) ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error) 
 	// The secHelper is set during creat ChaincodeSupport, so we don't need this step
 	// cxt := context.WithValue(context.Background(), "security", h.coordinator.GetSecHelper())
 	// TODO return directly once underlying implementation no longer returns []error
-	res, _ := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
-	h.curBatch = append(h.curBatch, txs...) // TODO, remove after issue 579
-	return res, nil
+
+	succeededTxs, res, ccevents, txerrs, err := chaincode.ExecuteTransactions(context.Background(), chaincode.DefaultChain, txs)
+
+	h.curBatch = append(h.curBatch, succeededTxs...) // TODO, remove after issue 579
+
+	//copy errs to result
+	txresults := make([]*pb.TransactionResult, len(txerrs))
+
+	//process errors for each transaction
+	for i, e := range txerrs {
+		//NOTE- it'll be nice if we can have error values. For now success == 0, error == 1
+		if txerrs[i] != nil {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, Error: e.Error(), ErrorCode: 1, ChaincodeEvent: ccevents[i]}
+		} else {
+			txresults[i] = &pb.TransactionResult{Uuid: txs[i].Uuid, ChaincodeEvent: ccevents[i]}
+		}
+	}
+	h.curBatchErrs = append(h.curBatchErrs, txresults...) // TODO, remove after issue 579
+
+	return res, err
 }
 
 // CommitTxBatch gets invoked when the current transaction-batch needs
@@ -178,17 +212,22 @@ func (h *Helper) CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, erro
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this one the ledger has been fixed to implement
-	if err := ledger.CommitTxBatch(id, h.curBatch, nil, metadata); err != nil {
+	if err := ledger.CommitTxBatch(id, h.curBatch, h.curBatchErrs, metadata); err != nil {
 		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
 	}
 
 	size := ledger.GetBlockchainSize()
-	h.curBatch = nil // TODO, remove after issue 579
+	defer func() {
+		h.curBatch = nil     // TODO, remove after issue 579
+		h.curBatchErrs = nil // TODO, remove after issue 579
+	}()
 
 	block, err := ledger.GetBlockByNumber(size - 1)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the block at the head of the chain: %v", err)
 	}
+
+	logger.Debugf("Committed block with %d transactions, intended to include %d", len(block.Transactions), len(h.curBatch))
 
 	return block, nil
 }
@@ -203,25 +242,27 @@ func (h *Helper) RollbackTxBatch(id interface{}) error {
 	if err := ledger.RollbackTxBatch(id); err != nil {
 		return fmt.Errorf("Failed to rollback transaction with the ledger: %v", err)
 	}
-	h.curBatch = nil // TODO, remove after issue 579
+	h.curBatch = nil     // TODO, remove after issue 579
+	h.curBatchErrs = nil // TODO, remove after issue 579
 	return nil
 }
 
-// PreviewCommitTxBatch retrieves a preview copy of the block that would be inserted into the ledger if CommitTxBatch were invoked.
-// As a preview copy, it only guarantees that the hashable portions of the block will match the committed block.  Consequently,
-// this preview block should only be used for hash computations and never distributed, passed into PutBlock, etc..
-// The guarantee of hashable equality will be violated if additional ExecTXs calls are invoked.
-func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error) {
+// PreviewCommitTxBatch retrieves a preview of the block info blob (as
+// returned by GetBlockchainInfoBlob) that would describe the
+// blockchain if CommitTxBatch were invoked.  The blockinfo will
+// change if additional ExecTXs calls are invoked.
+func (h *Helper) PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get the ledger: %v", err)
 	}
 	// TODO fix this once the underlying API is fixed
-	block, err := ledger.GetTXBatchPreviewBlock(id, h.curBatch, metadata)
+	blockInfo, err := ledger.GetTXBatchPreviewBlockInfo(id, h.curBatch, metadata)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to commit transaction to the ledger: %v", err)
+		return nil, fmt.Errorf("Failed to preview commit: %v", err)
 	}
-	return block, err
+	rawInfo, _ := proto.Marshal(blockInfo)
+	return rawInfo, nil
 }
 
 // GetBlock returns a block from the chain
@@ -243,117 +284,105 @@ func (h *Helper) GetCurrentStateHash() (stateHash []byte, err error) {
 }
 
 // GetBlockchainSize returns the current size of the blockchain
-func (h *Helper) GetBlockchainSize() (uint64, error) {
+func (h *Helper) GetBlockchainSize() uint64 {
+	return h.coordinator.GetBlockchainSize()
+}
+
+// GetBlockchainInfo gets the ledger's BlockchainInfo
+func (h *Helper) GetBlockchainInfo() *pb.BlockchainInfo {
+	ledger, _ := ledger.GetLedger()
+	info, _ := ledger.GetBlockchainInfo()
+	return info
+}
+
+// GetBlockchainInfoBlob marshals a ledger's BlockchainInfo into a protobuf
+func (h *Helper) GetBlockchainInfoBlob() []byte {
+	ledger, _ := ledger.GetLedger()
+	info, _ := ledger.GetBlockchainInfo()
+	rawInfo, _ := proto.Marshal(info)
+	return rawInfo
+}
+
+// GetBlockHeadMetadata returns metadata from block at the head of the blockchain
+func (h *Helper) GetBlockHeadMetadata() ([]byte, error) {
 	ledger, err := ledger.GetLedger()
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.GetBlockchainSize(), nil
-}
-
-// HashBlock returns the hash of the included block, useful for mocking
-func (h *Helper) HashBlock(block *pb.Block) ([]byte, error) {
-	return block.GetHash()
-}
-
-// PutBlock inserts a raw block into the blockchain at the specified index, nearly no error checking is performed
-func (h *Helper) PutBlock(blockNumber uint64, block *pb.Block) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.PutRawBlock(block, blockNumber)
-}
-
-// ApplyStateDelta applies a state delta to the current state
-// The result of this function can be retrieved using GetCurrentStateDelta
-// To commit the result, call CommitStateDelta, or to roll it back
-// call RollbackStateDelta
-func (h *Helper) ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.ApplyStateDelta(id, delta)
-}
-
-// CommitStateDelta makes the result of ApplyStateDelta permanent
-// and releases the resources necessary to rollback the delta
-func (h *Helper) CommitStateDelta(id interface{}) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.CommitStateDelta(id)
-}
-
-// RollbackStateDelta undoes the results of ApplyStateDelta to revert
-// the current state back to the state before ApplyStateDelta was invoked
-func (h *Helper) RollbackStateDelta(id interface{}) error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.RollbackStateDelta(id)
-}
-
-// EmptyState completely empties the state and prepares it to restore a snapshot
-func (h *Helper) EmptyState() error {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.DeleteALLStateKeysAndValues()
-}
-
-// VerifyBlockchain checks the integrity of the blockchain between indices start and finish,
-// returning the first block who's PreviousBlockHash field does not match the hash of the previous block
-func (h *Helper) VerifyBlockchain(start, finish uint64) (uint64, error) {
-	ledger, err := ledger.GetLedger()
-	if err != nil {
-		return finish, fmt.Errorf("Failed to get the ledger :%v", err)
-	}
-	return ledger.VerifyChain(start, finish)
-}
-
-func (h *Helper) getRemoteLedger(peerID *pb.PeerID) (peer.RemoteLedger, error) {
-	remoteLedger, err := h.coordinator.GetRemoteLedger(peerID)
-	if nil != err {
-		return nil, fmt.Errorf("Error retrieving the remote ledger for the given handle '%s' : %s", peerID, err)
-	}
-
-	return remoteLedger, nil
-}
-
-// GetRemoteBlocks will return a channel to stream blocks from the desired replicaID
-func (h *Helper) GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
 		return nil, err
 	}
-	return remoteLedger.RequestBlocks(&pb.SyncBlockRange{
-		Start: start,
-		End:   finish,
-	})
-}
-
-// GetRemoteStateSnapshot will return a channel to stream a state snapshot from the desired replicaID
-func (h *Helper) GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
+	head := ledger.GetBlockchainSize()
+	block, err := ledger.GetBlockByNumber(head - 1)
+	if err != nil {
 		return nil, err
 	}
-	return remoteLedger.RequestStateSnapshot()
+	return block.ConsensusMetadata, nil
 }
 
-// GetRemoteStateDeltas will return a channel to stream a state snapshot deltas from the desired replicaID
-func (h *Helper) GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error) {
-	remoteLedger, err := h.getRemoteLedger(replicaID)
-	if nil != err {
-		return nil, err
-	}
-	return remoteLedger.RequestStateDeltas(&pb.SyncBlockRange{
-		Start: start,
-		End:   finish,
-	})
+// InvalidateState is invoked to tell us that consensus realizes the ledger is out of sync
+func (h *Helper) InvalidateState() {
+	logger.Debug("Invalidating the current state")
+	h.valid = false
 }
+
+// ValidateState is invoked to tell us that consensus has the ledger back in sync
+func (h *Helper) ValidateState() {
+	logger.Debug("Validating the current state")
+	h.valid = true
+}
+
+// Execute will execute a set of transactions, this may be called in succession
+func (h *Helper) Execute(tag interface{}, txs []*pb.Transaction) {
+	h.executor.Execute(tag, txs)
+}
+
+// Commit will commit whatever transactions have been executed
+func (h *Helper) Commit(tag interface{}, metadata []byte) {
+	h.executor.Commit(tag, metadata)
+}
+
+// Rollback will roll back whatever transactions have been executed
+func (h *Helper) Rollback(tag interface{}) {
+	h.executor.Rollback(tag)
+}
+
+// UpdateState attempts to synchronize state to a particular target, implicitly calls rollback if needed
+func (h *Helper) UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) {
+	if h.valid {
+		logger.Warning("State transfer is being called for, but the state has not been invalidated")
+	}
+
+	h.executor.UpdateState(tag, target, peers)
+}
+
+// Executed is called whenever Execute completes
+func (h *Helper) Executed(tag interface{}) {
+	if h.consenter != nil {
+		h.consenter.Executed(tag)
+	}
+}
+
+// Committed is called whenever Commit completes
+func (h *Helper) Committed(tag interface{}, target *pb.BlockchainInfo) {
+	if h.consenter != nil {
+		h.consenter.Committed(tag, target)
+	}
+}
+
+// RolledBack is called whenever a Rollback completes
+func (h *Helper) RolledBack(tag interface{}) {
+	if h.consenter != nil {
+		h.consenter.RolledBack(tag)
+	}
+}
+
+// StateUpdated is called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
+func (h *Helper) StateUpdated(tag interface{}, target *pb.BlockchainInfo) {
+	if h.consenter != nil {
+		h.consenter.StateUpdated(tag, target)
+	}
+}
+
+// Start his is a byproduct of the consensus API needing some cleaning, for now it's a no-op
+func (h *Helper) Start() {}
+
+// Halt is a byproduct of the consensus API needing some cleaning, for now it's a no-op
+func (h *Helper) Halt() {}

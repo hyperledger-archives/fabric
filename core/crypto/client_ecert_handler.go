@@ -1,6 +1,23 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package crypto
 
 import (
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -49,7 +66,7 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 	txHandler := &eCertTransactionHandlerImpl{}
 	err := txHandler.init(handler.client)
 	if err != nil {
-		handler.client.error("Failed getting transaction handler [%s]", err)
+		handler.client.Errorf("Failed getting transaction handler [%s]", err)
 
 		return nil, err
 	}
@@ -60,14 +77,14 @@ func (handler *eCertHandlerImpl) GetTransactionHandler() (TransactionHandler, er
 func (handler *eCertTransactionHandlerImpl) init(client *clientImpl) error {
 	nonce, err := client.createTransactionNonce()
 	if err != nil {
-		client.error("Failed initiliazing transaction handler [%s]", err)
+		client.Errorf("Failed initiliazing transaction handler [%s]", err)
 
 		return err
 	}
 
 	handler.client = client
 	handler.nonce = nonce
-	handler.binding = utils.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
+	handler.binding = primitives.Hash(append(handler.client.enrollCert.Raw, handler.nonce...))
 
 	return nil
 }
@@ -83,16 +100,16 @@ func (handler *eCertTransactionHandlerImpl) GetBinding() ([]byte, error) {
 }
 
 // NewChaincodeDeployTransaction is used to deploy chaincode.
-func (handler *eCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string) (*obc.Transaction, error) {
+func (handler *eCertTransactionHandlerImpl) NewChaincodeDeployTransaction(chaincodeDeploymentSpec *obc.ChaincodeDeploymentSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
 	return handler.client.newChaincodeDeployUsingECert(chaincodeDeploymentSpec, uuid, handler.nonce)
 }
 
 // NewChaincodeExecute is used to execute chaincode's functions.
-func (handler *eCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+func (handler *eCertTransactionHandlerImpl) NewChaincodeExecute(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
 	return handler.client.newChaincodeExecuteUsingECert(chaincodeInvocation, uuid, handler.nonce)
 }
 
 // NewChaincodeQuery is used to query chaincode's functions.
-func (handler *eCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string) (*obc.Transaction, error) {
+func (handler *eCertTransactionHandlerImpl) NewChaincodeQuery(chaincodeInvocation *obc.ChaincodeInvocationSpec, uuid string, attributeNames ...string) (*obc.Transaction, error) {
 	return handler.client.newChaincodeQueryUsingECert(chaincodeInvocation, uuid, handler.nonce)
 }

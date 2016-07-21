@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package chaincode
@@ -28,17 +25,18 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/hyperledger/fabric/core/ledger"
+	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 //Execute - execute transaction or a query
-func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, error) {
+func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) ([]byte, *pb.ChaincodeEvent, error) {
 	var err error
 
 	// get a handle to ledger to mark the begin/finish of a tx
 	ledger, ledgerErr := ledger.GetLedger()
 	if ledgerErr != nil {
-		return nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
+		return nil, nil, fmt.Errorf("Failed to get handle to ledger (%s)", ledgerErr)
 	}
 
 	if secHelper := chain.getSecHelper(); nil != secHelper {
@@ -46,36 +44,36 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		t, err = secHelper.TransactionPreExecution(t)
 		// Note that t is now decrypted and is a deep clone of the original input t
 		if nil != err {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if t.Type == pb.Transaction_CHAINCODE_DEPLOY {
-		_, err := chain.DeployChaincode(ctxt, t)
+		_, err := chain.Deploy(ctxt, t)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
+			return nil, nil, fmt.Errorf("Failed to deploy chaincode spec(%s)", err)
 		}
 
 		//launch and wait for ready
 		markTxBegin(ledger, t)
-		_, _, err = chain.LaunchChaincode(ctxt, t)
+		_, _, err = chain.Launch(ctxt, t)
 		if err != nil {
 			markTxFinish(ledger, t, false)
-			return nil, fmt.Errorf("%s", err)
+			return nil, nil, fmt.Errorf("%s", err)
 		}
 		markTxFinish(ledger, t, true)
 	} else if t.Type == pb.Transaction_CHAINCODE_INVOKE || t.Type == pb.Transaction_CHAINCODE_QUERY {
 		//will launch if necessary (and wait for ready)
-		cID, cMsg, err := chain.LaunchChaincode(ctxt, t)
+		cID, cMsg, err := chain.Launch(ctxt, t)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
+			return nil, nil, fmt.Errorf("Failed to launch chaincode spec(%s)", err)
 		}
 
 		//this should work because it worked above...
 		chaincode := cID.Name
 
 		if err != nil {
-			return nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
+			return nil, nil, fmt.Errorf("Failed to stablish stream to container %s", chaincode)
 		}
 
 		// TODO: Need to comment next line and uncomment call to getTimeout, when transaction blocks are being created
@@ -83,19 +81,19 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		//timeout, err := getTimeout(cID)
 
 		if err != nil {
-			return nil, fmt.Errorf("Failed to retrieve chaincode spec(%s)", err)
+			return nil, nil, fmt.Errorf("Failed to retrieve chaincode spec(%s)", err)
 		}
 
 		var ccMsg *pb.ChaincodeMessage
 		if t.Type == pb.Transaction_CHAINCODE_INVOKE {
 			ccMsg, err = createTransactionMessage(t.Uuid, cMsg)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to transaction message(%s)", err)
+				return nil, nil, fmt.Errorf("Failed to transaction message(%s)", err)
 			}
 		} else {
 			ccMsg, err = createQueryMessage(t.Uuid, cMsg)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to query message(%s)", err)
+				return nil, nil, fmt.Errorf("Failed to query message(%s)", err)
 			}
 		}
 
@@ -104,51 +102,66 @@ func Execute(ctxt context.Context, chain *ChaincodeSupport, t *pb.Transaction) (
 		if err != nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			return nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
+			return nil, nil, fmt.Errorf("Failed to execute transaction or query(%s)", err)
 		} else if resp == nil {
 			// Rollback transaction
 			markTxFinish(ledger, t, false)
-			return nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
+			return nil, nil, fmt.Errorf("Failed to receive a response for (%s)", t.Uuid)
 		} else {
+			if resp.ChaincodeEvent != nil {
+				resp.ChaincodeEvent.ChaincodeID = chaincode
+				resp.ChaincodeEvent.TxID = t.Uuid
+			}
+
 			if resp.Type == pb.ChaincodeMessage_COMPLETED || resp.Type == pb.ChaincodeMessage_QUERY_COMPLETED {
 				// Success
 				markTxFinish(ledger, t, true)
-				return resp.Payload, nil
+				return resp.Payload, resp.ChaincodeEvent, nil
 			} else if resp.Type == pb.ChaincodeMessage_ERROR || resp.Type == pb.ChaincodeMessage_QUERY_ERROR {
 				// Rollback transaction
 				markTxFinish(ledger, t, false)
-				return nil, fmt.Errorf("Transaction or query returned with failure: %s", string(resp.Payload))
+				return nil, resp.ChaincodeEvent, fmt.Errorf("Transaction or query returned with failure: %s", string(resp.Payload))
 			}
 			markTxFinish(ledger, t, false)
-			return resp.Payload, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
+			return resp.Payload, nil, fmt.Errorf("receive a response for (%s) but in invalid state(%d)", t.Uuid, resp.Type)
 		}
 
 	} else {
 		err = fmt.Errorf("Invalid transaction type %s", t.Type.String())
 	}
-	return nil, err
+	return nil, nil, err
 }
 
 //ExecuteTransactions - will execute transactions on the array one by one
 //will return an array of errors one for each transaction. If the execution
-//succeeded, array element will be nil. returns state hash
-func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) ([]byte, []error) {
+//succeeded, array element will be nil. returns []byte of state hash or
+//error
+func ExecuteTransactions(ctxt context.Context, cname ChainName, xacts []*pb.Transaction) (succeededTXs []*pb.Transaction, stateHash []byte, ccevents []*pb.ChaincodeEvent, txerrs []error, err error) {
 	var chain = GetChain(cname)
 	if chain == nil {
 		// TODO: We should never get here, but otherwise a good reminder to better handle
 		panic(fmt.Sprintf("[ExecuteTransactions]Chain %s not found\n", cname))
 	}
-	errs := make([]error, len(xacts)+1)
+
+	txerrs = make([]error, len(xacts))
+	ccevents = make([]*pb.ChaincodeEvent, len(xacts))
+	var succeededTxs = make([]*pb.Transaction, 0)
 	for i, t := range xacts {
-		_, errs[i] = Execute(ctxt, chain, t)
+		_, ccevents[i], txerrs[i] = Execute(ctxt, chain, t)
+		if txerrs[i] == nil {
+			succeededTxs = append(succeededTxs, t)
+		} else {
+			sendTxRejectedEvent(xacts[i], txerrs[i].Error())
+		}
 	}
-	ledger, hasherr := ledger.GetLedger()
-	var statehash []byte
-	if hasherr == nil {
-		statehash, hasherr = ledger.GetTempStateHash()
+
+	var lgr *ledger.Ledger
+	lgr, err = ledger.GetLedger()
+	if err == nil {
+		stateHash, err = lgr.GetTempStateHash()
 	}
-	errs[len(errs)-1] = hasherr
-	return statehash, errs
+
+	return succeededTxs, stateHash, ccevents, txerrs, err
 }
 
 // GetSecureContext returns the security context from the context object or error
@@ -199,4 +212,8 @@ func markTxFinish(ledger *ledger.Ledger, t *pb.Transaction, successful bool) {
 		return
 	}
 	ledger.TxFinished(t.Uuid, successful)
+}
+
+func sendTxRejectedEvent(tx *pb.Transaction, errorMsg string) {
+	producer.Send(producer.CreateRejectionEvent(tx, errorMsg))
 }

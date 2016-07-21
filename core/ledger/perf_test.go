@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
@@ -102,7 +99,7 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	}
 	b.StopTimer()
 
-	//varify value persisted
+	//verify value persisted
 	value, _ = ledger.GetState(chaincode, *key, true)
 	size := ledger.GetBlockchainSize()
 	b.Logf("Value size=%d, Blockchain height=%d", len(value), size)
@@ -166,7 +163,7 @@ func BenchmarkLedgerRandomTransactions(b *testing.B) {
 	b.Logf(`Running test with params: keyPrefix=%s, kvSize=%d, batchSize=%d, maxKeySuffix=%d, numBatches=%d, numReadsFromLedger=%d, numWritesToLedger=%d`,
 		*keyPrefix, *kvSize, *batchSize, *maxKeySuffix, *numBatches, *numReadsFromLedger, *numWritesToLedger)
 
-	ledger, err := newLedger()
+	ledger, err := GetNewLedger()
 	testutil.AssertNoError(b, err, "Error while constructing ledger")
 
 	chaincode := "chaincodeId"
@@ -205,7 +202,7 @@ func BenchmarkLedgerRandomTransactions(b *testing.B) {
 
 func populateDB(tb testing.TB, kvSize int, totalKeys int, keyPrefix string) {
 	dbWrapper := db.NewTestDBWrapper()
-	dbWrapper.CreateFreshDB(tb)
+	dbWrapper.CleanDB(tb)
 	batch := gorocksdb.NewWriteBatch()
 	for i := 0; i < totalKeys; i++ {
 		key := []byte(keyPrefix + strconv.Itoa(i))

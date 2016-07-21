@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package buckettree
@@ -27,7 +24,7 @@ import (
 )
 
 func TestRangeScanIterator(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateDelta := statemgmt.NewStateDelta()
 
@@ -121,5 +118,32 @@ func TestRangeScanIterator(t *testing.T) {
 	testutil.AssertEquals(t, results["key5"], []byte("value5"))
 	testutil.AssertEquals(t, results["key6"], []byte("value6"))
 	testutil.AssertEquals(t, results["key7"], []byte("value7"))
+	rangeScanItr.Close()
+}
+
+func TestRangeScanIteratorEmptyArray(t *testing.T) {
+	testDBWrapper.CleanDB(t)
+	stateImplTestWrapper := newStateImplTestWrapper(t)
+	stateDelta := statemgmt.NewStateDelta()
+
+	// insert keys
+	stateDelta.Set("chaincodeID1", "key1", []byte("value1"), nil)
+	stateDelta.Set("chaincodeID1", "key2", []byte{}, nil)
+	stateDelta.Set("chaincodeID1", "key3", []byte{}, nil)
+
+	stateImplTestWrapper.prepareWorkingSet(stateDelta)
+	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+
+	// test range scan for chaincodeID2
+	rangeScanItr := stateImplTestWrapper.getRangeScanIterator("chaincodeID1", "key1", "key3")
+
+	var results = make(map[string][]byte)
+	for rangeScanItr.Next() {
+		key, value := rangeScanItr.GetKeyValue()
+		results[key] = value
+	}
+	t.Logf("Results = %s", results)
+	testutil.AssertEquals(t, len(results), 3)
+	testutil.AssertEquals(t, results["key3"], []byte{})
 	rangeScanItr.Close()
 }

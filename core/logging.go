@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package core
@@ -59,30 +56,35 @@ func LoggingInit(command string) {
 				// Default level
 				defaultLevel, err = logging.LogLevel(field)
 				if err != nil {
-					loggingLogger.Warning("Logging level '%s' not recognized, defaulting to %s : %s", field, loggingDefaultLevel, err)
+					loggingLogger.Warningf("Logging level '%s' not recognized, defaulting to %s : %s", field, loggingDefaultLevel, err)
 					defaultLevel = loggingDefaultLevel // NB - 'defaultLevel' was overwritten
 				}
 			case 2:
 				// <module>[,<module>...]=<level>
 				if level, err := logging.LogLevel(split[1]); err != nil {
-					loggingLogger.Warning("Invalid logging level in '%s' ignored", field)
+					loggingLogger.Warningf("Invalid logging level in '%s' ignored", field)
 				} else if split[0] == "" {
-					loggingLogger.Warning("Invalid logging override specification '%s' ignored - no module specified", field)
+					loggingLogger.Warningf("Invalid logging override specification '%s' ignored - no module specified", field)
 				} else {
 					modules := strings.Split(split[0], ",")
 					for _, module := range modules {
 						logging.SetLevel(level, module)
-						loggingLogger.Debug("Setting logging level for module '%s' to %s", module, level)
+						loggingLogger.Debugf("Setting logging level for module '%s' to %s", module, level)
 					}
 				}
 			default:
-				loggingLogger.Warning("Invalid logging override '%s' ignored; Missing ':' ?", field)
+				loggingLogger.Warningf("Invalid logging override '%s' ignored; Missing ':' ?", field)
 			}
 		}
 	}
 	// Set the default logging level for all modules
 	logging.SetLevel(defaultLevel, "")
-	loggingLogger.Debug("Setting default logging level to %s for command '%s'", defaultLevel, command)
+	loggingLogger.Debugf("Setting default logging level to %s for command '%s'", defaultLevel, command)
+}
+
+// DefaultLoggingLevel returns the fallback value for loggers to use if parsing fails
+func DefaultLoggingLevel() logging.Level {
+	return loggingDefaultLevel
 }
 
 // Initiate 'leveled' logging to stderr.

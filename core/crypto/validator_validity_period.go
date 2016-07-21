@@ -1,31 +1,29 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
 
 import (
 	"errors"
-	"github.com/spf13/viper"
 	"strconv"
 	"time"
 
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/spf13/viper"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/ledger"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -47,9 +45,9 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 	if tx.Cert != nil && tx.Signature != nil {
 
 		// Unmarshal cert
-		cert, err := utils.DERToX509Certificate(tx.Cert)
+		cert, err := primitives.DERToX509Certificate(tx.Cert)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed unmarshalling cert %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed unmarshalling cert %s:", err)
 			return tx, err
 		}
 
@@ -57,19 +55,19 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 
 		ledger, err := ledger.GetLedger()
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed getting access to the ledger %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed getting access to the ledger %s:", err)
 			return tx, err
 		}
 
 		vpBytes, err := ledger.GetState(cid, "system.validity.period", true)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed reading validity period from the ledger %s:", err)
 			return tx, err
 		}
 
 		i, err := strconv.ParseInt(string(vpBytes[:]), 10, 64)
 		if err != nil {
-			validator.error("verifyValidityPeriod: failed to parse validity period %s:", err)
+			validator.Errorf("verifyValidityPeriod: failed to parse validity period %s:", err)
 			return tx, err
 		}
 
@@ -88,7 +86,7 @@ func (validator *validatorImpl) verifyValidityPeriod(tx *obc.Transaction) (*obc.
 		}
 
 		if errMsg != "" {
-			validator.error(errMsg)
+			validator.Error(errMsg)
 			return tx, errors.New(errMsg)
 		}
 	}

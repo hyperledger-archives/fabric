@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -42,11 +39,14 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init is a no-op
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return nil, nil
 }
 
-// Run callback representing the invocation of a chaincode
+// Invoke has two functions
+// put - takes two arguements, a key and value, and stores them in the state
+// remove - takes one argument, a key, and removes if from the state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
@@ -79,11 +79,11 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	default:
 		return nil, errors.New("Unsupported operation")
 	}
-
-	return nil, nil
 }
 
-// Query callback representing the query of a chaincode
+// Query has two functions
+// get - takes one argument, a key, and returns the value for the key
+// keys - returns all keys stored in this chaincode
 func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 
 	switch function {
@@ -109,8 +109,8 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 		var keys []string
 		for keysIter.HasNext() {
-			key, _, err := keysIter.Next()
-			if err != nil {
+			key, _, iterErr := keysIter.Next()
+			if iterErr != nil {
 				return nil, fmt.Errorf("keys operation failed. Error accessing state: %s", err)
 			}
 			keys = append(keys, key)

@@ -1,10 +1,27 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package crypto
 
 import (
 	"crypto/rand"
 	"encoding/asn1"
 	"errors"
-	"github.com/hyperledger/fabric/core/crypto/conf"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
 )
@@ -15,57 +32,14 @@ func (client *clientImpl) encryptTx(tx *obc.Transaction) error {
 		return errors.New("Failed encrypting payload. Invalid nonce.")
 	}
 
-	client.debug("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
+	client.Debugf("Confidentiality protocol version [%s]", tx.ConfidentialityProtocolVersion)
 	switch tx.ConfidentialityProtocolVersion {
-	case "1.1":
-		client.debug("Using confidentiality protocol version 1.1")
-		return client.encryptTxVersion1_1(tx)
 	case "1.2":
-		client.debug("Using confidentiality protocol version 1.2")
+		client.Debug("Using confidentiality protocol version 1.2")
 		return client.encryptTxVersion1_2(tx)
 	}
 
 	return utils.ErrInvalidProtocolVersion
-}
-
-func (client *clientImpl) encryptTxVersion1_1(tx *obc.Transaction) error {
-	// client.enrollChainKey is an AES key represented as byte array
-	enrollChainKey := client.enrollChainKey.([]byte)
-
-	// Derive key
-	txKey := utils.HMAC(enrollChainKey, tx.Nonce)
-
-	//	client.log.Info("Deriving from :", utils.EncodeBase64(client.node.enrollChainKey))
-	//	client.log.Info("Nonce  ", utils.EncodeBase64(tx.Nonce))
-	//	client.log.Info("Derived key  ", utils.EncodeBase64(txKey))
-
-	// Encrypt Payload
-	payloadKey := utils.HMACTruncated(txKey, []byte{1}, utils.AESKeyLength)
-	encryptedPayload, err := utils.CBCPKCS7Encrypt(payloadKey, tx.Payload)
-	if err != nil {
-		return err
-	}
-	tx.Payload = encryptedPayload
-
-	// Encrypt ChaincodeID
-	chaincodeIDKey := utils.HMACTruncated(txKey, []byte{2}, utils.AESKeyLength)
-	encryptedChaincodeID, err := utils.CBCPKCS7Encrypt(chaincodeIDKey, tx.ChaincodeID)
-	if err != nil {
-		return err
-	}
-	tx.ChaincodeID = encryptedChaincodeID
-
-	// Encrypt Metadata
-	if len(tx.Metadata) != 0 {
-		metadataKey := utils.HMACTruncated(txKey, []byte{3}, utils.AESKeyLength)
-		encryptedMetadata, err := utils.CBCPKCS7Encrypt(metadataKey, tx.Metadata)
-		if err != nil {
-			return err
-		}
-		tx.Metadata = encryptedMetadata
-	}
-
-	return nil
 }
 
 // chainCodeValidatorMessage1_2 represents a message to validators
@@ -76,9 +50,9 @@ type chainCodeValidatorMessage1_2 struct {
 
 func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Create (PK_C,SK_C) pair
-	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, conf.GetDefaultCurve())
+	ccPrivateKey, err := client.eciesSPI.NewPrivateKey(rand.Reader, primitives.GetDefaultCurve())
 	if err != nil {
-		client.error("Failed generate chaincode keypair: [%s]", err)
+		client.Errorf("Failed generate chaincode keypair: [%s]", err)
 
 		return err
 	}
@@ -92,16 +66,16 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	switch tx.Type {
 	case obc.Transaction_CHAINCODE_DEPLOY:
 		// Prepare chaincode stateKey and privateKey
-		stateKey, err = utils.GenAESKey()
+		stateKey, err = primitives.GenAESKey()
 		if err != nil {
-			client.error("Failed creating state key: [%s]", err)
+			client.Errorf("Failed creating state key: [%s]", err)
 
 			return err
 		}
 
 		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
-			client.error("Failed serializing chaincode key: [%s]", err)
+			client.Errorf("Failed serializing chaincode key: [%s]", err)
 
 			return err
 		}
@@ -109,11 +83,11 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 		break
 	case obc.Transaction_CHAINCODE_QUERY:
 		// Prepare chaincode stateKey and privateKey
-		stateKey = utils.HMACTruncated(client.queryStateKey, append([]byte{6}, tx.Nonce...), utils.AESKeyLength)
+		stateKey = primitives.HMACAESTruncated(client.queryStateKey, append([]byte{6}, tx.Nonce...))
 
 		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
-			client.error("Failed serializing chaincode key: [%s]", err)
+			client.Errorf("Failed serializing chaincode key: [%s]", err)
 
 			return err
 		}
@@ -125,7 +99,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 
 		privBytes, err = client.eciesSPI.SerializePrivateKey(ccPrivateKey)
 		if err != nil {
-			client.error("Failed serializing chaincode key: [%s]", err)
+			client.Errorf("Failed serializing chaincode key: [%s]", err)
 
 			return err
 		}
@@ -135,21 +109,21 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Encrypt message to the validators
 	cipher, err := client.eciesSPI.NewAsymmetricCipherFromPublicKey(client.chainPublicKey)
 	if err != nil {
-		client.error("Failed creating new encryption scheme: [%s]", err)
+		client.Errorf("Failed creating new encryption scheme: [%s]", err)
 
 		return err
 	}
 
 	msgToValidators, err := asn1.Marshal(chainCodeValidatorMessage1_2{privBytes, stateKey})
 	if err != nil {
-		client.error("Failed preparing message to the validators: [%s]", err)
+		client.Errorf("Failed preparing message to the validators: [%s]", err)
 
 		return err
 	}
 
 	encMsgToValidators, err := cipher.Process(msgToValidators)
 	if err != nil {
-		client.error("Failed encrypting message to the validators: [%s]", err)
+		client.Errorf("Failed encrypting message to the validators: [%s]", err)
 
 		return err
 	}
@@ -160,7 +134,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Init with chainccode pk
 	cipher, err = client.eciesSPI.NewAsymmetricCipherFromPublicKey(ccPrivateKey.GetPublicKey())
 	if err != nil {
-		client.error("Failed initiliazing encryption scheme: [%s]", err)
+		client.Errorf("Failed initiliazing encryption scheme: [%s]", err)
 
 		return err
 	}
@@ -168,7 +142,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Encrypt chaincodeID using pkC
 	encryptedChaincodeID, err := cipher.Process(tx.ChaincodeID)
 	if err != nil {
-		client.error("Failed encrypting chaincodeID: [%s]", err)
+		client.Errorf("Failed encrypting chaincodeID: [%s]", err)
 
 		return err
 	}
@@ -177,7 +151,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	// Encrypt payload using pkC
 	encryptedPayload, err := cipher.Process(tx.Payload)
 	if err != nil {
-		client.error("Failed encrypting payload: [%s]", err)
+		client.Errorf("Failed encrypting payload: [%s]", err)
 
 		return err
 	}
@@ -187,7 +161,7 @@ func (client *clientImpl) encryptTxVersion1_2(tx *obc.Transaction) error {
 	if len(tx.Metadata) != 0 {
 		encryptedMetadata, err := cipher.Process(tx.Metadata)
 		if err != nil {
-			client.error("Failed encrypting metadata: [%s]", err)
+			client.Errorf("Failed encrypting metadata: [%s]", err)
 
 			return err
 		}

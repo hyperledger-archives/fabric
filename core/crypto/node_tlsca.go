@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
@@ -30,32 +27,51 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
+	if !node.ks.certMissing(node.conf.getTLSCertFilename()) {
+		return nil
+	}
+
 	key, tlsCertRaw, err := node.getTLSCertificateFromTLSCA(id, affiliation)
 	if err != nil {
-		node.error("Failed getting tls certificate [id=%s] %s", id, err)
+		node.Errorf("Failed getting tls certificate [id=%s] %s", id, err)
 
 		return err
 	}
-	node.debug("TLS Cert [% x]", tlsCertRaw)
+	node.Debugf("TLS Cert [% x]", tlsCertRaw)
 
-	node.debug("Storing TLS key and certificate for user [%s]...", id)
+	node.Debugf("Storing TLS key and certificate for user [%s]...", id)
 
 	// Store tls key.
 	if err := node.ks.storePrivateKeyInClear(node.conf.getTLSKeyFilename(), key); err != nil {
-		node.error("Failed storing tls key [id=%s]: %s", id, err)
+		node.Errorf("Failed storing tls key [id=%s]: %s", id, err)
 		return err
 	}
 
 	// Store tls cert
 	if err := node.ks.storeCert(node.conf.getTLSCertFilename(), tlsCertRaw); err != nil {
-		node.error("Failed storing tls certificate [id=%s]: %s", id, err)
+		node.Errorf("Failed storing tls certificate [id=%s]: %s", id, err)
+		return err
+	}
+
+	return nil
+}
+
+func (node *nodeImpl) deleteTLSCertificate(id, affiliation string) error {
+	if err := node.ks.deletePrivateKeyInClear(node.conf.getTLSKeyFilename()); err != nil {
+		node.Errorf("Failed deleting tls key [id=%s]: %s", id, err)
+		return err
+	}
+
+	// Store tls cert
+	if err := node.ks.deleteCert(node.conf.getTLSCertFilename()); err != nil {
+		node.Errorf("Failed deleting tls certificate [id=%s]: %s", id, err)
 		return err
 	}
 
@@ -63,11 +79,11 @@ func (node *nodeImpl) retrieveTLSCertificate(id, affiliation string) error {
 }
 
 func (node *nodeImpl) loadTLSCertificate() error {
-	node.debug("Loading tls certificate...")
+	node.Debug("Loading tls certificate...")
 
 	cert, _, err := node.ks.loadCertX509AndDer(node.conf.getTLSCertFilename())
 	if err != nil {
-		node.error("Failed parsing tls certificate [%s].", err.Error())
+		node.Errorf("Failed parsing tls certificate [%s].", err.Error())
 
 		return err
 	}
@@ -78,38 +94,38 @@ func (node *nodeImpl) loadTLSCertificate() error {
 
 func (node *nodeImpl) loadTLSCACertsChain() error {
 	if node.conf.isTLSEnabled() {
-		node.debug("Loading TLSCA certificates chain...")
+		node.Debug("Loading TLSCA certificates chain...")
 
 		pem, err := node.ks.loadExternalCert(node.conf.getTLSCACertsExternalPath())
 		if err != nil {
-			node.error("Failed loading TLSCA certificates chain [%s].", err.Error())
+			node.Errorf("Failed loading TLSCA certificates chain [%s].", err.Error())
 
 			return err
 		}
 
 		ok := node.tlsCertPool.AppendCertsFromPEM(pem)
 		if !ok {
-			node.error("Failed appending TLSCA certificates chain.")
+			node.Error("Failed appending TLSCA certificates chain.")
 
 			return errors.New("Failed appending TLSCA certificates chain.")
 		}
 
-		node.debug("Loading TLSCA certificates chain...done")
+		node.Debug("Loading TLSCA certificates chain...done")
 
 	} else {
-		node.debug("TLS is disabled!!!")
+		node.Debug("TLS is disabled!!!")
 	}
 
 	return nil
 }
 
 func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interface{}, []byte, error) {
-	node.debug("getTLSCertificate...")
+	node.Debug("getTLSCertificate...")
 
-	priv, err := utils.NewECDSAKey()
+	priv, err := primitives.NewECDSAKey()
 
 	if err != nil {
-		node.error("Failed generating key: %s", err)
+		node.Errorf("Failed generating key: %s", err)
 
 		return nil, nil, err
 	}
@@ -129,7 +145,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 			Key:  pubraw,
 		}, Sig: nil}
 	rawreq, _ := proto.Marshal(req)
-	r, s, err := ecdsa.Sign(rand.Reader, priv, utils.Hash(rawreq))
+	r, s, err := ecdsa.Sign(rand.Reader, priv, primitives.Hash(rawreq))
 	if err != nil {
 		panic(err)
 	}
@@ -139,33 +155,33 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	pbCert, err := node.callTLSCACreateCertificate(context.Background(), req)
 	if err != nil {
-		node.error("Failed requesting tls certificate: %s", err)
+		node.Errorf("Failed requesting tls certificate: %s", err)
 
 		return nil, nil, err
 	}
 
-	node.debug("Verifing tls certificate...")
+	node.Debug("Verifing tls certificate...")
 
-	tlsCert, err := utils.DERToX509Certificate(pbCert.Cert.Cert)
+	tlsCert, err := primitives.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
-	utils.VerifySignCapability(priv, certPK)
+	primitives.VerifySignCapability(priv, certPK)
 
-	node.debug("Verifing tls certificate...done!")
+	node.Debug("Verifing tls certificate...done!")
 
 	return priv, pbCert.Cert.Cert, nil
 }
 
 func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, membersrvc.TLSCAPClient, error) {
-	node.debug("Getting TLSCA client...")
+	node.Debug("Getting TLSCA client...")
 
 	conn, err := node.getClientConn(node.conf.getTLSCAPAddr(), node.conf.getTLSCAServerName())
 	if err != nil {
-		node.error("Failed getting client connection: [%s]", err)
+		node.Errorf("Failed getting client connection: [%s]", err)
 	}
 
 	client := membersrvc.NewTLSCAPClient(conn)
 
-	node.debug("Getting TLSCA client...done")
+	node.Debug("Getting TLSCA client...done")
 
 	return conn, client, nil
 }
@@ -173,7 +189,7 @@ func (node *nodeImpl) getTLSCAClient() (*grpc.ClientConn, membersrvc.TLSCAPClien
 func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *membersrvc.TLSCertCreateReq, opts ...grpc.CallOption) (*membersrvc.TLSCertCreateResp, error) {
 	conn, tlscaP, err := node.getTLSCAClient()
 	if err != nil {
-		node.error("Failed dialing in: %s", err)
+		node.Errorf("Failed dialing in: %s", err)
 
 		return nil, err
 	}
@@ -181,7 +197,7 @@ func (node *nodeImpl) callTLSCACreateCertificate(ctx context.Context, in *member
 
 	resp, err := tlscaP.CreateCertificate(ctx, in, opts...)
 	if err != nil {
-		node.error("Failed requesting tls certificate: %s", err)
+		node.Errorf("Failed requesting tls certificate: %s", err)
 
 		return nil, err
 	}

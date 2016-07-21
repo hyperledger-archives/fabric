@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ---------------------------------------------------------------------------
-# Install the openblockchain/baseimage docker environment
+# Install the hyperledger/fabric-baseimage docker environment
 # ---------------------------------------------------------------------------
 #
 # There are some interesting things to note here:
@@ -47,13 +47,43 @@
 #    is a compromise.
 # ---------------------------------------------------------------------------
 
-NAME=openblockchain/baseimage
-RELEASE=$1
-FQN=$NAME:$RELEASE
+NAME=hyperledger/fabric-baseimage
+RELEASE=`uname -m`-$1
+DOCKERHUB_NAME=$NAME:$RELEASE
 
 CURDIR=`dirname $0`
 
-docker pull $FQN
+docker inspect $DOCKERHUB_NAME 2>&1 > /dev/null
+if [ "$?" == "0" ]; then
+    echo "BUILD-CACHE: exists!"
+    BASENAME=$DOCKERHUB_NAME
+else
+    echo "BUILD-CACHE: Pulling \"$DOCKERHUB_NAME\" from dockerhub.."
+    docker pull $DOCKERHUB_NAME
+    docker inspect $DOCKERHUB_NAME 2>&1 > /dev/null
+    if [ "$?" == "0" ]; then
+	echo "BUILD-CACHE: Success!"
+	BASENAME=$DOCKERHUB_NAME
+    else
+	echo "BUILD-CACHE: WARNING - Build-cache unavailable, attempting local build"
+	(cd $CURDIR/../../images/base && make docker DOCKER_TAG=localbuild)
+	if [ "$?" != "0" ]; then
+            echo "ERROR: Build-cache could not be compiled locally"
+            exit -1
+	fi
+	BASENAME=$NAME:localbuild
+    fi
+fi
+
+# Ensure that we have the baseimage we are expecting
+docker inspect $BASENAME 2>&1 > /dev/null
+if [ "$?" != "0" ]; then
+   echo "ERROR: Unable to obtain a baseimage"
+   exit -1
+fi
+
+# any further errors should be fatal
+set -e
 
 TMP=`mktemp -d`
 DOCKERFILE=$TMP/Dockerfile
@@ -66,15 +96,30 @@ cp -R $CURDIR/* $LOCALSCRIPTS
 
 # extract the FQN environment and run our common.sh to create the :latest tag
 cat <<EOF > $DOCKERFILE
-FROM $FQN
-`for i in \`docker run -i $FQN /bin/bash -l -c printenv\`;
+FROM $BASENAME
+`for i in \`docker run -i $BASENAME /bin/bash -l -c printenv\`;
 do
    echo ENV $i
 done`
 COPY scripts $REMOTESCRIPTS
 RUN $REMOTESCRIPTS/common.sh
+RUN chmod a+rw -R /opt/gopath
+RUN add-apt-repository ppa:openjdk-r/ppa -y
+RUN apt-get update && apt-get install openjdk-8-jdk -y
+RUN wget https://services.gradle.org/distributions/gradle-2.12-bin.zip -P /tmp --quiet
+RUN unzip -q /tmp/gradle-2.12-bin.zip -d /opt && rm /tmp/gradle-2.12-bin.zip
+RUN ln -s /opt/gradle-2.12/bin/gradle /usr/bin
+# TODO JAVA_HOME set here, consider using update-java-alternatives
+ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+
 EOF
 
-docker build -t $NAME:latest $TMP
+[ ! -z "$http_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg http_proxy=$http_proxy"
+[ ! -z "$https_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg https_proxy=$https_proxy"
+[ ! -z "$HTTP_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg HTTP_PROXY=$HTTP_PROXY"
+[ ! -z "$HTTPS_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg HTTPS_PROXY=$HTTPS_PROXY"
+[ ! -z "$no_proxy" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg no_proxy=$no_proxy"
+[ ! -z "$NO_PROXY" ] && DOCKER_ARGS_PROXY="$DOCKER_ARGS_PROXY --build-arg NO_PROXY=$NO_PROXY"
+docker build $DOCKER_ARGS_PROXY -t $NAME:latest $TMP
 
 rm -rf $TMP

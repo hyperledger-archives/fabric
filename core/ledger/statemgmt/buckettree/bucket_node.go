@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package buckettree
@@ -23,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/core/ledger/util"
 	openchainUtil "github.com/hyperledger/fabric/core/util"
 )
 
@@ -47,7 +43,8 @@ func unmarshalBucketNode(bucketKey *bucketKey, serializedBytes []byte) *bucketNo
 		if err != nil {
 			panic(fmt.Errorf("this error should not occur: %s", err))
 		}
-		if !util.IsNil(childCryptoHash) {
+		//protobuf's buffer.EncodeRawBytes/buffer.DecodeRawBytes convert a nil into a zero length byte-array, so nil check would not work
+		if len(childCryptoHash) != 0 {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
 		}
 	}
@@ -73,7 +70,7 @@ func (bucketNode *bucketNode) mergeBucketNode(anotherBucketNode *bucketNode) {
 		panic(fmt.Errorf("Nodes with different keys can not be merged. BaseKey=[%#v], MergeKey=[%#v]", bucketNode.bucketKey, anotherBucketNode.bucketKey))
 	}
 	for i, childCryptoHash := range anotherBucketNode.childrenCryptoHash {
-		if !bucketNode.childrenUpdated[i] && util.IsNil(bucketNode.childrenCryptoHash[i]) {
+		if !bucketNode.childrenUpdated[i] {
 			bucketNode.childrenCryptoHash[i] = childCryptoHash
 		}
 	}
@@ -83,29 +80,29 @@ func (bucketNode *bucketNode) computeCryptoHash() []byte {
 	cryptoHashContent := []byte{}
 	numChildren := 0
 	for i, childCryptoHash := range bucketNode.childrenCryptoHash {
-		if util.NotNil(childCryptoHash) {
+		if childCryptoHash != nil {
 			numChildren++
-			logger.Debug("Appending crypto-hash for child bucket = [%s]", bucketNode.bucketKey.getChildKey(i))
+			logger.Debugf("Appending crypto-hash for child bucket = [%s]", bucketNode.bucketKey.getChildKey(i))
 			cryptoHashContent = append(cryptoHashContent, childCryptoHash...)
 		}
 	}
 	if numChildren == 0 {
-		logger.Debug("Returning <nil> crypto-hash of bucket = [%s] - because, it has not children", bucketNode.bucketKey)
+		logger.Debugf("Returning <nil> crypto-hash of bucket = [%s] - because, it has not children", bucketNode.bucketKey)
 		bucketNode.markedForDeletion = true
 		return nil
 	}
 	if numChildren == 1 {
-		logger.Debug("Propagating crypto-hash of single child node for bucket = [%s]", bucketNode.bucketKey)
+		logger.Debugf("Propagating crypto-hash of single child node for bucket = [%s]", bucketNode.bucketKey)
 		return cryptoHashContent
 	}
-	logger.Debug("Computing crypto-hash for bucket [%s] by merging [%d] children", bucketNode.bucketKey, numChildren)
+	logger.Debugf("Computing crypto-hash for bucket [%s] by merging [%d] children", bucketNode.bucketKey, numChildren)
 	return openchainUtil.ComputeCryptoHash(cryptoHashContent)
 }
 
 func (bucketNode *bucketNode) String() string {
 	numChildren := 0
 	for i := range bucketNode.childrenCryptoHash {
-		if util.NotNil(bucketNode.childrenCryptoHash[i]) {
+		if bucketNode.childrenCryptoHash[i] != nil {
 			numChildren++
 		}
 	}
@@ -117,7 +114,7 @@ func (bucketNode *bucketNode) String() string {
 	str = str + "Childern crypto-hashes:\n"
 	for i := range bucketNode.childrenCryptoHash {
 		childCryptoHash := bucketNode.childrenCryptoHash[i]
-		if util.NotNil(childCryptoHash) {
+		if childCryptoHash != nil {
 			str = str + fmt.Sprintf("childNumber={%d}, cryptoHash={%x}\n", i, childCryptoHash)
 		}
 	}

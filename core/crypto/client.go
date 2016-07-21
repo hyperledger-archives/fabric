@@ -1,27 +1,25 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"sync"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // Private Variables
@@ -46,10 +44,10 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Registering client [%s] with name [%s]...", enrollID, name)
+	log.Infof("Registering client [%s] with name [%s]...", enrollID, name)
 
 	if _, ok := clients[name]; ok {
-		log.Info("Registering client [%s] with name [%s]...done. Already initialized.", enrollID, name)
+		log.Infof("Registering client [%s] with name [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
 	}
@@ -57,18 +55,18 @@ func RegisterClient(name string, pwd []byte, enrollID, enrollPWD string) error {
 	client := newClient()
 	if err := client.register(name, pwd, enrollID, enrollPWD); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
-			log.Error("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
+			log.Errorf("Failed registering client [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Info("Registering client [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Infof("Registering client [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := client.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Warning("Registering client [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
+		log.Warningf("Registering client [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering client [%s] with name [%s]...done!", enrollID, name)
+	log.Infof("Registering client [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
@@ -78,10 +76,10 @@ func InitClient(name string, pwd []byte) (Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
 
-	log.Info("Initializing client [%s]...", name)
+	log.Infof("Initializing client [%s]...", name)
 
 	if entry, ok := clients[name]; ok {
-		log.Info("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
+		log.Infof("Client already initiliazied [%s]. Increasing counter from [%d]", name, clients[name].counter)
 		entry.counter++
 		clients[name] = entry
 
@@ -90,13 +88,13 @@ func InitClient(name string, pwd []byte) (Client, error) {
 
 	client := newClient()
 	if err := client.init(name, pwd); err != nil {
-		log.Error("Failed client initialization [%s]: [%s].", name, err)
+		log.Errorf("Failed client initialization [%s]: [%s].", name, err)
 
 		return nil, err
 	}
 
 	clients[name] = clientEntry{client, 1}
-	log.Info("Initializing client [%s]...done!", name)
+	log.Infof("Initializing client [%s]...done!", name)
 
 	return client, nil
 }
@@ -131,7 +129,7 @@ func CloseAllClients() (bool, []error) {
 // Private Methods
 
 func newClient() *clientImpl {
-	return &clientImpl{&nodeImpl{}, false, nil, nil, nil, nil}
+	return &clientImpl{&nodeImpl{}, nil, nil, nil, nil}
 }
 
 func closeClientInternal(client Client, force bool) error {
@@ -140,7 +138,7 @@ func closeClientInternal(client Client, force bool) error {
 	}
 
 	name := client.GetName()
-	log.Info("Closing client [%s]...", name)
+	log.Infof("Closing client [%s]...", name)
 	entry, ok := clients[name]
 	if !ok {
 		return utils.ErrInvalidReference
@@ -148,7 +146,7 @@ func closeClientInternal(client Client, force bool) error {
 	if entry.counter == 1 || force {
 		defer delete(clients, name)
 		err := clients[name].client.(*clientImpl).close()
-		log.Debug("Closing client [%s]...cleanup! [%s].", name, utils.ErrToString(err))
+		log.Debugf("Closing client [%s]...cleanup! [%s].", name, utils.ErrToString(err))
 
 		return err
 	}
@@ -156,7 +154,7 @@ func closeClientInternal(client Client, force bool) error {
 	// decrease counter
 	entry.counter--
 	clients[name] = entry
-	log.Debug("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
+	log.Debugf("Closing client [%s]...decreased counter at [%d].", name, clients[name].counter)
 
 	return nil
 }

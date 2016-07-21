@@ -1,27 +1,25 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"sync"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // Private type and variables
@@ -46,29 +44,29 @@ func RegisterValidator(name string, pwd []byte, enrollID, enrollPWD string) erro
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Registering validator [%s] with name [%s]...", enrollID, name)
+	log.Infof("Registering validator [%s] with name [%s]...", enrollID, name)
 
 	if _, ok := validators[name]; ok {
-		log.Info("Registering validator [%s] with name [%s]...done. Already initialized.", enrollID, name)
+		log.Infof("Registering validator [%s] with name [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
 	}
 
 	validator := newValidator()
-	if err := validator.register(name, pwd, enrollID, enrollPWD); err != nil {
+	if err := validator.register(name, pwd, enrollID, enrollPWD, nil); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
-			log.Error("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
+			log.Errorf("Failed registering validator [%s] with name [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Info("Registering vlidator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Infof("Registering validator [%s] with name [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := validator.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Warning("Registering validator [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
+		log.Warningf("Registering validator [%s] with name [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering validator [%s] with name [%s]...done!", enrollID, name)
+	log.Infof("Registering validator [%s] with name [%s]...done!", enrollID, name)
 
 	return nil
 }
@@ -78,10 +76,10 @@ func InitValidator(name string, pwd []byte) (Peer, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	log.Info("Initializing validator [%s]...", name)
+	log.Infof("Initializing validator [%s]...", name)
 
 	if entry, ok := validators[name]; ok {
-		log.Info("Validator already initiliazied [%s]. Increasing counter from [%d]", name, validators[name].counter)
+		log.Infof("Validator already initiliazied [%s]. Increasing counter from [%d]", name, validators[name].counter)
 		entry.counter++
 		validators[name] = entry
 
@@ -89,14 +87,14 @@ func InitValidator(name string, pwd []byte) (Peer, error) {
 	}
 
 	validator := newValidator()
-	if err := validator.init(name, pwd); err != nil {
-		log.Error("Failed validator initialization [%s]: [%s]", name, err)
+	if err := validator.init(name, pwd, nil); err != nil {
+		log.Errorf("Failed validator initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
 	validators[name] = validatorEntry{validator, 1}
-	log.Info("Initializing validator [%s]...done!", name)
+	log.Infof("Initializing validator [%s]...done!", name)
 
 	return validator, nil
 }
@@ -131,7 +129,7 @@ func CloseAllValidators() (bool, []error) {
 // Private Methods
 
 func newValidator() *validatorImpl {
-	return &validatorImpl{&peerImpl{&nodeImpl{}, nil, false}, false, nil}
+	return &validatorImpl{&peerImpl{&nodeImpl{}, sync.RWMutex{}, nil}, nil}
 }
 
 func closeValidatorInternal(peer Peer, force bool) error {
@@ -140,7 +138,7 @@ func closeValidatorInternal(peer Peer, force bool) error {
 	}
 
 	name := peer.GetName()
-	log.Info("Closing validator [%s]...", name)
+	log.Infof("Closing validator [%s]...", name)
 	entry, ok := validators[name]
 	if !ok {
 		return utils.ErrInvalidReference
@@ -148,7 +146,7 @@ func closeValidatorInternal(peer Peer, force bool) error {
 	if entry.counter == 1 || force {
 		defer delete(validators, name)
 		err := validators[name].validator.(*validatorImpl).close()
-		log.Info("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
+		log.Infof("Closing validator [%s]...done! [%s].", name, utils.ErrToString(err))
 
 		return err
 	}
@@ -156,7 +154,7 @@ func closeValidatorInternal(peer Peer, force bool) error {
 	// decrease counter
 	entry.counter--
 	validators[name] = entry
-	log.Info("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
+	log.Infof("Closing validator [%s]...decreased counter at [%d].", name, validators[name].counter)
 
 	return nil
 }

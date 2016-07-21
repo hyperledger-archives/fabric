@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package buckettree
@@ -27,7 +24,7 @@ import (
 )
 
 func TestStateImpl_ComputeHash_AllInMemory_NoContents(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	hash := stateImplTestWrapper.prepareWorkingSetAndComputeCryptoHash(statemgmt.NewStateDelta())
 	testutil.AssertEquals(t, hash, nil)
@@ -105,7 +102,7 @@ func TestStateImpl_ComputeHash_AllInMemory_2(t *testing.T) {
 func TestStateImpl_ComputeHash_DB_1(t *testing.T) {
 	// number of buckets at each level 26,9,3,1
 	testHasher, stateImplTestWrapper, stateDelta := createFreshDBAndInitTestStateImplWithCustomHasher(t, 26, 3)
-	// populate hash fucntion such that
+	// populate hash function such that
 	// all keys belong to a single bucket so as to test overwrite/delete scenario
 	testHasher.populate("chaincodeID1", "key1", 3)
 	testHasher.populate("chaincodeID2", "key2", 3)
@@ -301,7 +298,7 @@ func TestStateImpl_ComputeHash_DB_2(t *testing.T) {
 func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 	// simple test... not using custom hasher
 	conf = newConfig(DefaultNumBuckets, DefaultMaxGroupingAtEachLevel, fnvHash)
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	stateImplTestWrapper := newStateImplTestWrapper(t)
 	stateImpl := stateImplTestWrapper.stateImpl
 	stateDelta := statemgmt.NewStateDelta()
@@ -326,7 +323,7 @@ func TestStateImpl_ComputeHash_DB_3(t *testing.T) {
 func TestStateImpl_DB_Changes(t *testing.T) {
 	// number of buckets at each level 26,9,3,1
 	testHasher, stateImplTestWrapper, stateDelta := createFreshDBAndInitTestStateImplWithCustomHasher(t, 26, 3)
-	// populate hash fucntion such that
+	// populate hash function such that
 	// ["chaincodeID1", "key1"] is bucketized to bucket 1
 	testHasher.populate("chaincodeID1", "key1", 0)
 	testHasher.populate("chaincodeID1", "key2", 0)
@@ -382,4 +379,22 @@ func TestStateImpl_DB_Changes(t *testing.T) {
 	// third bucket at second level should be nil
 	bucketNodeFromDB, _ = fetchBucketNodeFromDB(newBucketKey(2, 3))
 	testutil.AssertNil(t, bucketNodeFromDB)
+}
+
+func TestStateImpl_DB_EmptyArrayValues(t *testing.T) {
+	testDBWrapper.CleanDB(t)
+	stateImplTestWrapper := newStateImplTestWrapper(t)
+	stateImpl := stateImplTestWrapper.stateImpl
+	stateDelta := statemgmt.NewStateDelta()
+	stateDelta.Set("chaincode1", "key1", []byte{}, nil)
+	stateImpl.PrepareWorkingSet(stateDelta)
+	stateImplTestWrapper.persistChangesAndResetInMemoryChanges()
+	emptyBytes := stateImplTestWrapper.get("chaincode1", "key1")
+	if emptyBytes == nil || len(emptyBytes) != 0 {
+		t.Fatalf("Expected an empty byte array. found = %#v", emptyBytes)
+	}
+	nilVal := stateImplTestWrapper.get("chaincodeID3", "non-existing-key")
+	if nilVal != nil {
+		t.Fatalf("Expected a nil. found = %#v", nilVal)
+	}
 }

@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package peer
@@ -22,7 +19,6 @@ package peer
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -30,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/hyperledger/fabric/core/config"
-	"github.com/hyperledger/fabric/core/container"
 	pb "github.com/hyperledger/fabric/protos"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -41,7 +36,6 @@ var peerClientConn *grpc.ClientConn
 func TestMain(m *testing.M) {
 	config.SetupTestConfig("./../../peer")
 	viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-	viper.Set("peer.validator.validity-period.verification", "false")
 
 	tmpConn, err := NewPeerClientConnection()
 	if err != nil {
@@ -50,6 +44,15 @@ func TestMain(m *testing.M) {
 	}
 	peerClientConn = tmpConn
 	os.Exit(m.Run())
+}
+
+func TestMissingMessageHandlerUnicast(t *testing.T) {
+	emptyHandlerMap := handlerMap{m: make(map[pb.PeerID]MessageHandler)}
+	peerImpl := PeerImpl{handlerMap: &emptyHandlerMap}
+	err := peerImpl.Unicast(nil, &pb.PeerID{})
+	if err == nil {
+		t.Error("Expected error with bad receiver handle, but there was none")
+	}
 }
 
 func performChat(t testing.TB, conn *grpc.ClientConn) error {
@@ -98,25 +101,6 @@ func performChat(t testing.TB, conn *grpc.ClientConn) error {
 		t.Fail()
 		return fmt.Errorf("Timeout expired while performChat")
 	}
-}
-
-func sendLargeMsg(t testing.TB) (*pb.Message, error) {
-	vm, err := container.NewVM()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error getting VM: %s", err)
-		return nil, err
-	}
-
-	inputbuf, err := vm.GetPeerPackageBytes()
-	if err != nil {
-		t.Fail()
-		t.Logf("Error Getting Peer package bytes: %s", err)
-		return nil, err
-	}
-	payload, err := ioutil.ReadAll(inputbuf)
-	return &pb.Message{Type: pb.Message_DISC_NEWMSG, Payload: payload}, nil
-
 }
 
 func Benchmark_Chat(b *testing.B) {

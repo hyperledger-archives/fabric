@@ -6,8 +6,8 @@ vp0:
     - CORE_PEER_ID=vp0
     - CORE_PEER_TLS_ENABLED=true
     - CORE_PEER_TLS_SERVERHOSTOVERRIDE=OBC
-    - CORE_PEER_TLS_CERT_FILE=../bddtests/tlsca.cert
-    - CORE_PEER_TLS_KEY_FILE=../bddtests/tlsca.priv
+    - CORE_PEER_TLS_CERT_FILE=./bddtests/tlsca.cert
+    - CORE_PEER_TLS_KEY_FILE=./bddtests/tlsca.priv
 
 vp1:
   extends:

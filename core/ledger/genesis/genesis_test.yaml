@@ -46,7 +46,7 @@ peer:
     networkId: dev
 
     Dockerfile:  |
-        from openblockchain/baseimage
+        from hyperledger/fabric-baseimage
         # Copy GOPATH src and install Peer
         COPY src $GOPATH/src
         RUN mkdir -p /var/hyperledger/db
@@ -166,7 +166,7 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
+    # http://localhost:2375
     endpoint: unix:///var/run/docker.sock
 
 
@@ -186,7 +186,7 @@ chaincode:
 
         # This is the basis for the Golang Dockerfile.  Additional commands will be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from openblockchain/baseimage
+            from hyperledger/fabric-baseimage
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 

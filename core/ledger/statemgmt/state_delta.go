@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package statemgmt
@@ -28,7 +25,7 @@ import (
 	"github.com/hyperledger/fabric/core/util"
 )
 
-// StateDelta holds the changes to existing state. This struct is used for holding the uncommited changes during execution of a tx-batch
+// StateDelta holds the changes to existing state. This struct is used for holding the uncommitted changes during execution of a tx-batch
 // Also, to be used for transferring the state to another peer in chunks
 type StateDelta struct {
 	ChaincodeStateDeltas map[string]*ChaincodeStateDelta
@@ -167,11 +164,11 @@ func (stateDelta *StateDelta) ComputeCryptoHash() []byte {
 		}
 	}
 	hashingContent := buffer.Bytes()
-	logger.Debug("computing hash on %#v", hashingContent)
+	logger.Debugf("computing hash on %#v", hashingContent)
 	return util.ComputeCryptoHash(hashingContent)
 }
 
-// Code below is for maintaining state for a chaincode
+//ChaincodeStateDelta maintains state for a chaincode
 type ChaincodeStateDelta struct {
 	ChaincodeID string
 	UpdatedKVs  map[string]*UpdatedValue
@@ -218,7 +215,7 @@ func (chaincodeStateDelta *ChaincodeStateDelta) getSortedKeys() []string {
 		updatedKeys = append(updatedKeys, k)
 	}
 	sort.Strings(updatedKeys)
-	logger.Debug("Sorted keys = %#v", updatedKeys)
+	logger.Debugf("Sorted keys = %#v", updatedKeys)
 	return updatedKeys
 }
 
@@ -267,26 +264,38 @@ func (stateDelta *StateDelta) Marshal() (b []byte) {
 func (chaincodeStateDelta *ChaincodeStateDelta) marshal(buffer *proto.Buffer) {
 	err := buffer.EncodeVarint(uint64(len(chaincodeStateDelta.UpdatedKVs)))
 	if err != nil {
-		// in protobuf code the error return is always nil
 		panic(fmt.Errorf("This error should not occur: %s", err))
 	}
 	for key, valueHolder := range chaincodeStateDelta.UpdatedKVs {
 		err = buffer.EncodeStringBytes(key)
 		if err != nil {
-			return
-		}
-		err = buffer.EncodeRawBytes(valueHolder.Value)
-		if err != nil {
-			// in protobuf code the error return is always nil
 			panic(fmt.Errorf("This error should not occur: %s", err))
 		}
-		err = buffer.EncodeRawBytes(valueHolder.PreviousValue)
-		if err != nil {
-			// in protobuf code the error return is always nil
-			panic(fmt.Errorf("This error should not occur: %s", err))
-		}
+		chaincodeStateDelta.marshalValueWithMarker(buffer, valueHolder.Value)
+		chaincodeStateDelta.marshalValueWithMarker(buffer, valueHolder.PreviousValue)
 	}
 	return
+}
+
+func (chaincodeStateDelta *ChaincodeStateDelta) marshalValueWithMarker(buffer *proto.Buffer, value []byte) {
+	if value == nil {
+		// Just add a marker that the value is nil
+		err := buffer.EncodeVarint(uint64(0))
+		if err != nil {
+			panic(fmt.Errorf("This error should not occur: %s", err))
+		}
+		return
+	}
+	err := buffer.EncodeVarint(uint64(1))
+	if err != nil {
+		panic(fmt.Errorf("This error should not occur: %s", err))
+	}
+	// If the value happen to be an empty byte array, it would appear as a nil during
+	// deserialization - see method 'unmarshalValueWithMarker'
+	err = buffer.EncodeRawBytes(value)
+	if err != nil {
+		panic(fmt.Errorf("This error should not occur: %s", err))
+	}
 }
 
 // Unmarshal deserializes StateDelta
@@ -324,30 +333,34 @@ func (chaincodeStateDelta *ChaincodeStateDelta) unmarshal(buffer *proto.Buffer) 
 		if err != nil {
 			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
-		value, err := buffer.DecodeRawBytes(false)
+		value, err := chaincodeStateDelta.unmarshalValueWithMarker(buffer)
 		if err != nil {
 			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
-
-		// protobuff does not differentiate between an empty []byte or a nil
-		// For now we assume user does not have a motivation to store []byte array
-		// as a value for a key and we treat an empty []byte represent that the value was nil
-		// during marshalling (i.e., the entry represent a delete of a key)
-		// If we need to differentiate, we need to write a flag during marshalling
-		//(which would require one bool per keyvalue entry)
-		if len(value) == 0 {
-			value = nil
-		}
-
-		previousValue, err := buffer.DecodeRawBytes(false)
+		previousValue, err := chaincodeStateDelta.unmarshalValueWithMarker(buffer)
 		if err != nil {
-			return fmt.Errorf("Error unmarhsaling state delta : %s", err)
+			return fmt.Errorf("Error unmarshaling state delta : %s", err)
 		}
-		if len(previousValue) == 0 {
-			previousValue = nil
-		}
-
 		chaincodeStateDelta.UpdatedKVs[key] = &UpdatedValue{value, previousValue}
 	}
 	return nil
+}
+
+func (chaincodeStateDelta *ChaincodeStateDelta) unmarshalValueWithMarker(buffer *proto.Buffer) ([]byte, error) {
+	valueMarker, err := buffer.DecodeVarint()
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarshaling state delta : %s", err)
+	}
+	if valueMarker == 0 {
+		return nil, nil
+	}
+	value, err := buffer.DecodeRawBytes(false)
+	if err != nil {
+		return nil, fmt.Errorf("Error unmarhsaling state delta : %s", err)
+	}
+	// protobuff makes an empty []byte into a nil. So, assigning an empty byte array explicitly
+	if value == nil {
+		value = []byte{}
+	}
+	return value, nil
 }

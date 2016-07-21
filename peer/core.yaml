@@ -25,6 +25,11 @@ rest:
     # The address that the REST service will listen on for incoming requests.
     address: 0.0.0.0:5000
 
+    validPatterns:
+
+        # Valid enrollment ID pattern in URLs: At least one character long, and
+        # all characters are A-Z, a-z, 0-9 or _.
+        enrollmentID: '^\w+$'
 
 ###############################################################################
 #
@@ -33,40 +38,36 @@ rest:
 ###############################################################################
 logging:
 
+    # Default logging levels are specified here for each of the three peer
+    # commands 'node', 'network' and 'chaincode'. For commands that have
+    # subcommands, the defaults also apply to all subcommands of the command.
     # Valid logging levels are case-insensitive strings chosen from
 
     #     CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG
 
-    # Logging 'module' names are also strings, however valid module names are
-    # defined at runtime and are not checked for validity during option
-    # processing.
+    # The logging levels specified here can be overridden in various ways,
+    # listed below from strongest to weakest:
+    #
+    # 1. The --logging-level=<level> command line option overrides all other
+    #    specifications.
+    #
+    # 2. The environment variable CORE_LOGGING_LEVEL otherwise applies to
+    #    all peer commands if defined as a non-empty string.
+    #
+    # 3. The environment variables CORE_LOGGING_[NODE|NETWORK|CHAINCODE]
+    #    otherwise apply to the respective peer commands if defined as non-empty
+    #    strings.
+    #
+    # 4. Otherwise, the specifications below apply.
+    #
+    # Developers: Please see fabric/docs/Setup/logging-control.md for more
+    # options.
+    peer: warning
 
-    # Default logging levels are specified here for each of the obc-peer
-    # commands. For commands that have subcommands, the defaults also apply to
-    # all subcommands of the command. These logging levels can be overridden
-    # on the command line using the --logging-level command-line option, or by
-    # setting the CORE_LOGGING_LEVEL environment variable.
-
-    # The logging level specification is of the form
-
-    #     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
-
-    # A logging level by itself is taken as the overall default. Otherwise,
-    # overrides for individual or groups of modules can be specified using the
-    # <module>[,<module>...]=<level> syntax.
-
-    # Examples:
-    #   info                                       - Set default to INFO
-    #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
-    #   chaincode=info:main=debug:db=debug:warning - Same as above
-    peer:      debug
-    crypto:    info
-    status:    warning
-    stop:      warning
-    login:     warning
-    vm:        warning
+    node:      info
+    network:   warning
     chaincode: warning
-
+    version: warning
 
 ###############################################################################
 #
@@ -90,15 +91,6 @@ peer:
     # networkId: test
     networkId: dev
 
-    Dockerfile:  |
-        from openblockchain/baseimage:latest
-        # Copy GOPATH src and install Peer
-        COPY src $GOPATH/src
-        RUN mkdir -p /var/hyperledger/db
-        WORKDIR $GOPATH/src/github.com/hyperledger/fabric/peer/
-        RUN CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy" go install && cp $GOPATH/src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin
-
-
     # The Address this Peer will listen on
     listenAddress: 0.0.0.0:30303
     # The Address this Peer will bind to for providing services
@@ -107,8 +99,6 @@ peer:
     # This case is useful for docker containers.
     addressAutoDetect: false
 
-    # Peer port to accept connections on
-    port:    30303
     # Setting for runtime.GOMAXPROCS(n). If n < 1, it does not change the current setting
     gomaxprocs: -1
     workers: 2
@@ -141,9 +131,13 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
-        # if the given value is not recognized, we will default to noops
-        consensus: noops
+        consensus:
+            # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops ( this value is case-insensitive)
+            # if the given value is not recognized, we will default to noops
+            plugin: noops
+
+            # total number of consensus messages which will be buffered per connection before delivery is rejected
+            buffersize: 1000
 
         events:
             # The address that the Event service will be enabled on the validator
@@ -158,10 +152,6 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification
-        # of the validity period in the validator
-        validity-period:
-            verification: false
 
     # TLS Settings for p2p communications
     tls:
@@ -193,6 +183,7 @@ peer:
 
         # The root nodes are used for bootstrapping purposes, and generally
         # supplied through ENV variables
+        # It can be either a single host or a comma separated list of hosts.
         rootnode:
 
         # The duration of time between attempts to asks peers for their connected peers
@@ -211,21 +202,10 @@ peer:
         # be stored in DB and persisted between restarts
         persist:    true
 
-        # if peer discovery is off
-        # the peer window will show
-        # only what retrieved by active
-        # peer [true/false]
-        enabled:    true
-
-        # number of workers that
-        # tastes the peers for being
-        # online [1..10]
-        workers: 8
-
         # the period in seconds with which the discovery
         # tries to reconnect to successful nodes
         # 0 means the nodes are not reconnected
-        touchPeriod: 600
+        touchPeriod: 6s
 
         # the maximum nuber of nodes to reconnect to
         # -1 for unlimited
@@ -248,8 +228,8 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
-    # tcp://localhost:2376
+    # http://localhost:2375
+    # https://localhost:2376
     endpoint: unix:///var/run/docker.sock
 
     # settings for docker vms
@@ -262,7 +242,24 @@ vm:
                 file: /path/to/ca.pem
             key:
                 file: /path/to/server-key.pem
-
+        # Parameters of docker container creating. For docker can created by custom parameters
+        # If you have your own ipam & dns-server for cluster you can use them to create container efficient.
+        # NetworkMode Sets the networking mode for the container. Supported standard values are: `host`(default),`bridge`,`ipvlan`,`none`
+        # dns A list of DNS servers for the container to use.
+        # note: not support customize for `Privileged` `Binds` `Links` `PortBindings`
+        # not support set LogConfig using Environment Variables
+        # LogConfig sets the logging driver (Type) and related options (Config) for Docker
+        # you can refer https://docs.docker.com/engine/admin/logging/overview/ for more detail configruation.
+        hostConfig:
+            NetworkMode: host
+            Dns:
+               # - 192.168.0.1
+            LogConfig:
+                Type: json-file
+                Config:
+                    max-size: "50m"
+                    max-file: "5"
+            Memory: 2147483648
 ###############################################################################
 #
 #    Chaincode section
@@ -285,14 +282,26 @@ chaincode:
         # This is the basis for the Golang Dockerfile.  Additional commands will
         # be appended depedendent upon the chaincode specification.
         Dockerfile:  |
-            from openblockchain/baseimage
+            from hyperledger/fabric-baseimage
             #from utxo:0.1.0
             COPY src $GOPATH/src
             WORKDIR $GOPATH
 
+    car:
+
+        # This is the basis for the CAR Dockerfile.  Additional commands will
+        # be appended depedendent upon the chaincode specification.
+        Dockerfile:  |
+            FROM hyperledger/fabric-ccenv
+    java:
+        # This is the same bases image used for golang implementation
+        # TODO Consider moving java installation from common provision shell script to here
+        Dockerfile:  |
+            from hyperledger/fabric-baseimage
+
     # timeout in millisecs for starting up a container and waiting for Register
     # to come through. 1sec should be plenty for chaincode unit tests
-    startuptimeout: 1000
+    startuptimeout: 300000
 
     #timeout in millisecs for deploying chaincode from a remote repository.
     deploytimeout: 30000
@@ -308,6 +317,14 @@ chaincode:
     # the image
     installpath: /opt/gopath/bin/
 
+    # keepalive in seconds. In situations where the communiction goes through a
+    # proxy that does not support keep-alive, this parameter will maintain connection
+    # between peer and chaincode.
+    # A value <= 0 turns keepalive off
+    keepalive: 0
+
+###############################################################################
+#
 ###############################################################################
 #
 #    Ledger section - ledger configuration encompases both the blockchain
@@ -321,21 +338,6 @@ ledger:
     # Define the genesis block
     genesisBlock:
 
-      # Deploy chaincodes into the genesis block
-      chaincodes:
-
-        #sample_syscc:
-        #  path: github.com/hyperledger/fabric/core/system_chaincode/sample_syscc
-        #  type: GOLANG
-        #  constructor:
-        #    args:
-        #      - greetings
-        #      - hello world
-
-    # Setting the deploy-system-chaincode property to false will prevent the
-    # deploying of system chaincode at genesis time.
-    deploy-system-chaincode: false
-
   state:
 
     # Control the number state deltas that are maintained. This takes additional
@@ -344,9 +346,11 @@ ledger:
     deltaHistorySize: 500
 
     # The data structure in which the state will be stored. Different data
-    # structures may offer different performance characteristics. Options are
-    # 'buckettree' and 'trie'. If not set, the default data structure is the
-    # 'buckettree'. This CANNOT be changed after the DB has been created.
+    # structures may offer different performance characteristics.
+    # Options are 'buckettree', 'trie' and 'raw'.
+    # ( Note:'raw' is experimental and incomplete. )
+    # If not set, the default data structure is the 'buckettree'.
+    # This CANNOT be changed after the DB has been created.
     dataStructure:
       # The name of the data structure is for storing the state
       name: buckettree
@@ -405,8 +409,55 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-      attributes:
-        company: IBM
-        position: "Software Engineer"
-        
+    # Enable the release of keys needed to decrypt attributes from TCerts in
+    # the chaincode using the metadata field of the transaction (requires
+    # security to be enabled).
+    attributes:
+      enabled: false
+    multithreading:
+      enabled: false
 
+    # Confidentiality protocol versions supported: 1.2
+    confidentialityProtocolVersion: 1.2
+
+################################################################################
+#
+#   SECTION: STATETRANSFER
+#
+#   - This applies to recovery behavior when the replica has detected
+#     a state transfer is required
+#
+#   - This might happen:
+#     - During a view change in response to a faulty primary
+#     - After a network outage which has isolated the replica
+#     - If the current blockchain/state is determined to be corrupt
+#
+################################################################################
+statetransfer:
+
+    # Should a replica attempt to fix damaged blocks?
+    # In general, this should be set to true, setting to false will cause
+    # the replica to panic, and require a human's intervention to intervene
+    # and fix the corruption
+    recoverdamage: true
+
+    # The number of blocks to retrieve per sync request
+    blocksperrequest: 20
+
+    # The maximum number of state deltas to attempt to retrieve
+    # If more than this number of deltas is required to play the state up to date
+    # then instead the state will be flagged as invalid, and a full copy of the state
+    # will be retrieved instead
+    maxdeltas: 200
+
+    # Timeouts
+    timeout:
+
+        # How long may returning a single block take
+        singleblock: 2s
+
+        # How long may returning a single state delta take
+        singlestatedelta: 2s
+
+        # How long may transferring the complete state take
+        fullstate: 60s

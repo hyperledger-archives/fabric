@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package events
@@ -47,15 +44,19 @@ var adapter *Adapter
 var obcEHClient *consumer.EventsClient
 
 func (a *Adapter) GetInterestedEvents() ([]*ehpb.Interest, error) {
-	return []*ehpb.Interest{&ehpb.Interest{"block", ehpb.Interest_PROTOBUF}}, nil
-	//return [] *ehpb.Interest{ &ehpb.InterestedEvent{"block", ehpb.Interest_JSON }}, nil
+	return []*ehpb.Interest{
+		&ehpb.Interest{EventType: ehpb.EventType_BLOCK},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: "event1"}}},
+		&ehpb.Interest{EventType: ehpb.EventType_CHAINCODE, RegInfo: &ehpb.Interest_ChaincodeRegInfo{ChaincodeRegInfo: &ehpb.ChaincodeReg{ChaincodeID: "0xffffffff", EventName: ""}}},
+	}, nil
+	//return []*ehpb.Interest{&ehpb.Interest{EventType: ehpb.EventType_BLOCK}}, nil
 }
 
 func (a *Adapter) Recv(msg *ehpb.Event) (bool, error) {
-	//fmt.Printf("Adapter received %v\n", msg.Event)
+	//fmt.Printf("Adapter received %+v\n", msg.Event)
 	switch x := msg.Event.(type) {
 	case *ehpb.Event_Block:
-	case *ehpb.Event_Generic:
+	case *ehpb.Event_ChaincodeEvent:
 	case nil:
 		// The field is not set.
 		fmt.Printf("event not set\n")
@@ -84,6 +85,11 @@ func createTestBlock() *ehpb.Event {
 	return emsg
 }
 
+func createTestChaincodeEvent(tid string, typ string) *ehpb.Event {
+	emsg := producer.CreateChaincodeEvent(&ehpb.ChaincodeEvent{ChaincodeID: tid, EventName: typ})
+	return emsg
+}
+
 func closeListenerAndSleep(l net.Listener) {
 	l.Close()
 	time.Sleep(2 * time.Second)
@@ -94,7 +100,56 @@ func TestReceiveMessage(t *testing.T) {
 	var err error
 
 	adapter.count = 1
+	//emsg := createTestBlock()
+	emsg := createTestChaincodeEvent("0xffffffff", "event1")
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	//receive 2 messages
+	for i := 0; i < 2; i++ {
+		select {
+		case <-adapter.notfy:
+		case <-time.After(5 * time.Second):
+			t.Fail()
+			t.Logf("timed out on messge")
+		}
+	}
+}
+
+func TestReceiveAnyMessage(t *testing.T) {
+	var err error
+
+	adapter.count = 1
 	emsg := createTestBlock()
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	emsg = createTestChaincodeEvent("0xffffffff", "event2")
+	if err = producer.Send(emsg); err != nil {
+		t.Fail()
+		t.Logf("Error sending message %s", err)
+	}
+
+	//receive 2 messages - a block and a chaincode event
+	for i := 0; i < 2; i++ {
+		select {
+		case <-adapter.notfy:
+		case <-time.After(5 * time.Second):
+			t.Fail()
+			t.Logf("timed out on messge")
+		}
+	}
+}
+
+func TestFailReceive(t *testing.T) {
+	var err error
+
+	adapter.count = 1
+	emsg := createTestChaincodeEvent("badcc", "event1")
 	if err = producer.Send(emsg); err != nil {
 		t.Fail()
 		t.Logf("Error sending message %s", err)
@@ -102,9 +157,9 @@ func TestReceiveMessage(t *testing.T) {
 
 	select {
 	case <-adapter.notfy:
-	case <-time.After(5 * time.Second):
 		t.Fail()
-		t.Logf("timed out on messge")
+		t.Logf("should NOT have received event1")
+	case <-time.After(2 * time.Second):
 	}
 }
 
@@ -118,7 +173,8 @@ func BenchmarkMessages(b *testing.B) {
 
 	for i := 0; i < numMessages; i++ {
 		go func() {
-			emsg := createTestBlock()
+			//emsg := createTestBlock()
+			emsg := createTestChaincodeEvent("0xffffffff", "event1")
 			if err = producer.Send(emsg); err != nil {
 				b.Fail()
 				b.Logf("Error sending message %s", err)
@@ -148,7 +204,7 @@ func TestMain(m *testing.M) {
 
 	//use a different address than what we usually use for "peer"
 	//we override the peerAddress set in chaincode_support.go
-	peerAddress = "0.0.0.0:50303"
+	peerAddress = "0.0.0.0:60303"
 
 	lis, err := net.Listen("tcp", peerAddress)
 	if err != nil {

@@ -1,33 +1,38 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package consensus
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/statemgmt"
 	pb "github.com/hyperledger/fabric/protos"
 )
+
+// ExecutionConsumer allows callbacks from asycnhronous execution and statetransfer
+type ExecutionConsumer interface {
+	Executed(tag interface{})                                // Called whenever Execute completes
+	Committed(tag interface{}, target *pb.BlockchainInfo)    // Called whenever Commit completes
+	RolledBack(tag interface{})                              // Called whenever a Rollback completes
+	StateUpdated(tag interface{}, target *pb.BlockchainInfo) // Called when state transfer completes, if target is nil, this indicates a failure and a new target should be supplied
+}
 
 // Consenter is used to receive messages from the network
 // Every consensus plugin needs to implement this interface
 type Consenter interface {
-	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error
+	RecvMsg(msg *pb.Message, senderHandle *pb.PeerID) error // Called serially with incoming messages from gRPC
+	ExecutionConsumer
 }
 
 // Inquirer is used to retrieve info about the validating network
@@ -57,58 +62,54 @@ type SecurityUtils interface {
 // ReadOnlyLedger is used for interrogating the blockchain
 type ReadOnlyLedger interface {
 	GetBlock(id uint64) (block *pb.Block, err error)
-	GetCurrentStateHash() (stateHash []byte, err error)
-	GetBlockchainSize() (uint64, error)
+	GetBlockchainSize() uint64
+	GetBlockchainInfo() *pb.BlockchainInfo
+	GetBlockchainInfoBlob() []byte
+	GetBlockHeadMetadata() ([]byte, error)
 }
 
-// UtilLedger contains additional useful utility functions for interrogating the blockchain
-type UtilLedger interface {
-	HashBlock(block *pb.Block) ([]byte, error)
-	VerifyBlockchain(start, finish uint64) (uint64, error)
-}
-
-// WritableLedger is useful for updating the blockchain during state transfer
-type WritableLedger interface {
-	PutBlock(blockNumber uint64, block *pb.Block) error
-	ApplyStateDelta(id interface{}, delta *statemgmt.StateDelta) error
-	CommitStateDelta(id interface{}) error
-	RollbackStateDelta(id interface{}) error
-	EmptyState() error
-}
-
-// Ledger is an unrestricted union of reads, utilities, and updates
-type Ledger interface {
-	ReadOnlyLedger
-	UtilLedger
-	WritableLedger
-}
-
-// Executor is used to invoke transactions, potentially modifying the backing ledger
-type Executor interface {
+// LegacyExecutor is used to invoke transactions, potentially modifying the backing ledger
+type LegacyExecutor interface {
 	BeginTxBatch(id interface{}) error
 	ExecTxs(id interface{}, txs []*pb.Transaction) ([]byte, error)
 	CommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
 	RollbackTxBatch(id interface{}) error
-	PreviewCommitTxBatch(id interface{}, metadata []byte) (*pb.Block, error)
+	PreviewCommitTxBatch(id interface{}, metadata []byte) ([]byte, error)
 }
 
-// RemoteLedgers is used to interrogate the blockchain of other replicas
-type RemoteLedgers interface {
-	GetRemoteBlocks(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncBlocks, error)
-	GetRemoteStateSnapshot(replicaID *pb.PeerID) (<-chan *pb.SyncStateSnapshot, error)
-	GetRemoteStateDeltas(replicaID *pb.PeerID, start, finish uint64) (<-chan *pb.SyncStateDeltas, error)
+// Executor is intended to eventually supplant the old Executor interface
+// The problem with invoking the calls directly above, is that they must be coordinated
+// with state transfer, to eliminate possible races and ledger corruption
+type Executor interface {
+	Start()                                                                     // Bring up the resources needed to use this interface
+	Halt()                                                                      // Tear down the resources needed to use this interface
+	Execute(tag interface{}, txs []*pb.Transaction)                             // Executes a set of transactions, this may be called in succession
+	Commit(tag interface{}, metadata []byte)                                    // Commits whatever transactions have been executed
+	Rollback(tag interface{})                                                   // Rolls back whatever transactions have been executed
+	UpdateState(tag interface{}, target *pb.BlockchainInfo, peers []*pb.PeerID) // Attempts to synchronize state to a particular target, implicitly calls rollback if needed
 }
 
-// LedgerStack serves as interface to the blockchain-oriented activities, such as executing transactions, querying, and updating the ledger
-type LedgerStack interface {
-	Executor
-	Ledger
-	RemoteLedgers
+// LedgerManager is used to manipulate the state of the ledger
+type LedgerManager interface {
+	InvalidateState() // Invalidate informs the ledger that it is out of date and should reject queries
+	ValidateState()   // Validate informs the ledger that it is back up to date and should resume replying to queries
+}
+
+// StatePersistor is used to store consensus state which should survive a process crash
+type StatePersistor interface {
+	StoreState(key string, value []byte) error
+	ReadState(key string) ([]byte, error)
+	ReadStateSet(prefix string) (map[string][]byte, error)
+	DelState(key string)
 }
 
 // Stack is the set of stack-facing methods available to the consensus plugin
 type Stack interface {
 	NetworkStack
 	SecurityUtils
-	LedgerStack
+	Executor
+	LegacyExecutor
+	LedgerManager
+	ReadOnlyLedger
+	StatePersistor
 }

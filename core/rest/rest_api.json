@@ -1,11 +1,11 @@
 {
     "swagger": "2.0",
     "info": {
-        "title": "IBM Blockchain API",
-        "description": "Interact with the enterprise blockchain through IBM Blockchain API",
+        "title": "Hyperledger Fabric API",
+        "description": "Interact with the enterprise blockchain through Hyperledger Fabric API",
         "version": "1.0.0"
     },
-    "host": "127.0.0.1:3000",
+    "host": "127.0.0.1:5000",
     "schemes": [
         "http"
     ],
@@ -556,7 +556,8 @@
                     "enum":[
                         "UNDEFINED",
                         "GOLANG",
-                        "NODE"
+                        "NODE",
+                        "JAVA"
                     ],
                     "description": "Chaincode specification language."
                 },

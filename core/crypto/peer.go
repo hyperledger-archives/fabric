@@ -1,27 +1,25 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package crypto
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"sync"
+
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 // Private types and variables
@@ -46,29 +44,29 @@ func RegisterPeer(name string, pwd []byte, enrollID, enrollPWD string) error {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Registering peer [%s] with id [%s]...", enrollID, name)
+	log.Infof("Registering peer [%s] with id [%s]...", enrollID, name)
 
 	if _, ok := peers[name]; ok {
-		log.Info("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
+		log.Infof("Registering peer [%s] with id [%s]...done. Already initialized.", enrollID, name)
 
 		return nil
 	}
 
 	peer := newPeer()
-	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD); err != nil {
+	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD, nil); err != nil {
 		if err != utils.ErrAlreadyRegistered && err != utils.ErrAlreadyInitialized {
-			log.Error("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
+			log.Errorf("Failed registering peer [%s] with id [%s] [%s].", enrollID, name, err)
 			return err
 		}
-		log.Info("Registering peer [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
+		log.Infof("Registering peer [%s] with id [%s]...done. Already registered or initiliazed.", enrollID, name)
 	}
 	err := peer.close()
 	if err != nil {
 		// It is not necessary to report this error to the caller
-		log.Warning("Registering peer [%s] with id [%s]. Failed closing [%s].", enrollID, name, err)
+		log.Warningf("Registering peer [%s] with id [%s]. Failed closing [%s].", enrollID, name, err)
 	}
 
-	log.Info("Registering peer [%s] with id [%s]...done!", enrollID, name)
+	log.Infof("Registering peer [%s] with id [%s]...done!", enrollID, name)
 
 	return nil
 }
@@ -78,10 +76,10 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 	peerMutex.Lock()
 	defer peerMutex.Unlock()
 
-	log.Info("Initializing peer [%s]...", name)
+	log.Infof("Initializing peer [%s]...", name)
 
 	if entry, ok := peers[name]; ok {
-		log.Info("Peer  already initiliazied [%s]. Increasing counter from [%d]", name, peers[name].counter)
+		log.Infof("Peer  already initiliazied [%s]. Increasing counter from [%d]", name, peers[name].counter)
 		entry.counter++
 		peers[name] = entry
 
@@ -89,14 +87,14 @@ func InitPeer(name string, pwd []byte) (Peer, error) {
 	}
 
 	peer := newPeer()
-	if err := peer.init(NodePeer, name, pwd); err != nil {
-		log.Error("Failed peer initialization [%s]: [%s]", name, err)
+	if err := peer.init(NodePeer, name, pwd, nil); err != nil {
+		log.Errorf("Failed peer initialization [%s]: [%s]", name, err)
 
 		return nil, err
 	}
 
 	peers[name] = peerEntry{peer, 1}
-	log.Info("Initializing peer [%s]...done!", name)
+	log.Infof("Initializing peer [%s]...done!", name)
 
 	return peer, nil
 }
@@ -131,7 +129,7 @@ func CloseAllPeers() (bool, []error) {
 // Private Methods
 
 func newPeer() *peerImpl {
-	return &peerImpl{&nodeImpl{}, nil, false}
+	return &peerImpl{&nodeImpl{}, sync.RWMutex{}, nil}
 }
 
 func closePeerInternal(peer Peer, force bool) error {
@@ -140,7 +138,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	}
 
 	name := peer.GetName()
-	log.Info("Closing peer [%s]...", name)
+	log.Infof("Closing peer [%s]...", name)
 	entry, ok := peers[name]
 	if !ok {
 		return utils.ErrInvalidReference
@@ -148,7 +146,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	if entry.counter == 1 || force {
 		defer delete(peers, name)
 		err := peers[name].peer.(*peerImpl).close()
-		log.Info("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
+		log.Infof("Closing peer [%s]...done! [%s].", name, utils.ErrToString(err))
 
 		return err
 	}
@@ -156,7 +154,7 @@ func closePeerInternal(peer Peer, force bool) error {
 	// decrease counter
 	entry.counter--
 	peers[name] = entry
-	log.Info("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
+	log.Infof("Closing peer [%s]...decreased counter at [%d].", name, peers[name].counter)
 
 	return nil
 }

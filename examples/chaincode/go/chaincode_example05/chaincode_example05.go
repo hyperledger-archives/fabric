@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -33,6 +30,8 @@ import (
 type SimpleChaincode struct {
 }
 
+// Init takes two arguments, a string and int. The string will be a key with
+// the int as a value.
 func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string // Sum of asset holdings across accounts. Initially 0
 	var sumVal int // Sum of holdings
@@ -59,7 +58,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 	return nil, nil
 }
 
-// Transaction queries another chaincode and updates its own state
+// Invoke queries another chaincode and updates its own state
 func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	var sum string             // Sum entity
 	var Aval, Bval, sumVal int // value of sum entity - to be computed
@@ -69,13 +68,13 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0]     // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
+	chaincodeURL := args[0] // Expecting "github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02"
 	sum = args[1]
 
 	// Query chaincode_example02
 	f := "query"
 	queryArgs := []string{"a"}
-	response, err := stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -89,7 +88,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	}
 
 	queryArgs = []string{"b"}
-	response, err = stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -129,13 +128,13 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	chaincodeUrl := args[0]
+	chaincodeURL := args[0]
 	sum = args[1]
 
 	// Query chaincode_example02
 	f := "query"
 	queryArgs := []string{"a"}
-	response, err := stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)
@@ -149,7 +148,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 	}
 
 	queryArgs = []string{"b"}
-	response, err = stub.QueryChaincode(chaincodeUrl, f, queryArgs)
+	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
 		fmt.Printf(errStr)

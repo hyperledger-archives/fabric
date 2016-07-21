@@ -25,17 +25,19 @@ To work on something, whether a new feature or a bugfix:
   ```
   git clone https://github.com/yourid/fabric.git
   ```
+
   3. Add the upstream repository as a remote
   ```
   git remote add upstream https://github.com/hyperledger/fabric.git
   ```
-  4. Create a branch
 
+  4. Create a branch
   Create a descriptively-named branch off of your cloned fork ([more detail here](https://help.github.com/articles/syncing-a-fork/))
   ```
   cd fabric
   git checkout -b issue-nnnn
   ```
+
   5. Commit your code
 
   Commit to that branch locally, and regularly push your work to the same branch on the server.
@@ -46,20 +48,68 @@ To work on something, whether a new feature or a bugfix:
 
   7. Pull Request (PR)
 
-  When you need feedback or help, or you think the branch is ready for merging, open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](https://github.com/hyperledger/fabric#3-test)).
+  **Note:** Each source file must include a license header for the Apache Software License 2.0. A template of that header can be found [here](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt).
+
+  When you need feedback or help, or you think the branch is ready for merging, open a pull request (make sure you have first successfully built and tested with the [Unit and Behave Tests](docs/dev-setup/install.md#3-test)).
 
    _Note: if your PR does not merge cleanly, use ```git rebase master``` in your feature branch to update your pull request rather than using ```git merge master```_.
 
-  8. Did we mention tests? All code changes should be accompanied by new or modified tests. Be sure to check [Travis](https://travis-ci.org/) or the slack #fabric-ci-status chennel for status of your build.
+  8. Did we mention tests? All code changes should be accompanied by new or modified tests.
 
-  9. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
+  9. Continuous Integration (CI): Be sure to check [Travis](https://travis-ci.org/) or the Slack [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) channel for status of your build. You can re-trigger a build on [Jenkins](https://jenkins.io/) with a PR comment containing `reverify jenkins`.
 
-After your pull request has been reviewed and signed off, a maintainer will merge it into the master branch.
+   **Note:** While some underlying work to migrate the build system from Travis to Jenkins is taking place, you can ask the [maintainers](https://github.com/hyperledger/fabric/blob/master/MAINTAINERS.txt) to re-trigger a Travis build for your PR, either by adding a comment to the PR or on the [#fabric-ci-status](https://hyperledgerproject.slack.com/messages/fabric-ci-status) Slack channel.
+
+  10. Any code changes that affect documentation should be accompanied by corresponding changes (or additions) to the documentation and tests. This will ensure that if the merged PR is reversed, all traces of the change will be reversed as well.
+
+After your Pull Request (PR) has been reviewed and signed off, a maintainer will merge it into the master branch.
+
+## Coding guidelines
+
+### Coding Golang <a name="coding-go"></a>
+- We code in Go&trade; and strictly follow the [best practices](http://golang.org/doc/effective_go.html)
+and will not accept any deviations. You must run the following tools against your Go code and fix all errors and warnings:
+  - [golint](https://github.com/golang/lint)
+  - [go vet](https://golang.org/cmd/vet/)
+  - [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports)
+
+  ## Generating gRPC code <a name="gRPC"></a>
+
+  If you modify any `.proto` files, run the following command to generate/update the respective `.pb.go` files.
+
+  ```
+  cd $GOPATH/src/github.com/hyperledger/fabric
+  make protos
+  ```
+
+  ## Adding or updating Go packages <a name="vendoring"></a>
+
+  The Hyperledger Fabric Project uses Go 1.6 vendoring for package management. This means that all required packages reside in the `vendor` folder within the fabric project. Go will use packages in this folder instead of the GOPATH when the `go install` or `go build` commands are executed. To manage the packages in the `vendor` folder, we use [Govendor](https://github.com/kardianos/govendor), which is installed in the Vagrant environment. The following commands can be used for package management:
+
+  ```
+  # Add external packages.
+  govendor add +external
+
+  # Add a specific package.
+  govendor add github.com/kardianos/osext
+
+  # Update vendor packages.
+  govendor update +vendor
+
+  # Revert back to normal GOPATH packages.
+  govendor remove +vendor
+
+  # List package.
+  govendor list
+  ```
 
 ### Becoming a maintainer
 This project is managed under open governance model as described in our  [charter](https://www.hyperledger.org/about/charter). Projects or sub-projects will be lead by a set of maintainers. New projects can designate an initial set of maintainers that will be approved by the Technical Steering Committee when the project is first approved. The project's maintainers will, from time-to-time, consider adding a new maintainer. An existing maintainer will post a pull request to the [MAINTAINERS.txt](MAINTAINERS.txt) file. If a majority of the maintainers concur in the comments, the pull request is then merged and the individual becomes a maintainer.
 
 ### Legal stuff
+
+**Note:** Each source file must include a license header for the Apache Software License 2.0. A template of that header can be found [here](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/headers.txt).
+
 We have tried to make it as easy as possible to make contributions. This applies to how we handle the legal aspects of contribution. We use the same approach&mdash;the [Developer's Certificate of Origin 1.1 (DCO)](docs/biz/DCO1.1.txt)&mdash;that the Linux&reg; Kernel [community](http://elinux.org/Developer_Certificate_Of_Origin) uses to manage code contributions.
 We simply ask that when submitting a pull request, the developer must include a sign-off statement in the pull request description.
 

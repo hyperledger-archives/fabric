@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
@@ -27,8 +24,51 @@ import (
 )
 
 func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetBlockByBlockNumber(t)
+}
+
+func TestIndexes_GetBlockByBlockHash(t *testing.T) {
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetBlockByBlockHash(t)
+}
+
+func TestIndexes_GetBlockByBlockHashWrongHash(t *testing.T) {
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetBlockByBlockHashWrongHash(t)
+}
+
+func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetTransactionByBlockNumberAndTxIndex(t)
+}
+
+func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetTransactionByBlockHashAndTxIndex(t)
+}
+
+func TestIndexes_GetTransactionByUUID(t *testing.T) {
+	defaultSetting := indexBlockDataSynchronously
+	indexBlockDataSynchronously = true
+	defer func() { indexBlockDataSynchronously = defaultSetting }()
+	testIndexesGetTransactionByUUID(t)
+}
+
+func testIndexesGetBlockByBlockNumber(t *testing.T) {
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
 	if err != nil {
 		t.Logf("Error populating block chain with sample data: %s", err)
@@ -39,9 +79,10 @@ func TestIndexes_GetBlockByBlockNumber(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetBlockByBlockHash(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+func testIndexesGetBlockByBlockHash(t *testing.T) {
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
 	if err != nil {
 		t.Logf("Error populating block chain with sample data: %s", err)
@@ -53,9 +94,23 @@ func TestIndexes_GetBlockByBlockHash(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+func testIndexesGetBlockByBlockHashWrongHash(t *testing.T) {
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
+	_, err := testBlockchainWrapper.blockchain.getBlockByHash([]byte("NotAnActualHash"))
+	ledgerErr, ok := err.(*Error)
+	if !(ok && ledgerErr.Type() == ErrorTypeBlockNotFound) {
+		t.Fatal("A 'LedgerError' of type 'ErrorTypeBlockNotFound' should have been thrown")
+	} else {
+		t.Logf("An expected error [%s] is received", err)
+	}
+}
+
+func testIndexesGetTransactionByBlockNumberAndTxIndex(t *testing.T) {
+	testDBWrapper.CleanDB(t)
+	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
 	if err != nil {
 		t.Logf("Error populating block chain with sample data: %s", err)
@@ -68,9 +123,10 @@ func TestIndexes_GetTransactionByBlockNumberAndTxIndex(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+func testIndexesGetTransactionByBlockHashAndTxIndex(t *testing.T) {
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	blocks, _, err := testBlockchainWrapper.populateBlockChainWithSampleData()
 	if err != nil {
 		t.Logf("Error populating block chain with sample data: %s", err)
@@ -84,9 +140,10 @@ func TestIndexes_GetTransactionByBlockHashAndTxIndex(t *testing.T) {
 	}
 }
 
-func TestIndexes_GetTransactionByUUID(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+func testIndexesGetTransactionByUUID(t *testing.T) {
+	testDBWrapper.CleanDB(t)
 	testBlockchainWrapper := newTestBlockchainWrapper(t)
+	defer func() { testBlockchainWrapper.blockchain.indexer.stop() }()
 	tx1, uuid1 := buildTestTx(t)
 	tx2, uuid2 := buildTestTx(t)
 	block1 := protos.NewBlock([]*protos.Transaction{tx1, tx2}, nil)

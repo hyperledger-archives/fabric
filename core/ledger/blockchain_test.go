@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ledger
@@ -28,8 +25,33 @@ import (
 	"github.com/hyperledger/fabric/protos"
 )
 
+func TestBlockchain_InfoNoBlock(t *testing.T) {
+	testDBWrapper.CleanDB(t)
+	blockchainTestWrapper := newTestBlockchainWrapper(t)
+	blockchain := blockchainTestWrapper.blockchain
+	blockchainInfo, err := blockchain.getBlockchainInfo()
+	testutil.AssertNoError(t, err, "Error while invoking getBlockchainInfo() on an emply blockchain")
+	testutil.AssertEquals(t, blockchainInfo.Height, uint64(0))
+	testutil.AssertEquals(t, blockchainInfo.CurrentBlockHash, nil)
+	testutil.AssertEquals(t, blockchainInfo.PreviousBlockHash, nil)
+}
+
+func TestBlockchain_Info(t *testing.T) {
+	testDBWrapper.CleanDB(t)
+	blockchainTestWrapper := newTestBlockchainWrapper(t)
+	blocks, _, _ := blockchainTestWrapper.populateBlockChainWithSampleData()
+
+	blockchain := blockchainTestWrapper.blockchain
+	blockchainInfo, _ := blockchain.getBlockchainInfo()
+	testutil.AssertEquals(t, blockchainInfo.Height, uint64(3))
+	currentBlockHash, _ := blocks[len(blocks)-1].GetHash()
+	previousBlockHash, _ := blocks[len(blocks)-2].GetHash()
+	testutil.AssertEquals(t, blockchainInfo.CurrentBlockHash, currentBlockHash)
+	testutil.AssertEquals(t, blockchainInfo.PreviousBlockHash, previousBlockHash)
+}
+
 func TestBlockChain_SingleBlock(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blockchain := blockchainTestWrapper.blockchain
 
@@ -52,7 +74,7 @@ func TestBlockChain_SingleBlock(t *testing.T) {
 }
 
 func TestBlockChain_SimpleChain(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	blockchain := blockchainTestWrapper.blockchain
 	allBlocks, allStateHashes, err := blockchainTestWrapper.populateBlockChainWithSampleData()
@@ -87,7 +109,7 @@ func TestBlockChain_SimpleChain(t *testing.T) {
 }
 
 func TestBlockChainEmptyChain(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	testutil.AssertEquals(t, blockchainTestWrapper.blockchain.getSize(), uint64(0))
 	block := blockchainTestWrapper.getLastBlock()
@@ -98,7 +120,7 @@ func TestBlockChainEmptyChain(t *testing.T) {
 }
 
 func TestBlockchainBlockLedgerCommitTimestamp(t *testing.T) {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	blockchainTestWrapper := newTestBlockchainWrapper(t)
 	block1 := protos.NewBlock(nil, nil)
 	startTime := util.CreateUtcTimestamp()

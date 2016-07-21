@@ -1,43 +1,40 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google/protobuf"
 	"io/ioutil"
 	"net"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
-	"syscall"
 	"sync"
-	"path/filepath"
-	"bytes"
+	"syscall"
+	"time"
 
 	"golang.org/x/net/context"
-
-	google_protobuf "google/protobuf"
 
 	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
@@ -47,9 +44,13 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/hyperledger/fabric/consensus/helper"
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/chaincode"
+	"github.com/hyperledger/fabric/core/comm"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger/genesis"
 	"github.com/hyperledger/fabric/core/peer"
@@ -57,14 +58,14 @@ import (
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
 	pb "github.com/hyperledger/fabric/protos"
-	"net/http"
-	_ "net/http/pprof"
 )
 
 var logger = logging.MustGetLogger("main")
 
 // Constants go here.
 const fabric = "hyperledger"
+const nodeFuncName = "node"
+const networkFuncName = "network"
 const chainFuncName = "chaincode"
 const cmdRoot = "core"
 const undefinedParamValue = ""
@@ -76,27 +77,55 @@ var mainCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return core.CacheConfiguration()
 	},
-}
-
-var peerCmd = &cobra.Command{
-	Use:   "peer",
-	Short: "Runs the peer.",
-	Long:  `Runs a peer that interacts with the network.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PreRun: func(cmd *cobra.Command, args []string) {
 		core.LoggingInit("peer")
 	},
+	Run: func(cmd *cobra.Command, args []string) {
+		if versionFlag {
+			showVersion()
+		} else {
+			cmd.HelpFunc()(cmd, args)
+		}
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print fabric peer version.",
+	Long:  `Print current version of fabric peer server.`,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		core.LoggingInit("version")
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		showVersion()
+	},
+}
+
+var nodeCmd = &cobra.Command{
+	Use:   nodeFuncName,
+	Short: fmt.Sprintf("%s specific commands.", nodeFuncName),
+	Long:  fmt.Sprintf("%s specific commands.", nodeFuncName),
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		core.LoggingInit(nodeFuncName)
+	},
+}
+
+var nodeStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Starts the node.",
+	Long:  `Starts a node that interacts with the network.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return serve(args)
 	},
 }
 
-var statusCmd = &cobra.Command{
+var nodeStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Returns status of the peer.",
-	Long:  `Returns the status of the currently running peer.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("status")
-	},
+	Short: "Returns status of the node.",
+	Long:  `Returns the status of the running node.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		status()
 	},
@@ -106,27 +135,30 @@ var (
 	stopPidFile string
 )
 
-var stopCmd = &cobra.Command{
+var nodeStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stops the running peer.",
-	Long:  `Stops the currently running peer, disconnecting from the network.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("stop")
-	},
+	Short: "Stops the running node.",
+	Long:  `Stops the running node, disconnecting from the network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		stop()
 	},
 }
 
-var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Logs in a user on CLI.",
-	Long:  `Logs in the local user on CLI. Must supply username as a parameter.`,
+var networkCmd = &cobra.Command{
+	Use:   networkFuncName,
+	Short: fmt.Sprintf("%s specific commands.", networkFuncName),
+	Long:  fmt.Sprintf("%s specific commands.", networkFuncName),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("login")
+		core.LoggingInit(networkFuncName)
 	},
+}
+
+var networkLoginCmd = &cobra.Command{
+	Use:   "login",
+	Short: "Logs in user to CLI.",
+	Long:  `Logs in the local user to CLI. Must supply username as a parameter.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return login(args)
+		return networkLogin(args)
 	},
 }
 
@@ -148,15 +180,13 @@ var loginCmd = &cobra.Command{
 // 	},
 // }
 
-var networkCmd = &cobra.Command{
-	Use:   "network",
-	Short: "Lists all network peers.",
-	Long:  `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("network")
-	},
+var networkListCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "Lists all network peers.",
+	Long:    `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return network()
+		return networkList()
 	},
 }
 
@@ -167,15 +197,20 @@ var (
 
 // Chaincode-related variables.
 var (
-	chaincodeLang     string
-	chaincodeCtorJSON string
-	chaincodePath     string
-	chaincodeName     string
-	chaincodeDevMode  bool
-	chaincodeUsr      string
-	chaincodeQueryRaw bool
-	chaincodeQueryHex bool
+	chaincodeLang           string
+	chaincodeCtorJSON       string
+	chaincodePath           string
+	chaincodeName           string
+	chaincodeDevMode        bool
+	chaincodeUsr            string
+	chaincodeQueryRaw       bool
+	chaincodeQueryHex       bool
+	chaincodeAttributesJSON string
+	customIDGenAlg          string
 )
+
+// Peer command version flag
+var versionFlag bool
 
 var chaincodeCmd = &cobra.Command{
 	Use:   chainFuncName,
@@ -225,59 +260,69 @@ func main() {
 	replacer := strings.NewReplacer(".", "_")
 	viper.SetEnvKeyReplacer(replacer)
 
-	// Define command-line flags that are valid for all obc-peer commands and
+	// Define command-line flags that are valid for all peer commands and
 	// subcommands.
 	mainFlags := mainCmd.PersistentFlags()
+	mainFlags.BoolVarP(&versionFlag, "version", "v", false, "Display current version of fabric peer server")
+
 	mainFlags.String("logging-level", "", "Default logging level and overrides, see core.yaml for full syntax")
 	viper.BindPFlag("logging_level", mainFlags.Lookup("logging-level"))
+	testCoverProfile := ""
+	mainFlags.StringVarP(&testCoverProfile, "test.coverprofile", "", "coverage.cov", "Done")
 
-	// Set the flags on the peer command.
-	flags := peerCmd.Flags()
-	flags.Bool("peer-tls-enabled", false, "Connection uses TLS if true, else plain TCP")
-	flags.String("peer-tls-cert-file", "testdata/server1.pem", "TLS cert file")
-	flags.String("peer-tls-key-file", "testdata/server1.key", "TLS key file")
-	flags.Int("peer-port", 30303, "Port this peer listens to for incoming connections")
-	flags.Int("peer-gomaxprocs", 2, "The maximum number threads excuting peer code")
-	flags.Bool("peer-discovery-enabled", true, "Whether peer discovery is enabled")
-
+	// Set the flags on the node start command.
+	flags := nodeStartCmd.Flags()
 	flags.BoolVarP(&chaincodeDevMode, "peer-chaincodedev", "", false, "Whether peer in chaincode development mode")
 
-	viper.BindPFlag("peer_tls_enabled", flags.Lookup("peer-tls-enabled"))
-	viper.BindPFlag("peer_tls_cert_file", flags.Lookup("peer-tls-cert-file"))
-	viper.BindPFlag("peer_tls_key_file", flags.Lookup("peer-tls-key-file"))
-	viper.BindPFlag("peer_port", flags.Lookup("peer-port"))
-	viper.BindPFlag("peer_gomaxprocs", flags.Lookup("peer-gomaxprocs"))
-	viper.BindPFlag("peer_discovery_enabled", flags.Lookup("peer-discovery-enabled"))
+	var alternativeCfgPath = os.Getenv("PEER_CFG_PATH")
+	if alternativeCfgPath != "" {
+		logger.Info("User defined config file path: %s", alternativeCfgPath)
+		viper.AddConfigPath(alternativeCfgPath) // Path to look for the config file in
+	} else {
+		viper.AddConfigPath("./") // Path to look for the config file in
+		// Path to look for the config file in based on GOPATH
+		gopath := os.Getenv("GOPATH")
+		for _, p := range filepath.SplitList(gopath) {
+			peerpath := filepath.Join(p, "src/github.com/hyperledger/fabric/peer")
+			viper.AddConfigPath(peerpath)
+		}
+	}
 
 	// Now set the configuration file.
 	viper.SetConfigName(cmdRoot) // Name of config file (without extension)
-	viper.AddConfigPath("./")    // Path to look for the config file in
-	err := viper.ReadInConfig()  // Find and read the config file
-	if err != nil {              // Handle errors reading the config file
+
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
 		panic(fmt.Errorf("Fatal error when reading %s config file: %s\n", cmdRoot, err))
 	}
 
-	mainCmd.AddCommand(peerCmd)
-	mainCmd.AddCommand(statusCmd)
+	nodeCmd.AddCommand(nodeStartCmd)
+	nodeCmd.AddCommand(nodeStatusCmd)
 
-	stopCmd.Flags().StringVarP(&stopPidFile, "stop-peer-pid-file", "", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
-	mainCmd.AddCommand(stopCmd)
+	nodeStopCmd.Flags().StringVar(&stopPidFile, "stop-peer-pid-file", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
+	nodeCmd.AddCommand(nodeStopCmd)
 
+	mainCmd.AddCommand(versionCmd)
+	mainCmd.AddCommand(nodeCmd)
 	// Set the flags on the login command.
-	loginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
+	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
 
-	mainCmd.AddCommand(loginCmd)
+	networkCmd.AddCommand(networkLoginCmd)
 
 	// vmCmd.AddCommand(vmPrimeCmd)
 	// mainCmd.AddCommand(vmCmd)
+
+	networkCmd.AddCommand(networkListCmd)
 
 	mainCmd.AddCommand(networkCmd)
 
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeAttributesJSON, "attributes", "a", "[]", fmt.Sprintf("User attributes for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
+	chaincodeCmd.PersistentFlags().StringVarP(&customIDGenAlg, "tid", "t", undefinedParamValue, fmt.Sprintf("Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64"))
 
 	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryRaw, "raw", "r", false, "If true, output the query value as raw bytes, otherwise format as a printable string")
 	chaincodeQueryCmd.Flags().BoolVarP(&chaincodeQueryHex, "hex", "x", false, "If true, output the query value byte array in hexadecimal. Incompatible with --raw")
@@ -292,7 +337,7 @@ func main() {
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed to initialize the crypto layer: %s", err))
 	}
 
 	// On failure Cobra prints the usage message and error string, so we only
@@ -300,13 +345,14 @@ func main() {
 	if mainCmd.Execute() != nil {
 		os.Exit(1)
 	}
+	logger.Info("Exiting.....")
 }
 
 func createEventHubServer() (net.Listener, *grpc.Server, error) {
 	var lis net.Listener
 	var grpcServer *grpc.Server
 	var err error
-	if viper.GetBool("peer.validator.enabled") {
+	if peer.ValidatorEnabled() {
 		lis, err = net.Listen("tcp", viper.GetString("peer.validator.events.address"))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to listen: %v", err)
@@ -314,7 +360,7 @@ func createEventHubServer() (net.Listener, *grpc.Server, error) {
 
 		//TODO - do we need different SSL material for events ?
 		var opts []grpc.ServerOption
-		if viper.GetBool("peer.tls.enabled") {
+		if comm.TLSEnabled() {
 			creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to generate credentials %v", err)
@@ -338,25 +384,25 @@ func getSecHelper() (crypto.Peer, error) {
 	var secHelper crypto.Peer
 	var err error
 	once.Do(func() {
-		if viper.GetBool("security.enabled") {
+		if core.SecurityEnabled() {
 			enrollID := viper.GetString("security.enrollID")
 			enrollSecret := viper.GetString("security.enrollSecret")
-			if viper.GetBool("peer.validator.enabled") {
-				logger.Debug("Registering validator with enroll ID: %s", enrollID)
+			if peer.ValidatorEnabled() {
+				logger.Debugf("Registering validator with enroll ID: %s", enrollID)
 				if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 					return
 				}
-				logger.Debug("Initializing validator with enroll ID: %s", enrollID)
+				logger.Debugf("Initializing validator with enroll ID: %s", enrollID)
 				secHelper, err = crypto.InitValidator(enrollID, nil)
 				if nil != err {
 					return
 				}
 			} else {
-				logger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+				logger.Debugf("Registering non-validator with enroll ID: %s", enrollID)
 				if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 					return
 				}
-				logger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+				logger.Debugf("Initializing non-validator with enroll ID: %s", enrollID)
 				secHelper, err = crypto.InitPeer(enrollID, nil)
 				if nil != err {
 					return
@@ -365,6 +411,11 @@ func getSecHelper() (crypto.Peer, error) {
 		}
 	})
 	return secHelper, err
+}
+
+func showVersion() {
+	version := viper.GetString("peer.version")
+	fmt.Printf("Fabric peer server version %s\n", version)
 }
 
 func serve(args []string) error {
@@ -379,19 +430,12 @@ func serve(args []string) error {
 		viper.Set("peer.validator.consensus", "noops")
 		viper.Set("chaincode.mode", chaincode.DevModeUserRunsChaincode)
 
-		// Disable validity system chaincode in dev mode. Also if security is enabled,
-		// in membersrvc.yaml, manually set pki.validity-period.update to false to prevent
-		// membersrvc from calling validity system chaincode -- though no harm otherwise
-		viper.Set("ledger.blockchain.deploy-system-chaincode", "false")
-		viper.Set("validator.validity-period.verification", "false")
 	}
+
 	if err := peer.CacheConfiguration(); err != nil {
 		return err
 	}
 
-	//register all system chaincodes. This just registers chaincodes, they must be 
-	//still be deployed and launched
-	system_chaincode.RegisterSysCCs()
 	peerEndpoint, err := peer.GetPeerEndpoint()
 	if err != nil {
 		err = fmt.Errorf("Failed to get Peer Endpoint: %s", err)
@@ -415,11 +459,19 @@ func serve(args []string) error {
 		grpclog.Fatalf("Failed to create ehub server: %v", err)
 	}
 
-	logger.Info("Security enabled status: %t", viper.GetBool("security.enabled"))
-	logger.Info("Privacy enabled status: %t", viper.GetBool("security.privacy"))
+	logger.Infof("Security enabled status: %t", core.SecurityEnabled())
+	if viper.GetBool("security.privacy") {
+		if core.SecurityEnabled() {
+			logger.Infof("Privacy enabled status: true")
+		} else {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
+		}
+	} else {
+		logger.Infof("Privacy enabled status: false")
+	}
 
 	var opts []grpc.ServerOption
-	if viper.GetBool("peer.tls.enabled") {
+	if comm.TLSEnabled() {
 		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
 		if err != nil {
 			grpclog.Fatalf("Failed to generate credentials %v", err)
@@ -442,17 +494,14 @@ func serve(args []string) error {
 
 	var peerServer *peer.PeerImpl
 
-	//create the peerServer....
-	if viper.GetBool("peer.validator.enabled") {
-		if viper.GetBool("peer.validator.enabled") {
-			logger.Debug("Running as validating peer - making genesis block if needed")
-			makeGenesisError := genesis.MakeGenesis()
-			if makeGenesisError != nil {
-				return makeGenesisError
-			}
+	// Create the peerServer
+	if peer.ValidatorEnabled() {
+		logger.Debug("Running as validating peer - making genesis block if needed")
+		makeGenesisError := genesis.MakeGenesis()
+		if makeGenesisError != nil {
+			return makeGenesisError
 		}
-
-		logger.Debug("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
+		logger.Debugf("Running as validating peer - installing consensus %s", viper.GetString("peer.validator.consensus"))
 		peerServer, err = peer.NewPeerWithEngine(secHelperFunc, helper.GetEngine)
 	} else {
 		logger.Debug("Running as non-validating peer")
@@ -466,7 +515,6 @@ func serve(args []string) error {
 	}
 
 	// Register the Peer server
-	//pb.RegisterPeerServer(grpcServer, openchain.NewPeer())
 	pb.RegisterPeerServer(grpcServer, peerServer)
 
 	// Register the Admin server
@@ -490,18 +538,22 @@ func serve(args []string) error {
 		go rest.StartOpenchainRESTServer(serverOpenchain, serverDevops)
 	}
 
-	rootNode, err := core.GetRootNode()
-	if err != nil {
-		grpclog.Fatalf("Failed to get peer.discovery.rootnode valey: %s", err)
-	}
-
-	logger.Info("Starting peer with id=%s, network id=%s, address=%s, discovery.rootnode=%s, validator=%v",
-		peerEndpoint.ID, viper.GetString("peer.networkId"),
-		peerEndpoint.Address, rootNode, viper.GetBool("peer.validator.enabled"))
+	logger.Infof("Starting peer with ID=%s, network ID=%s, address=%s, rootnodes=%v, validator=%v",
+		peerEndpoint.ID, viper.GetString("peer.networkId"), peerEndpoint.Address, viper.GetString("peer.discovery.rootnode"), peer.ValidatorEnabled())
 
 	// Start the grpc server. Done in a goroutine so we can deploy the
 	// genesis block if needed.
 	serve := make(chan error)
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println()
+		fmt.Println(sig)
+		serve <- nil
+	}()
+
 	go func() {
 		var grpcErr error
 		if grpcErr = grpcServer.Serve(lis); grpcErr != nil {
@@ -512,11 +564,11 @@ func serve(args []string) error {
 		serve <- grpcErr
 	}()
 
-	if err := writePid(viper.GetString("peer.fileSystemPath") + "/peer.pid", os.Getpid()); err != nil {
+	if err := writePid(viper.GetString("peer.fileSystemPath")+"/peer.pid", os.Getpid()); err != nil {
 		return err
 	}
 
-	//start the event hub server
+	// Start the event hub server
 	if ehubGrpcServer != nil && ehubLis != nil {
 		go ehubGrpcServer.Serve(ehubLis)
 	}
@@ -524,9 +576,9 @@ func serve(args []string) error {
 	if viper.GetBool("peer.profile.enabled") {
 		go func() {
 			profileListenAddress := viper.GetString("peer.profile.listenAddress")
-			logger.Info(fmt.Sprintf("Starting profiling server with listenAddress = %s", profileListenAddress))
+			logger.Infof("Starting profiling server with listenAddress = %s", profileListenAddress)
 			if profileErr := http.ListenAndServe(profileListenAddress, nil); profileErr != nil {
-				logger.Error("Error starting profiler: %s", profileErr)
+				logger.Errorf("Error starting profiler: %s", profileErr)
 			}
 		}()
 	}
@@ -538,7 +590,7 @@ func serve(args []string) error {
 func status() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
-		logger.Info("Error trying to connect to local peer: %s", err)
+		logger.Infof("Error trying to connect to local peer: %s", err)
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
 		return err
@@ -548,7 +600,7 @@ func status() (err error) {
 
 	status, err := serverClient.GetStatus(context.Background(), &google_protobuf.Empty{})
 	if err != nil {
-		logger.Info("Error trying to get status from local peer: %s", err)
+		logger.Infof("Error trying to get status from local peer: %s", err)
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
 		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_UNKNOWN})
 		return err
@@ -562,8 +614,8 @@ func stop() (err error) {
 	if err != nil {
 		pidFile := stopPidFile + "/peer.pid"
 		//fmt.Printf("Stopping local peer using process pid from %s \n", pidFile)
-		logger.Info("Error trying to connect to local peer: %s", err)
-		logger.Info("Stopping local peer using process pid from %s", pidFile)
+		logger.Infof("Error trying to connect to local peer: %s", err)
+		logger.Infof("Stopping local peer using process pid from %s", pidFile)
 		pid, ferr := readPid(pidFile)
 		if ferr != nil {
 			err = fmt.Errorf("Error trying to read pid from %s: %s", pidFile, ferr)
@@ -575,25 +627,24 @@ func stop() (err error) {
 			return
 		}
 		return nil
-	} else {
-		logger.Info("Stopping peer using grpc")
-		serverClient := pb.NewAdminClient(clientConn)
-
-		status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
-		if err != nil {
-			fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
-			return nil
-		} else {
-			err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
-			fmt.Println(status)
-			return err
-		}
 	}
+	logger.Info("Stopping peer using grpc")
+	serverClient := pb.NewAdminClient(clientConn)
+
+	status, err := serverClient.StopServer(context.Background(), &google_protobuf.Empty{})
+	if err != nil {
+		fmt.Println(&pb.ServerStatus{Status: pb.ServerStatus_STOPPED})
+		return nil
+	}
+
+	err = fmt.Errorf("Connection remain opened, peer process doesn't exit")
+	fmt.Println(status)
+	return err
 }
 
 // login confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
-func login(args []string) (err error) {
+func networkLogin(args []string) (err error) {
 	logger.Info("CLI client login...")
 
 	// Check for username argument
@@ -611,11 +662,11 @@ func login(args []string) (err error) {
 	// Retrieve the CLI data storage path
 	// Returns /var/openchain/production/client/
 	localStore := getCliFilePath()
-	logger.Info("Local data store for client loginToken: %s", localStore)
+	logger.Infof("Local data store for client loginToken: %s", localStore)
 
 	// If the user is already logged in, return
 	if _, err = os.Stat(localStore + "loginToken_" + args[0]); err == nil {
-		logger.Info("User '%s' is already logged in.\n", args[0])
+		logger.Infof("User '%s' is already logged in.\n", args[0])
 		return
 	}
 
@@ -627,13 +678,12 @@ func login(args []string) (err error) {
 		if pw, err = gopass.GetPasswdMasked(); err != nil {
 			err = fmt.Errorf("Error trying to read password from console: %s", err)
 			return
-		} else {
-			loginPW = string(pw)
 		}
+		loginPW = string(pw)
 	}
 
 	// Log in the user
-	logger.Info("Logging in user '%s' on CLI interface...\n", args[0])
+	logger.Infof("Logging in user '%s' on CLI interface...\n", args[0])
 
 	// Get a devopsClient to perform the login
 	clientConn, err := peer.NewPeerClientConnection()
@@ -663,13 +713,13 @@ func login(args []string) (err error) {
 		}
 
 		// Store client security context into a file
-		logger.Info("Storing login token for user '%s'.\n", args[0])
+		logger.Infof("Storing login token for user '%s'.\n", args[0])
 		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
 		if err != nil {
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
 
-		logger.Info("Login successful for user '%s'.\n", args[0])
+		logger.Infof("Login successful for user '%s'.\n", args[0])
 	} else {
 		err = fmt.Errorf("Error on client login: %s", string(loginResult.Msg))
 		return
@@ -704,7 +754,12 @@ func registerChaincodeSupport(chainname chaincode.ChainName, grpcServer *grpc.Se
 	}
 	ccStartupTimeout := time.Duration(tOut) * time.Millisecond
 
-	pb.RegisterChaincodeSupportServer(grpcServer, chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper))
+	ccSrv := chaincode.NewChaincodeSupport(chainname, peer.GetPeerEndpoint, userRunsCC, ccStartupTimeout, secHelper)
+
+	//Now that chaincode is initialized, register all system chaincodes.
+	system_chaincode.RegisterSysCCs()
+
+	pb.RegisterChaincodeSupportServer(grpcServer, ccSrv)
 }
 
 func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
@@ -733,7 +788,7 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 			err = fmt.Errorf("Non-empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 			return
 		}
-		for k, _ := range m {
+		for k := range m {
 			switch strings.ToLower(k) {
 			case "function":
 			case "args":
@@ -745,6 +800,15 @@ func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 	} else {
 		err = errors.New("Empty JSON chaincode parameters must contain exactly 2 keys - 'Function' and 'Args'")
 		return
+	}
+
+	if chaincodeAttributesJSON != "[]" {
+		var f interface{}
+		err = json.Unmarshal([]byte(chaincodeAttributesJSON), &f)
+		if err != nil {
+			err = fmt.Errorf("Chaincode argument error: %s", err)
+			return
+		}
 	}
 
 	return
@@ -777,12 +841,19 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Path: chaincodePath, Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		logger.Debug("Security is enabled. Include security context in deploy spec")
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
@@ -795,7 +866,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 
 		// Check if the user is logged in before sending transaction
 		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			logger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -820,6 +891,13 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
+		}
 	}
 
 	chaincodeDeploymentSpec, err := devopsClient.Deploy(context.Background(), spec)
@@ -827,7 +905,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 		err = fmt.Errorf("Error building %s: %s\n", chainFuncName, err)
 		return
 	}
-	logger.Info("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
+	logger.Infof("Deploy result: %s", chaincodeDeploymentSpec.ChaincodeSpec)
 	fmt.Println(chaincodeDeploymentSpec.ChaincodeSpec.ChaincodeID.Name)
 	return nil
 }
@@ -868,12 +946,19 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 		err = fmt.Errorf("Chaincode argument error: %s", err)
 		return
 	}
+
+	var attributes []string
+	if err = json.Unmarshal([]byte(chaincodeAttributesJSON), &attributes); err != nil {
+		err = fmt.Errorf("Chaincode argument error: %s", err)
+		return
+	}
+
 	chaincodeLang = strings.ToUpper(chaincodeLang)
 	spec := &pb.ChaincodeSpec{Type: pb.ChaincodeSpec_Type(pb.ChaincodeSpec_Type_value[chaincodeLang]),
-		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input}
+		ChaincodeID: &pb.ChaincodeID{Name: chaincodeName}, CtorMsg: input, Attributes: attributes}
 
 	// If security is enabled, add client login token
-	if viper.GetBool("security.enabled") {
+	if core.SecurityEnabled() {
 		if chaincodeUsr == undefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
 			return
@@ -885,7 +970,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 		// Check if the user is logged in before sending transaction
 		if _, err = os.Stat(localStore + "loginToken_" + chaincodeUsr); err == nil {
-			logger.Info("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
+			logger.Infof("Local user '%s' is already logged in. Retrieving login token.\n", chaincodeUsr)
 
 			// Read in the login token
 			token, err := ioutil.ReadFile(localStore + "loginToken_" + chaincodeUsr)
@@ -910,10 +995,20 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			// Unexpected error
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
+	} else {
+		if chaincodeUsr != undefinedParamValue {
+			logger.Warning("Username supplied but security is disabled.")
+		}
+		if viper.GetBool("security.privacy") {
+			panic(errors.New("Privacy cannot be enabled as requested because security is disabled"))
+		}
 	}
 
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
+	if customIDGenAlg != undefinedParamValue {
+		invocation.IdGenerationAlg = customIDGenAlg
+	}
 
 	var resp *pb.Response
 	if invoke {
@@ -932,10 +1027,10 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 	}
 	if invoke {
 		transactionID := string(resp.Msg)
-		logger.Info("Successfully invoked transaction: %s(%s)", invocation, transactionID)
+		logger.Infof("Successfully invoked transaction: %s(%s)", invocation, transactionID)
 		fmt.Println(transactionID)
 	} else {
-		logger.Info("Successfully queried transaction: %s", invocation)
+		logger.Infof("Successfully queried transaction: %s", invocation)
 		if resp != nil {
 			if chaincodeQueryRaw {
 				if chaincodeQueryHex {
@@ -957,7 +1052,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 // Show a list of all existing network connections for the target peer node,
 // includes both validating and non-validating peers
-func network() (err error) {
+func networkList() (err error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {
 		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
@@ -976,7 +1071,7 @@ func network() (err error) {
 	return nil
 }
 
-func writePid (fileName string, pid int) error {
+func writePid(fileName string, pid int) error {
 	err := os.MkdirAll(filepath.Dir(fileName), 0755)
 	if err != nil {
 		return err
@@ -1013,7 +1108,7 @@ func writePid (fileName string, pid int) error {
 	return nil
 }
 
-func readPid (fileName string) (int, error) {
+func readPid(fileName string) (int, error) {
 	fd, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return 0, err
@@ -1034,7 +1129,7 @@ func readPid (fileName string) (int, error) {
 
 	pid, err := strconv.Atoi(string(bytes.TrimSpace(data)))
 	if err != nil {
-		return 0, fmt.Errorf("error parsing pid from %s: %s", fd, err)
+		return 0, fmt.Errorf("error parsing pid from %s: %s", fd.Name(), err)
 	}
 
 	if err := syscall.Flock(int(fd.Fd()), syscall.LOCK_UN); err != nil {

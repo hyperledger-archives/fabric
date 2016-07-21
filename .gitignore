@@ -1,8 +1,7 @@
 # Local build binaries
-peer/peer
 node-cli/node-cli
 *.pyc
-/build/_workspace
+/build/*
 /bin
 .idea
 *.iml
@@ -10,10 +9,19 @@ node-cli/node-cli
 tags
 .tags
 .vagrant/
-membersrvc/membersrvc
+/build
 # Emacs backup files
 *~
 *#
 .#*
 # bddtest log files
 *.log
+# bddtest coverage files
+bddtests/coverage
+*.cov
+# Makefile dummy artifacts
+.*-dummy
+# go-carpet output files
+go-carpet-coverage*
+# make node-sdk copied files
+sdk/node/lib/protos/*

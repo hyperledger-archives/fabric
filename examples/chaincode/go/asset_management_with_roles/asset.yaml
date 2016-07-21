@@ -8,16 +8,18 @@ server:
         gomaxprocs: 2
 
         # path to the OBC state directory and CA state subdirectory
-        # rootpath: "."
-        # cadir: ".ca"
+        rootpath: "/tmp/hyperledger/production"
+        cadir: ".membersrvc"
 
         # port the CA services are listening on
         port: ":50051"
 
         # TLS certificate and key file paths
         tls:
-#              certfile: "/var/hyperledger/production/.ca/tlsca.cert"
-#              keyfile: "/var/hyperledger/production/.ca/tlsca.priv"
+              cert:
+#                    file: "/var/hyperledger/production/.ca/tlsca.cert"
+              key:
+#                    file: "/var/hyperledger/production/.ca/tlsca.priv"
 
 security:
     # Can be 256 or 384
@@ -33,6 +35,25 @@ logging:
         error: 1
         panic: 1
 
+# TCA configuration for attribute encryption
+tca:
+    # Enabling/disabling attributes encryption, if is enabled attributes within the certificate will be encrypted using a specific key for each attribute,
+    # in otherwise cleartext attribute value will be added into the certificate.
+    attribute-encryption:
+        enabled: false
+
+# Default attributes for Attribute Certificate Authority
+aca:
+    attributes:
+        attribute-entry-0: alice;bank_a;role;client;2016-01-01T00:00:00-03:00;;
+        attribute-entry-1: bob;bank_a;role;client;2015-02-02T00:00:00-03:00;;
+        attribute-entry-2: admin;bank_a;role;assigner;2015-01-01T00:00:00-03:00;;
+        attribute-entry-3: alice;bank_a;account;12345-56789;2016-01-01T00:00:00-03:00;;
+        attribute-entry-4: bob;bank_a;account;23456-67890;2015-02-02T00:00:00-03:00;;
+    address: localhost:50051
+    server-name: acap
+    enabled: true
+
 # Default users to be registered with the CA on first launch.  The role is a binary OR
 # of the different roles a user can have:
 #
@@ -42,37 +63,21 @@ logging:
 # - auditing client: AUDITOR
 #
 eca:
-        affiliation_groups:
+        affiliations:
            banks_and_institutions:
               banks:
-                  bank_a:
-                  bank_b:
-                  bank_c:              		
+                  - bank_a
+                  - bank_b
+                  - bank_c
               institutions:
-                  institution_a:
+                  - institution_a
         users:
                 # <EnrollmentID>: <role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                lukas: 1 NPKYL39uKbkj institution_a	00001
-                diego: 1 DRJ23pEQl16a institution_a	00002
-                jim: 1 6avZQLwcUe9b institution_a	00003
+                alice: 1 NPKYL39uKbkj bank_a	00001
+                bob: 1 DRJ23pEQl16a bank_a	00002
+                admin: 1 6avZQLwcUe9b bank_a	00003
 
                 vp: 4 f3489fy98ghf
-
-pki:
-          validity-period:
-                 # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
-                 update: false
-                 chaincodeHash: 6091c3abd07c18edd6ef48ae24cfe409522f7defb51e4103dfa61ca3012386380c1b179f904375e253f20f4b2c5c848299988e65d8b80cb3f6b3d848b6fb2230
-                 # TLS Settings for communications to update the validity period
-                 tls:
-                         enabled: false
-                         cert:
-                                file: testdata/server1.pem
-                         key:
-                                file: testdata/server1.key
-                         # The server name use to verify the hostname returned by TLS handshake
-                         server-host-override:
-                 devops-address: 0.0.0.0:40404
 
 
 ###############################################################################
@@ -223,7 +228,7 @@ peer:
     validator:
         enabled: true
 
-        # Consensus plugin to use. The value is the name of the plugin, e.g. obcpbft, noops
+        # Consensus plugin to use. The value is the name of the plugin, e.g. pbft, noops
         # if the given value is not recognized, we will default to noops
         consensus: noops
 
@@ -240,10 +245,7 @@ peer:
             # if 0, if buffer full, will block and guarantee the event will be sent out
             # if > 0, if buffer full, blocks till timeout
             timeout: 10
-        # Setting the validity-period.verification to false will disable the verification
-        # of the validity period in the validator
-        validity-period:
-            verification: false
+        
 
     # TLS Settings for p2p communications
     tls:
@@ -316,6 +318,9 @@ peer:
     # Path on the file system where peer will store data
     # fileSystemPath: .hyperledger/production
 
+    # Path on the file system where peer will store data
+    fileSystemPath: /tmp/hyperledger/production
+
 ###############################################################################
 #
 #    VM section
@@ -325,8 +330,8 @@ vm:
 
     # Endpoint of the vm management system.  For docker can be one of the following in general
     # unix:///var/run/docker.sock
-    # http://localhost:4243
-    # tcp://localhost:2376
+    # http://localhost:2375
+    # https://localhost:2376
     endpoint: unix:///var/run/docker.sock
 
     # settings for docker vms
@@ -470,5 +475,6 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  2
-      attributes:
-        role: assigner
+
+    attributes:
+      enabled: true

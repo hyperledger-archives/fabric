@@ -18,40 +18,121 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type Interest_ResponseType int32
+type EventType int32
 
 const (
-	// don't send events (used to cancel interest)
-	Interest_DONTSEND Interest_ResponseType = 0
-	// send protobuf objects
-	Interest_PROTOBUF Interest_ResponseType = 1
-	// marshall into JSON byte array
-	Interest_JSON Interest_ResponseType = 2
+	EventType_REGISTER  EventType = 0
+	EventType_BLOCK     EventType = 1
+	EventType_CHAINCODE EventType = 2
+	EventType_REJECTION EventType = 3
 )
 
-var Interest_ResponseType_name = map[int32]string{
-	0: "DONTSEND",
-	1: "PROTOBUF",
-	2: "JSON",
+var EventType_name = map[int32]string{
+	0: "REGISTER",
+	1: "BLOCK",
+	2: "CHAINCODE",
+	3: "REJECTION",
 }
-var Interest_ResponseType_value = map[string]int32{
-	"DONTSEND": 0,
-	"PROTOBUF": 1,
-	"JSON":     2,
+var EventType_value = map[string]int32{
+	"REGISTER":  0,
+	"BLOCK":     1,
+	"CHAINCODE": 2,
+	"REJECTION": 3,
 }
 
-func (x Interest_ResponseType) String() string {
-	return proto.EnumName(Interest_ResponseType_name, int32(x))
+func (x EventType) String() string {
+	return proto.EnumName(EventType_name, int32(x))
 }
+
+// ChaincodeReg is used for registering chaincode Interests
+// when EventType is CHAINCODE
+type ChaincodeReg struct {
+	ChaincodeID string `protobuf:"bytes,1,opt,name=chaincodeID" json:"chaincodeID,omitempty"`
+	EventName   string `protobuf:"bytes,2,opt,name=eventName" json:"eventName,omitempty"`
+}
+
+func (m *ChaincodeReg) Reset()         { *m = ChaincodeReg{} }
+func (m *ChaincodeReg) String() string { return proto.CompactTextString(m) }
+func (*ChaincodeReg) ProtoMessage()    {}
 
 type Interest struct {
-	EventType    string                `protobuf:"bytes,1,opt,name=eventType" json:"eventType,omitempty"`
-	ResponseType Interest_ResponseType `protobuf:"varint,2,opt,name=responseType,enum=protos.Interest_ResponseType" json:"responseType,omitempty"`
+	EventType EventType `protobuf:"varint,1,opt,name=eventType,enum=protos.EventType" json:"eventType,omitempty"`
+	// Ideally we should just have the following oneof for different
+	// Reg types and get rid of EventType. But this is an API change
+	// Additional Reg types may add messages specific to their type
+	// to the oneof.
+	//
+	// Types that are valid to be assigned to RegInfo:
+	//	*Interest_ChaincodeRegInfo
+	RegInfo isInterest_RegInfo `protobuf_oneof:"RegInfo"`
 }
 
 func (m *Interest) Reset()         { *m = Interest{} }
 func (m *Interest) String() string { return proto.CompactTextString(m) }
 func (*Interest) ProtoMessage()    {}
+
+type isInterest_RegInfo interface {
+	isInterest_RegInfo()
+}
+
+type Interest_ChaincodeRegInfo struct {
+	ChaincodeRegInfo *ChaincodeReg `protobuf:"bytes,2,opt,name=chaincodeRegInfo,oneof"`
+}
+
+func (*Interest_ChaincodeRegInfo) isInterest_RegInfo() {}
+
+func (m *Interest) GetRegInfo() isInterest_RegInfo {
+	if m != nil {
+		return m.RegInfo
+	}
+	return nil
+}
+
+func (m *Interest) GetChaincodeRegInfo() *ChaincodeReg {
+	if x, ok := m.GetRegInfo().(*Interest_ChaincodeRegInfo); ok {
+		return x.ChaincodeRegInfo
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Interest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Interest_OneofMarshaler, _Interest_OneofUnmarshaler, []interface{}{
+		(*Interest_ChaincodeRegInfo)(nil),
+	}
+}
+
+func _Interest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Interest)
+	// RegInfo
+	switch x := m.RegInfo.(type) {
+	case *Interest_ChaincodeRegInfo:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ChaincodeRegInfo); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Interest.RegInfo has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Interest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Interest)
+	switch tag {
+	case 2: // RegInfo.chaincodeRegInfo
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ChaincodeReg)
+		err := b.DecodeMessage(msg)
+		m.RegInfo = &Interest_ChaincodeRegInfo{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
 
 // ---------- consumer events ---------
 // Register is sent by consumers for registering events
@@ -71,28 +152,34 @@ func (m *Register) GetEvents() []*Interest {
 	return nil
 }
 
-// ---------- producer events ---------
-// Generic is used for encoding payload as JSON or raw bytes
-// string type - "generic"
-type Generic struct {
-	EventType string `protobuf:"bytes,1,opt,name=eventType" json:"eventType,omitempty"`
-	Payload   []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+// Rejection is sent by consumers for erroneous transaction rejection events
+// string type - "rejection"
+type Rejection struct {
+	Tx       *Transaction `protobuf:"bytes,1,opt,name=tx" json:"tx,omitempty"`
+	ErrorMsg string       `protobuf:"bytes,2,opt,name=ErrorMsg" json:"ErrorMsg,omitempty"`
 }
 
-func (m *Generic) Reset()         { *m = Generic{} }
-func (m *Generic) String() string { return proto.CompactTextString(m) }
-func (*Generic) ProtoMessage()    {}
+func (m *Rejection) Reset()         { *m = Rejection{} }
+func (m *Rejection) String() string { return proto.CompactTextString(m) }
+func (*Rejection) ProtoMessage()    {}
 
+func (m *Rejection) GetTx() *Transaction {
+	if m != nil {
+		return m.Tx
+	}
+	return nil
+}
+
+// ---------- producer events ---------
 // Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
 type Event struct {
-	// TODO need timestamp
-	//
 	// Types that are valid to be assigned to Event:
 	//	*Event_Register
 	//	*Event_Block
-	//	*Event_Generic
+	//	*Event_ChaincodeEvent
+	//	*Event_Rejection
 	Event isEvent_Event `protobuf_oneof:"Event"`
 }
 
@@ -110,13 +197,17 @@ type Event_Register struct {
 type Event_Block struct {
 	Block *Block `protobuf:"bytes,2,opt,name=block,oneof"`
 }
-type Event_Generic struct {
-	Generic *Generic `protobuf:"bytes,3,opt,name=generic,oneof"`
+type Event_ChaincodeEvent struct {
+	ChaincodeEvent *ChaincodeEvent `protobuf:"bytes,3,opt,name=chaincodeEvent,oneof"`
+}
+type Event_Rejection struct {
+	Rejection *Rejection `protobuf:"bytes,4,opt,name=rejection,oneof"`
 }
 
-func (*Event_Register) isEvent_Event() {}
-func (*Event_Block) isEvent_Event()    {}
-func (*Event_Generic) isEvent_Event()  {}
+func (*Event_Register) isEvent_Event()       {}
+func (*Event_Block) isEvent_Event()          {}
+func (*Event_ChaincodeEvent) isEvent_Event() {}
+func (*Event_Rejection) isEvent_Event()      {}
 
 func (m *Event) GetEvent() isEvent_Event {
 	if m != nil {
@@ -139,9 +230,16 @@ func (m *Event) GetBlock() *Block {
 	return nil
 }
 
-func (m *Event) GetGeneric() *Generic {
-	if x, ok := m.GetEvent().(*Event_Generic); ok {
-		return x.Generic
+func (m *Event) GetChaincodeEvent() *ChaincodeEvent {
+	if x, ok := m.GetEvent().(*Event_ChaincodeEvent); ok {
+		return x.ChaincodeEvent
+	}
+	return nil
+}
+
+func (m *Event) GetRejection() *Rejection {
+	if x, ok := m.GetEvent().(*Event_Rejection); ok {
+		return x.Rejection
 	}
 	return nil
 }
@@ -151,7 +249,8 @@ func (*Event) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, 
 	return _Event_OneofMarshaler, _Event_OneofUnmarshaler, []interface{}{
 		(*Event_Register)(nil),
 		(*Event_Block)(nil),
-		(*Event_Generic)(nil),
+		(*Event_ChaincodeEvent)(nil),
+		(*Event_Rejection)(nil),
 	}
 }
 
@@ -169,9 +268,14 @@ func _Event_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		if err := b.EncodeMessage(x.Block); err != nil {
 			return err
 		}
-	case *Event_Generic:
+	case *Event_ChaincodeEvent:
 		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Generic); err != nil {
+		if err := b.EncodeMessage(x.ChaincodeEvent); err != nil {
+			return err
+		}
+	case *Event_Rejection:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Rejection); err != nil {
 			return err
 		}
 	case nil:
@@ -200,13 +304,21 @@ func _Event_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Event = &Event_Block{msg}
 		return true, err
-	case 3: // Event.generic
+	case 3: // Event.chaincodeEvent
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(Generic)
+		msg := new(ChaincodeEvent)
 		err := b.DecodeMessage(msg)
-		m.Event = &Event_Generic{msg}
+		m.Event = &Event_ChaincodeEvent{msg}
+		return true, err
+	case 4: // Event.rejection
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Rejection)
+		err := b.DecodeMessage(msg)
+		m.Event = &Event_Rejection{msg}
 		return true, err
 	default:
 		return false, nil
@@ -214,7 +326,7 @@ func _Event_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 }
 
 func init() {
-	proto.RegisterEnum("protos.Interest_ResponseType", Interest_ResponseType_name, Interest_ResponseType_value)
+	proto.RegisterEnum("protos.EventType", EventType_name, EventType_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

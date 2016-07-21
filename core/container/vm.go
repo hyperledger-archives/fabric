@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package container
@@ -24,12 +21,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io"
-	"time"
 
 	"golang.org/x/net/context"
-
-	"github.com/spf13/viper"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger/fabric/core/chaincode/platforms"
@@ -129,111 +122,8 @@ func (vm *VM) buildChaincodeContainerUsingDockerfilePackageBytes(spec *pb.Chainc
 		OutputStream: outputbuf,
 	}
 	if err := vm.Client.BuildImage(opts); err != nil {
-		vmLogger.Debug(fmt.Sprintf("Failed Chaincode docker build:\n%s\n", outputbuf.String()))
+		vmLogger.Errorf("Failed Chaincode docker build:\n%s\n", outputbuf.String())
 		return fmt.Errorf("Error building Chaincode container: %s", err)
-	}
-	return nil
-}
-
-// BuildPeerContainer builds the image for the Peer to be used in development network
-func (vm *VM) BuildPeerContainer() error {
-	//inputbuf, err := vm.GetPeerPackageBytes()
-	inputbuf, err := vm.getPackageBytes(vm.writePeerPackage)
-
-	if err != nil {
-		return fmt.Errorf("Error building Peer container: %s", err)
-	}
-	outputbuf := bytes.NewBuffer(nil)
-	opts := docker.BuildImageOptions{
-		Name:         "hyperledger-peer",
-		InputStream:  inputbuf,
-		OutputStream: outputbuf,
-	}
-	if err := vm.Client.BuildImage(opts); err != nil {
-		vmLogger.Debug(fmt.Sprintf("Failed Peer docker build:\n%s\n", outputbuf.String()))
-		return fmt.Errorf("Error building Peer container: %s\n", err)
-	}
-	return nil
-}
-
-// BuildObccaContainer builds the image for the membersrvc to be used in development network
-func (vm *VM) BuildObccaContainer() error {
-	inputbuf, err := vm.getPackageBytes(vm.writeObccaPackage)
-
-	if err != nil {
-		return fmt.Errorf("Error building membersrvc container: %s", err)
-	}
-	outputbuf := bytes.NewBuffer(nil)
-	opts := docker.BuildImageOptions{
-		Name:         "membersrvc",
-		InputStream:  inputbuf,
-		OutputStream: outputbuf,
-	}
-	if err := vm.Client.BuildImage(opts); err != nil {
-		vmLogger.Debug(fmt.Sprintf("Failed membersrvc docker build:\n%s\n", outputbuf.String()))
-		return fmt.Errorf("Error building membersrvc container: %s\n", err)
-	}
-	return nil
-}
-
-// GetPeerPackageBytes returns the gzipped tar image used for docker build of Peer
-func (vm *VM) GetPeerPackageBytes() (io.Reader, error) {
-	inputbuf := bytes.NewBuffer(nil)
-	gw := gzip.NewWriter(inputbuf)
-	tr := tar.NewWriter(gw)
-	// Get the Tar contents for the image
-	err := vm.writePeerPackage(tr)
-	tr.Close()
-	gw.Close()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting Peer package: %s", err)
-	}
-	return inputbuf, nil
-}
-
-//type tarWriter func()
-
-func (vm *VM) getPackageBytes(writerFunc func(*tar.Writer) error) (io.Reader, error) {
-	inputbuf := bytes.NewBuffer(nil)
-	gw := gzip.NewWriter(inputbuf)
-	tr := tar.NewWriter(gw)
-	// Get the Tar contents for the image
-	err := writerFunc(tr)
-	tr.Close()
-	gw.Close()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting package bytes: %s", err)
-	}
-	return inputbuf, nil
-}
-
-func (vm *VM) writePeerPackage(tw *tar.Writer) error {
-	startTime := time.Now()
-
-	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileSize := int64(len([]byte(dockerFileContents)))
-
-	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
-	tw.Write([]byte(dockerFileContents))
-	err := cutil.WriteGopathSrc(tw, "")
-	if err != nil {
-		return fmt.Errorf("Error writing Peer package contents: %s", err)
-	}
-	return nil
-}
-
-func (vm *VM) writeObccaPackage(tw *tar.Writer) error {
-	startTime := time.Now()
-
-	dockerFileContents := viper.GetString("peer.Dockerfile")
-	dockerFileContents = dockerFileContents + "WORKDIR ../membersrvc\nRUN go install && cp membersrvc.yaml $GOPATH/bin\n"
-	dockerFileSize := int64(len([]byte(dockerFileContents)))
-
-	tw.WriteHeader(&tar.Header{Name: "Dockerfile", Size: dockerFileSize, ModTime: startTime, AccessTime: startTime, ChangeTime: startTime})
-	tw.Write([]byte(dockerFileContents))
-	err := cutil.WriteGopathSrc(tw, "")
-	if err != nil {
-		return fmt.Errorf("Error writing membersrvc package contents: %s", err)
 	}
 	return nil
 }

@@ -46,17 +46,23 @@ const (
 	ChaincodeSpec_UNDEFINED ChaincodeSpec_Type = 0
 	ChaincodeSpec_GOLANG    ChaincodeSpec_Type = 1
 	ChaincodeSpec_NODE      ChaincodeSpec_Type = 2
+	ChaincodeSpec_CAR       ChaincodeSpec_Type = 3
+	ChaincodeSpec_JAVA      ChaincodeSpec_Type = 4
 )
 
 var ChaincodeSpec_Type_name = map[int32]string{
 	0: "UNDEFINED",
 	1: "GOLANG",
 	2: "NODE",
+	3: "CAR",
+	4: "JAVA",
 }
 var ChaincodeSpec_Type_value = map[string]int32{
 	"UNDEFINED": 0,
 	"GOLANG":    1,
 	"NODE":      2,
+	"CAR":       3,
+	"JAVA":      4,
 }
 
 func (x ChaincodeSpec_Type) String() string {
@@ -106,6 +112,7 @@ const (
 	ChaincodeMessage_RANGE_QUERY_STATE       ChaincodeMessage_Type = 17
 	ChaincodeMessage_RANGE_QUERY_STATE_NEXT  ChaincodeMessage_Type = 18
 	ChaincodeMessage_RANGE_QUERY_STATE_CLOSE ChaincodeMessage_Type = 19
+	ChaincodeMessage_KEEPALIVE               ChaincodeMessage_Type = 20
 )
 
 var ChaincodeMessage_Type_name = map[int32]string{
@@ -129,6 +136,7 @@ var ChaincodeMessage_Type_name = map[int32]string{
 	17: "RANGE_QUERY_STATE",
 	18: "RANGE_QUERY_STATE_NEXT",
 	19: "RANGE_QUERY_STATE_CLOSE",
+	20: "KEEPALIVE",
 }
 var ChaincodeMessage_Type_value = map[string]int32{
 	"UNDEFINED":               0,
@@ -151,6 +159,7 @@ var ChaincodeMessage_Type_value = map[string]int32{
 	"RANGE_QUERY_STATE":       17,
 	"RANGE_QUERY_STATE_NEXT":  18,
 	"RANGE_QUERY_STATE_CLOSE": 19,
+	"KEEPALIVE":               20,
 }
 
 func (x ChaincodeMessage_Type) String() string {
@@ -196,6 +205,7 @@ type ChaincodeSpec struct {
 	SecureContext        string               `protobuf:"bytes,5,opt,name=secureContext" json:"secureContext,omitempty"`
 	ConfidentialityLevel ConfidentialityLevel `protobuf:"varint,6,opt,name=confidentialityLevel,enum=protos.ConfidentialityLevel" json:"confidentialityLevel,omitempty"`
 	Metadata             []byte               `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Attributes           []string             `protobuf:"bytes,8,rep,name=attributes" json:"attributes,omitempty"`
 }
 
 func (m *ChaincodeSpec) Reset()         { *m = ChaincodeSpec{} }
@@ -247,6 +257,14 @@ func (m *ChaincodeDeploymentSpec) GetEffectiveDate() *google_protobuf.Timestamp 
 // Carries the chaincode function and its arguments.
 type ChaincodeInvocationSpec struct {
 	ChaincodeSpec *ChaincodeSpec `protobuf:"bytes,1,opt,name=chaincodeSpec" json:"chaincodeSpec,omitempty"`
+	// This field can contain a user-specified ID generation algorithm
+	// If supplied, this will be used to generate a ID
+	// If not supplied (left empty), a random UUID will be generated
+	// The algorithm consists of two parts:
+	//  1, a hash function
+	//  2, a decoding used to decode user (string) input to bytes
+	// Currently, SHA256 with BASE64 is supported (e.g. idGenerationAlg='sha256base64')
+	IdGenerationAlg string `protobuf:"bytes,2,opt,name=idGenerationAlg" json:"idGenerationAlg,omitempty"`
 }
 
 func (m *ChaincodeInvocationSpec) Reset()         { *m = ChaincodeInvocationSpec{} }
@@ -260,18 +278,30 @@ func (m *ChaincodeInvocationSpec) GetChaincodeSpec() *ChaincodeSpec {
 	return nil
 }
 
+// This structure contain transaction data that we send to the chaincode
+// container shim and allow the chaincode to access through the shim interface.
+// TODO: Consider remove this message and just pass the transaction object
+// to the shim and/or allow the chaincode to query transactions.
 type ChaincodeSecurityContext struct {
-	CallerCert     []byte `protobuf:"bytes,1,opt,name=callerCert,proto3" json:"callerCert,omitempty"`
-	CallerSign     []byte `protobuf:"bytes,2,opt,name=callerSign,proto3" json:"callerSign,omitempty"`
-	Payload        []byte `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	Binding        []byte `protobuf:"bytes,4,opt,name=binding,proto3" json:"binding,omitempty"`
-	Metadata       []byte `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	ParentMetadata []byte `protobuf:"bytes,6,opt,name=parentMetadata,proto3" json:"parentMetadata,omitempty"`
+	CallerCert     []byte                     `protobuf:"bytes,1,opt,name=callerCert,proto3" json:"callerCert,omitempty"`
+	CallerSign     []byte                     `protobuf:"bytes,2,opt,name=callerSign,proto3" json:"callerSign,omitempty"`
+	Payload        []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Binding        []byte                     `protobuf:"bytes,4,opt,name=binding,proto3" json:"binding,omitempty"`
+	Metadata       []byte                     `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	ParentMetadata []byte                     `protobuf:"bytes,6,opt,name=parentMetadata,proto3" json:"parentMetadata,omitempty"`
+	TxTimestamp    *google_protobuf.Timestamp `protobuf:"bytes,7,opt,name=txTimestamp" json:"txTimestamp,omitempty"`
 }
 
 func (m *ChaincodeSecurityContext) Reset()         { *m = ChaincodeSecurityContext{} }
 func (m *ChaincodeSecurityContext) String() string { return proto.CompactTextString(m) }
 func (*ChaincodeSecurityContext) ProtoMessage()    {}
+
+func (m *ChaincodeSecurityContext) GetTxTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.TxTimestamp
+	}
+	return nil
+}
 
 type ChaincodeMessage struct {
 	Type            ChaincodeMessage_Type      `protobuf:"varint,1,opt,name=type,enum=protos.ChaincodeMessage_Type" json:"type,omitempty"`
@@ -279,6 +309,10 @@ type ChaincodeMessage struct {
 	Payload         []byte                     `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	Uuid            string                     `protobuf:"bytes,4,opt,name=uuid" json:"uuid,omitempty"`
 	SecurityContext *ChaincodeSecurityContext  `protobuf:"bytes,5,opt,name=securityContext" json:"securityContext,omitempty"`
+	// event emmited by chaincode. Used only with Init or Invoke.
+	// This event is then stored (currently)
+	// with Block.NonHashData.TransactionResult
+	ChaincodeEvent *ChaincodeEvent `protobuf:"bytes,6,opt,name=chaincodeEvent" json:"chaincodeEvent,omitempty"`
 }
 
 func (m *ChaincodeMessage) Reset()         { *m = ChaincodeMessage{} }
@@ -295,6 +329,13 @@ func (m *ChaincodeMessage) GetTimestamp() *google_protobuf.Timestamp {
 func (m *ChaincodeMessage) GetSecurityContext() *ChaincodeSecurityContext {
 	if m != nil {
 		return m.SecurityContext
+	}
+	return nil
+}
+
+func (m *ChaincodeMessage) GetChaincodeEvent() *ChaincodeEvent {
+	if m != nil {
+		return m.ChaincodeEvent
 	}
 	return nil
 }

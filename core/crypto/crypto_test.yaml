@@ -22,17 +22,18 @@ security:
       batch:
         # The size of the batch of TCerts
         size:  200
-
+    level: 256
+    hashAlgorithm: SHA3
 
 eca:
-    affiliation_groups:
+    affiliations:
         banks_and_institutions:
             banks:
-                bank_a:
-                bank_b:
-                bank_c:              		
+                - bank_a
+                - bank_b
+                - bank_c
             institutions:
-                institution_a:
+                - institution_a
 
     users:
         # clients
@@ -43,18 +44,27 @@ eca:
 
         # peers
         peer: 2 9gvZQRwhUq9q bank_a	00001
+        peerthread: 2 9gvZQRwhUq9q bank_a	00001
 
         # validators
         validator: 4 9gvZQRwhUq9q bank_a 00001
+        validatorthread: 4 9gvZQRwhUq9q bank_a	00001
 
 tca:
     attribute-encryption:
-       enabled: false
+       enabled: true
 
-pki:
-    validity-period:
-       # Setting the update property will prevent the invocation of the update_validity_period system chaincode to update the validity period.
-       update: false
+aca:
+    attributes:
+        attribute-entry-0: user1;bank_a;company;ACompany;2015-01-01T00:00:00-03:00;;
+        attribute-entry-1: user1;bank_a;position;Software Staff;2015-01-01T00:00:00-03:00;2015-07-12T23:59:59-03:00;
+        attribute-entry-2: user1;bank_a;position;Software Engineer;2015-07-13T00:00:00-03:00;;
+        attribute-entry-3: user2;bank_a;company;ACompany;2001-02-02T00:00:00-03:00;;
+        attribute-entry-4: user2;bank_a;position;Project Manager;2001-02-02T00:00:00-03:00;;
+    address: localhost:50541
+    server-name: acap
+    enabled: true
+
 
 ###############################################################################
 #
@@ -75,7 +85,7 @@ peer:
             paddr: localhost:50541
 
         tls:
-            enabled: true
+            enabled: false
             rootcert:
 
             # The server name use to verify the hostname returned by TLS handshake
@@ -83,8 +93,6 @@ peer:
 
     validator:
         enabled: false
-        validity-period:
-            verification: false
 
 ###############################################################################
 #
@@ -96,10 +104,14 @@ security:
     tcert:
       batch:
         # The size of the batch of TCerts
-        size:  200
+        size:  10
       attributes:
-        company: IBM
+        company: ACompany
         position: "Software Engineer"
+      abac:
+        enabled: true
+    level: 256
+    hashAlgorithm: SHA3
 
 ###############################################################################
 #
@@ -135,8 +147,8 @@ logging:
     #   info                                       - Set default to INFO
     #   warning:main,db=debug:chaincode=info       - Override default WARNING in main,db,chaincode
     #   chaincode=info:main=debug:db=debug:warning - Same as above
-    peer:      debug
-    crypto:    debug
+    peer:      info
+    crypto:    info
     status:    warning
     stop:      warning
     login:     warning
@@ -163,8 +175,16 @@ tests:
                 enrollid: validator
                 enrollpw: 9gvZQRwhUq9q
 
+            validatorthread:
+                enrollid: validatorthread
+                enrollpw: 9gvZQRwhUq9q
+
             peer:
                 enrollid: peer
+                enrollpw: 9gvZQRwhUq9q
+
+            peerthread:
+                enrollid: peerthread
                 enrollpw: 9gvZQRwhUq9q
 
             TestRegistrationSameEnrollIDDifferentRole:
@@ -174,4 +194,3 @@ tests:
             userthread:
                 enrollid: userthread
                 enrollpw: 9gvZQRwhUq9q
-

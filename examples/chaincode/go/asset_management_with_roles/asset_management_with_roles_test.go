@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -25,9 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"encoding/base64"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/hyperledger/fabric/core/chaincode"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	"github.com/hyperledger/fabric/core/chaincode/shim/crypto/attr"
 	"github.com/hyperledger/fabric/core/container"
 	"github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/ledger"
@@ -39,9 +41,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"reflect"
 )
@@ -60,6 +59,7 @@ var (
 	bob           crypto.Client
 
 	server *grpc.Server
+	aca    *ca.ACA
 	eca    *ca.ECA
 	tca    *ca.TCA
 	tlsca  *ca.TLSCA
@@ -68,7 +68,7 @@ var (
 func TestMain(m *testing.M) {
 	removeFolders()
 	setup()
-	go initOBCCA()
+	go initMembershipSrvc()
 
 	fmt.Println("Wait for some secs for OBCCA")
 	time.Sleep(2 * time.Second)
@@ -100,7 +100,7 @@ func TestMain(m *testing.M) {
 
 func TestAssetManagement(t *testing.T) {
 	// Administrator deploy the chaicode
-	adminCert, err := administrator.GetTCertificateHandlerNext()
+	adminCert, err := administrator.GetTCertificateHandlerNext("role")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,31 +110,35 @@ func TestAssetManagement(t *testing.T) {
 	}
 
 	// Administrator assigns ownership of Picasso to Alice
-	aliceCert, err := alice.GetTCertificateHandlerNext()
+	aliceCert, err := alice.GetTCertificateHandlerNext("role", "account")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// This must fail
-	if err := assignOwnership(aliceCert, "Picasso", aliceCert); err == nil {
-		t.Fatal(err)
+	if err := assignOwnership(alice, "Picasso", aliceCert); err == nil {
+		t.Fatal("Alice doesn't have the assigner role. Assignment should fail.")
 	}
 
 	// This must succeed
-	if err := assignOwnership(adminCert, "Picasso", aliceCert); err != nil {
+	if err := assignOwnership(administrator, "Picasso", aliceCert); err != nil {
 		t.Fatal(err)
 	}
 
+	// Check who is the owner of the Picasso
 	theOnwerIs, err := whoIsTheOwner("Picasso")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(theOnwerIs, aliceCert.GetCertificate()) {
+
+	aliceAccount, err := attr.GetValueFrom("account", aliceCert.GetCertificate())
+	if !reflect.DeepEqual(theOnwerIs, aliceAccount) {
+		fmt.Printf("%v --- %v", string(theOnwerIs), string(aliceAccount))
 		t.Fatal("Alice is not the owner of Picasso")
 	}
 
 	// Alice transfers ownership of Picasso to Bob
-	bobCert, err := bob.GetTCertificateHandlerNext()
+	bobCert, err := bob.GetTCertificateHandlerNext("role", "account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,14 +153,26 @@ func TestAssetManagement(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Check who is the owner of the Picasso
 	theOnwerIs, err = whoIsTheOwner("Picasso")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(theOnwerIs, bobCert.GetCertificate()) {
+
+	bobAccount, err := attr.GetValueFrom("account", bobCert.GetCertificate())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(theOnwerIs, bobAccount) {
 		t.Fatal("Bob is not the owner of Picasso")
 	}
 
+	// Check who is the owner of an asset that doesn't exist
+	_, err = whoIsTheOwner("Klee")
+	if err == nil {
+		t.Fatal("This asset doesn't exist. Querying should fail.")
+	}
 }
 
 func deploy(admCert crypto.CertificateHandler) error {
@@ -186,7 +202,7 @@ func deploy(admCert crypto.CertificateHandler) error {
 
 	ledger, err := ledger.GetLedger()
 	ledger.BeginTxBatch("1")
-	_, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	_, _, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	if err != nil {
 		return fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -195,10 +211,10 @@ func deploy(admCert crypto.CertificateHandler) error {
 	return err
 }
 
-func assignOwnership(admCert crypto.CertificateHandler, asset string, newOwnerCert crypto.CertificateHandler) error {
+func assignOwnership(assigner crypto.Client, asset string, newOwnerCert crypto.CertificateHandler) error {
 	// Get a transaction handler to be used to submit the execute transaction
 	// and bind the chaincode access control logic using the binding
-	submittingCertHandler, err := administrator.GetTCertificateHandlerNext()
+	submittingCertHandler, err := assigner.GetTCertificateHandlerNext("role")
 	if err != nil {
 		return err
 	}
@@ -206,29 +222,15 @@ func assignOwnership(admCert crypto.CertificateHandler, asset string, newOwnerCe
 	if err != nil {
 		return err
 	}
-	binding, err := txHandler.GetBinding()
-	if err != nil {
-		return err
-	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
-	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
-	if err != nil {
-		return err
-	}
-
-	// Access control. Administrator signs chaincodeInputRaw || binding to confirm his identity
-	sigma, err := admCert.Sign(append(chaincodeInputRaw, binding...))
-	if err != nil {
-		return err
-	}
+	newOwner := base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())
+	chaincodeInput := &pb.ChaincodeInput{Function: "assign", Args: []string{asset, newOwner}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
 		CtorMsg:              chaincodeInput,
-		Metadata:             sigma, // Proof of identity
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
 
@@ -245,7 +247,7 @@ func assignOwnership(admCert crypto.CertificateHandler, asset string, newOwnerCe
 
 	ledger, err := ledger.GetLedger()
 	ledger.BeginTxBatch("1")
-	_, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	_, _, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	if err != nil {
 		return fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -258,7 +260,7 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 	// Get a transaction handler to be used to submit the execute transaction
 	// and bind the chaincode access control logic using the binding
 
-	submittingCertHandler, err := owner.GetTCertificateHandlerNext()
+	submittingCertHandler, err := owner.GetTCertificateHandlerNext("role", "account")
 	if err != nil {
 		return err
 	}
@@ -266,29 +268,15 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 	if err != nil {
 		return err
 	}
-	binding, err := txHandler.GetBinding()
-	if err != nil {
-		return err
-	}
 
-	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, string(newOwnerCert.GetCertificate())}}
-	chaincodeInputRaw, err := proto.Marshal(chaincodeInput)
-	if err != nil {
-		return err
-	}
-
-	// Access control. Owner signs chaincodeInputRaw || binding to confirm his identity
-	sigma, err := ownerCert.Sign(append(chaincodeInputRaw, binding...))
-	if err != nil {
-		return err
-	}
+	newOwner := base64.StdEncoding.EncodeToString(newOwnerCert.GetCertificate())
+	chaincodeInput := &pb.ChaincodeInput{Function: "transfer", Args: []string{asset, newOwner}}
 
 	// Prepare spec and submit
 	spec := &pb.ChaincodeSpec{
 		Type:                 1,
 		ChaincodeID:          &pb.ChaincodeID{Name: "mycc"},
 		CtorMsg:              chaincodeInput,
-		Metadata:             sigma, // Proof of identity
 		ConfidentialityLevel: pb.ConfidentialityLevel_PUBLIC,
 	}
 
@@ -305,7 +293,7 @@ func transferOwnership(owner crypto.Client, ownerCert crypto.CertificateHandler,
 
 	ledger, err := ledger.GetLedger()
 	ledger.BeginTxBatch("1")
-	_, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	_, _, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	if err != nil {
 		return fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -339,7 +327,7 @@ func whoIsTheOwner(asset string) ([]byte, error) {
 
 	ledger, err := ledger.GetLedger()
 	ledger.BeginTxBatch("1")
-	result, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
+	result, _, err := chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 	if err != nil {
 		return nil, fmt.Errorf("Error deploying chaincode: %s", err)
 	}
@@ -365,22 +353,20 @@ func setup() {
 
 	logging.SetLevel(logging.DEBUG, "peer")
 	logging.SetLevel(logging.DEBUG, "chaincode")
-	logging.SetLevel(logging.DEBUG, "cryptoain")
+	logging.SetLevel(logging.DEBUG, "cryptochain")
 
 	// Init the crypto layer
 	if err := crypto.Init(); err != nil {
-		panic(fmt.Errorf("Failed initializing the crypto layer [%s]%", err))
+		panic(fmt.Errorf("Failed initializing the crypto layer [%s]", err))
 	}
-
-	viper.Set("peer.fileSystemPath", filepath.Join(os.TempDir(), "hyperledger", "production"))
-	viper.Set("server.rootpath", filepath.Join(os.TempDir(), "ca"))
 
 	removeFolders()
 }
 
-func initOBCCA() {
+func initMembershipSrvc() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	ca.CacheConfiguration() // Cache configuration
+	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
 	tlsca = ca.NewTLSCA(eca)
@@ -393,7 +379,7 @@ func initOBCCA() {
 			filepath.Join(viper.GetString("server.rootpath"), "tlsca.priv"),
 		)
 		if err != nil {
-			panic("Failed creating credentials for OBC-CA: " + err.Error())
+			panic("Failed creating credentials for Membersrvc: " + err.Error())
 		}
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
@@ -407,6 +393,7 @@ func initOBCCA() {
 
 	server = grpc.NewServer(opts...)
 
+	aca.Start(server)
 	eca.Start(server)
 	tca.Start(server)
 	tlsca.Start(server)
@@ -452,21 +439,21 @@ func initVP() {
 		var err error
 
 		if viper.GetBool("peer.validator.enabled") {
-			testLogger.Debug("Registering validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Registering validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterValidator(enrollID, nil, enrollID, enrollSecret); nil != err {
 				panic(err)
 			}
-			testLogger.Debug("Initializing validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Initializing validator with enroll ID: %s", enrollID)
 			secHelper, err = crypto.InitValidator(enrollID, nil)
 			if nil != err {
 				panic(err)
 			}
 		} else {
-			testLogger.Debug("Registering non-validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Registering non-validator with enroll ID: %s", enrollID)
 			if err = crypto.RegisterPeer(enrollID, nil, enrollID, enrollSecret); nil != err {
 				panic(err)
 			}
-			testLogger.Debug("Initializing non-validator with enroll ID: %s", enrollID)
+			testLogger.Debugf("Initializing non-validator with enroll ID: %s", enrollID)
 			secHelper, err = crypto.InitPeer(enrollID, nil)
 			if nil != err {
 				panic(err)
@@ -490,29 +477,29 @@ func initAssetManagementChaincode() {
 
 func initClients() error {
 	// Administrator
-	if err := crypto.RegisterClient("jim", nil, "jim", "6avZQLwcUe9b"); err != nil {
+	if err := crypto.RegisterClient("admin", nil, "admin", "6avZQLwcUe9b"); err != nil {
 		return err
 	}
 	var err error
-	administrator, err = crypto.InitClient("jim", nil)
+	administrator, err = crypto.InitClient("admin", nil)
 	if err != nil {
 		return err
 	}
 
 	// Alice
-	if err := crypto.RegisterClient("lukas", nil, "lukas", "NPKYL39uKbkj"); err != nil {
+	if err := crypto.RegisterClient("alice", nil, "alice", "NPKYL39uKbkj"); err != nil {
 		return err
 	}
-	alice, err = crypto.InitClient("lukas", nil)
+	alice, err = crypto.InitClient("alice", nil)
 	if err != nil {
 		return err
 	}
 
 	// Bob
-	if err := crypto.RegisterClient("diego", nil, "diego", "DRJ23pEQl16a"); err != nil {
+	if err := crypto.RegisterClient("bob", nil, "bob", "DRJ23pEQl16a"); err != nil {
 		return err
 	}
-	bob, err = crypto.InitClient("diego", nil)
+	bob, err = crypto.InitClient("bob", nil)
 	if err != nil {
 		return err
 	}
@@ -541,10 +528,7 @@ func getDeploymentSpec(context context.Context, spec *pb.ChaincodeSpec) (*pb.Cha
 }
 
 func removeFolders() {
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), ".ca")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".ca", err)
-	}
-	if err := os.RemoveAll(filepath.Join(os.TempDir(), ".fabric")); err != nil {
-		fmt.Printf("Failed removing [%s] [%s]\n", ".fabric", err)
+	if err := os.RemoveAll(viper.GetString("peer.fileSystemPath")); err != nil {
+		fmt.Printf("Failed removing [%s] [%s]\n", "hyperledger", err)
 	}
 }

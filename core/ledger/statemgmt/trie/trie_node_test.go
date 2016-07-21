@@ -1,27 +1,25 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package trie
 
 import (
-	"github.com/hyperledger/fabric/core/ledger/testutil"
 	"testing"
+
+	"github.com/hyperledger/fabric/core/ledger/testutil"
 )
 
 func TestTrieNode_MarshalUnmarshal_NoValue_NoChildren(t *testing.T) {
@@ -79,16 +77,16 @@ func TestTrieNode_ComputeCryptoHash_NoValue_SingleChild(t *testing.T) {
 
 func TestTrieNode_ComputeCryptoHash_NoValue_ManyChildren(t *testing.T) {
 	trieKey := newTrieKey("chaincodeID", "key")
-	child_0_CryptoHash := []byte("childCryptoHash-0")
-	child_5_CryptoHash := []byte("childCryptoHash-5")
-	child_15_CryptoHash := []byte("childCryptoHash-15")
+	child0CryptoHash := []byte("childCryptoHash-0")
+	child5CryptoHash := []byte("childCryptoHash-5")
+	child15CryptoHash := []byte("childCryptoHash-15")
 
 	trieNode := newTrieNode(trieKey, nil, false)
-	trieNode.setChildCryptoHash(0, child_0_CryptoHash)
-	trieNode.setChildCryptoHash(5, child_5_CryptoHash)
-	trieNode.setChildCryptoHash(15, child_15_CryptoHash)
+	trieNode.setChildCryptoHash(0, child0CryptoHash)
+	trieNode.setChildCryptoHash(5, child5CryptoHash)
+	trieNode.setChildCryptoHash(15, child15CryptoHash)
 	hash := trieNode.computeCryptoHash()
-	expectedHashContent := expectedCryptoHashForTest(nil, nil, child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
+	expectedHashContent := expectedCryptoHashForTest(nil, nil, child0CryptoHash, child5CryptoHash, child15CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHashContent)
 }
 
@@ -105,29 +103,29 @@ func TestTrieNode_ComputeCryptoHash_WithValue_NoChild(t *testing.T) {
 func TestTrieNode_ComputeCryptoHash_WithValue_SingleChild(t *testing.T) {
 	trieKey := newTrieKey("chaincodeID", "key")
 	value := []byte("testValue")
-	child_0_CryptoHash := []byte("childCryptoHash-0")
+	child0CryptoHash := []byte("childCryptoHash-0")
 
 	trieNode := newTrieNode(trieKey, value, false)
-	trieNode.setChildCryptoHash(0, child_0_CryptoHash)
+	trieNode.setChildCryptoHash(0, child0CryptoHash)
 	hash := trieNode.computeCryptoHash()
-	expectedHash := expectedCryptoHashForTest(trieKey, value, child_0_CryptoHash)
+	expectedHash := expectedCryptoHashForTest(trieKey, value, child0CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHash)
 }
 
 func TestTrieNode_ComputeCryptoHash_WithValue_ManyChildren(t *testing.T) {
 	trieKey := newTrieKey("chaincodeID", "key")
 	value := []byte("testValue")
-	child_0_CryptoHash := []byte("childCryptoHash-0")
-	child_5_CryptoHash := []byte("childCryptoHash-5")
-	child_15_CryptoHash := []byte("childCryptoHash-15")
+	child0CryptoHash := []byte("childCryptoHash-0")
+	child5CryptoHash := []byte("childCryptoHash-5")
+	child15CryptoHash := []byte("childCryptoHash-15")
 
 	trieNode := newTrieNode(trieKey, value, false)
-	trieNode.setChildCryptoHash(0, child_0_CryptoHash)
-	trieNode.setChildCryptoHash(5, child_5_CryptoHash)
-	trieNode.setChildCryptoHash(15, child_15_CryptoHash)
+	trieNode.setChildCryptoHash(0, child0CryptoHash)
+	trieNode.setChildCryptoHash(5, child5CryptoHash)
+	trieNode.setChildCryptoHash(15, child15CryptoHash)
 	hash := trieNode.computeCryptoHash()
 
-	expectedHash := expectedCryptoHashForTest(trieKey, value, child_0_CryptoHash, child_5_CryptoHash, child_15_CryptoHash)
+	expectedHash := expectedCryptoHashForTest(trieKey, value, child0CryptoHash, child5CryptoHash, child15CryptoHash)
 	testutil.AssertEquals(t, hash, expectedHash)
 }
 

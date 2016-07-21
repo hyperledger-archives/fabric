@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package inproccontroller
@@ -64,12 +61,12 @@ type InprocVM struct {
 func (vm *InprocVM) getInstance(ctxt context.Context, ipctemplate *inprocContainer, ccid ccintf.CCID, args []string, env []string) (*inprocContainer, error) {
 	ipc := instRegistry[ccid.ChaincodeSpec.ChaincodeID.Name]
 	if ipc != nil {
-		inprocLogger.Warning(fmt.Sprintf("chaincode instance exists for %s", ccid.ChaincodeSpec.ChaincodeID.Name))
+		inprocLogger.Warningf("chaincode instance exists for %s", ccid.ChaincodeSpec.ChaincodeID.Name)
 		return ipc, nil
 	}
 	ipc = &inprocContainer{args: args, env: env, chaincode: ipctemplate.chaincode, stopChan: make(chan struct{})}
 	instRegistry[ccid.ChaincodeSpec.ChaincodeID.Name] = ipc
-	inprocLogger.Debug("chaincode instance created for %s", ccid.ChaincodeSpec.ChaincodeID.Name)
+	inprocLogger.Debugf("chaincode instance created for %s", ccid.ChaincodeSpec.ChaincodeID.Name)
 	return ipc, nil
 }
 
@@ -89,7 +86,7 @@ func (vm *InprocVM) Deploy(ctxt context.Context, ccid ccintf.CCID, args []string
 	_, err := vm.getInstance(ctxt, ipctemplate, ccid, args, env)
 
 	//FUTURE ... here is where we might check code for safety
-	inprocLogger.Debug("registered : %s", path)
+	inprocLogger.Debugf("registered : %s", path)
 
 	return err
 }
@@ -102,7 +99,7 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 	ccsupportchan := make(chan struct{}, 1)
 	go func() {
 		defer close(ccchan)
-		inprocLogger.Debug("chaincode started for %s", id)
+		inprocLogger.Debugf("chaincode started for %s", id)
 		if args == nil {
 			args = ipc.args
 		}
@@ -112,41 +109,41 @@ func (ipc *inprocContainer) launchInProc(ctxt context.Context, id string, args [
 		err := shim.StartInProc(env, args, ipc.chaincode, ccRcvPeerSend, peerRcvCCSend)
 		if err != nil {
 			err = fmt.Errorf("chaincode-support ended with err: %s", err)
-			inprocLogger.Error(fmt.Sprintf("%s", err))
+			inprocLogger.Errorf("%s", err)
 		}
-		inprocLogger.Debug("chaincode ended with for  %s with err: %s", id, err)
+		inprocLogger.Debugf("chaincode ended with for  %s with err: %s", id, err)
 	}()
 
 	go func() {
 		defer close(ccsupportchan)
 		inprocStream := newInProcStream(peerRcvCCSend, ccRcvPeerSend)
-		inprocLogger.Debug("chaincode-support started for  %s", id)
+		inprocLogger.Debugf("chaincode-support started for  %s", id)
 		err := ccSupport.HandleChaincodeStream(ctxt, inprocStream)
 		if err != nil {
 			err = fmt.Errorf("chaincode ended with err: %s", err)
-			inprocLogger.Error(fmt.Sprintf("%s", err))
+			inprocLogger.Errorf("%s", err)
 		}
-		inprocLogger.Debug("chaincode-support ended with for  %s with err: %s", id, err)
+		inprocLogger.Debugf("chaincode-support ended with for  %s with err: %s", id, err)
 	}()
 
 	select {
 	case <-ccchan:
 		close(peerRcvCCSend)
-		inprocLogger.Debug("chaincode %s quit", id)
+		inprocLogger.Debugf("chaincode %s quit", id)
 	case <-ccsupportchan:
 		close(ccRcvPeerSend)
-		inprocLogger.Debug("chaincode support %s quit", id)
+		inprocLogger.Debugf("chaincode support %s quit", id)
 	case <-ipc.stopChan:
 		close(ccRcvPeerSend)
 		close(peerRcvCCSend)
-		inprocLogger.Debug("chaincode %s stopped", id)
+		inprocLogger.Debugf("chaincode %s stopped", id)
 	}
 
 	return err
 }
 
 //Start starts a previously registered system codechain
-func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool) error {
+func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string, env []string, attachstdin bool, attachstdout bool, reader io.Reader) error {
 	path := ccid.ChaincodeSpec.ChaincodeID.Path
 
 	ipctemplate := typeRegistry[path]
@@ -177,7 +174,7 @@ func (vm *InprocVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				inprocLogger.Critical("caught panic from chaincode  %s", ccid.ChaincodeSpec.ChaincodeID.Name)
+				inprocLogger.Criticalf("caught panic from chaincode  %s", ccid.ChaincodeSpec.ChaincodeID.Name)
 			}
 		}()
 		ipc.launchInProc(ctxt, ccid.ChaincodeSpec.ChaincodeID.Name, args, env, ccSupport)
@@ -209,6 +206,12 @@ func (vm *InprocVM) Stop(ctxt context.Context, ccid ccintf.CCID, timeout uint, d
 
 	delete(instRegistry, ccid.ChaincodeSpec.ChaincodeID.Name)
 	//TODO stop
+	return nil
+}
+
+//Destroy destroys an image
+func (vm *InprocVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, noprune bool) error {
+	//not implemented
 	return nil
 }
 

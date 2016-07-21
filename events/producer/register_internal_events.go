@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 //All changes for handling internal events should be in this file
@@ -29,26 +26,31 @@ import (
 )
 
 //----Event Types -----
-const (
-	RegisterType = "register"
-	BlockType    = "block"
-)
+/*const (
+	RegisterType  = "register"
+	RejectionType = "rejection"
+	BlockType     = "block"
+)*/
 
-func getMessageType(e *pb.Event) string {
+func getMessageType(e *pb.Event) pb.EventType {
 	switch e.Event.(type) {
 	case *pb.Event_Register:
-		return "register"
+		return pb.EventType_REGISTER
 	case *pb.Event_Block:
-		return "block"
-	case *pb.Event_Generic:
-		return "generic"
+		return pb.EventType_BLOCK
+	case *pb.Event_ChaincodeEvent:
+		return pb.EventType_CHAINCODE
+	case *pb.Event_Rejection:
+		return pb.EventType_REJECTION
 	default:
-		return ""
+		return -1
 	}
 }
 
 //should be called at init time to register supported internal events
 func addInternalEventTypes() {
-	AddEventType(BlockType)
-	AddEventType(RegisterType)
+	AddEventType(pb.EventType_BLOCK)
+	AddEventType(pb.EventType_CHAINCODE)
+	AddEventType(pb.EventType_REJECTION)
+	AddEventType(pb.EventType_REGISTER)
 }

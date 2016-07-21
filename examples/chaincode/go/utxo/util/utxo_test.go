@@ -1,3 +1,19 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package util
 
 import (
@@ -9,8 +25,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/consensus"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/examples/chaincode/go/utxo/consensus"
 )
 
 // func TestMain(m *testing.M) {
@@ -23,8 +39,8 @@ import (
 const txFileHashes = "./Hashes_for_first_500_transactions_on_testnet3.txt"
 const txFile = "./First_500_transactions_base64_encoded_on_testnet3.txt"
 
-const CONSENSUS_SCRIPT_VERIFY_TX = "01000000017d01943c40b7f3d8a00a2d62fa1d560bf739a2368c180615b0a7937c0e883e7c000000006b4830450221008f66d188c664a8088893ea4ddd9689024ea5593877753ecc1e9051ed58c15168022037109f0d06e6068b7447966f751de8474641ad2b15ec37f4a9d159b02af68174012103e208f5403383c77d5832a268c9f71480f6e7bfbdfa44904becacfad66163ea31ffffffff01c8af0000000000001976a91458b7a60f11a904feef35a639b6048de8dd4d9f1c88ac00000000"
-const CONSENSUS_SCRIPT_VERIFY_PREVOUT_SCRIPT = "76a914c564c740c6900b93afc9f1bdaef0a9d466adf6ee88ac"
+const consensusScriptVerifyTx = "01000000017d01943c40b7f3d8a00a2d62fa1d560bf739a2368c180615b0a7937c0e883e7c000000006b4830450221008f66d188c664a8088893ea4ddd9689024ea5593877753ecc1e9051ed58c15168022037109f0d06e6068b7447966f751de8474641ad2b15ec37f4a9d159b02af68174012103e208f5403383c77d5832a268c9f71480f6e7bfbdfa44904becacfad66163ea31ffffffff01c8af0000000000001976a91458b7a60f11a904feef35a639b6048de8dd4d9f1c88ac00000000"
+const consensusScriptVerifyPreviousOutputScript = "76a914c564c740c6900b93afc9f1bdaef0a9d466adf6ee88ac"
 
 type block struct {
 	transactions []string
@@ -163,13 +179,13 @@ func TestParse_UTXOTransactionBytes(t *testing.T) {
 }
 
 func TestParse_LibbitconTX(t *testing.T) {
-	txData, err := hex.DecodeString(CONSENSUS_SCRIPT_VERIFY_TX)
+	txData, err := hex.DecodeString(consensusScriptVerifyTx)
 	if err != nil {
 		t.Fatalf("Error decoding HEX tx from libbitcoin:  %s", err)
 		return
 	}
 
-	prevTxScript, err := hex.DecodeString(CONSENSUS_SCRIPT_VERIFY_PREVOUT_SCRIPT)
+	prevTxScript, err := hex.DecodeString(consensusScriptVerifyPreviousOutputScript)
 	if err != nil {
 		t.Fatalf("Error decoding HEX tx from libbitcoin:  %s", err)
 		return
@@ -180,8 +196,8 @@ func TestParse_LibbitconTX(t *testing.T) {
 	tx := ParseUTXOBytes(txData)
 
 	// Call Verify_script
-	tx_input_index := uint(0)
-	result := consensus.Verify_script(&txData[0], int64(len(txData)), &prevTxScript[0], int64(len(prevTxScript)), tx_input_index, uint(consensus.Verify_flags_p2sh))
+	txInputIndex := uint(0)
+	result := consensus.Verify_script(&txData[0], int64(len(txData)), &prevTxScript[0], int64(len(prevTxScript)), txInputIndex, uint(consensus.Verify_flags_p2sh))
 	if result != consensus.Verify_result_eval_true {
 		t.Fatalf("Unexpected result from verify_script, expected %d, got %d", consensus.Verify_result_eval_true, result)
 	}

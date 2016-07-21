@@ -1,3 +1,19 @@
+/*
+Copyright IBM Corp. 2016 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package golang
 
 import (
@@ -44,6 +60,14 @@ func writeChaincodePackage(spec *pb.ChaincodeSpec, tw *tar.Writer) error {
 
 	//let the executable's name be chaincode ID's name
 	newRunLine := fmt.Sprintf("RUN go install %s && cp src/github.com/hyperledger/fabric/peer/core.yaml $GOPATH/bin && mv $GOPATH/bin/%s $GOPATH/bin/%s", urlLocation, chaincodeGoName, spec.ChaincodeID.Name)
+
+	//NOTE-this could have been abstracted away so we could use it for all platforms in a common manner
+	//However, it would still be docker specific. Hence any such abstraction has to be done in a manner that
+	//is not just language dependent but also container depenedent. So lets make this change per platform for now
+	//in the interest of avoiding over-engineering without proper abstraction
+	if viper.GetBool("peer.tls.enabled") {
+		newRunLine = fmt.Sprintf("%s\nCOPY src/certs/cert.pem %s", newRunLine, viper.GetString("peer.tls.cert.file"))
+	}
 
 	dockerFileContents := fmt.Sprintf("%s\n%s", viper.GetString("chaincode.golang.Dockerfile"), newRunLine)
 	dockerFileSize := int64(len([]byte(dockerFileContents)))

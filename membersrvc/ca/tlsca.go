@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package ca
@@ -22,12 +19,13 @@ package ca
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"database/sql"
 	"errors"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -36,7 +34,8 @@ import (
 //
 type TLSCA struct {
 	*CA
-	eca *ECA
+	eca        *ECA
+	gRPCServer *grpc.Server
 }
 
 // TLSCAP serves the public GRPC interface of the TLSCA.
@@ -51,10 +50,14 @@ type TLSCAA struct {
 	tlsca *TLSCA
 }
 
+func initializeTLSCATables(db *sql.DB) error {
+	return initializeCommonTables(db)
+}
+
 // NewTLSCA sets up a new TLSCA.
 //
 func NewTLSCA(eca *ECA) *TLSCA {
-	tlsca := &TLSCA{NewCA("tlsca"), eca}
+	tlsca := &TLSCA{NewCA("tlsca", initializeTLSCATables), eca, nil}
 
 	return tlsca
 }
@@ -76,12 +79,27 @@ func (tlsca *TLSCA) startTLSCAA(srv *grpc.Server) {
 	pb.RegisterTLSCAAServer(srv, &TLSCAA{tlsca})
 }
 
+// Stop stops the TCA services.
+func (tlsca *TLSCA) Stop() error {
+	Info.Println("Stopping the TLSCA services...")
+	if tlsca.gRPCServer != nil {
+		tlsca.gRPCServer.Stop()
+	}
+	err := tlsca.CA.Stop()
+	if err != nil {
+		Error.Println("Error stopping the TLSCA services ", err)
+	} else {
+		Info.Println("TLSCA services stopped")
+	}
+	return err
+}
+
 // ReadCACertificate reads the certificate of the TLSCA.
 //
 func (tlscap *TLSCAP) ReadCACertificate(ctx context.Context, in *pb.Empty) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCACertificate")
 
-	return &pb.Cert{tlscap.tlsca.raw}, nil
+	return &pb.Cert{Cert: tlscap.tlsca.raw}, nil
 }
 
 // CreateCertificate requests the creation of a new enrollment certificate by the TLSCA.
@@ -107,7 +125,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 		return nil, err
 	}
 
-	hash := utils.NewHash()
+	hash := primitives.NewHash()
 	raw, _ = proto.Marshal(in)
 	hash.Write(raw)
 	if ecdsa.Verify(pub.(*ecdsa.PublicKey), hash.Sum(nil), r, s) == false {
@@ -119,7 +137,7 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 		return nil, err
 	}
 
-	return &pb.TLSCertCreateResp{&pb.Cert{raw}, &pb.Cert{tlscap.tlsca.raw}}, nil
+	return &pb.TLSCertCreateResp{Cert: &pb.Cert{Cert: raw}, RootCert: &pb.Cert{Cert: tlscap.tlsca.raw}}, nil
 }
 
 // ReadCertificate reads an enrollment certificate from the TLSCA.
@@ -127,12 +145,12 @@ func (tlscap *TLSCAP) CreateCertificate(ctx context.Context, in *pb.TLSCertCreat
 func (tlscap *TLSCAP) ReadCertificate(ctx context.Context, in *pb.TLSCertReadReq) (*pb.Cert, error) {
 	Trace.Println("grpc TLSCAP:ReadCertificate")
 
-	raw, err := tlscap.tlsca.readCertificate(in.Id.Id, x509.KeyUsageKeyAgreement)
+	raw, err := tlscap.tlsca.readCertificateByKeyUsage(in.Id.Id, x509.KeyUsageKeyAgreement)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.Cert{raw}, nil
+	return &pb.Cert{Cert: raw}, nil
 }
 
 // RevokeCertificate revokes a certificate from the TLSCA.  Not yet implemented.

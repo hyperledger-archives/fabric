@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright IBM Corp. 2016 All Rights Reserved.
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+		 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package main
@@ -22,6 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
@@ -29,35 +27,35 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub,  function string, args []string) ([]byte, error) {
+// Init intializes the chaincode by reading the transaction attributes and storing
+// the attrbute values in the state
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	attributes, err := stub.CertAttributes()
-	if err != nil { 
+	if err != nil {
 		return nil, err
 	}
-	
-	for _,att := range attributes { 
-		fmt.Println("Writting attribute "+att)
-		var att_val []byte
-		att_val, err = stub.ReadCertAttribute(att)
+
+	for _, att := range attributes {
+		fmt.Println("Writting attribute " + att)
+		var attVal []byte
+		attVal, err = stub.ReadCertAttribute(att)
 		if err != nil {
 			return nil, err
 		}
-		err = stub.PutState(att, att_val)
+		err = stub.PutState(att, attVal)
 		if err != nil {
 			return nil, err
 		}
 	}
-	
+
 	return nil, nil
 }
 
-// Transaction makes payment of X units from A to B
-func (t *SimpleChaincode)Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	var A string    // Entities
+// Invoke takes two arguements, a key and value, and stores these in the state
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+	var A string // Entities
 	var err error
 
-	
-	
 	if len(args) != 2 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
@@ -88,25 +86,6 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 	}
 
 	return nil, nil
-}
-
-// Run callback representing the invocation of a chaincode
-// This chaincode will manage two accounts A and B and will transfer X units from A to B upon invoke
-func (t *SimpleChaincode) Run(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	// Handle different functions
-	if function == "init" {
-		// Initialize the entities and their asset holdings
-		return t.Init(stub, function, args)
-	} else if function == "invoke" {
-		// Transaction makes payment of X units from A to B
-		return t.Invoke(stub, function, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
-	}
-
-	return nil, errors.New("Received unknown function invocation")
 }
 
 // Query callback representing the query of a chaincode
