@@ -1,70 +1,220 @@
-#Writing, Building, and Running Chaincode in a Development Environment
+## Writing, Building, and Running Chaincode in a Development Environment
 
-Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. This document describes how to write, build, and test chaincode in a local development environment.
+Chaincode developers need a way to test and debug their chaincode without having to set up a complete peer network. By default, when you want to interact with chaincode, you need to first `Deploy` it using the CLI, REST API, gRPC API, or SDK. Upon receiving this request, the peer node would typically spin up a Docker container with the relevant chaincode. This can make things rather complicated for debugging chaincode under development, because of the turnaround time with the `launch chaincode - debug docker container - fix problem - launch chaincode - lather - rinse - repeat` cycle. As such, the fabric peer has a `--peer-chaincodedev` flag that can be passed on start-up to instruct the peer node not to deploy the chaincode as a Docker container.
 
-Multiple terminal windows inside the Vagrant development environment are required. One Vagrant terminal runs the validating peer; another Vagrant terminal runs the chaincode; the third Vagrant terminal runs the CLI or REST API commands to execute transactions. When running with security enabled, an additional fourth Vagrant terminal window is required to run the <b>Certificate Authority (CA)</b> server. Detailed instructions are provided in the sections below:
+The following instructions apply to _developing_ chaincode in Go or Java. They do not apply to running in a production environment. However, if _developing_ chaincode in Java, please see the [Java chaincode setup](https://github.com/hyperledger/fabric/blob/master/docs/Setup/JAVAChaincode.md) instructions first, to be sure your environment is properly configured.
 
-* [Security Setup (optional)](#security-setup-optional)
-* [Vagrant Terminal 1 (validating peer)](#vagrant-terminal-1-validating-peer)
-* [Vagrant Terminal 2 (chaincode)](#vagrant-terminal-2-chaincode)
-* [Vagrant Terminal 3 (CLI or REST API)](#vagrant-terminal-3-cli-or-rest-api)
-    * [Chaincode deploy via CLI and REST](#chaincode-deploy-via-cli-and-rest)
-    * [Chaincode invoke via CLI and REST](#chaincode-invoke-via-cli-and-rest)
-    * [Chaincode query via CLI and REST](#chaincode-query-via-cli-and-rest)
-* [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled)
+**Note:** We have added support for [System chaincode](https://github.com/hyperledger/fabric/blob/master/docs/SystemChaincodes/noop.md).
 
-See the [logging control](../dev-setup/logging-control.md) reference for information on controlling
-logging output from the `peer` and chaincodes.
+## Choices
 
-###Security Setup (optional)
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+Once again, you have the choice of using one of the following approaches:
 
-    vagrant ssh
+- [Option 1](#Option-1-Vagrant-development-environment) using the **Vagrant** [development environment](https://github.com/hyperledger/fabric/blob/master/docs/dev-setup/devenv.md) that is used for developing the fabric itself
+- [Option 2](#Option-2-Docker-for-Mac-or-Windows) using Docker for Mac or Windows
+- [Option 3](#Option-3-Docker-Toolbox) using Docker toolbox
 
-To set up the local development environment with security enabled, you must first build and run the <b>Certificate Authority (CA)</b> server:
+By using options *2* or *3*, above, you avoid having to build everything from scratch, and there's no need to keep a clone of the fabric GitHub repos current/up-to-date. Instead, you can simply pull and run the `fabric-peer` and `fabric-membersrvc` images directly from DockerHub.
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make membersrvc && membersrvc
+You will need multiple terminal windows - essentially one for each component. One runs the validating peer; another  runs the chaincode; the third runs the CLI or REST API commands to execute transactions. Finally, when running with security enabled, an additional fourth window is required to run the **Certificate Authority (CA)** server. Detailed instructions are provided in the sections below.
+
+## Option 1 Vagrant development environment
+
+### Security Setup (optional)
+
+From the `devenv` subdirectory of your fabric workspace environment, `ssh` into Vagrant:
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
+vagrant ssh
+```
+
+To set up the local development environment with security enabled, you must first build and run the **Certificate Authority (CA)** server:
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric
+make membersrvc && membersrvc
+```
 
 Running the above commands builds and runs the CA server with the default setup, which is defined in the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) configuration file. The default configuration includes multiple users who are already registered with the CA; these users are listed in the `eca.users` section of the configuration file. To register additional users with the CA for testing, modify the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file to include additional `enrollmentID` and `enrollmentPW` pairs. Note the integer that precedes the `enrollmentPW`. That integer indicates the role of the user, where 1 = client, 2 = non-validating peer, 4 = validating peer, and 8 = auditor.
 
-###Vagrant Terminal 1 (validating peer)
-**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the `security.enabled` value to `true` before building the peer executable. Alternatively, you can enable security by running the peer with environment variable `CORE_SECURITY_ENABLED=true`. To enable privacy and confidentiality of transactions (requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the `security.privacy` value to `true` as well. Alternatively, you can enable privacy by running the peer with environment variable `CORE_SECURITY_PRIVACY=true`. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
+### Running the validating peer
 
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+**Note:** To run with security enabled, first modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the `security.enabled` value to `true` before building the peer executable. Alternatively, you can enable security by running the peer with the following environment variable: `CORE_SECURITY_ENABLED=true`. To enable privacy and confidentiality of transactions (which requires security to also be enabled), modify the [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) configuration file to set the `security.privacy` value to `true` as well. Alternatively, you can enable privacy by running the peer with the following environment variable: `CORE_SECURITY_PRIVACY=true`. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 
-    vagrant ssh
+In a **new** terminal window, from the `devenv` subdirectory of your fabric workspace environment, `ssh` into Vagrant:
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
+vagrant ssh
+```
 
 Build and run the peer process to enable security and privacy after setting `security.enabled` and `security.privacy` settings to `true`.
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make peer
-    peer node start --peer-chaincodedev
+```
+cd $GOPATH/src/github.com/hyperledger/fabric
+make peer
+peer node start --peer-chaincodedev
+```
 
-Alternatively, enable security and privacy on the peer with environment variables:
+Alternatively, rather than tweaking the `core.yaml` and rebuilding, you can enable security and privacy on the peer with environment variables:
 
-    CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer node start --peer-chaincodedev
+```
+CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer node start --peer-chaincodedev
+```
 
-###Vagrant Terminal 2 (chaincode)
+Now, you are ready to start [running the chaincode](#running-the-chaincode).
 
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+## Option 2 Docker for Mac or Windows
 
-    vagrant ssh
+If you would prefer to simply run the fabric components as built and published by the Hyperledger project on your Mac or Windows laptop/server using the Docker for [Mac](https://docs.docker.com/engine/installation/mac/) or [Windows](https://docs.docker.com/engine/installation/windows/) platform, following these steps. If using [Docker Toolbox](https://docs.docker.com/toolbox/overview/), please skip to [Option 3](#Option-3-Docker-Toolbox), below.
 
-Build the <b>chaincode_example02</b> code, which is provided in the source code repository:
+### Pull images from DockerHub
 
-    cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
-    go build
+First, pull the latest images published by the Hyperledger fabric project from DockerHub.
 
-When you are ready to start creating your own chaincode, create a new subdirectory inside of /fabric/examples/go/chaincode to store your chaincode files. You can copy the <b>chaincode_example02</b> file to the new directory and modify it.
+```
+docker pull hyperledger/fabric-peer:latest
+docker pull hyperledger/fabric-membersrvc:latest
+```
 
-Run the following chaincode command to start and register the chaincode with the validating peer (started in Vagrant terminal 1):
+### Running the Peer and CA
 
-    CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we'll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
+
+```
+membersrvc:
+  image: hyperledger/fabric-membersrvc
+  ports:
+    - "50051:50051"
+  command: membersrvc
+vp0:
+  image: hyperledger/fabric-peer
+  ports:
+    - "5000:5000"
+    - "30303:30303"
+    - "30304:30304"
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=unix:///var/run/docker.sock
+    - CORE_LOGGING_LEVEL=DEBUG
+    - CORE_PEER_ID=vp0
+    - CORE_SECURITY_ENROLLID=test_vp0
+    - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
+  links:
+    - membersrvc
+  command: sh -c "sleep 5; peer node start --peer-chaincodedev"
+```
+
+Save that in a directory with the name `docker-compose.yml`. Then, run `docker-compose up` to start the two processes.
+
+Now, you are ready to start [running the chaincode](#running-the-chaincode).
+
+## Option 3 Docker Toolbox
+
+If you are using [Docker Toolbox](https://docs.docker.com/toolbox/overview/), please follow these instructions.
+
+### Pull images from DockerHub
+
+First, pull the latest images published by the Hyperledger fabric project from DockerHub.
+
+```
+  docker pull hyperledger/fabric-peer:latest
+  docker pull hyperledger/fabric-membersrvc:latest
+```
+
+### Running the Peer and CA
+
+To run the fabric-peer and fabric-membersrvc images, we'll use [Docker Compose](https://docs.docker.com/compose/). It significantly simplifies things. To do that, we'll create a docker-compose.yml file with a description of the two services we'll be running. Here's the docker-compose.yml to launch the two processes:
+
+```
+membersrvc:
+  image: hyperledger/fabric-membersrvc
+  command: membersrvc
+vp0:
+  image: hyperledger/fabric-peer
+  environment:
+    - CORE_PEER_ADDRESSAUTODETECT=true
+    - CORE_VM_ENDPOINT=http://172.17.0.1:2375
+    - CORE_LOGGING_LEVEL=DEBUG
+    - CORE_PEER_ID=vp0
+    - CORE_SECURITY_ENROLLID=test_vp0
+    - CORE_SECURITY_ENROLLSECRET=MwYpmSRjupbT
+  links:
+    - membersrvc
+  command: sh -c "sleep 5; peer node start --peer-chaincodedev"
+```
+Save that in a directory with the name `docker-compose.yml`. Then, run `docker-compose up` to start the two processes.
+
+## Running the chaincode
+
+Start a **new** terminal window.
+
+### Vagrant
+
+If you are using [Option 1](#Option-1-Vagrant-development-environment), you'll need to `ssh` to Vagrant. Otherwise, [skip](#Not-Vagrant) this step.
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
+vagrant ssh
+```
+
+Next, we'll build the **chaincode_example02** code, which is provided in the Hyperledger fabric source code repository. If you are using [Option 1](#Option-1-Vagrant-development-environment), then you can do this from your clone of the fabric repository.
+
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
+go build
+```
+
+### Not Vagrant
+
+If you are using either [Option 2](#Option-2-Docker-for-Mac-or-Windows) or [Option 3](#Option-3-Docker-Toolbox), you'll need to  download the sample chaincode. The chaincode project must be placed somewhere under the `src` directory in your local `$GOPATH` as shown below.
+
+```
+mkdir -p $GOPATH/src/github.com/chaincode_example02/
+cd $GOPATH/src/github.com/chaincode_example02
+curl GET https://raw.githubusercontent.com/hyperledger/fabric/master/examples/chaincode/go/chaincode_example02/chaincode_example02.go > chaincode_example02.go
+```
+
+Next, you'll need to clone the Hyperledger fabric to your local $GOPATH, so that you can build your chaincode. **Note:** this is a temporary stop-gap until we can provide an independent package for the chaincode shim.
+
+```
+mkdir -p $GOPATH/src/github.com/hyperledger
+cd $GOPATH/src/github.com/hyperledger
+git clone https://github.com/hyperledger/fabric.git
+```
+
+Now, you should be able to build your chaincode.
+
+```
+cd $GOPATH/src/github.com/chaincode_example02
+go build
+```
+
+When you are ready to start creating your own Go chaincode, create a new subdirectory under $GOPATH/src. You can copy the **chaincode_example02** file to the new directory and modify it.
+
+### Starting and registering the chaincode
+
+Run the following chaincode command to start and register the chaincode with the validating peer:
+
+```
+CORE_CHAINCODE_ID_NAME=mycc CORE_PEER_ADDRESS=0.0.0.0:30303 ./chaincode_example02
+```
 
 The chaincode console will display the message "Received REGISTERED, ready for invocations", which indicates that the chaincode is ready to receive requests. Follow the steps below to send a chaincode deploy, invoke or query transaction. If the "Received REGISTERED" message is not displayed, then an error has occurred during the deployment; revisit the previous steps to resolve the issue.
 
-###Vagrant Terminal 3 (CLI or REST API)
+## Running the CLI or REST API
+
+  * [chaincode deploy via CLI and REST](#chaincode-deploy-via-cli-and-rest)
+  * [chaincode invoke via CLI and REST](#chaincode-invoke-via-cli-and-rest)
+  * [chaincode query via CLI and REST](#chaincode-query-via-cli-and-rest)
+
+If you were running with security enabled, see [Removing temporary files when security is enabled](#removing-temporary-files-when-security-is-enabled) to learn how to clean up the temporary files.
+
+See the [logging control](https://github.com/hyperledger/fabric/blob/master/docs/Setup/logging-control.md) reference for information on controlling
+logging output from the `peer` and chaincodes.
+
+### Terminal 3 (CLI or REST API)
 
 #### **Note on REST API port**
 
@@ -78,18 +228,23 @@ With security enabled, the CLI commands and REST payloads must be modified to in
 
 From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
 
+```
     vagrant ssh
+```
 
 Register the user though the CLI, substituting for `<username>` appropriately:
 
+```
     cd $GOPATH/src/github.com/hyperledger/fabric/peer
     peer network login <username>
+```
 
 The command will prompt for a password, which must match the `enrollmentPW` listed for the target user in the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file. If the password entered does not match the `enrollmentPW`, an error will result.
 
 To log in through the REST API, send a POST request to the `/registrar` endpoint, containing the `enrollmentID` and `enrollmentPW` listed in the `eca.users` section of the [membersrvc.yaml](https://github.com/hyperledger/fabric/blob/master/membersrvc/membersrvc.yaml) file.
 
-<b>REST Request:</b>
+**REST Request:**
+
 ```
 POST localhost:5000/registrar
 
@@ -99,7 +254,8 @@ POST localhost:5000/registrar
 }
 ```
 
-<b>REST Response:</b>
+**REST Response:**
+
 ```
 200 OK
 {
@@ -107,7 +263,7 @@ POST localhost:5000/registrar
 }
 ```
 
-#### Chaincode deploy via CLI and REST
+#### chaincode deploy via CLI and REST
 
 First, send a chaincode deploy transaction, only once, to the validating peer. The CLI connects to the validating peer using the properties defined in the core.yaml file. **Note:** The deploy transaction typically requires a `path` parameter to locate, build, and deploy the chaincode. However, because these instructions are specific to local development mode and the chaincode is deployed manually, the `name` parameter is used instead.
 ```
@@ -116,7 +272,8 @@ peer chaincode deploy -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "
 
 Alternatively, you can run the chaincode deploy transaction through the REST API.
 
-<b>REST Request:</b>
+**REST Request:**
+
 ```
 POST host:port/chaincode
 
@@ -137,7 +294,8 @@ POST host:port/chaincode
 }
 ```
 
-<b>REST Response:</b>
+**REST Response:**
+
 ```
 {
     "jsonrpc": "2.0",
@@ -153,7 +311,8 @@ POST host:port/chaincode
 
  	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode deploy -u jim -n mycc -c '{"Function":"init", "Args": ["a","100", "b", "200"]}'
 
-<b>REST Request:</b>
+**REST Request:**
+
 ```
 POST host:port/chaincode
 
@@ -176,19 +335,23 @@ POST host:port/chaincode
 ```
 
 The deploy transaction initializes the chaincode by executing a target initializing function. Though the example shows "init", the name could be arbitrarily chosen by the chaincode developer. You should see the following output in the chaincode window:
-
+```
 	2015/11/15 15:19:31 Received INIT(uuid:005dea42-d57f-4983-803e-3232e551bf61), initializing chaincode
 	Aval = 100, Bval = 200
+```
 
 #### Chaincode invoke via CLI and REST
 
 Run the chaincode invoking transaction on the CLI as many times as desired. The `-n` argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
+```
 	peer chaincode invoke -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
+```
 
 Alternatively, run the chaincode invoking transaction through the REST API.
 
-<b>REST Request:</b>
+**REST Request:**
+
 ```
 POST host:port/chaincode
 
@@ -209,7 +372,8 @@ POST host:port/chaincode
 }
 ```
 
-<b>REST Response:</b>
+**REST Response:**
+
 ```
 {
     "jsonrpc": "2.0",
@@ -225,7 +389,8 @@ POST host:port/chaincode
 
  	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode invoke -u jim -l golang -n mycc -c '{"Function": "invoke", "Args": ["a", "b", "10"]}'
 
-<b> REST Request:</b>
+**REST Request:**
+
 ```
 POST host:port/chaincode
 
@@ -249,26 +414,34 @@ POST host:port/chaincode
 
 The invoking transaction runs the specified chaincode function name "invoke" with the arguments. This transaction transfers 10 units from A to B. You should see the following output in the chaincode window:
 
+```
 	2015/11/15 15:39:11 Received RESPONSE. Payload 200, Uuid 075d72a4-4d1f-4a1d-a735-4f6f60d597a9
 	Aval = 90, Bval = 210
+```
 
 #### Chaincode query via CLI and REST
 
 Run a query on the chaincode to retrieve the desired values. The `-n` argument should match the value provided in the chaincode window (started in Vagrant terminal 2):
 
+```
     peer chaincode query -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+```
 
 The response should be similar to the following:
 
+```
     {"Name":"b","Amount":"210"}
+```
 
 If a name other than "a" or "b" is provided in a query sent to `chaincode_example02`, you should see an error response similar to the following:
 
+```
     {"Error":"Nil amount for c"}
+```
 
 Alternatively, run the chaincode query transaction through the REST API.
 
-<b> REST Request:</b>
+**REST Request:**
 ```
 POST host:port/chaincode
 
@@ -289,7 +462,7 @@ POST host:port/chaincode
 }
 ```
 
-<b>REST Response:</b>
+**REST Response:**
 ```
 {
     "jsonrpc": "2.0",
@@ -303,9 +476,11 @@ POST host:port/chaincode
 
 **Note:** When security is enabled, modify the CLI command and REST API payload to pass the `enrollmentID` of a logged in user. To log in a registered user through the CLI or the REST API, follow the instructions in the [note on security functionality](#note-on-security-functionality). On the CLI, the `enrollmentID` is passed with the `-u` parameter; in the REST API, the `enrollmentID` is passed with the `secureContext` element. If you are enabling security and privacy on the peer process with environment variables, it is important to include these environment variables in the command when executing all subsequent peer operations (e.g. deploy, invoke, or query).
 
+```
  	  CORE_SECURITY_ENABLED=true CORE_SECURITY_PRIVACY=true peer chaincode query -u jim -l golang -n mycc -c '{"Function": "query", "Args": ["b"]}'
+```
 
-<b>REST Request:</b>
+**REST Request:**
 ```
 POST host:port/chaincode
 
@@ -329,12 +504,19 @@ POST host:port/chaincode
 
 #### Removing temporary files when security is enabled
 
+**Note:** this step applies **ONLY** if you were using Option 1 above. For Option 2 or 3, the cleanup is handled by Docker.
+
 After the completion of a chaincode test with security enabled, remove the temporary files that were created by the CA server process. To remove the client enrollment certificate, enrollment key, transaction certificate chain, etc., run the following commands. Note, that you must run these commands if you want to register a user who has already been registered previously.
 
-From your command line terminal, move to the `devenv` subdirectory of your workspace environment. Log into a Vagrant terminal by executing the following command:
+From your command line terminal, `ssh` into Vagrant:
 
-    vagrant ssh
+```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
+vagrant ssh
+```
 
 And then run:
 
-    rm -rf /var/hyperledger/production
+```
+rm -rf /var/hyperledger/production
+```

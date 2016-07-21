@@ -22,7 +22,7 @@ The project's [maintainers](MAINTAINERS.txt): are responsible for reviewing and 
 We use [Hyperledger Slack](https://slack.hyperledger.org/) for communication and Google Hangouts&trade; for screen sharing between developers.
 
 ## Installing the fabric
-[Installation](docs/dev-setup/install.md): Describes how to install the blockchain fabric and use project tools.
+[Installation](docs/Setup/Network-setup.md): Describes how to install the blockchain fabric and use project tools.
 
 ## Documentation
 Project documentation can be found [here](http://hyperledger-fabric.readthedocs.io/en/latest/).

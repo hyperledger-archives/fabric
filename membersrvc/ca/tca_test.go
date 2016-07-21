@@ -157,7 +157,7 @@ func initTCA() (*TCA, error) {
 
 	//initialize logging to avoid panics in the current code
 	LogInit(os.Stdout, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
-
+	CacheConfiguration() // Cache configuration
 	eca := NewECA()
 	if eca == nil {
 		return nil, fmt.Errorf("Could not create a new ECA")

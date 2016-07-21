@@ -1,39 +1,27 @@
-# Installation
-Install the blockchain fabric by completing the following tasks:
+## Building the fabric
 
-* [Building the fabric core](#building-the-fabric-core-)
-* [Building outside of Vagrant](#building-outside-of-vagrant-)
-* [Code contributions](#code-contributions-)
-* [Writing Chaincode](#writing-chaincode-)
-* [Setting Up a Network](#setting-up-a-network-)
-* [Working with CLI, REST, and Node.js](#working-with-cli-rest-and-nodejs-)
-* [Configuration](#configuration-)
-* [Logging](#logging-)
+The following instructions assume that you have already set up your [development environment](devenv.md).
 
-## Building the fabric core <a name="build"></a>
-The following instructions assume that you have followed the [development environment getting started instructions](devenv.md).
+To access your VM, run `vagrant ssh` from within the devenv directory of your locally cloned fabric repository.
 
-To access your VM, run
 ```
+cd $GOPATH/src/github.com/hyperledger/fabric/devenv
 vagrant ssh
 ```
 
 From within the VM, you can build, run, and test your environment.
 
-#### 1. Go build
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
 make peer
 ```
 
-#### 2. Run/Execute
-
 To see what commands are available, simply execute the following commands:
 ```
-$ peer
+peer help
 ```
 
-You should see some output similar to below (**NOTE**: The root command below is hardcoded in the [main.go](../../peer/main.go) and the build creates the `peer` executable).
+You should see the following output:
 
 ```
     Usage:
@@ -51,7 +39,6 @@ You should see some output similar to below (**NOTE**: The root command below is
 
 
     Use "peer [command] --help" for more information about a command.
-
 ```
 
 The `node start` command will initiate a peer process, with which one can interact by executing other commands. For example, the `node status` command will return the status of the running peer. The full list of commands is the following:
@@ -73,24 +60,26 @@ The `node start` command will initiate a peer process, with which one can intera
 
 **Note:** If your GOPATH environment variable contains more than one element, the chaincode must be found in the first one or deployment will fail.
 
-#### 3. Test
-New code must be accompanied by test cases both in unit and Behave tests.
+### Running the unit tests
 
-#### 3.1 Go Unit Tests
 Use the following sequence to run all unit tests
 
-    cd $GOPATH/src/github.com/hyperledger/fabric
-    make unit-test
+```
+cd $GOPATH/src/github.com/hyperledger/fabric
+make unit-test
+```
 
 To run a specific test use the `-run RE` flag where RE is a regular expression that matches the test case name. To run tests with verbose output use the `-v` flag. For example, to run the `TestGetFoo` test case, change to the directory containing the `foo_test.go` and call/excecute
 
-    go test -v -run=TestGetFoo
+```
+go test -v -run=TestGetFoo
+```
 
-#### 3.2 Node.js Unit Tests
+### Running Node.js Unit Tests
 
 You must also run the Node.js unit tests to insure that the Node.js client SDK is not broken by your changes. To run the Node.js unit tests, follow the instructions [here](https://github.com/hyperledger/fabric/tree/master/sdk/node#unit-tests).
 
-#### 3.3 Behave Tests
+### Running Behave BDD Tests
 [Behave](http://pythonhosted.org/behave/) tests will setup networks of peers with different security and consensus configurations and verify that transactions run properly. To run these tests
 
 ```
@@ -103,12 +92,13 @@ behave -D logs=Y
 ```
 
 Note, in order to run behave directly, you must run 'make images' first to build the necessary `peer` and `member services` docker images. These images can also be individually built when `go test` is called with the following parameters:
+
 ```
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Peer
 go test github.com/hyperledger/fabric/core/container -run=BuildImage_Obcca
 ```
 
-## Building outside of Vagrant <a name="vagrant"></a>
+## Building outside of Vagrant
 It is possible to build the project and run peers outside of Vagrant. Generally speaking, one has to 'translate' the vagrant [setup file](https://github.com/hyperledger/fabric/blob/master/devenv/setup.sh) to the platform of your choice.
 
 ### Prerequisites
@@ -161,15 +151,14 @@ cd $HOME/git/src/github.com/hyperledger
 git clone https://github.com/hyperledger/fabric.git
 source fabric/devenv/setupRHELonZ.sh
 ```
-From there, follow instructions at [Installation](install.md):
+From this point, you can proceed as described above for the Vagrant development environment.
 
 ```
 cd $GOPATH/src/github.com/hyperledger/fabric
 make peer unit-test behave
 ```
 
-
-### Building on OSX
+### Building natively on OSX
 First, install Docker, as described [here](https://docs.docker.com/engine/installation/mac/).
 The database by default writes to /var/hyperledger. You can override this in the `core.yaml` configuration file, under `peer.fileSystemPath`.
 
@@ -184,22 +173,7 @@ cd $GOPATH/src/github.com/hyperledger/fabric
 make peer
 ```
 
-
-## Code contributions <a name="contrib"></a>
-We welcome contributions to the Hyperledger Project in many forms. There's always plenty to do! Full details of how to contribute to this project are documented in the [CONTRIBUTING.md](../../CONTRIBUTING.md) file.
-
-## Setting Up a Network <a name="devnet"></a>
-
-To set up an development network composed of several validating peers, follow the instructions on the [Devnet Setup](devnet-setup.md) page. This network leverages Docker to manage multiple peer instances on the same machine, allowing you to quickly test your chaincode.
-
-### Writing Chaincode <a name="chaincode"></a>
-Since chaincode is written in Go language, you can set up the environment to accommodate the rapid edit-compile-run of your chaincode. Follow the instructions on the [Sandbox Setup](../API/SandboxSetup.md) page, which allows you to run your chaincode off the blockchain.
-
-## Working with CLI, REST, and Node.js <a name="cli"></a>
-
-When you are ready to start interacting with the peer node through the available APIs and packages, follow the instructions on the [CoreAPI Documentation](../API/CoreAPI.md) page.
-
-## Configuration <a name="config"></a>
+## Configuration
 
 Configuration utilizes the [viper](https://github.com/spf13/viper) and [cobra](https://github.com/spf13/cobra) libraries.
 
@@ -207,10 +181,10 @@ There is a **core.yaml** file that contains the configuration for the peer proce
 
     CORE_PEER_LOGGING_LEVEL=CRITICAL peer
 
-## Logging <a name="logging"></a>
+## Logging
 
-Logging utilizes the [go-logging](https://github.com/op/go-logging) library.  
+Logging utilizes the [go-logging](https://github.com/op/go-logging) library. 
 
 The available log levels in order of increasing verbosity are: *CRITICAL | ERROR | WARNING | NOTICE | INFO | DEBUG*
 
-See [specific logging control](logging-control.md) instructions when running the peer process.
+See [specific logging control](https://github.com/hyperledger/fabric/blob/master/docs/Setup/logging-control.md) instructions when running the peer process.

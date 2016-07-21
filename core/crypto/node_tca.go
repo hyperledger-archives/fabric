@@ -27,6 +27,10 @@ import (
 )
 
 func (node *nodeImpl) retrieveTCACertsChain(userID string) error {
+	if !node.ks.certMissing(node.conf.getTCACertsChainFilename()) {
+		return nil
+	}
+
 	// Retrieve TCA certificate and verify it
 	tcaCertRaw, err := node.getTCACertificate()
 	if err != nil {

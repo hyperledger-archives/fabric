@@ -55,6 +55,7 @@ type TCA struct {
 	hmacKey    []byte
 	rootPreKey []byte
 	preKeys    map[string][]byte
+	gRPCServer *grpc.Server
 }
 
 // TCertSet contains relevant information of a set of tcerts
@@ -82,7 +83,7 @@ func initializeTCATables(db *sql.DB) error {
 
 // NewTCA sets up a new TCA.
 func NewTCA(eca *ECA) *TCA {
-	tca := &TCA{NewCA("tca", initializeTCATables), eca, nil, nil, nil}
+	tca := &TCA{NewCA("tca", initializeTCATables), eca, nil, nil, nil, nil}
 
 	err := tca.readHmacKey()
 	if err != nil {
@@ -206,21 +207,42 @@ func (tca *TCA) getPreKFrom(enrollmentCertificate *x509.Certificate) ([]byte, er
 
 // Start starts the TCA.
 func (tca *TCA) Start(srv *grpc.Server) {
+	Info.Println("Staring TCA services...")
 	tca.startTCAP(srv)
 	tca.startTCAA(srv)
-
+	tca.gRPCServer = srv
 	Info.Println("TCA started.")
+}
+
+// Stop stops the TCA services.
+func (tca *TCA) Stop() error {
+	Info.Println("Stopping the TCA services...")
+	if tca.gRPCServer != nil {
+		tca.gRPCServer.Stop()
+	}
+	err := tca.CA.Stop()
+	if err != nil {
+		Error.Println("Error stopping TCA services", err)
+	} else {
+		Info.Println("TCA services stopped")
+	}
+	return err
 }
 
 func (tca *TCA) startTCAP(srv *grpc.Server) {
 	pb.RegisterTCAPServer(srv, &TCAP{tca})
+	Info.Println("TCA PUBLIC gRPC API server started")
 }
 
 func (tca *TCA) startTCAA(srv *grpc.Server) {
 	pb.RegisterTCAAServer(srv, &TCAA{tca})
+	Info.Println("TCA ADMIN gRPC API server started")
 }
 
 func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	var sets = []*TCertSet{}
 	var err error
 
@@ -250,6 +272,9 @@ func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
 }
 
 func (tca *TCA) persistCertificateSet(enrollmentID string, timestamp int64, nonce []byte, kdfKey []byte) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var err error
 
 	if _, err = tca.db.Exec("INSERT INTO TCertificateSets (enrollmentID, timestamp, nonce, kdfkey) VALUES (?, ?, ?, ?)", enrollmentID, timestamp, nonce, kdfKey); err != nil {

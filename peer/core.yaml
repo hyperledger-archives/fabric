@@ -60,7 +60,7 @@ logging:
     #
     # 4. Otherwise, the specifications below apply.
     #
-    # Developers: Please see fabric/docs/dev-setup/logging-control.md for more
+    # Developers: Please see fabric/docs/Setup/logging-control.md for more
     # options.
     peer: warning
 
@@ -417,7 +417,7 @@ security:
     multithreading:
       enabled: false
 
-    # Confidentiality protocol version could be 1.1 or 1.2
+    # Confidentiality protocol versions supported: 1.2
     confidentialityProtocolVersion: 1.2
 
 ################################################################################

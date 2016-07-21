@@ -141,9 +141,13 @@ test('Set Invalid security level and hash algorithm.', function (t) {
     try {
         chain.getMemberServices().setSecurityLevel(128);
         t.fail("Setting an invalid security level should fail. Allowed security levels are '256' and '384'.")
+        // Exit the test script after a failure
+        process.exit(1);
     } catch (err) {
         if (securityLevel != chain.getMemberServices().getSecurityLevel()) {
             t.fail("Chain is using an invalid security level.")
+            // Exit the test script after a failure
+            process.exit(1);
         }
 
         t.pass("Setting an invalid security level failed as expected.")
@@ -153,9 +157,13 @@ test('Set Invalid security level and hash algorithm.', function (t) {
     try {
         chain.getMemberServices().setHashAlgorithm('SHA');
         t.fail("Setting an invalid hash algorithm should fail. Allowed hash algorithm are 'SHA2' and 'SHA3'.")
+        // Exit the test script after a failure
+        process.exit(1);
     } catch (err) {
         if (hashAlgorithm != chain.getMemberServices().getHashAlgorithm()) {
             t.fail("Chain is using an invalid hash algorithm.")
+            // Exit the test script after a failure
+            process.exit(1);
         }
 
         t.pass("Setting an invalid hash algorithm failed as expected.")
@@ -177,6 +185,8 @@ test('Enroll WebAppAdmin', function (t) {
         if (err) {
             t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
             t.end(err);
+            // Exit the test script after a failure
+            process.exit(1);
         } else {
             t.pass("Successfully got WebAppAdmin member" /*+ " ---> " + JSON.stringify(crypto)*/);
 
@@ -187,6 +197,8 @@ test('Enroll WebAppAdmin', function (t) {
                 if (err) {
                     t.fail("Failed to enroll WebAppAdmin member " + " ---> " + err);
                     t.end(err);
+                    // Exit the test script after a failure
+                    process.exit(1);
                 } else {
                     t.pass("Successfully enrolled WebAppAdmin member" /*+ " ---> " + JSON.stringify(crypto)*/);
 
@@ -198,6 +210,8 @@ test('Enroll WebAppAdmin', function (t) {
                             t.pass("Successfully stored client token" /*+ " ---> " + WebAppAdmin.getName()*/);
                         } else {
                             t.fail("Failed to store client token for " + WebAppAdmin.getName() + " ---> " + err);
+                            // Exit the test script after a failure
+                            process.exit(1);
                         }
                     });
                 }
@@ -221,6 +235,8 @@ test('Set chain registrar', function (t) {
         if (err) {
             t.fail("Failed to get WebAppAdmin member " + " ---> " + err);
             t.end(err);
+            // Exit the test script after a failure
+            process.exit(1);
         } else {
             t.pass("Successfully got WebAppAdmin member");
 
@@ -245,6 +261,8 @@ test('Register and enroll a new user', function (t) {
     getUser(test_user1.name, function (err, user) {
         if (err) {
             fail(t, "Failed to get " + test_user1.name + " ---> ", err);
+            // Exit the test script after a failure
+            process.exit(1);
         } else {
             test_user_Member1 = user;
 
@@ -255,10 +273,12 @@ test('Register and enroll a new user', function (t) {
             fs.exists(path, function (exists) {
                 if (exists) {
                     t.pass("Successfully stored client token" /*+ " ---> " + test_user1.name*/);
-                    t.end()
+                    t.end();
                 } else {
                     t.fail("Failed to store client token for " + test_user1.name + " ---> " + err);
-                    t.end(err)
+                    t.end(err);
+                    // Exit the test script after a failure
+                    process.exit(1);
                 }
             });
         }
@@ -294,6 +314,8 @@ test('Deploy with missing chaincodeName or chaincodePath', function(t) {
     testChaincodeID = results.chaincodeID;
     console.log("testChaincodeID:" + testChaincodeID);
     t.fail(util.format("Successfully deployed chaincode: request=%j, response=%j", deployRequest, results));
+    // Exit the test script after a failure
+    process.exit(1);
   });
   deployTx.on('error', function(err) {
     // Deploy request failed
@@ -341,6 +363,8 @@ test('Deploy a chaincode by enrolled user', function(t) {
   deployTx.on('error', function(err) {
     // Deploy request failed
     t.fail(util.format("Failed to deploy chaincode: request=%j, error=%j",deployRequest,err));
+    // Exit the test script after a failure
+    process.exit(1);
   });
 });
 
@@ -369,6 +393,8 @@ test('Query with missing chaincodeID', function (t) {
     queryTx.on('complete', function (results) {
         // Query completed successfully
         t.fail(util.format("Successfully queried existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
+        // Exit the test script after a failure
+        process.exit(1);
     });
     queryTx.on('error', function (err) {
         // Query failed
@@ -407,6 +433,8 @@ test('Query existing chaincode state by enrolled user with batch size of 1', fun
     queryTx.on('error', function (err) {
         // Query failed
         t.fail(util.format("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err));
+        // Exit the test script after a failure
+        process.exit(1);
     });
 });
 
@@ -441,6 +469,8 @@ test('Query existing chaincode state by enrolled user with batch size of 100', f
     queryTx.on('error', function (err) {
       // Query failed
       t.fail(util.format("Failed to query existing chaincode state: request=%j, error=%j", queryRequest, err));
+      // Exit the test script after a failure
+      process.exit(1);
     });
 });
 
@@ -470,6 +500,8 @@ test('Query non-existing chaincode state by enrolled user', function (t) {
     queryTx.on('complete', function (results) {
         // Query completed successfully
         t.fail(util.format("Successfully queried non-existing chaincode state: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
+        // Exit the test script after a failure
+        process.exit(1);
     });
     queryTx.on('error', function (err) {
         // Query failed
@@ -503,6 +535,8 @@ test('Query non-existing chaincode function by enrolled user', function (t) {
     queryTx.on('complete', function (results) {
         // Query completed successfully
         t.fail(util.format("Successfully queried non-existing chaincode function: request=%j, response=%j, value=%s", queryRequest, results, results.result.toString()));
+        // Exit the test script after a failure
+        process.exit(1);
     });
     queryTx.on('error', function (err) {
         // Query failed
@@ -534,6 +568,8 @@ test('Invoke with missing chaincodeID', function (t) {
     invokeTx.on('submitted', function (results) {
         // Invoke transaction submitted successfully
         t.fail(util.format("Successfully submitted chaincode invoke transaction: request=%j, response=%j", invokeRequest,results));
+        // Exit the test script after a failure
+        process.exit(1);
     });
     invokeTx.on('error', function (err) {
         // Invoke transaction submission failed
@@ -570,5 +606,7 @@ test('Invoke a chaincode by enrolled user', function (t) {
     invokeTx.on('error', function (err) {
         // Invoke transaction submission failed
         t.fail(util.format("Failed to submit chaincode invoke transaction: request=%j, error=%j", invokeRequest, err));
+        // Exit the test script after a failure
+        process.exit(1);
     });
 });

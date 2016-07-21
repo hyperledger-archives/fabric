@@ -10,7 +10,7 @@ Logging in the `peer` application and in the `shim` interface to chaincodes is p
 
 All logs are currently directed to `stderr`, and the pretty-printing is currently fixed. However global and module-level control of logging by severity is provided for both users and developers. There are currently no formalized rules for the types of information provided at each severity level, however when submitting bug reports the developers may want to see full logs down to the DEBUG level.
 
-In pretty-printed logs the logging level is indicated both by color and by a 4-character code, e.g, "ERRO" for ERROR, "DEBU" for DEBUG, etc.  In the logging context a _module_ is an arbitrary name (string) given by developers to groups of related messages. In the pretty-printed example below, the logging modules "peer", "rest" and "main" are generating logs.
+In pretty-printed logs the logging level is indicated both by color and by a 4-character code, e.g, "ERRO" for ERROR, "DEBU" for DEBUG, etc. In the logging context a _module_ is an arbitrary name (string) given by developers to groups of related messages. In the pretty-printed example below, the logging modules "peer", "rest" and "main" are generating logs.
 
     16:47:09.634 [peer] GetLocalAddress -> INFO 033 Auto detected peer address: 9.3.158.178:30303
     16:47:09.635 [rest] StartOpenchainRESTServer -> INFO 035 Initializing the REST service...
@@ -22,14 +22,14 @@ check whether logging modules actually do or will exist. Also note that the
 logging module system does not understand hierarchy or wildcarding: You may
 see module names like "foo/bar" in the code, but the logging system only sees
 a flat string. It doesn't understand that "foo/bar" is related to "foo" in any
-way, or that "foo/*" might indicate all "submodules" of foo.
+way, or that "foo/\*" might indicate all "submodules" of foo.
 
 ## peer
 
 The logging level of the `peer` command can be controlled from the command line for each invocation using the `--logging-level` flag, for example
 
     peer node start --logging-level=debug
-	
+
 The default logging level for each individual `peer` subcommand can also be
 set in the
 [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
@@ -45,9 +45,9 @@ The full logging level specification for the `peer` is of the form
 
     [<module>[,<module>...]=]<level>[:[<module>[,<module>...]=]<level>...]
 
-A logging level by itself is taken as the overall default. Otherwise, overrides for individual or groups of modules can be specified using the 
+A logging level by itself is taken as the overall default. Otherwise, overrides for individual or groups of modules can be specified using the
 
-    <module>[,<module>...]=<level> 
+    <module>[,<module>...]=<level>
 
 syntax. Examples of <level> specifications (valid for all of
 `--logging-level`, environment variable and

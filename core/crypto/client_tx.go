@@ -17,6 +17,8 @@ limitations under the License.
 package crypto
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
@@ -428,9 +430,21 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 			client.Errorf("Failed unmarshalling cert [%s].", err.Error())
 			return err
 		}
-		// TODO: verify cert
 
-		// 3. Marshall tx without signature
+		// a. Get rid of the extensions that cannot be checked now
+		cert.UnhandledCriticalExtensions = nil
+		// b. Check against TCA certPool
+		if _, err = primitives.CheckCertAgainRoot(cert, client.tcaCertPool); err != nil {
+			client.Warningf("Failed verifing certificate against TCA cert pool [%s].", err.Error())
+			// c. Check against ECA certPool, if this check also fails then return an error
+			if _, err = primitives.CheckCertAgainRoot(cert, client.ecaCertPool); err != nil {
+				client.Warningf("Failed verifing certificate against ECA cert pool [%s].", err.Error())
+
+				return fmt.Errorf("Certificate has not been signed by a trusted authority. [%s]", err)
+			}
+		}
+
+		// 2. Marshall tx without signature
 		signature := tx.Signature
 		tx.Signature = nil
 		rawTx, err := proto.Marshal(tx)
@@ -440,7 +454,7 @@ func (client *clientImpl) checkTransaction(tx *obc.Transaction) error {
 		}
 		tx.Signature = signature
 
-		// 2. Verify signature
+		// 3. Verify signature
 		ver, err := client.verify(cert.PublicKey, rawTx, tx.Signature)
 		if err != nil {
 			client.Errorf("Failed marshaling tx [%s].", err.Error())
