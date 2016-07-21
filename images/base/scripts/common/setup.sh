@@ -26,7 +26,20 @@ MACHINE=`uname -m`
 if [ x$MACHINE = xs390x ]
 then
    apt-get install --yes golang
-   export GOROOT="/usr/lib/go-1.6"
+   cd /usr/lib
+   git clone http://github.com/linux-on-ibm-z/go.git go-1.6a
+   cd go-1.6a/src
+   git checkout release-branch.go1.6-p256
+   export GOROOT_BOOTSTRAP=/usr/lib/go-1.6
+   ./make.bash
+   export GOROOT="/usr/lib/go-1.6a"
+   cd /usr/lib
+   rm go
+   ln -s go-1.6a go
+   cd /usr/bin/
+   rm go
+   ln ../lib/go-1.6a/bin/go
+
 elif [ x$MACHINE = xppc64 ]
 then
    echo "TODO: Add PPC support"
