@@ -16,6 +16,7 @@ apt-get install --yes libyaml-dev
 
 apt-get install --yes python-setuptools
 apt-get install --yes python-pip
+pip install --upgrade pip
 pip install behave
 pip install nose
 
@@ -25,7 +26,7 @@ pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couc
 # Python grpc package for behave tests
 # Required to update six for grpcio
 pip install --ignore-installed six
-pip install 'grpcio==0.13.1'
+pip install --upgrade 'grpcio==0.13.1'
 
 # install ruby and apiaryio
 #apt-get install --yes ruby ruby-dev gcc
