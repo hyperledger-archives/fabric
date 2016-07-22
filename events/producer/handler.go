@@ -18,22 +18,22 @@ package producer
 
 import (
 	"fmt"
+	"strconv"
 
 	pb "github.com/hyperledger/fabric/protos"
 )
 
 type handler struct {
-	ChatStream pb.Events_ChatServer
-	doneChan   chan bool
-	// PM: this should be a list, add/del, iterate
-	interestedEvents map[pb.Interest]*pb.Interest
+	ChatStream       pb.Events_ChatServer
+	doneChan         chan bool
+	interestedEvents map[string]*pb.Interest
 }
 
 func newEventHandler(stream pb.Events_ChatServer) (*handler, error) {
 	d := &handler{
 		ChatStream: stream,
 	}
-	d.interestedEvents = make(map[pb.Interest]*pb.Interest)
+	d.interestedEvents = make(map[string]*pb.Interest)
 	d.doneChan = make(chan bool)
 	return d, nil
 }
@@ -46,6 +46,19 @@ func (d *handler) Stop() error {
 	return nil
 }
 
+func getInterestKey(interest pb.Interest) string {
+	var key string
+	switch interest.EventType {
+	case pb.EventType_BLOCK:
+		key = "/" + strconv.Itoa(int(pb.EventType_BLOCK))
+	case pb.EventType_CHAINCODE:
+		key = "/" + strconv.Itoa(int(pb.EventType_CHAINCODE)) + "/" + interest.GetChaincodeRegInfo().ChaincodeID + "/" + interest.GetChaincodeRegInfo().EventName
+	default:
+		producerLogger.Errorf("unknown interest type %s", interest.EventType)
+	}
+	return key
+}
+
 func (d *handler) register(iMsg []*pb.Interest) error {
 	// Could consider passing interest array to registerHandler
 	// and only lock once for entire array here
@@ -54,7 +67,7 @@ func (d *handler) register(iMsg []*pb.Interest) error {
 			producerLogger.Errorf("could not register %s", v)
 			continue
 		}
-		d.interestedEvents[*v] = v
+		d.interestedEvents[getInterestKey(*v)] = v
 	}
 
 	return nil
@@ -66,7 +79,7 @@ func (d *handler) deregister(iMsg []*pb.Interest) error {
 			producerLogger.Errorf("could not deregister %s", v)
 			continue
 		}
-		d.interestedEvents[*v] = nil
+		delete(d.interestedEvents, getInterestKey(*v))
 	}
 	return nil
 }
@@ -77,7 +90,7 @@ func (d *handler) deregisterAll() {
 			producerLogger.Errorf("could not deregister %s", v)
 			continue
 		}
-		d.interestedEvents[k] = nil
+		delete(d.interestedEvents, k)
 	}
 }
 
