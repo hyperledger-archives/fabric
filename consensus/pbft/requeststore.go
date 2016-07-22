@@ -34,7 +34,7 @@ func (a *orderedRequests) Len() int {
 
 func (a *orderedRequests) wrapRequest(req *Request) requestContainer {
 	return requestContainer{
-		key: hashReq(req),
+		key: hash(req),
 		req: req,
 	}
 }

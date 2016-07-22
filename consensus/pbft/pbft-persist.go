@@ -67,24 +67,24 @@ func (instance *pbftCore) restorePQSet(key string) []*ViewChange_PQ {
 	return val.GetSet()
 }
 
-func (instance *pbftCore) persistRequest(digest string) {
-	req := instance.reqStore[digest]
-	raw, err := proto.Marshal(req)
+func (instance *pbftCore) persistRequestBatch(digest string) {
+	reqBatch := instance.reqBatchStore[digest]
+	reqBatchPacked, err := proto.Marshal(reqBatch)
 	if err != nil {
-		logger.Warningf("Replica %d could not persist request: %s", instance.id, err)
+		logger.Warningf("Replica %d could not persist request batch %s: %s", instance.id, digest, err)
 		return
 	}
-	instance.consumer.StoreState("req."+digest, raw)
+	instance.consumer.StoreState("reqBatch."+digest, reqBatchPacked)
 }
 
-func (instance *pbftCore) persistDelRequest(digest string) {
-	instance.consumer.DelState("req." + digest)
+func (instance *pbftCore) persistDelRequestBatch(digest string) {
+	instance.consumer.DelState("reqBatch." + digest)
 }
 
-func (instance *pbftCore) persistDelAllRequests() {
-	reqs, err := instance.consumer.ReadStateSet("req.")
+func (instance *pbftCore) persistDelAllRequestBatches() {
+	reqBatches, err := instance.consumer.ReadStateSet("reqBatch.")
 	if err == nil {
-		for k := range reqs {
+		for k := range reqBatches {
 			instance.consumer.DelState(k)
 		}
 	}
@@ -120,23 +120,23 @@ func (instance *pbftCore) restoreState() {
 
 	set = instance.restorePQSet("qset")
 	for _, e := range set {
-		instance.qset[qidx{e.Digest, e.SequenceNumber}] = e
+		instance.qset[qidx{e.BatchDigest, e.SequenceNumber}] = e
 	}
 	updateSeqView(set)
 
-	reqs, err := instance.consumer.ReadStateSet("req.")
+	reqBatchesPacked, err := instance.consumer.ReadStateSet("reqBatch.")
 	if err == nil {
-		for k, v := range reqs {
-			req := &Request{}
-			err = proto.Unmarshal(v, req)
+		for k, v := range reqBatchesPacked {
+			reqBatch := &RequestBatch{}
+			err = proto.Unmarshal(v, reqBatch)
 			if err != nil {
-				logger.Warningf("Replica %d could not restore request %s", instance.id, k)
+				logger.Warningf("Replica %d could not restore request batch %s", instance.id, k)
 			} else {
-				instance.reqStore[hashReq(req)] = req
+				instance.reqBatchStore[hash(reqBatch)] = reqBatch
 			}
 		}
 	} else {
-		logger.Warningf("Replica %d could not restore reqStore: %s", instance.id, err)
+		logger.Warningf("Replica %d could not restore reqBatchStore: %s", instance.id, err)
 	}
 
 	chkpts, err := instance.consumer.ReadStateSet("chkpt.")
@@ -162,8 +162,8 @@ func (instance *pbftCore) restoreState() {
 
 	instance.restoreLastSeqNo()
 
-	logger.Infof("Replica %d restored state: view: %d, seqNo: %d, pset: %d, qset: %d, reqs: %d, chkpts: %d",
-		instance.id, instance.view, instance.seqNo, len(instance.pset), len(instance.qset), len(instance.reqStore), len(instance.chkpts))
+	logger.Infof("Replica %d restored state: view: %d, seqNo: %d, pset: %d, qset: %d, reqBatches: %d, chkpts: %d",
+		instance.id, instance.view, instance.seqNo, len(instance.pset), len(instance.qset), len(instance.reqBatchStore), len(instance.chkpts))
 }
 
 func (instance *pbftCore) restoreLastSeqNo() {

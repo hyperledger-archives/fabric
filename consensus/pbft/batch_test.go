@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger/fabric/consensus/util/events"
 	pb "github.com/hyperledger/fabric/protos"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/viper"
 )
 
@@ -46,11 +45,11 @@ func TestNetworkBatch(t *testing.T) {
 	defer net.stop()
 
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
-	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	err := net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(1), broadcaster)
 	if err != nil {
 		t.Errorf("External request was not processed by backup: %v", err)
 	}
-	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(2), broadcaster)
+	err = net.endpoints[2].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(2), broadcaster)
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -117,7 +116,7 @@ func TestOutstandingReqsIngestion(t *testing.T) {
 		}
 	}
 
-	err := bs[1].RecvMsg(createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp1"})
+	err := bs[1].RecvMsg(createTxMsg(1), &pb.PeerID{Name: "vp1"})
 	if err != nil {
 		t.Fatalf("External request was not processed by backup: %v", err)
 	}
@@ -163,10 +162,10 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 
 	reqs := make([]*Request, 8)
 	for i := 0; i < len(reqs); i++ {
-		reqs[i] = createPbftRequestWithChainTx(int64(i), 0)
+		reqs[i] = createPbftReq(int64(i), 0)
 	}
 
-	// Add three requests, with a batch size of 2
+	// Add four requests, with a batch size of 2
 	b.reqStore.storeOutstanding(reqs[0])
 	b.reqStore.storeOutstanding(reqs[1])
 	b.reqStore.storeOutstanding(reqs[2])
@@ -174,12 +173,12 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 
 	executed := make(map[string]struct{})
 	execute := func() {
-		for d, req := range b.pbft.outstandingReqs {
+		for d, reqBatch := range b.pbft.outstandingReqBatches {
 			if _, ok := executed[d]; ok {
 				continue
 			}
 			executed[d] = struct{}{}
-			b.execute(b.pbft.lastExec+1, req.Payload)
+			b.execute(b.pbft.lastExec+1, reqBatch)
 		}
 	}
 
@@ -189,29 +188,22 @@ func TestOutstandingReqsResubmission(t *testing.T) {
 	execute()
 
 	if b.reqStore.outstandingRequests.Len() != 0 {
-		t.Fatalf("All requests should have been executed and deleted after exec")
+		t.Fatalf("All request batches should have been executed and deleted after exec")
 	}
 
 	// Simulate changing views, with a request in the qSet, and one outstanding which is not
-	wreq := reqs[4]
-
-	reqsPacked, err := proto.Marshal(&RequestBlock{[]*Request{wreq}})
-	if err != nil {
-		t.Fatalf("Unable to pack block for new batch request")
-	}
-
-	breq := &Request{Payload: reqsPacked}
+	wreqsBatch := &RequestBatch{Batch: []*Request{reqs[4]}}
 	prePrep := &PrePrepare{
 		View:           0,
 		SequenceNumber: b.pbft.lastExec + 1,
-		RequestDigest:  "foo",
-		Request:        breq,
+		BatchDigest:    "foo",
+		RequestBatch:   wreqsBatch,
 	}
 
 	b.pbft.certStore[msgID{v: prePrep.View, n: prePrep.SequenceNumber}] = &msgCert{prePrepare: prePrep}
 
 	// Add the request, which is already pre-prepared, to be outstanding, and one outstanding not pending, not prepared
-	b.reqStore.storeOutstanding(wreq) // req 6
+	b.reqStore.storeOutstanding(reqs[4]) // req 6
 	b.reqStore.storeOutstanding(reqs[5])
 	b.reqStore.storeOutstanding(reqs[6])
 	b.reqStore.storeOutstanding(reqs[7])
@@ -249,7 +241,7 @@ func TestViewChangeOnPrimarySilence(t *testing.T) {
 	defer b.Close()
 
 	// Send a request, which will be ignored, triggering view change
-	b.manager.Queue() <- batchMessageEvent{createOcMsgWithChainTx(1), &pb.PeerID{Name: "vp0"}}
+	b.manager.Queue() <- batchMessageEvent{createTxMsg(1), &pb.PeerID{Name: "vp0"}}
 	time.Sleep(time.Second)
 	b.manager.Queue() <- nil
 
@@ -283,13 +275,13 @@ func TestClassicStateTransfer(t *testing.T) {
 
 	// Advance the network one seqNo past so that Replica 3 will have to do statetransfer
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(1), broadcaster)
 	net.process()
 
 	// Move the seqNo to 9, at seqNo 6, Replica 3 will realize it's behind, transfer to seqNo 8, then execute seqNo 9
 	filterMsg = false
 	for n := 2; n <= 9; n++ {
-		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
+		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(int64(n)), broadcaster)
 	}
 
 	net.process()
@@ -327,7 +319,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 
 	// Get the group to advance past seqNo 1, leaving Replica 3 behind
 	broadcaster := net.endpoints[generateBroadcaster(validatorCount)].getHandle()
-	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(1), broadcaster)
+	net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(1), broadcaster)
 	net.process()
 
 	// Now start including Replica 3, go to sequence number 10, Replica 3 will trigger state transfer
@@ -336,7 +328,7 @@ func TestClassicBackToBackStateTransfer(t *testing.T) {
 	// Replica 3 will execute through seqNo 12
 	filterMsg = false
 	for n := 2; n <= 21; n++ {
-		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createOcMsgWithChainTx(int64(n)), broadcaster)
+		net.endpoints[1].(*consumerEndpoint).consumer.RecvMsg(createTxMsg(int64(n)), broadcaster)
 	}
 
 	net.process()

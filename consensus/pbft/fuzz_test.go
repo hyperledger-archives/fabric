@@ -17,7 +17,6 @@ limitations under the License.
 package pbft
 
 import (
-	gp "google/protobuf"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -27,8 +26,6 @@ import (
 	"github.com/op/go-logging"
 
 	"fmt"
-
-	pb "github.com/hyperledger/fabric/protos"
 )
 
 func newFuzzMock() *omniProto {
@@ -37,9 +34,6 @@ func newFuzzMock() *omniProto {
 			// No-op
 		},
 		verifyImpl: func(senderID uint64, signature []byte, message []byte) error {
-			return nil
-		},
-		validateImpl: func(txRaw []byte) error {
 			return nil
 		},
 		signImpl: func(msg []byte) ([]byte, error) {
@@ -79,8 +73,8 @@ func TestFuzz(t *testing.T) {
 		proto.Unmarshal(raw, msg)
 
 		var senderID uint64
-		if req := msg.GetRequest(); req != nil {
-			senderID = req.ReplicaId
+		if reqBatch := msg.GetRequestBatch(); reqBatch != nil {
+			senderID = primary.id // doesn't matter, not checked
 		} else if preprep := msg.GetPrePrepare(); preprep != nil {
 			senderID = preprep.ReplicaId
 		} else if prep := msg.GetPrepare(); prep != nil {
@@ -105,7 +99,7 @@ func TestFuzz(t *testing.T) {
 func (msg *Message) Fuzz(c fuzz.Continue) {
 	switch c.RandUint64() % 7 {
 	case 0:
-		m := &Message_Request{}
+		m := &Message_RequestBatch{}
 		c.Fuzz(m)
 		msg.Payload = m
 	case 1:
@@ -136,6 +130,7 @@ func (msg *Message) Fuzz(c fuzz.Continue) {
 }
 
 func TestMinimalFuzz(t *testing.T) {
+	var err error
 	if testing.Short() {
 		t.Skip("Skipping fuzz test")
 	}
@@ -153,16 +148,10 @@ func TestMinimalFuzz(t *testing.T) {
 			fmt.Printf("Fuzzing node %d\n", fuzzer.fuzzNode)
 		}
 
-		// Create a message of type `Message_CHAIN_TRANSACTION`
-		txTime := &gp.Timestamp{Seconds: int64(reqID), Nanos: 0}
-		tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY, Timestamp: txTime}
-		txPacked, err := proto.Marshal(tx)
-		if err != nil {
-			t.Fatalf("Failed to marshal TX block: %s", err)
-		}
-		msg := &Message{&Message_Request{&Request{Payload: txPacked, ReplicaId: uint64(generateBroadcaster(validatorCount))}}}
+		sender := uint64(generateBroadcaster(validatorCount))
+		reqBatchMsg := createPbftReqBatchMsg(int64(reqID), sender)
 		for _, ep := range net.endpoints {
-			ep.(*pbftEndpoint).manager.Queue() <- &pbftMessageEvent{msg: msg, sender: msg.GetRequest().ReplicaId}
+			ep.(*pbftEndpoint).manager.Queue() <- &pbftMessageEvent{msg: reqBatchMsg, sender: sender}
 		}
 		if err != nil {
 			t.Fatalf("Request failed: %s", err)

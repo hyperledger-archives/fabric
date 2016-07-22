@@ -183,6 +183,8 @@ func (net *testnet) deliverFilter(msg taggedMsg) {
 					net.debugMsg("TEST: Sending message %d\n", lid)
 					lep.deliver(payload, senderHandle)
 					net.debugMsg("TEST: Sent message %d\n", lid)
+				} else {
+					net.debugMsg("TEST: Message to %d was skipped\n", lid)
 				}
 			}()
 		}

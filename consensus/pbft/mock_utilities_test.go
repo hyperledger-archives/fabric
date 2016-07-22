@@ -104,14 +104,23 @@ func createRunningPbftWithManager(id uint64, config *viper.Viper, stack innerSta
 	return core, manager
 }
 
-// Create a message of type `Message_CHAIN_TRANSACTION`
-func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
-	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
+func createTx(tag int64) (tx *pb.Transaction) {
+	txTime := &gp.Timestamp{Seconds: tag, Nanos: 0}
+	tx = &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
 		Timestamp: txTime,
-		Payload:   []byte(fmt.Sprint(iter)),
+		Payload:   []byte(fmt.Sprint(tag)),
 	}
-	txPacked, _ := proto.Marshal(tx)
+	return
+}
+
+func marshalTx(tx *pb.Transaction) (txPacked []byte) {
+	txPacked, _ = proto.Marshal(tx)
+	return
+}
+
+func createTxMsg(tag int64) (msg *pb.Message) {
+	tx := createTx(tag)
+	txPacked := marshalTx(tx)
 	msg = &pb.Message{
 		Type:    pb.Message_CHAIN_TRANSACTION,
 		Payload: txPacked,
@@ -119,20 +128,26 @@ func createOcMsgWithChainTx(iter int64) (msg *pb.Message) {
 	return
 }
 
-// Create a message of type `Message_CHAIN_TRANSACTION`
-func createPbftRequestWithChainTx(iter int64, replica uint64) (msg *Request) {
-	txTime := &gp.Timestamp{Seconds: iter, Nanos: 0}
-	tx := &pb.Transaction{Type: pb.Transaction_CHAINCODE_DEPLOY,
-		Timestamp: txTime,
-		Payload:   []byte(fmt.Sprint(iter)),
-	}
-	txPacked, _ := proto.Marshal(tx)
-
-	msg = &Request{
-		Timestamp: txTime,
+func createPbftReq(tag int64, replica uint64) (req *Request) {
+	tx := createTx(tag)
+	txPacked := marshalTx(tx)
+	req = &Request{
+		Timestamp: tx.GetTimestamp(),
 		ReplicaId: replica,
 		Payload:   txPacked,
 	}
+	return
+}
+
+func createPbftReqBatch(tag int64, replica uint64) (reqBatch *RequestBatch) {
+	req := createPbftReq(tag, replica)
+	reqBatch = &RequestBatch{Batch: []*Request{req}}
+	return
+}
+
+func createPbftReqBatchMsg(tag int64, replica uint64) (msg *Message) {
+	reqBatch := createPbftReqBatch(tag, replica)
+	msg = &Message{Payload: &Message_RequestBatch{RequestBatch: reqBatch}}
 	return
 }
 
@@ -186,10 +201,9 @@ type omniProto struct {
 	// Inner Stack methods
 	broadcastImpl       func(msgPayload []byte)
 	unicastImpl         func(msgPayload []byte, receiverID uint64) (err error)
-	executeImpl         func(seqNo uint64, txRaw []byte)
+	executeImpl         func(seqNo uint64, reqBatch *RequestBatch)
 	getStateImpl        func() []byte
 	skipToImpl          func(seqNo uint64, snapshotID []byte, peers []uint64)
-	validateImpl        func(txRaw []byte) error
 	viewChangeImpl      func(curView uint64)
 	signImpl            func(msg []byte) ([]byte, error)
 	verifyImpl          func(senderID uint64, signature []byte, message []byte) error
@@ -412,9 +426,9 @@ func (op *omniProto) unicast(msgPayload []byte, receiverID uint64) (err error) {
 
 	panic("Unimplemented")
 }
-func (op *omniProto) execute(seqNo uint64, txRaw []byte) {
+func (op *omniProto) execute(seqNo uint64, reqBatch *RequestBatch) {
 	if nil != op.executeImpl {
-		op.executeImpl(seqNo, txRaw)
+		op.executeImpl(seqNo, reqBatch)
 		return
 	}
 
@@ -424,13 +438,6 @@ func (op *omniProto) skipTo(seqNo uint64, snapshotID []byte, peers []uint64) {
 	if nil != op.skipToImpl {
 		op.skipToImpl(seqNo, snapshotID, peers)
 		return
-	}
-
-	panic("Unimplemented")
-}
-func (op *omniProto) validate(txRaw []byte) error {
-	if nil != op.validateImpl {
-		return op.validateImpl(txRaw)
 	}
 
 	panic("Unimplemented")
