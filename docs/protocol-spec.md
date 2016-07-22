@@ -2126,7 +2126,7 @@ the code-metadata fields near it), and provide those to containers for deploymen
 ### 4.5 Online wallet service
 
 
-This section describes the security design of a wallet service, which in this case is a node where end-users can register, move their key material to, and perform transactions through.
+This section describes the security design of a wallet service, which in this case is a node with which end-users can register, store their key material and through which they can perform transactions.
 Because the wallet service is in possession of the user's key material, it is clear that without a secure authorization
 mechanism in place a malicious wallet service could successfully impersonate the user.
 We thus emphasize that this design corresponds to a wallet service that is **trusted** to only perform transactions
@@ -2195,9 +2195,9 @@ as depicted in Sections 4.7.1 and 4.7.2.
  - Client side enrollment and transaction creation is performed entirely by a
    non-validating peer that is trusted not to impersonate the user.
    See, Section 4.7.1 for more information.
- - A minimal set of confidentiality properties where a chain-code is accessible
+ - A minimal set of confidentiality properties where a chaincode is accessible
    by any entity that is member of the system, i.e., validators and users who
-   have registered to our membership services, and not accessible by any-one else.
+   have registered through Hyperledger Fabric's Membership Services and is not accessible by anyone else.
    The latter include any party that has access to the storage area where the
    ledger is maintained, or other entities that are able to see the transactions
    that are announced in the validator network. The design of the first release
@@ -2207,14 +2207,14 @@ as depicted in Sections 4.7.1 and 4.7.2.
  - Replay attack resistance mechanism is not available
  - Invocation access control can be enforced at the application layer:
    it is up to the application to leverage the infrastructure's tools properly
-   for security to be guaranteed. This means, that if the application ignores
-   to *bind* the transaction binding offered by our fabric, secure transaction
-   processing  may be at risk.
+   for security to be guaranteed. This means, that if the application fails to
+   *bind* the transaction binding offered by the fabric, secure transaction
+   processing may be at risk.
 
 #### 4.7.1 Simplified client
 
-Client side enrollment and transaction creation is performed entirely by a non-validating peer who plays the role of an online wallet.
-In particular, the end-user leverages his registration credentials <username, password> to open an account to a non-validating peer
+Client-side enrollment and transaction creation are performed entirely by a non-validating peer that plays the role of an online wallet.
+In particular, the end-user leverages their registration credentials <username, password> to open an account to a non-validating peer
 and uses these credentials to further authorize the peer to build transactions on the user's behalf. It needs to be noted, that such
 a design does not provide secure **authorization** for the peer to submit transactions on behalf of the user, as a malicious peer
 could impersonate the user. Details on the specifications of a design that deals with the security issues of online wallet can be found is Section 4.5.
@@ -2223,23 +2223,19 @@ Currently the maximum number of peers a user can register to and perform transac
 #### 4.7.2 Simplified transaction confidentiality
 
 **Disclaimer:** The current version of transaction confidentiality is minimal, and will be used as an intermediate step
-to reach a design that allows for fine grain (invocation) access control enforcement in the next versions.
+to reach a design that allows for fine grained (invocation) access control enforcement in a subsequent release.
 
 In its current form, confidentiality of transactions is offered solely at the chain-level, i.e., that the
 content of a transaction included in a ledger, is readable by all members of that chain, i.e., validators
-and users. At the same time, application auditors that are not member of the system can be given
-the means to perform auditing by passively observing the Blockchain data, while
+and users. At the same time, application auditors who are not members of the system can be given
+the means to perform auditing by passively observing the blockchain data, while
 guaranteeing that they are given access solely to the transactions related to the application under audit.
 State is encrypted in a way that such auditing requirements are satisfied, while not disrupting the
 proper operation of the underlying consensus network.
 
-More specifically, currently symmetric key encryption is supported in the process of offering transaction confidentiality.
-In this setting, one of the main challenges that is specific to the blockchain setting,
-is that validators need to run consensus over the state of the blockchain, that, aside the transactions themselves,
-also includes the state updates of individual contracts or chaincodes. Though this is trivial to do for non-confidential chaincodes,  
-for confidential chaincodes, one needs to design the state encryption mechanism such that the resulting ciphertexts are
-semantically secure, and yet, identical if the plaintext state is the same.
-
+More specifically, currently symmetric key encryption is supported in the process of offering transaction confidentiality. In this setting, one of the main challenges that is specific to the blockchain setting,
+is that validators need to run consensus over the state of the blockchain, that, aside from the transactions themselves,
+also includes the state updates of individual contracts or chaincode. Though this is trivial to do for non-confidential chaincode, for confidential chaincode, one needs to design the state encryption mechanism such that the resulting ciphertexts are semantically secure, and yet, identical if the plaintext state is the same.
 
 To overcome this challenge, the fabric utilizes a key hierarchy that reduces the number of ciphertexts
 that are encrypted under the same key. At the same time, as some of these keys are used for the generation of IVs,
@@ -2252,7 +2248,7 @@ Membership service generates a symmetric key for the ledger (K<sub>chain</sub>) 
 at registration time to all the entities of the blockchain system, i.e., the clients and the
 validating entities that have issued credentials through the membership service of the chain.
 At enrollment phase, user obtain (as before) an enrollment certificate, denoted by Cert<sub>u<sub>i</sub></sub>
-for user u<sub>i</sub> , while each validator v<sub>j</sub> obtain its enrollment certificate denoted by Cert<sub>v<sub>j</sub></sub>.
+for user u<sub>i</sub> , while each validator v<sub>j</sub> obtains its enrollment certificate denoted by Cert<sub>v<sub>j</sub></sub>.
 
 Entity enrollment would be enhanced, as follows. In addition to enrollment certificates,
 users who wish to anonymously participate in transactions issue transaction certificates.
