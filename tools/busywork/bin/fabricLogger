@@ -112,7 +112,7 @@ Options:
     this list of PIDS. This flag is used to make drivers terminate more
     quickly if the logger fails..
 
--port <port> : 5075
+-port <port> : 7050
 
     The default REST API port.
 }
@@ -139,7 +139,7 @@ set options {
     {bool    {-timestamp -noTimestamp} parms(timestamp)  0}
     {bool    {-force -noForce}         parms(force)      0}
     {key     -killOnError              parms(killPIDs)  {}}
-    {key     -port                     parms(port)       5075}
+    {key     -port                     parms(port)       7050}
 }
 
 mapKeywordArgs $argv $options parms(explicitPeers)

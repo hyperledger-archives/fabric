@@ -71,7 +71,7 @@ Optional parameters. Default values are given after the :
     If one of these options is specified, then the log files are either kept
     or deleted regardless of the outcome of the comparison.
 
--port <n> : 5075
+-port <n> : 7050
 
     The default REST API port. Only used if explicit peers are used and an
     explicit peer specification does not include a port specifiaction.
@@ -164,7 +164,7 @@ set options {
     {key  -dir                    parms(dir)      {} p_dir}
     {bool {-dupCheck -noDupCheck} parms(dupCheck) 0}
     {bool {-keep -delete}         parms(keep)     0 p_keep}
-    {key  -port                   parms(port)     5075}
+    {key  -port                   parms(port)     7050}
 
 }
 

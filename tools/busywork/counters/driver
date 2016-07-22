@@ -73,7 +73,7 @@ Optional parameters. Default values are given after the colon:
     this many of the test users will be logged in and used randomly to send
     transactions. By default all test users are used.
 
--port <n> : 5075
+-port <n> : 7050
 
     The default REST API port. Only used if the peer specification does not
     include a port specifiaction.
@@ -343,7 +343,7 @@ set options {
     {key     -targetPeers          parms(targetPeers)       0 p_targetPeers}
     {bool    {-security -noSecurity} parms(security)        0 p_security}
     {key     -targetUsers          parms(targetUsers)       0 p_targetUsers}
-    {key     -port                 parms(port)              5075}
+    {key     -port                 parms(port)              7050}
     {key     -chaincodes           parms(nChaincodes)       1}
     {key     -ccPrefix             parms(ccPrefix)         cc}
     {bool    {-deploy -noDeploy}   parms(deploy)            1}
