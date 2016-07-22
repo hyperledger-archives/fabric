@@ -41,7 +41,7 @@ You should see the following output:
     Use "peer [command] --help" for more information about a command.
 ```
 
-The `node start` command will initiate a peer process, with which one can interact by executing other commands. For example, the `node status` command will return the status of the running peer. The full list of commands is the following:
+The `peer node start` command will initiate a peer process, with which one can interact by executing other commands. For example, the `peer node status` command will return the status of the running peer. The full list of commands is the following:
 
 ```
       node
