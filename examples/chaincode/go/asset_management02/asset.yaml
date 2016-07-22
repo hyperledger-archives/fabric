@@ -127,7 +127,7 @@ rest:
     enabled: true
 
     # The address that the REST service will listen on for incoming requests.
-    address: 0.0.0.0:5000
+    address: 0.0.0.0:5075
 
 
 ###############################################################################

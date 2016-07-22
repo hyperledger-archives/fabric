@@ -14,7 +14,7 @@ vp0:
   links:
     - membersrvc0
   ports:
-    - 5000:5000
+    - 5075:5075
 
 vp1:
   extends:

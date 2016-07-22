@@ -91,7 +91,7 @@ membersrvc:
 vp0:
   image: hyperledger/fabric-peer
   ports:
-    - "5000:5000"
+    - "5075:5075"
     - "30303:30303"
     - "30304:30304"
   environment:
@@ -218,7 +218,7 @@ logging output from the `peer` and chaincodes.
 
 #### **Note on REST API port**
 
-The default REST interface port is 5000. It can be configured in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) using the `rest.address` property. If using Vagrant, the REST port mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile).
+The default REST interface port is 5075. It can be configured in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml) using the `rest.address` property. If using Vagrant, the REST port mapping is defined in [Vagrantfile](https://github.com/hyperledger/fabric/blob/master/devenv/Vagrantfile).
 
 #### **Note on security functionality**
 
@@ -246,7 +246,7 @@ To log in through the REST API, send a POST request to the `/registrar` endpoint
 **REST Request:**
 
 ```
-POST localhost:5000/registrar
+POST localhost:5075/registrar
 
 {
   "enrollId": "jim",

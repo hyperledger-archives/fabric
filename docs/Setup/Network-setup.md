@@ -123,7 +123,7 @@ Here's the docker-compose.yml for Docker on Mac or Windows:
 vp0:
   image: hyperledger/fabric-peer
   ports:
-    - "5000:5000"
+    - "5075:5075"
     - "30303:30303"
     - "30304:30304"
   environment:
