@@ -23,7 +23,6 @@ import (
 	"crypto/aes"
 	"crypto/rand"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -441,7 +440,7 @@ func TestAESRelatedUtilFunctions(t *testing.T) {
 			t.Fatalf("Failed decrypting [%s]", err)
 		}
 
-		if !reflect.DeepEqual(msg, msg2) {
+		if 0 != bytes.Compare(msg, msg2) {
 			t.Fatalf("Wrong decryption output [%x][%x]", msg, msg2)
 		}
 
@@ -461,7 +460,7 @@ func TestVariousAESKeyEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed converting PEM to AES key [%s]", err)
 	}
-	if !reflect.DeepEqual(key, keyFromPEM) {
+	if 0 != bytes.Compare(key, keyFromPEM) {
 		t.Fatalf("Failed converting PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
 	}
 
@@ -474,7 +473,7 @@ func TestVariousAESKeyEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed converting encrypted PEM to AES key [%s]", err)
 	}
-	if !reflect.DeepEqual(key, keyFromPEM) {
+	if 0 != bytes.Compare(key, keyFromPEM) {
 		t.Fatalf("Failed converting encrypted PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
 	}
 }
