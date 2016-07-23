@@ -413,6 +413,7 @@ func TestCBCEncryptCBCDecrypt(t *testing.T) {
 	}
 }
 
+// TestAESRelatedUtilFunctions tests various functions commonly used in fabric wrt AES
 func TestAESRelatedUtilFunctions(t *testing.T) {
 
 	key, err := primitives.GenAESKey()
@@ -448,6 +449,7 @@ func TestAESRelatedUtilFunctions(t *testing.T) {
 
 }
 
+// TestVariousAESKeyEncoding tests some AES <-> PEM conversions
 func TestVariousAESKeyEncoding(t *testing.T) {
 	key, err := primitives.GenAESKey()
 	if err != nil {
