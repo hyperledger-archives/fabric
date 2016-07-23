@@ -632,7 +632,7 @@ func (sts *coordinatorImpl) attemptStateTransfer(blockNumber uint64, peerIDs []*
 
 	block, err := sts.stack.GetBlockByNumber(sts.currentStateBlockNumber)
 	if err != nil {
-		return fmt.Errorf("Could not get block %d though we just retreived it: %s", sts.currentStateBlockNumber, err), true
+		return fmt.Errorf("Could not get block %d though we just retrieved it: %s", sts.currentStateBlockNumber, err), true
 	}
 
 	if !bytes.Equal(stateHash, block.StateHash) {

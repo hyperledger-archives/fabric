@@ -76,7 +76,7 @@ func (instance *pbftCore) calcPSet() map[uint64]*ViewChange_PQ {
 
 		pset[idx.n] = &ViewChange_PQ{
 			SequenceNumber: idx.n,
-			Digest:         digest,
+			BatchDigest:    digest,
 			View:           idx.v,
 		}
 	}
@@ -114,7 +114,7 @@ func (instance *pbftCore) calcQSet() map[qidx]*ViewChange_PQ {
 
 		qset[qi] = &ViewChange_PQ{
 			SequenceNumber: idx.n,
-			Digest:         digest,
+			BatchDigest:    digest,
 			View:           idx.v,
 		}
 	}
@@ -176,7 +176,7 @@ func (instance *pbftCore) sendViewChange() events.Event {
 	logger.Infof("Replica %d sending view-change, v:%d, h:%d, |C|:%d, |P|:%d, |Q|:%d",
 		instance.id, vc.View, vc.H, len(vc.Cset), len(vc.Pset), len(vc.Qset))
 
-	instance.innerBroadcast(&Message{&Message_ViewChange{vc}})
+	instance.innerBroadcast(&Message{Payload: &Message_ViewChange{ViewChange: vc}})
 
 	instance.vcResendTimer.Reset(instance.vcResendTimeout, viewChangeResendTimerEvent{})
 
@@ -288,7 +288,7 @@ func (instance *pbftCore) sendNewView() events.Event {
 	logger.Infof("Replica %d is new primary, sending new-view, v:%d, X:%+v",
 		instance.id, nv.View, nv.Xset)
 
-	instance.innerBroadcast(&Message{&Message_NewView{nv}})
+	instance.innerBroadcast(&Message{Payload: &Message_NewView{NewView: nv}})
 	instance.newViewStore[instance.view] = nv
 	return instance.processNewView()
 }
@@ -315,7 +315,7 @@ func (instance *pbftCore) recvNewView(nv *NewView) events.Event {
 }
 
 func (instance *pbftCore) processNewView() events.Event {
-	var newRequestMissing bool
+	var newReqBatchMissing bool
 	nv, ok := instance.newViewStore[instance.view]
 	if !ok {
 		logger.Debugf("Replica %d ignoring processNewView as it could not find view %d in its newViewStore", instance.id, instance.view)
@@ -340,8 +340,8 @@ func (instance *pbftCore) processNewView() events.Event {
 		speculativeLastExec = *instance.currentExec
 	}
 
-	// If we have no reached the sequence number, check to see if we can reach it without state transfer
-	// in general executions are better than state transfer
+	// If we have not reached the sequence number, check to see if we can reach it without state transfer
+	// In general, executions are better than state transfer
 	if speculativeLastExec < cp.SequenceNumber {
 		canExecuteToTarget := true
 	outer:
@@ -407,7 +407,7 @@ func (instance *pbftCore) processNewView() events.Event {
 
 		snapshotID, err := base64.StdEncoding.DecodeString(cp.Id)
 		if nil != err {
-			err = fmt.Errorf("Replica %d received a view change who's hash could not be decoded (%s)", instance.id, cp.Id)
+			err = fmt.Errorf("Replica %d received a view change whose hash could not be decoded (%s)", instance.id, cp.Id)
 			logger.Error(err.Error())
 			return nil
 		}
@@ -435,23 +435,23 @@ func (instance *pbftCore) processNewView() events.Event {
 				continue
 			}
 
-			if _, ok := instance.reqStore[d]; !ok {
-				logger.Warningf("Replica %d missing assigned, non-checkpointed request %s",
+			if _, ok := instance.reqBatchStore[d]; !ok {
+				logger.Warningf("Replica %d missing assigned, non-checkpointed request batch %s",
 					instance.id, d)
-				if _, ok := instance.missingReqs[d]; !ok {
-					logger.Warningf("Replica %v requesting to fetch %s",
+				if _, ok := instance.missingReqBatches[d]; !ok {
+					logger.Warningf("Replica %v requesting to fetch batch %s",
 						instance.id, d)
-					newRequestMissing = true
-					instance.missingReqs[d] = true
+					newReqBatchMissing = true
+					instance.missingReqBatches[d] = true
 				}
 			}
 		}
 	}
 
-	if len(instance.missingReqs) == 0 {
+	if len(instance.missingReqBatches) == 0 {
 		return instance.processNewView2(nv)
-	} else if newRequestMissing {
-		instance.fetchRequests()
+	} else if newReqBatchMissing {
+		instance.fetchRequestBatches()
 	}
 
 	return nil
@@ -472,15 +472,15 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 			continue
 		}
 
-		req, ok := instance.reqStore[d]
+		reqBatch, ok := instance.reqBatchStore[d]
 		if !ok && d != "" {
-			logger.Criticalf("Replica %d is missing request for seqNo=%d with digest '%s' for assigned prepare after fetching, this indicates a serious bug", instance.id, n, d)
+			logger.Criticalf("Replica %d is missing request batch for seqNo=%d with digest '%s' for assigned prepare after fetching, this indicates a serious bug", instance.id, n, d)
 		}
 		preprep := &PrePrepare{
 			View:           instance.view,
 			SequenceNumber: n,
-			RequestDigest:  d,
-			Request:        req,
+			BatchDigest:    d,
+			RequestBatch:   reqBatch,
 			ReplicaId:      instance.id,
 		}
 		cert := instance.getCert(instance.view, n)
@@ -499,7 +499,7 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 			prep := &Prepare{
 				View:           instance.view,
 				SequenceNumber: n,
-				RequestDigest:  d,
+				BatchDigest:    d,
 				ReplicaId:      instance.id,
 			}
 			if n > instance.h {
@@ -507,11 +507,11 @@ func (instance *pbftCore) processNewView2(nv *NewView) events.Event {
 				cert.sentPrepare = true
 				instance.recvPrepare(prep)
 			}
-			instance.innerBroadcast(&Message{&Message_Prepare{prep}})
+			instance.innerBroadcast(&Message{Payload: &Message_Prepare{Prepare: prep}})
 		}
 	} else {
 		logger.Debugf("Replica %d is now primary, attempting to resubmit requests", instance.id)
-		instance.resubmitRequests()
+		instance.resubmitRequestBatches()
 	}
 
 	instance.startTimerIfOutstandingRequests()
@@ -602,7 +602,7 @@ nLoop:
 					}
 					// "∀<n,d',v'> ∈ m'.P"
 					for _, emp := range mp.Pset {
-						if n == emp.SequenceNumber && !(emp.View < em.View || (emp.View == em.View && emp.Digest == em.Digest)) {
+						if n == emp.SequenceNumber && !(emp.View < em.View || (emp.View == em.View && emp.BatchDigest == em.BatchDigest)) {
 							continue mpLoop
 						}
 					}
@@ -618,7 +618,7 @@ nLoop:
 				for _, mp := range vset {
 					// "∃<n,d',v'> ∈ m'.Q"
 					for _, emp := range mp.Qset {
-						if n == emp.SequenceNumber && emp.View >= em.View && emp.Digest == em.Digest {
+						if n == emp.SequenceNumber && emp.View >= em.View && emp.BatchDigest == em.BatchDigest {
 							quorum++
 						}
 					}
@@ -629,7 +629,7 @@ nLoop:
 				}
 
 				// "then select the request with digest d for number n"
-				msgList[n] = em.Digest
+				msgList[n] = em.BatchDigest
 				maxN = n
 
 				continue nLoop

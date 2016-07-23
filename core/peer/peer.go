@@ -537,7 +537,7 @@ func (p *PeerImpl) ensureConnected() {
 			}
 			p.chatWithSomePeers(delta)
 		} else {
-			peerLogger.Info("Touch service indicates no dropped connections")
+			peerLogger.Debug("Touch service indicates no dropped connections")
 		}
 		peerLogger.Debugf("Connected to: %v", getPeerAddresses(peersMsg))
 		peerLogger.Debugf("Discovery knows about: %v", allNodes)
