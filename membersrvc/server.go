@@ -34,6 +34,7 @@ import (
 )
 
 const envPrefix = "MEMBERSRVC_CA"
+
 var logger = logging.MustGetLogger("server")
 
 func main() {

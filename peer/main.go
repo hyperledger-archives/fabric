@@ -57,8 +57,8 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
-	pb "github.com/hyperledger/fabric/protos"
 	"github.com/hyperledger/fabric/flogging"
+	pb "github.com/hyperledger/fabric/protos"
 )
 
 var logger = logging.MustGetLogger("main")
