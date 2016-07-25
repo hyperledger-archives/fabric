@@ -4,11 +4,11 @@
 
 Attributes is a feature that allows chaincode to make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
 
-To view a complete documentation about attributes design please read ['Attributes support'](../tech/attributes.md).
+To view complete documentation about attributes design please read ['Attributes support'](../tech/attributes.md).
 
 ## Use case: Authorizable counter
 
-A common use case to make use of attributes is Attributes Based Access Control (ABAC). This is a mechanism to grant specific permissions to a chaincode invoker based on its attribute values.
+A common use case for the Attributes feature is Attributes Based Access Control (ABAC) which allows specific permissions to be granted to a chaincode invoker based on attribute values carried in the invoker's certificate.
 
 ['Authorizable counter'](../../examples/chaincode/go/authorizable_counter/authorizable_counter.go) is a simple example of ABAC, in this case only invokers whose "position" attribute has the value 'Software Engineer' will be able to increment the counter. On the other hand any invoker will be able to read the counter value.
 
