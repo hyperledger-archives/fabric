@@ -6,7 +6,9 @@ services:
  - docker
 env:
     - TEST_TARGET=unit-test
+    - TEST_TARGET=node-sdk-unit-tests 
     - TEST_TARGET=behave
+
 
 before_install:
 
