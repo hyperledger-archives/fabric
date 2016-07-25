@@ -2,7 +2,7 @@
 
 ## Overview
 
-Attributes is a feature that allows chaincode to make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
+The Attributes feature allows chaincode to make use of extended data in a transaction certificate. These attributes are certified by the Attributes Certificate Authority (ACA) so the chaincode can trust in the authenticity of the attributes' values.
 
 To view complete documentation about attributes design please read ['Attributes support'](../tech/attributes.md).
 
