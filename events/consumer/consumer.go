@@ -31,13 +31,22 @@ import (
 //EventsClient holds the stream and adapter for consumer to work with
 type EventsClient struct {
 	peerAddress string
+	regTimeout  int
 	stream      ehpb.Events_ChatClient
 	adapter     EventAdapter
 }
 
 //NewEventsClient Returns a new grpc.ClientConn to the configured local PEER.
-func NewEventsClient(peerAddress string, adapter EventAdapter) *EventsClient {
-	return &EventsClient{peerAddress, nil, adapter}
+func NewEventsClient(peerAddress string, regTimeout int, adapter EventAdapter) (*EventsClient, error) {
+	var err error
+	if regTimeout <= 0 {
+		regTimeout = 1
+		err = fmt.Errorf("regTimeout >= 0, setting to 1 sec")
+	} else if regTimeout > 60 {
+		regTimeout = 60
+		err = fmt.Errorf("regTimeout > 60, setting to 60 sec")
+	}
+	return &EventsClient{peerAddress, regTimeout, nil, adapter}, err
 }
 
 //newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -83,7 +92,7 @@ func (ec *EventsClient) Register(ies []*ehpb.Interest) error {
 	}()
 	select {
 	case <-regChan:
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(ec.regTimeout) * time.Second):
 		err = fmt.Errorf("timeout waiting for registration")
 	}
 	return err
@@ -125,7 +134,7 @@ func (ec *EventsClient) Unregister(ies []*ehpb.Interest) error {
 	}()
 	select {
 	case <-regChan:
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(ec.regTimeout) * time.Second):
 		err = fmt.Errorf("timeout waiting for unregistration")
 	}
 	return err

@@ -307,9 +307,10 @@ func TestMain(m *testing.M) {
 	fmt.Printf("Starting events server\n")
 	go grpcServer.Serve(lis)
 
+	var regTimeout = 5
 	done := make(chan struct{})
 	adapter = &Adapter{notfy: done}
-	obcEHClient = consumer.NewEventsClient(peerAddress, adapter)
+	obcEHClient, _ = consumer.NewEventsClient(peerAddress, regTimeout, adapter)
 	if err = obcEHClient.Start(); err != nil {
 		fmt.Printf("could not start chat %s\n", err)
 		obcEHClient.Stop()
