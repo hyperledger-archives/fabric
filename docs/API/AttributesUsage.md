@@ -41,7 +41,7 @@ value, _ := attributesHandler.GetValue("position")
 
 ## Enabling attributes
 
-To make use of this feature the following property has to be set in membersrvc.yaml file:
+To make use of this feature the following property has to be set in the membersrvc.yaml file:
 
 
 - aca.enabled = true
@@ -54,7 +54,7 @@ MEMBERSRVC_CA_ACA_ENABLED=true ./membersrvc
 
 ## Enabling attributes encryption*
 
-In order to make use of attributes encryption the following property has to be set in membersrvc.yaml file:
+In order to make use of attributes encryption the following property has to be set in the membersrvc.yaml file:
 
 - tca.attribute-encryption.enabled = true
 
@@ -86,7 +86,7 @@ Global Flags:
   -u, --username="": Username for chaincode operations when security is enabled
   -v, --version[=false]: Display current version of fabric peer server
 ```
-To deploy a chaincode with attributes 'company' and 'position' it should be written in the following way:
+To deploy a chaincode with attributes "company" and "position" it should be written in the following way:
 
 ```
 ./peer chaincode deploy -u userName -n mycc -c '{"Function":"init", "Args": []}' -a '["position", "company"]'
@@ -138,7 +138,7 @@ Global Flags:
   -u, --username="": Username for chaincode operations when security is enabled
   -v, --version[=false]: Display current version of fabric peer server
 ```
-To invoke 'autorizable counter' with attributes 'company' and 'position' it should be written as follows:
+To invoke "autorizable counter" with attributes "company" and "position" it should be written as follows:
 
 ```
 ./peer chaincode invoke -u userName -n mycc -c '{"Function":"increment", "Args": []}' -a '["position", "company"]'
@@ -195,7 +195,7 @@ Global Flags:
   -u, --username="": Username for chaincode operations when security is enabled
   -v, --version[=false]: Display current version of fabric peer server
 ```
-To query 'autorizable counter' with attributes 'company' and 'position' it should be written in this way:
+To query "autorizable counter" with attributes "company" and "position" it should be written in this way:
 
 ```
 ./peer chaincode query -u userName -n mycc -c '{"Function":"read", "Args": []}' -a '["position", "company"]'
