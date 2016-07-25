@@ -71,8 +71,7 @@ if (mode === 'dev') {
 test_user1 = {
     name: "WebApp_user1",
     role: 1, // Client
-    account: "bank_a",
-    affiliation: "00001"
+    affiliation: "bank_a"
 };
 
 //
@@ -110,8 +109,7 @@ function getUser(name, cb) {
         // The chain registrar is already set inside 'Set chain registrar' test
         var registrationRequest = {
             enrollmentID: name,
-            account: "bank_a",
-            affiliation: "00001"
+            affiliation: "bank_a"
         };
         user.registerAndEnroll(registrationRequest, function (err) {
             if (err) cb(err, null)

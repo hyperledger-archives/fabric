@@ -338,22 +338,22 @@ eca:
                   - institution_a
         users:
                 # <EnrollmentID>: <system_role (1:client, 2: peer, 4: validator, 8: auditor)> <EnrollmentPWD> <Affiliation> <Affiliation_Role>
-                admin: 1 Xurw3yU9zI0l institution_a 00001 '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
-                WebAppAdmin: 1 DJY27pEnl16d institution_a 00002 '{"registrar":{"roles":["client"]}}'
-                system_chaincode_invoker: 1 DRJ20pEql15a institution_a 00002
-                jim: 1 6avZQLwcUe9b bank_a      00004
-                lukas: 1 NPKYL39uKbkj bank_a    00001
+                admin: 1 Xurw3yU9zI0l institution_a '{"registrar":{"roles":["client","peer","validator","auditor"],"delegateRoles":["client"]}}'
+                WebAppAdmin: 1 DJY27pEnl16d institution_a '{"registrar":{"roles":["client"]}}'
+                system_chaincode_invoker: 1 DRJ20pEql15a institution_a
+                jim: 1 6avZQLwcUe9b bank_a
+                lukas: 1 NPKYL39uKbkj bank_a
 
-                test_user0: 1 MS9qrN8hFjlE bank_a        00001
-                test_user1: 1 jGlNl6ImkuDo institution_a 00002
-                test_user2: 1 zMflqOKezFiA bank_c        00003
-                test_user3: 1 vWdLCE00vJy0 bank_a        00004
-                test_user4: 1 4nXSrfoYGFCP institution_a 00005
-                test_user5: 1 yg5DVhm0er1z bank_b        00006
-                test_user6: 1 b7pmSxzKNFiw bank_a        00007
-                test_user7: 1 YsWZD4qQmYxo institution_a 00008
-                test_user8: 1 W8G0usrU7jRk bank_a        00009
-                test_user9: 1 H80SiB5ODKKQ institution_a 00010
+                test_user0: 1 MS9qrN8hFjlE bank_a
+                test_user1: 1 jGlNl6ImkuDo institution_a
+                test_user2: 1 zMflqOKezFiA bank_c
+                test_user3: 1 vWdLCE00vJy0 bank_a
+                test_user4: 1 4nXSrfoYGFCP institution_a
+                test_user5: 1 yg5DVhm0er1z bank_b
+                test_user6: 1 b7pmSxzKNFiw bank_a
+                test_user7: 1 YsWZD4qQmYxo institution_a
+                test_user8: 1 W8G0usrU7jRk bank_a
+                test_user9: 1 H80SiB5ODKKQ institution_a
 aca:
     attributes:
         attribute-entry-0: test_user0;bank_a;company;ACompany;2015-01-01T00:00:00-03:00;;

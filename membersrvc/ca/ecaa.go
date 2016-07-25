@@ -57,7 +57,7 @@ func (ecaa *ECAA) RegisterUser(ctx context.Context, in *pb.RegisterUserReq) (*pb
 	}
 	jsonStr := string(json)
 	Trace.Println("gRPC ECAA:RegisterUser: json=" + jsonStr)
-	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Account, in.Affiliation, in.Role, registrarID, jsonStr)
+	tok, err := ecaa.eca.registerUser(in.Id.Id, in.Affiliation, in.Role, registrarID, jsonStr)
 
 	// Return the one-time password
 	return &pb.Token{Tok: []byte(tok)}, err

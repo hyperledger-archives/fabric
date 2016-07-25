@@ -109,8 +109,7 @@ function registerAndEnroll(name, r, registrar, chain, cb) {
     var registrationRequest = {
          roles: [ r ],
          enrollmentID: name,
-         account: "bank_a",
-         affiliation: "00001",
+         affiliation: "bank_a",
          registrar: registrar
     };
     chain.registerAndEnroll(registrationRequest,cb);

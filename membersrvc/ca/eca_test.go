@@ -21,11 +21,10 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"errors"
+	"google/protobuf"
 	"os"
 	"testing"
 	"time"
-
-	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -40,7 +39,6 @@ type User struct {
 	enrollPrivKey          *ecdsa.PrivateKey
 	role                   int
 	affiliation            string
-	affiliationRole        string
 	registrarRoles         []string
 	registrarDelegateRoles []string
 }
@@ -48,16 +46,16 @@ type User struct {
 var (
 	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
 	testAdmin   = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
-	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a"}
+	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a"}
 	testAuditor = User{enrollID: "testAuditor", role: 8}
-	testClient1 = User{enrollID: "testClient1", role: 1, affiliation: "institution_a", affiliationRole: "00001",
+	testClient1 = User{enrollID: "testClient1", role: 1, affiliation: "institution_a",
 		registrarRoles: []string{"client"}, registrarDelegateRoles: []string{"client"}}
-	testClient2 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a", affiliationRole: "00001",
+	testClient2 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a",
 		registrarRoles: []string{"client"}}
-	testClient3 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a", affiliationRole: "00001",
+	testClient3 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a",
 		registrarRoles: []string{"client"}}
-	testPeer = User{enrollID: "testPeer", role: 2, affiliation: "institution_a", affiliationRole: "00001",
+	testPeer = User{enrollID: "testPeer", role: 2, affiliation: "institution_a",
 		registrarRoles: []string{"peer"}}
 )
 
@@ -168,8 +166,7 @@ func registerUser(registrar User, user *User) error {
 	req := &pb.RegisterUserReq{
 		Id:          &pb.Identity{Id: user.enrollID},
 		Role:        pb.Role(user.role),
-		Account:     user.affiliation,
-		Affiliation: user.affiliationRole,
+		Affiliation: user.affiliation,
 		Registrar: &pb.Registrar{
 			Id:            &pb.Identity{Id: registrar.enrollID},
 			Roles:         user.registrarRoles,
