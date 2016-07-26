@@ -81,8 +81,7 @@ function runTests(cfgFile) {
             console.log("registering %s",userName);
             var registration = {
                 enrollmentID: userName,
-                account: "bank_a",
-                affiliation: "00001"
+                affiliation: "bank_a"
             };
             chain.registerAndEnroll(registration,function(err,user) {
                if (err) throw Error("failed to register and enroll "+userName+": "+err);

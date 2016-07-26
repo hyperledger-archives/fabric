@@ -14,93 +14,94 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This package contains unit-tests for the
+// github.com/hyperledger/fabric/core/crypto/primitives package
 package primitives_test
 
 import (
 	"bytes"
 	"crypto/aes"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
+// TestCBCPKCS7EncryptCBCPKCS7Decrypt encrypts using CBCPKCS7Encrypt and decrypts using CBCPKCS7Decrypt.
 func TestCBCPKCS7EncryptCBCPKCS7Decrypt(t *testing.T) {
-	// Encrypt with CBCPKCS7Encrypt and Decrypt with CBCPKCS7Decrypt
-	// The purpose of this test is not to test the implementation of the AES standard
-	// library but to verify the code wrapping/unwrapping the AES cipher.
 
+	// Note: The purpose of this test is not to test AES-256 in CBC mode's strength
+	// ... but rather to verify the code wrapping/unwrapping the cipher.
 	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
 
-	var msg = []byte("a message with arbitrary length (42 bytes)")
+	//                  123456789012345678901234567890123456789012
+	var ptext = []byte("a message with arbitrary length (42 bytes)")
 
-	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, msg)
-
+	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, ptext)
 	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+		t.Fatalf("Error encrypting '%s': %s", ptext, encErr)
 	}
 
 	decrypted, dErr := primitives.CBCPKCS7Decrypt(key, encrypted)
-
 	if dErr != nil {
-		t.Fatalf("Error encrypting message %v", dErr)
+		t.Fatalf("Error decrypting the encrypted '%s': %v", ptext, dErr)
 	}
 
-	if string(msg[:]) != string(decrypted[:]) {
-		t.Fatalf("Decrypt( Encrypt(msg) ) != msg: Ciphertext decryption with the same key must restore the original message!")
+	if string(ptext[:]) != string(decrypted[:]) {
+		t.Fatal("Decrypt( Encrypt( ptext ) ) != ptext: Ciphertext decryption with the same key must result in the original plaintext!")
 	}
 
 }
 
+// TestPKCS7Padding verifies the PKCS#7 padding, using a human readable plaintext.
 func TestPKCS7Padding(t *testing.T) {
-	// Verify the PKCS7 padding, using a human readable plaintext.
 
-	// 0 byte/length message
-	msg := []byte("")
+	// 0 byte/length ptext
+	ptext := []byte("")
 	expected := []byte{16, 16, 16, 16,
 		16, 16, 16, 16,
 		16, 16, 16, 16,
 		16, 16, 16, 16}
-	result := primitives.PKCS7Padding(msg)
+	result := primitives.PKCS7Padding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error! Expected: ", expected, "', received: '", result, "'")
 	}
 
-	// 1 byte/length message
-	msg = []byte("0")
-	expected = []byte{'0', 15, 15, 15,
+	// 1 byte/length ptext
+	ptext = []byte("1")
+	expected = []byte{'1', 15, 15, 15,
 		15, 15, 15, 15,
 		15, 15, 15, 15,
 		15, 15, 15, 15}
-	result = primitives.PKCS7Padding(msg)
+	result = primitives.PKCS7Padding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error! Expected: '", expected, "', received: '", result, "'")
 	}
 
-	// 2 byte/length message
-	msg = []byte("01")
-	expected = []byte{'0', '1', 14, 14,
+	// 2 byte/length ptext
+	ptext = []byte("12")
+	expected = []byte{'1', '2', 14, 14,
 		14, 14, 14, 14,
 		14, 14, 14, 14,
 		14, 14, 14, 14}
-	result = primitives.PKCS7Padding(msg)
+	result = primitives.PKCS7Padding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("Padding error! Expected: '", expected, "', received: '", result, "'")
 	}
 
-	// 3 to aes.BlockSize-1 byte messages
+	// 3 to aes.BlockSize-1 byte plaintext
+	ptext = []byte("1234567890ABCDEF")
 	for i := 3; i < aes.BlockSize; i++ {
-		msg := []byte("0123456789ABCDEF")
-
-		result := primitives.PKCS7Padding(msg[:i])
+		result := primitives.PKCS7Padding(ptext[:i])
 
 		padding := aes.BlockSize - i
 		expectedPadding := bytes.Repeat([]byte{byte(padding)}, padding)
-		expected = append(msg[:i], expectedPadding...)
+		expected = append(ptext[:i], expectedPadding...)
 
 		if !bytes.Equal(result, expected) {
 			t.Fatal("Padding error! Expected: '", expected, "', received: '", result, "'")
@@ -108,14 +109,12 @@ func TestPKCS7Padding(t *testing.T) {
 
 	}
 
-	// aes.BlockSize length message
-	msg = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
+	// aes.BlockSize length ptext
+	ptext = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
+	result = primitives.PKCS7Padding(ptext)
 
-	result = primitives.PKCS7Padding(msg)
-
-	expectedPadding := bytes.Repeat([]byte{byte(aes.BlockSize)},
-		aes.BlockSize)
-	expected = append(msg, expectedPadding...)
+	expectedPadding := bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)
+	expected = append(ptext, expectedPadding...)
 
 	if len(result) != 2*aes.BlockSize {
 		t.Fatal("Padding error: expected the length of the returned slice to be 2 times aes.BlockSize")
@@ -127,58 +126,57 @@ func TestPKCS7Padding(t *testing.T) {
 
 }
 
+// TestPKCS7UnPadding verifies the PKCS#7 unpadding, using a human readable plaintext.
 func TestPKCS7UnPadding(t *testing.T) {
-	// Verify the PKCS7 unpadding, using a human readable plaintext.
 
-	// 0 byte/length message
+	// 0 byte/length ptext
 	expected := []byte("")
-	msg := []byte{16, 16, 16, 16,
+	ptext := []byte{16, 16, 16, 16,
 		16, 16, 16, 16,
 		16, 16, 16, 16,
 		16, 16, 16, 16}
 
-	result, _ := primitives.PKCS7UnPadding(msg)
+	result, _ := primitives.PKCS7UnPadding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
 	}
 
-	// 1 byte/length message
-	expected = []byte("0")
-	msg = []byte{'0', 15, 15, 15,
+	// 1 byte/length ptext
+	expected = []byte("1")
+	ptext = []byte{'1', 15, 15, 15,
 		15, 15, 15, 15,
 		15, 15, 15, 15,
 		15, 15, 15, 15}
 
-	result, _ = primitives.PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
 	}
 
-	// 2 byte/length message
-	expected = []byte("01")
-	msg = []byte{'0', '1', 14, 14,
+	// 2 byte/length ptext
+	expected = []byte("12")
+	ptext = []byte{'1', '2', 14, 14,
 		14, 14, 14, 14,
 		14, 14, 14, 14,
 		14, 14, 14, 14}
 
-	result, _ = primitives.PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
 	}
 
-	// 3 to aes.BlockSize-1 byte messages
+	// 3 to aes.BlockSize-1 byte plaintext
+	base := []byte("1234567890ABCDEF")
 	for i := 3; i < aes.BlockSize; i++ {
-		base := []byte("0123456789ABCDEF")
-
 		iPad := aes.BlockSize - i
 		padding := bytes.Repeat([]byte{byte(iPad)}, iPad)
-		msg = append(base[:i], padding...)
+		ptext = append(base[:i], padding...)
 
 		expected := base[:i]
-		result, _ := primitives.PKCS7UnPadding(msg)
+		result, _ := primitives.PKCS7UnPadding(ptext)
 
 		if !bytes.Equal(result, expected) {
 			t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
@@ -186,262 +184,298 @@ func TestPKCS7UnPadding(t *testing.T) {
 
 	}
 
-	// aes.BlockSize length message
+	// aes.BlockSize length ptext
 	expected = bytes.Repeat([]byte{byte('x')}, aes.BlockSize)
+	padding := bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)
+	ptext = append(expected, padding...)
 
-	padding := bytes.Repeat([]byte{byte(aes.BlockSize)},
-		aes.BlockSize)
-	msg = append(expected, padding...)
-
-	result, _ = primitives.PKCS7UnPadding(msg)
+	result, _ = primitives.PKCS7UnPadding(ptext)
 
 	if !bytes.Equal(expected, result) {
 		t.Fatal("UnPadding error! Expected: '", expected, "', received: '", result, "'")
 	}
 }
 
-func TestCBCEncryptCBCPKCS7Decrypt_ExpectingFailure(t *testing.T) {
-	// When encrypting a message that does not need padding, i.e. a message
-	// whose length is a multiple of the block size, with CBCEncrypt, it
-	// cannot be decrypted with CBCPKCS7DEcrypt.
-	//
-	// The intend of this test is to document this behaviour for clarity.
-	//
-	// The reason is that the section 10.3 Note 2 in #PKCS7 states that
-	// an extra block is appended to the message for padding. Since this
-	// extra block is missing when using CBCEncrypt for encryption,
-	// CBCPKCS7Decrypt fails.
+// TestCBCEncryptCBCPKCS7Decrypt_BlockSizeLengthPlaintext verifies that CBCPKCS7Decrypt returns an error
+// when attempting to decrypt ciphertext of an irreproducible length.
+func TestCBCEncryptCBCPKCS7Decrypt_BlockSizeLengthPlaintext(t *testing.T) {
 
-	key := make([]byte, 32)
+	// One of the purposes of this test is to also document and clarify the expected behavior, i.e., that an extra
+	// block is appended to the message at the padding stage, as per the spec of PKCS#7 v1.5 [see RFC-2315 p.21]
+	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
 
-	var msg = []byte("a 16 byte messag")
+	//                  1234567890123456
+	var ptext = []byte("a 16 byte messag")
 
-	encrypted, encErr := primitives.CBCEncrypt(key, msg)
-
+	encrypted, encErr := primitives.CBCEncrypt(key, ptext)
 	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+		t.Fatalf("Error encrypting '%s': %v", ptext, encErr)
 	}
 
 	decrypted, dErr := primitives.CBCPKCS7Decrypt(key, encrypted)
-
-	if dErr != nil {
-		// expected behaviour, decryption fails.
-		t.Logf("Expected error decrypting message %v, decrypted message = %v", dErr, decrypted)
+	if dErr == nil {
+		t.Fatalf("Expected an error decrypting ptext '%s'. Decrypted to '%v'", dErr, decrypted)
 	}
 }
 
+// TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage verifies that CBCDecrypt can decrypt the unpadded
+// version of the ciphertext, of a message of BlockSize length.
 func TestCBCPKCS7EncryptCBCDecrypt_ExpectingCorruptMessage(t *testing.T) {
-	// When encrypting a message that does not need padding, i.e. a message
-	// whose length is a multiple of the block size, with CBCPKCS7Encrypt, it
-	// can be decrypted with CBCDecrypt but the returned message is corrupted.
-	//
-	// The intend of this test is to document this behaviour for clarity.
-	//
-	// The reason is that the section 10.3 Note 2 in #PKCS7 states that
-	// an extra block is appended to the message for padding. Since this
-	// extra block is added when using CBCPKCS7Encrypt for encryption,
-	// CBCDecrypt returns the original message plus this extra block.
-	//
-	// Note:
-	// the same applies for messages of arbitrary length.
 
-	key := make([]byte, 32)
+	// One of the purposes of this test is to also document and clarify the expected behavior, i.e., that an extra
+	// block is appended to the message at the padding stage, as per the spec of PKCS#7 v1.5 [see RFC-2315 p.21]
+	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
 
-	//                0123456789ABCDEF
-	var msg = []byte("a 16 byte messag")
+	//                  0123456789ABCDEF
+	var ptext = []byte("a 16 byte messag")
 
-	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, msg)
-
+	encrypted, encErr := primitives.CBCPKCS7Encrypt(key, ptext)
 	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+		t.Fatalf("Error encrypting ptext %v", encErr)
 	}
 
 	decrypted, dErr := primitives.CBCDecrypt(key, encrypted)
-
 	if dErr != nil {
-		t.Fatalf("Error encrypting message %v, %v", dErr, decrypted)
+		t.Fatalf("Error encrypting ptext %v, %v", dErr, decrypted)
 	}
 
-	if string(msg[:]) != string(decrypted[:aes.BlockSize]) {
-		t.Log("msg: ", msg)
+	if string(ptext[:]) != string(decrypted[:aes.BlockSize]) {
+		t.Log("ptext: ", ptext)
 		t.Log("decrypted: ", decrypted[:aes.BlockSize])
-		t.Fatal("Encryption->Decryption with same key should result in original message")
+		t.Fatal("Encryption->Decryption with same key should result in original ptext")
 	}
 
 	if !bytes.Equal(decrypted[aes.BlockSize:], bytes.Repeat([]byte{byte(aes.BlockSize)}, aes.BlockSize)) {
-		t.Fatal("Expected extra block with padding in encrypted message", decrypted)
+		t.Fatal("Expected extra block with padding in encrypted ptext", decrypted)
 	}
 
 }
 
-func TestCBCPKCS7Encrypt_EmptyText(t *testing.T) {
-	// Encrypt an empty message. Mainly to document
-	// a borderline case. Checking as well that the
-	// cipher length is as expected.
+// TestCBCPKCS7Encrypt_EmptyPlaintext encrypts and pad an empty ptext. Verifying as well that the ciphertext length is as expected.
+func TestCBCPKCS7Encrypt_EmptyPlaintext(t *testing.T) {
 
-	key := make([]byte, 32)
+	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
 
 	t.Log("Generated key: ", key)
 
-	var msg = []byte("")
-	t.Log("Message length: ", len(msg))
+	var emptyPlaintext = []byte("")
+	t.Log("Plaintext length: ", len(emptyPlaintext))
 
-	cipher, encErr := primitives.CBCPKCS7Encrypt(key, msg)
+	ciphertext, encErr := primitives.CBCPKCS7Encrypt(key, emptyPlaintext)
 	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+		t.Fatalf("Error encrypting '%v'", encErr)
 	}
 
-	t.Log("Cipher length: ", len(cipher))
-
-	// expected cipher length: 32
-	// with padding, at least one block gets encrypted
-	// the first block is the IV
-	var expectedLength = aes.BlockSize + aes.BlockSize
-
-	if len(cipher) != expectedLength {
-		t.Fatalf("Cipher length is wrong. Expected %d, got %d",
-			expectedLength, len(cipher))
+	// Expected ciphertext length: primitives.AESKeyLength (=32)
+	// As part of the padding, at least one block gets encrypted (while the first block is the IV)
+	const expectedLength = aes.BlockSize + aes.BlockSize
+	if len(ciphertext) != expectedLength {
+		t.Fatalf("Wrong ciphertext length. Expected %d, recieved %d", expectedLength, len(ciphertext))
 	}
-	t.Log("Cipher: ", cipher)
+
+	t.Log("Ciphertext length: ", len(ciphertext))
+	t.Log("Cipher: ", ciphertext)
 }
 
-func TestCBCEncrypt_EmptyText(t *testing.T) {
-	// Encrypt an empty message. Mainly to document
-	// a borderline case. Checking as well that the
-	// cipher length is as expected.
+// TestCBCEncrypt_EmptyPlaintext encrypts an empty message. Verifying as well that the ciphertext length is as expected.
+func TestCBCEncrypt_EmptyPlaintext(t *testing.T) {
 
-	key := make([]byte, 32)
+	key := make([]byte, primitives.AESKeyLength)
 	rand.Reader.Read(key)
-
 	t.Log("Generated key: ", key)
 
-	var msg = []byte("")
-	t.Log("Message length: ", len(msg))
+	var emptyPlaintext = []byte("")
+	t.Log("Message length: ", len(emptyPlaintext))
 
-	cipher, encErr := primitives.CBCEncrypt(key, msg)
+	ciphertext, encErr := primitives.CBCEncrypt(key, emptyPlaintext)
 	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
 	}
 
-	t.Log("Cipher length: ", len(cipher))
+	t.Log("Ciphertext length: ", len(ciphertext))
 
-	// expected cipher length: aes.BlockSize
-	// the first and only block is the IV
+	// Expected cipher length: aes.BlockSize, the first and only block is the IV
 	var expectedLength = aes.BlockSize
 
-	if len(cipher) != expectedLength {
-		t.Fatalf("Cipher length is wrong. Expected %d, got %d",
-			expectedLength, len(cipher))
+	if len(ciphertext) != expectedLength {
+		t.Fatalf("Wrong ciphertext length. Expected: '%d', received: '%d'", expectedLength, len(ciphertext))
 	}
-	t.Log("Cipher: ", cipher)
+	t.Log("Ciphertext: ", ciphertext)
 }
 
-func TestCBCPKCS7Encrypt_IVIsRandom(t *testing.T) {
-	// Encrypt two times with same key. The first 16 bytes should be
-	// different if IV is random.
-	key := make([]byte, 32)
+// TestCBCPKCS7Encrypt_VerifyRandomIVs encrypts twice with same key. The first 16 bytes should be different if IV is generated randomly.
+func TestCBCPKCS7Encrypt_VerifyRandomIVs(t *testing.T) {
+
+	key := make([]byte, aes.BlockSize)
 	rand.Reader.Read(key)
 	t.Log("Key 1", key)
 
-	var msg = []byte("a message to encrypt")
+	var ptext = []byte("a message to encrypt")
 
-	cipher1, err := primitives.CBCPKCS7Encrypt(key, msg)
+	ciphertext1, err := primitives.CBCPKCS7Encrypt(key, ptext)
 	if err != nil {
-		t.Fatalf("Error encrypting the message.")
+		t.Fatalf("Error encrypting '%s': %s", ptext, err)
 	}
 
-	// expecting a different IV if same message is encrypted with same key
-	cipher2, err := primitives.CBCPKCS7Encrypt(key, msg)
+	// Expecting a different IV if same message is encrypted with same key
+	ciphertext2, err := primitives.CBCPKCS7Encrypt(key, ptext)
 	if err != nil {
-		t.Fatal("Error encrypting the message.")
+		t.Fatalf("Error encrypting '%s': %s", ptext, err)
 	}
 
-	iv1 := cipher1[:aes.BlockSize]
-	iv2 := cipher2[:aes.BlockSize]
+	iv1 := ciphertext1[:aes.BlockSize]
+	iv2 := ciphertext2[:aes.BlockSize]
 
-	t.Log("Cipher 1: ", iv1)
-	t.Log("Cipher 2: ", iv2)
+	t.Log("Ciphertext1: ", iv1)
+	t.Log("Ciphertext2: ", iv2)
 	t.Log("bytes.Equal: ", bytes.Equal(iv1, iv2))
 
 	if bytes.Equal(iv1, iv2) {
-		t.Fatal("Error: ciphers contain identical initialisation vectors.")
+		t.Fatal("Error: ciphertexts contain identical initialization vectors (IVs)")
 	}
-
 }
 
-func TestCBCPKCS7Encrypt_CipherLengthCorrect(t *testing.T) {
-	// Check that the cipher lengths are as expected.
-	key := make([]byte, 32)
+// TestCBCPKCS7Encrypt_CorrectCiphertextLengthCheck verifies that the returned ciphertext lengths are as expected.
+func TestCBCPKCS7Encrypt_CorrectCiphertextLengthCheck(t *testing.T) {
+
+	key := make([]byte, aes.BlockSize)
 	rand.Reader.Read(key)
 
-	// length of message < aes.BlockSize (16 bytes)
-	// --> expected cipher length = IV length (1 block) + 1 block message
-	//     =
-	var msg = []byte("0123456789ABCDEF")
+	// length of message (in bytes) == aes.BlockSize (16 bytes)
+	// The expected cipher length = IV length (1 block) + 1 block message
+
+	var ptext = []byte("0123456789ABCDEF")
 
 	for i := 1; i < aes.BlockSize; i++ {
-
-		cipher, err := primitives.CBCPKCS7Encrypt(key, msg[:i])
+		ciphertext, err := primitives.CBCPKCS7Encrypt(key, ptext[:i])
 		if err != nil {
-			t.Fatal("Error encrypting the message.", cipher)
+			t.Fatal("Error encrypting '", ptext, "'")
 		}
 
 		expectedLength := aes.BlockSize + aes.BlockSize
-		if len(cipher) != expectedLength {
-			t.Fatalf("Cipher length incorrect: expected %d, got %d", expectedLength, len(cipher))
+		if len(ciphertext) != expectedLength {
+			t.Fatalf("Incorrect ciphertext incorrect: expected '%d', received '%d'", expectedLength, len(ciphertext))
 		}
 	}
 }
 
+// TestCBCEncryptCBCDecrypt_KeyMismatch attempts to decrypt with a different key than the one used for encryption.
 func TestCBCEncryptCBCDecrypt_KeyMismatch(t *testing.T) {
 
-	defer func() {
-		recover()
-	}()
-
-	key := make([]byte, 32)
+	// Generate a random key
+	key := make([]byte, aes.BlockSize)
 	rand.Reader.Read(key)
 
-	decryptionKey := make([]byte, 32)
-	copy(decryptionKey, key[:])
-	decryptionKey[0] = key[0] + 1
+	// Clone & tamper with the key
+	wrongKey := make([]byte, aes.BlockSize)
+	copy(wrongKey, key[:])
+	wrongKey[0] = key[0] + 1
 
-	var msg = []byte("a message to be encrypted")
+	var ptext = []byte("1234567890ABCDEF")
+	encrypted, encErr := primitives.CBCEncrypt(key, ptext)
+	if encErr != nil {
+		t.Fatalf("Error encrypting '%s': %v", ptext, encErr)
+	}
 
-	encrypted, _ := primitives.CBCEncrypt(key, msg)
-	decrypted, _ := primitives.CBCDecrypt(decryptionKey, encrypted)
+	decrypted, decErr := primitives.CBCDecrypt(wrongKey, encrypted)
+	if decErr != nil {
+		t.Fatalf("Error decrypting '%s': %v", ptext, decErr)
+	}
 
-	if string(msg[:]) == string(decrypted[:]) {
-		t.Fatal("Encryption->Decryption with different keys shouldn't return original message")
+	if string(ptext[:]) == string(decrypted[:]) {
+		t.Fatal("Decrypting a ciphertext with a different key than the one used for encrypting it - should not result in the original plaintext.")
+	}
+}
+
+// TestCBCEncryptCBCDecrypt encrypts with CBCEncrypt and decrypt with CBCDecrypt.
+func TestCBCEncryptCBCDecrypt(t *testing.T) {
+
+	key := make([]byte, primitives.AESKeyLength)
+	rand.Reader.Read(key)
+
+	//                  1234567890123456
+	var ptext = []byte("a 16 byte messag")
+
+	encrypted, encErr := primitives.CBCEncrypt(key, ptext)
+	if encErr != nil {
+		t.Fatalf("Error encrypting '%s': %v", ptext, encErr)
+	}
+
+	decrypted, decErr := primitives.CBCDecrypt(key, encrypted)
+	if decErr != nil {
+		t.Fatalf("Error decrypting '%s': %v", ptext, decErr)
+	}
+
+	if string(ptext[:]) != string(decrypted[:]) {
+		t.Fatal("Encryption->Decryption with same key should result in the original plaintext.")
+	}
+}
+
+// TestAESRelatedUtilFunctions tests various functions commonly used in fabric wrt AES
+func TestAESRelatedUtilFunctions(t *testing.T) {
+
+	key, err := primitives.GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+	for i := 1; i < 100; i++ {
+		len, err := rand.Int(rand.Reader, big.NewInt(1024))
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+		msg, err := primitives.GetRandomBytes(int(len.Int64()) + 1)
+		if err != nil {
+			t.Fatalf("Failed generating AES key [%s]", err)
+		}
+
+		ct, err := primitives.CBCPKCS7Encrypt(key, msg)
+		if err != nil {
+			t.Fatalf("Failed encrypting [%s]", err)
+		}
+
+		msg2, err := primitives.CBCPKCS7Decrypt(key, ct)
+		if err != nil {
+			t.Fatalf("Failed decrypting [%s]", err)
+		}
+
+		if 0 != bytes.Compare(msg, msg2) {
+			t.Fatalf("Wrong decryption output [%x][%x]", msg, msg2)
+		}
+
 	}
 
 }
 
-func TestCBCEncryptCBCDecrypt(t *testing.T) {
-	// Encrypt with CBCEncrypt and Decrypt with CBCDecrypt
-
-	key := make([]byte, 32)
-	rand.Reader.Read(key)
-
-	var msg = []byte("a 16 byte messag")
-
-	encrypted, encErr := primitives.CBCEncrypt(key, msg)
-
-	if encErr != nil {
-		t.Fatalf("Error encrypting message %v", encErr)
+// TestVariousAESKeyEncoding tests some AES <-> PEM conversions
+func TestVariousAESKeyEncoding(t *testing.T) {
+	key, err := primitives.GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
 	}
 
-	decrypted, dErr := primitives.CBCDecrypt(key, encrypted)
-
-	if dErr != nil {
-		t.Fatalf("Error encrypting message %v", dErr)
+	// PEM format
+	pem := primitives.AEStoPEM(key)
+	keyFromPEM, err := primitives.PEMtoAES(pem, nil)
+	if err != nil {
+		t.Fatalf("Failed converting PEM to AES key [%s]", err)
+	}
+	if 0 != bytes.Compare(key, keyFromPEM) {
+		t.Fatalf("Failed converting PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
 	}
 
-	if string(msg[:]) != string(decrypted[:]) {
-		t.Fatal("Encryption->Decryption with same key should result in original message")
+	// Encrypted PEM format
+	pem, err = primitives.AEStoEncryptedPEM(key, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting AES key to Encrypted PEM [%s]", err)
 	}
-
+	keyFromPEM, err = primitives.PEMtoAES(pem, []byte("passwd"))
+	if err != nil {
+		t.Fatalf("Failed converting encrypted PEM to AES key [%s]", err)
+	}
+	if 0 != bytes.Compare(key, keyFromPEM) {
+		t.Fatalf("Failed converting encrypted PEM to AES key. Keys are different [%x][%x]", key, keyFromPEM)
+	}
 }

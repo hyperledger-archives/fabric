@@ -102,7 +102,7 @@ func getDockerHostConfig() *docker.HostConfig {
 
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	config := docker.Config{Cmd: args, Image: imageID, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
-	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
+	copts := docker.CreateContainerOptions{Name: containerID, Config: &config, HostConfig: getDockerHostConfig()}
 	dockerLogger.Debugf("Create container: %s", containerID)
 	_, err := client.CreateContainer(copts)
 	if err != nil {
@@ -123,7 +123,8 @@ func (vm *DockerVM) deployImage(client *docker.Client, ccid ccintf.CCID, args []
 	}
 
 	if err := client.BuildImage(opts); err != nil {
-		dockerLogger.Error(fmt.Sprintf("Error building images: %s", err))
+		dockerLogger.Errorf("Error building images: %s", err)
+		dockerLogger.Errorf("Image Output:\n********************\n%s\n********************", outputbuf.String())
 		return err
 	}
 
@@ -190,6 +191,9 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		}
 	}
 
+	// Baohua: getDockerHostConfig() will be ignored when communicating with docker API 1.24+.
+	// I keep it here for a short-term compatibility.
+	// See https://goo.gl/ZvtkKm for more details.
 	err = client.StartContainer(containerID, getDockerHostConfig())
 	if err != nil {
 		dockerLogger.Errorf("start-could not start container %s", err)
@@ -246,7 +250,7 @@ func (vm *DockerVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, 
 	id, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("destroy-cannot create client %s", err))
+		dockerLogger.Errorf("destroy-cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
@@ -254,7 +258,7 @@ func (vm *DockerVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, 
 	err = client.RemoveImageExtended(id, docker.RemoveImageOptions{Force: force, NoPrune: noprune})
 
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("error while destroying image: %s", err))
+		dockerLogger.Errorf("error while destroying image: %s", err)
 	} else {
 		dockerLogger.Debug("Destroyed image %s", id)
 	}

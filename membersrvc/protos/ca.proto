@@ -147,8 +147,7 @@ message Registrar {
 message RegisterUserReq {
     Identity id = 1;
     Role role = 2;
-    string account = 3;
-    string affiliation = 4;
+    string affiliation = 4; // Skipping field number 3 to maintain backward compatibility. It was used before for the primary account.
     Registrar registrar = 5;
     Signature sig = 6;
 }

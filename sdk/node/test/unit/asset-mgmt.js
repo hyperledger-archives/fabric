@@ -78,8 +78,7 @@ function getUser(name, cb) {
         // User is not enrolled yet, so perform both registration and enrollment
         var registrationRequest = {
             enrollmentID: name,
-            account: "bank_a",
-            affiliation: "00001"
+            affiliation: "bank_a"
         };
         user.registerAndEnroll(registrationRequest, function (err) {
             if (err) cb(err, null)
