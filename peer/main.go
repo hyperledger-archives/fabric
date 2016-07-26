@@ -17,19 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"google/protobuf"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -38,21 +31,17 @@ import (
 
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/crypto"
-	"github.com/hyperledger/fabric/core/peer"
 	peerchaincode "github.com/hyperledger/fabric/peer/chaincode"
+	"github.com/hyperledger/fabric/peer/network"
 	"github.com/hyperledger/fabric/peer/node"
-	"github.com/hyperledger/fabric/peer/util"
 	"github.com/hyperledger/fabric/peer/version"
-	pb "github.com/hyperledger/fabric/protos"
 )
 
 var logger = logging.MustGetLogger("main")
 
 // Constants go here.
 const fabric = "hyperledger"
-const networkFuncName = "network"
 const cmdRoot = "core"
-const undefinedParamValue = ""
 
 // The main command describes the service and
 // defaults to printing the help message.
@@ -76,24 +65,6 @@ var mainCmd = &cobra.Command{
 	},
 }
 
-var networkCmd = &cobra.Command{
-	Use:   networkFuncName,
-	Short: fmt.Sprintf("%s specific commands.", networkFuncName),
-	Long:  fmt.Sprintf("%s specific commands.", networkFuncName),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit(networkFuncName)
-	},
-}
-
-var networkLoginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Logs in user to CLI.",
-	Long:  `Logs in the local user to CLI. Must supply username as a parameter.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return networkLogin(args)
-	},
-}
-
 // var vmCmd = &cobra.Command{
 // 	Use:   "vm",
 // 	Short: "Accesses VM specific functionality.",
@@ -111,21 +82,6 @@ var networkLoginCmd = &cobra.Command{
 // 		return stop()
 // 	},
 // }
-
-var networkListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "Lists all network peers.",
-	Long:    `Returns a list of all existing network connections for the target peer node, includes both validating and non-validating peers.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return networkList()
-	},
-}
-
-// login related variables.
-var (
-	loginPW string
-)
 
 // Peer command version flag
 var versionFlag bool
@@ -171,18 +127,7 @@ func main() {
 
 	mainCmd.AddCommand(version.Cmd())
 	mainCmd.AddCommand(node.Cmd())
-	// Set the flags on the login command.
-	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
-
-	networkCmd.AddCommand(networkLoginCmd)
-
-	// vmCmd.AddCommand(vmPrimeCmd)
-	// mainCmd.AddCommand(vmCmd)
-
-	networkCmd.AddCommand(networkListCmd)
-
-	mainCmd.AddCommand(networkCmd)
-
+	mainCmd.AddCommand(network.Cmd())
 	mainCmd.AddCommand(peerchaincode.Cmd())
 
 	runtime.GOMAXPROCS(viper.GetInt("peer.gomaxprocs"))
@@ -198,111 +143,4 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("Exiting.....")
-}
-
-// login confirms the enrollmentID and secret password of the client with the
-// CA and stores the enrollment certificate and key in the Devops server.
-func networkLogin(args []string) (err error) {
-	logger.Info("CLI client login...")
-
-	// Check for username argument
-	if len(args) == 0 {
-		err = errors.New("Must supply username")
-		return
-	}
-
-	// Check for other extraneous arguments
-	if len(args) != 1 {
-		err = errors.New("Must supply username as the 1st and only parameter")
-		return
-	}
-
-	// Retrieve the CLI data storage path
-	// Returns /var/openchain/production/client/
-	localStore := util.GetCliFilePath()
-	logger.Infof("Local data store for client loginToken: %s", localStore)
-
-	// If the user is already logged in, return
-	if _, err = os.Stat(localStore + "loginToken_" + args[0]); err == nil {
-		logger.Infof("User '%s' is already logged in.\n", args[0])
-		return
-	}
-
-	// If the '--password' flag is not specified, need read it from the terminal
-	if loginPW == "" {
-		// User is not logged in, prompt for password
-		fmt.Printf("Enter password for user '%s': ", args[0])
-		var pw []byte
-		if pw, err = gopass.GetPasswdMasked(); err != nil {
-			err = fmt.Errorf("Error trying to read password from console: %s", err)
-			return
-		}
-		loginPW = string(pw)
-	}
-
-	// Log in the user
-	logger.Infof("Logging in user '%s' on CLI interface...\n", args[0])
-
-	// Get a devopsClient to perform the login
-	clientConn, err := peer.NewPeerClientConnection()
-	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
-		return
-	}
-	devopsClient := pb.NewDevopsClient(clientConn)
-
-	// Build the login spec and login
-	loginSpec := &pb.Secret{EnrollId: args[0], EnrollSecret: loginPW}
-	loginResult, err := devopsClient.Login(context.Background(), loginSpec)
-
-	// Check if login is successful
-	if loginResult.Status == pb.Response_SUCCESS {
-		// If /var/openchain/production/client/ directory does not exist, create it
-		if _, err := os.Stat(localStore); err != nil {
-			if os.IsNotExist(err) {
-				// Directory does not exist, create it
-				if err := os.Mkdir(localStore, 0755); err != nil {
-					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
-				}
-			} else {
-				// Unexpected error
-				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
-			}
-		}
-
-		// Store client security context into a file
-		logger.Infof("Storing login token for user '%s'.\n", args[0])
-		err = ioutil.WriteFile(localStore+"loginToken_"+args[0], []byte(args[0]), 0755)
-		if err != nil {
-			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
-		}
-
-		logger.Infof("Login successful for user '%s'.\n", args[0])
-	} else {
-		err = fmt.Errorf("Error on client login: %s", string(loginResult.Msg))
-		return
-	}
-
-	return nil
-}
-
-// Show a list of all existing network connections for the target peer node,
-// includes both validating and non-validating peers
-func networkList() (err error) {
-	clientConn, err := peer.NewPeerClientConnection()
-	if err != nil {
-		err = fmt.Errorf("Error trying to connect to local peer: %s", err)
-		return
-	}
-	openchainClient := pb.NewOpenchainClient(clientConn)
-	peers, err := openchainClient.GetPeers(context.Background(), &google_protobuf.Empty{})
-
-	if err != nil {
-		err = fmt.Errorf("Error trying to get peers: %s", err)
-		return
-	}
-
-	jsonOutput, _ := json.Marshal(peers)
-	fmt.Println(string(jsonOutput))
-	return nil
 }
