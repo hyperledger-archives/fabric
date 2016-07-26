@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const UndefinedParamValue = ""
+
 func GetDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {

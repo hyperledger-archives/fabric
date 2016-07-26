@@ -74,7 +74,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {
-		if chaincodeUsr == undefinedParamValue {
+		if chaincodeUsr == common.UndefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
 			return
 		}
@@ -111,7 +111,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
 	} else {
-		if chaincodeUsr != undefinedParamValue {
+		if chaincodeUsr != common.UndefinedParamValue {
 			logger.Warning("Username supplied but security is disabled.")
 		}
 		if viper.GetBool("security.privacy") {
@@ -121,7 +121,7 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 	// Build the ChaincodeInvocationSpec message
 	invocation := &pb.ChaincodeInvocationSpec{ChaincodeSpec: spec}
-	if customIDGenAlg != undefinedParamValue {
+	if customIDGenAlg != common.UndefinedParamValue {
 		invocation.IdGenerationAlg = customIDGenAlg
 	}
 
@@ -167,8 +167,8 @@ func chaincodeInvokeOrQuery(cmd *cobra.Command, args []string, invoke bool) (err
 
 func checkChaincodeCmdParams(cmd *cobra.Command) (err error) {
 
-	if chaincodeName == undefinedParamValue {
-		if chaincodePath == undefinedParamValue {
+	if chaincodeName == common.UndefinedParamValue {
+		if chaincodePath == common.UndefinedParamValue {
 			err = fmt.Errorf("Must supply value for %s path parameter.\n", chainFuncName)
 			return
 		}

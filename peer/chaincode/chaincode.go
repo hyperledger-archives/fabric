@@ -20,13 +20,13 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/core"
+	"github.com/hyperledger/fabric/peer/common"
 	"github.com/op/go-logging"
 	"github.com/spf13/cobra"
 )
 
 const (
-	chainFuncName       = "chaincode"
-	undefinedParamValue = ""
+	chainFuncName = "chaincode"
 )
 
 var logger = logging.MustGetLogger("chaincodeCmd")
@@ -36,10 +36,10 @@ func Cmd() *cobra.Command {
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeLang, "lang", "l", "golang", fmt.Sprintf("Language the %s is written in", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeCtorJSON, "ctor", "c", "{}", fmt.Sprintf("Constructor message for the %s in JSON format", chainFuncName))
 	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeAttributesJSON, "attributes", "a", "[]", fmt.Sprintf("User attributes for the %s in JSON format", chainFuncName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", undefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", undefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
-	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", undefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
-	chaincodeCmd.PersistentFlags().StringVarP(&customIDGenAlg, "tid", "t", undefinedParamValue, fmt.Sprintf("Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64"))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodePath, "path", "p", common.UndefinedParamValue, fmt.Sprintf("Path to %s", chainFuncName))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeName, "name", "n", common.UndefinedParamValue, fmt.Sprintf("Name of the chaincode returned by the deploy transaction"))
+	chaincodeCmd.PersistentFlags().StringVarP(&chaincodeUsr, "username", "u", common.UndefinedParamValue, fmt.Sprintf("Username for chaincode operations when security is enabled"))
+	chaincodeCmd.PersistentFlags().StringVarP(&customIDGenAlg, "tid", "t", common.UndefinedParamValue, fmt.Sprintf("Name of a custom ID generation algorithm (hashing and decoding) e.g. sha256base64"))
 
 	chaincodeCmd.AddCommand(deployCmd())
 	chaincodeCmd.AddCommand(invokeCmd())

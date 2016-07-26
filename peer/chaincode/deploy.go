@@ -81,7 +81,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 	// If security is enabled, add client login token
 	if core.SecurityEnabled() {
 		logger.Debug("Security is enabled. Include security context in deploy spec")
-		if chaincodeUsr == undefinedParamValue {
+		if chaincodeUsr == common.UndefinedParamValue {
 			err = errors.New("Must supply username for chaincode when security is enabled")
 			return
 		}
@@ -118,7 +118,7 @@ func chaincodeDeploy(cmd *cobra.Command, args []string) (err error) {
 			panic(fmt.Errorf("Fatal error when checking for client login token: %s\n", err))
 		}
 	} else {
-		if chaincodeUsr != undefinedParamValue {
+		if chaincodeUsr != common.UndefinedParamValue {
 			logger.Warning("Username supplied but security is disabled.")
 		}
 		if viper.GetBool("security.privacy") {
