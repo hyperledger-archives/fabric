@@ -57,6 +57,7 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
+	"github.com/hyperledger/fabric/peer/version"
 	pb "github.com/hyperledger/fabric/protos"
 )
 
@@ -82,25 +83,13 @@ var mainCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if versionFlag {
-			showVersion()
+			version.Print()
 		} else {
 			cmd.HelpFunc()(cmd, args)
 		}
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
-	},
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print fabric peer version.",
-	Long:  `Print current version of fabric peer server.`,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		core.LoggingInit("version")
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		showVersion()
 	},
 }
 
@@ -302,7 +291,7 @@ func main() {
 	nodeStopCmd.Flags().StringVar(&stopPidFile, "stop-peer-pid-file", viper.GetString("peer.fileSystemPath"), "Location of peer pid local file, for forces kill")
 	nodeCmd.AddCommand(nodeStopCmd)
 
-	mainCmd.AddCommand(versionCmd)
+	mainCmd.AddCommand(version.Cmd())
 	mainCmd.AddCommand(nodeCmd)
 	// Set the flags on the login command.
 	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", undefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")
@@ -411,11 +400,6 @@ func getSecHelper() (crypto.Peer, error) {
 		}
 	})
 	return secHelper, err
-}
-
-func showVersion() {
-	version := viper.GetString("peer.version")
-	fmt.Printf("Fabric peer server version %s\n", version)
 }
 
 func serve(args []string) error {
