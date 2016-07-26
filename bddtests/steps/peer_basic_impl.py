@@ -176,6 +176,98 @@ def step_impl(context, seconds):
 def step_impl(context, seconds):
     time.sleep(float(seconds))
 
+@when(u'I deploy lang chaincode "{chaincodePath}" of "{chainLang}" with ctor "{ctor}" to "{containerName}"')
+def step_impl(context, chaincodePath, chainLang, ctor, containerName):
+    print("Printing chaincode language " + chainLang)
+
+    chaincode = {
+        "path": chaincodePath,
+        "language": chainLang,
+        "constructor": ctor,
+        "args": getArgsFromContext(context),
+    }
+
+    deployChainCodeToContainer(context, chaincode, containerName)
+
+def getArgsFromContext(context):
+    args = []
+    if 'table' in context:
+       # There is ctor arguments
+       args = context.table[0].cells
+
+    return args
+
+@when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
+def step_impl(context, chaincodePath, ctor, containerName):
+    chaincode = {
+        "path": chaincodePath,
+        "language": "GOLANG",
+        "constructor": ctor,
+        "args": getArgsFromContext(context),
+    }
+
+    deployChainCodeToContainer(context, chaincode, containerName)
+
+@when(u'I deploy chaincode with name "{chaincodeName}" and with ctor "{ctor}" to "{containerName}"')
+def step_impl(context, chaincodeName, ctor, containerName):
+    chaincode = {
+        "name": chaincodeName,
+        "language": "GOLANG",
+        "constructor": ctor,
+        "args": getArgsFromContext(context),
+    }
+
+    deployChainCodeToContainer(context, chaincode, containerName)
+    time.sleep(2.0) # After #2068 implemented change this to only apply after a successful ping
+
+def deployChainCodeToContainer(context, chaincode, containerName):
+    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
+    request_url = buildUrl(context, ipAddress, "/chaincode")
+    print("Requesting path = {0}".format(request_url))
+
+    chaincodeSpec = createChaincodeSpec(context, chaincode)
+    chaincodeOpPayload = createChaincodeOpPayload("deploy", chaincodeSpec)
+
+    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeOpPayload), verify=False)
+    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
+    context.response = resp
+    chaincodeName = resp.json()['result']['message']
+    chaincodeSpec['chaincodeID']['name'] = chaincodeName
+    context.chaincodeSpec = chaincodeSpec
+    print(json.dumps(chaincodeSpec, indent=4))
+    print("")
+
+def createChaincodeSpec(context, chaincode):
+    chaincode = validateChaincodeDictionary(chaincode)
+
+    chaincodeSpec = {
+        "type": getChaincodeTypeValue(chaincode["language"]),
+        "chaincodeID": {
+            "path" : chaincode["path"],
+            "name" : chaincode["name"]
+        },
+        "ctorMsg":  {
+            "function" : chaincode["constructor"],
+            "args" : chaincode["args"]
+        },
+    }
+
+    if 'userName' in context:
+        chaincodeSpec["secureContext"] = context.userName
+    if 'metadata' in context:
+        chaincodeSpec["metadata"] = context.metadata
+
+    return chaincodeSpec
+
+def validateChaincodeDictionary(chaincode):
+    chaincodeFields = ["path", "name", "language", "constructor", "args"]
+
+    for field in chaincodeFields:
+        if field not in chaincode:
+            chaincode[field] = ""
+
+    return chaincode
+
 def getChaincodeTypeValue(chainLang):
     if chainLang == "GOLANG":
         return 1
@@ -189,83 +281,14 @@ def getChaincodeTypeValue(chainLang):
         return 0
     return 1
 
-@when(u'I deploy lang chaincode "{chaincodePath}" of "{chainLang}" with ctor "{ctor}" to "{containerName}"')
-def step_impl(context, chaincodePath, chainLang, ctor, containerName):
-    print("Printing chaincode language " + chainLang)
-    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(context, ipAddress, "/chaincode")
-    print("Requesting path = {0}".format(request_url))
-    args = []
-    if 'table' in context:
-       # There is ctor arguments
-       args = context.table[0].cells
-    #typeGolang =
-
-    # Create a ChaincodeSpec structure
-    chaincodeSpec = {
-        "type": getChaincodeTypeValue(chainLang),
-        "chaincodeID": {
-            "path" : chaincodePath,
-            "name" : ""
-        },
-        "ctorMsg":  {
-            "function" : ctor,
-            "args" : args
-        },
+@when(u'I mock deploy chaincode with name "{chaincodeName}"')
+def step_impl(context, chaincodeName):
+    chaincode = {
+        "name": chaincodeName,
+        "language": "GOLANG"
     }
-    if 'userName' in context:
-        chaincodeSpec["secureContext"] = context.userName
 
-    chaincodeOpPayload = createChaincodeOpPayload("deploy", chaincodeSpec)
-
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeOpPayload), verify=False)
-    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
-    context.response = resp
-    chaincodeName = resp.json()['result']['message']
-    chaincodeSpec['chaincodeID']['name'] = chaincodeName
-    context.chaincodeSpec = chaincodeSpec
-    print(json.dumps(chaincodeSpec, indent=4))
-    print("")
-
-@when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
-def step_impl(context, chaincodePath, ctor, containerName):
-    ipAddress = bdd_test_util.ipFromContainerNamePart(containerName, context.compose_containers)
-    request_url = buildUrl(context, ipAddress, "/chaincode")
-    print("Requesting path = {0}".format(request_url))
-    args = []
-    if 'table' in context:
-          # There is ctor arguments
-          args = context.table[0].cells
-    typeGolang = 1
-
-    # Create a ChaincodeSpec structure
-    chaincodeSpec = {
-        "type": typeGolang,
-        "chaincodeID": {
-            "path" : chaincodePath,
-            "name" : ""
-        },
-        "ctorMsg":  {
-            "function" : ctor,
-            "args" : args
-        },
-        #"secureContext" : "binhn"
-    }
-    if 'userName' in context:
-        chaincodeSpec["secureContext"] = context.userName
-    if 'metadata' in context:
-        chaincodeSpec["metadata"] = context.metadata
-
-    chaincodeOpPayload = createChaincodeOpPayload("deploy", chaincodeSpec)
-
-    resp = requests.post(request_url, headers={'Content-type': 'application/json'}, data=json.dumps(chaincodeOpPayload), verify=False)
-    assert resp.status_code == 200, "Failed to POST to %s:  %s" %(request_url, resp.text)
-    context.response = resp
-    chaincodeName = resp.json()['result']['message']
-    chaincodeSpec['chaincodeID']['name'] = chaincodeName
-    context.chaincodeSpec = chaincodeSpec
-    print(json.dumps(chaincodeSpec, indent=4))
-    print("")
+    context.chaincodeSpec = createChaincodeSpec(context, chaincode)
 
 @then(u'I should have received a chaincode name')
 def step_impl(context):
