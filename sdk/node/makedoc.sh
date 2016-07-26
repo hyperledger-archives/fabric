@@ -33,6 +33,19 @@ if [[ $? -ne 0 ]]; then
     fi
     echo "Successfully installed typedoc"
 fi
+
+typings=$(which typings)
+if [[ $? -ne 0 ]]; then
+    echo "Installing typings ..."
+    sudo npm install -g typings
+    if [[ $? -ne 0 ]]; then
+       echo "No typings found. Please install it like this:"
+       echo "  npm install -g typings"
+       echo "and rerun this shell script again."
+       exit 1
+    fi
+    echo "Successfully installed typings"
+fi
 set -e
 
 tv="$(typings -v)"
