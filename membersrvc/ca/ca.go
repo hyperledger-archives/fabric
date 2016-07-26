@@ -582,7 +582,7 @@ func (ca *CA) registerUser(id, affiliation string, role pb.Role, registrar, memb
 	memberMetadata = removeQuotes(memberMetadata)
 	roleStr, _ := MemberRoleToString(role)
 	caLogger.Debugf("Received request to register user with id: %s, affiliation: %s, role: %s, registrar: %s, memberMetadata: %s\n",
-		id, affiliation, affiliationRole, roleStr, registrar, memberMetadata)
+		id, affiliation, roleStr, registrar, memberMetadata)
 
 	var enrollID, tok string
 	var err error
