@@ -57,7 +57,7 @@ import (
 	"github.com/hyperledger/fabric/core/rest"
 	"github.com/hyperledger/fabric/core/system_chaincode"
 	"github.com/hyperledger/fabric/events/producer"
-	"github.com/hyperledger/fabric/peer/chaincode"
+	peerchaincode "github.com/hyperledger/fabric/peer/chaincode"
 	"github.com/hyperledger/fabric/peer/util"
 	"github.com/hyperledger/fabric/peer/version"
 	pb "github.com/hyperledger/fabric/protos"
@@ -187,8 +187,7 @@ var (
 
 // Peer command version flag
 var versionFlag bool
-
-var chaincodePathArgumentSpecifier = fmt.Sprintf("%s_PATH", strings.ToUpper(chainFuncName))
+var chaincodeDevMode bool
 
 func main() {
 	// For environment variables.
@@ -253,7 +252,7 @@ func main() {
 
 	mainCmd.AddCommand(networkCmd)
 
-	mainCmd.AddCommand(chaincode.Cmd())
+	mainCmd.AddCommand(peerchaincode.Cmd())
 
 	runtime.GOMAXPROCS(viper.GetInt("peer.gomaxprocs"))
 
