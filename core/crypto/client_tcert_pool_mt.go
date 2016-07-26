@@ -30,7 +30,6 @@ type tCertPoolEntry struct {
 	tCertChannelFeedback chan struct{}
 	done                 chan struct{}
 	client               *clientImpl
-	tCertBlock           *TCertBlock
 }
 
 //NewTCertPoolEntry creates a new tcert pool entry
@@ -85,12 +84,12 @@ func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes ...string) (tCertB
 	for i := 0; i < 3; i++ {
 		tCertPoolEntry.client.Debugf("Getting next TCert... %d out of 3", i)
 		select {
-		case tCertPoolEntry.tCertBlock = <-tCertPoolEntry.tCertChannel:
+		case tCertBlock = <-tCertPoolEntry.tCertChannel:
 			break
 		case <-time.After(30 * time.Second):
 			tCertPoolEntry.client.Error("Failed getting a new TCert. Buffer is empty!")
 		}
-		if tCertPoolEntry.tCertBlock != nil {
+		if tCertBlock != nil {
 			// Send feedback to the filler
 			tCertPoolEntry.client.Debug("Send feedback")
 			tCertPoolEntry.tCertChannelFeedback <- struct{}{}
@@ -98,12 +97,11 @@ func (tCertPoolEntry *tCertPoolEntry) GetNextTCert(attributes ...string) (tCertB
 		}
 	}
 
-	if tCertPoolEntry.tCertBlock == nil {
+	if tCertBlock == nil {
 		// TODO: change error here
 		return nil, errors.New("Failed getting a new TCert. Buffer is empty!")
 	}
 
-	tCertBlock = tCertPoolEntry.tCertBlock
 	tCertPoolEntry.client.Debugf("Cert [% x].", tCertBlock.tCert.GetCertificate().Raw)
 
 	// Store the TCert permanently
@@ -233,11 +231,8 @@ type tCertPoolMultithreadingImpl struct {
 func (tCertPool *tCertPoolMultithreadingImpl) Start() (err error) {
 	// Start the filler, initializes a poolEntry without attributes.
 	var attributes []string
-	poolEntry, err := tCertPool.getPoolEntry(attributes)
-	if err != nil {
-		return err
-	}
-	return poolEntry.Start()
+	_, err := tCertPool.getPoolEntry(attributes)
+	return
 }
 
 func (tCertPool *tCertPoolMultithreadingImpl) lockEntries() {
