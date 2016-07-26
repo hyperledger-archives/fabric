@@ -24,8 +24,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// UndefinedParamValue defines what undefined parameters in the command line will initialise to
 const UndefinedParamValue = ""
 
+// GetDevopsClient returns a new client connection for this peer
 func GetDevopsClient(cmd *cobra.Command) (pb.DevopsClient, error) {
 	clientConn, err := peer.NewPeerClientConnection()
 	if err != nil {

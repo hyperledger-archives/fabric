@@ -45,6 +45,7 @@ var (
 	loginPW string
 )
 
+// Cmd returns the cobra command for Network
 func Cmd() *cobra.Command {
 	// Set the flags on the login command.
 	networkLoginCmd.PersistentFlags().StringVarP(&loginPW, "password", "p", common.UndefinedParamValue, "The password for user. You will be requested to enter the password if this flag is not specified.")

@@ -31,7 +31,7 @@ import (
 
 	"github.com/hyperledger/fabric/core"
 	"github.com/hyperledger/fabric/core/crypto"
-	peerchaincode "github.com/hyperledger/fabric/peer/chaincode"
+	"github.com/hyperledger/fabric/peer/chaincode"
 	"github.com/hyperledger/fabric/peer/network"
 	"github.com/hyperledger/fabric/peer/node"
 	"github.com/hyperledger/fabric/peer/version"
@@ -64,24 +64,6 @@ var mainCmd = &cobra.Command{
 		return nil
 	},
 }
-
-// var vmCmd = &cobra.Command{
-// 	Use:   "vm",
-// 	Short: "Accesses VM specific functionality.",
-// 	Long:  `Accesses VM specific functionality.`,
-// 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-// 		core.LoggingInit("vm")
-// 	},
-// }
-//
-// var vmPrimeCmd = &cobra.Command{
-// 	Use:   "prime",
-// 	Short: "Primes the VM functionality.",
-// 	Long:  `Primes the VM functionality by preparing the necessary VM construction artifacts.`,
-// 	RunE: func(cmd *cobra.Command, args []string) error {
-// 		return stop()
-// 	},
-// }
 
 // Peer command version flag
 var versionFlag bool
@@ -128,7 +110,7 @@ func main() {
 	mainCmd.AddCommand(version.Cmd())
 	mainCmd.AddCommand(node.Cmd())
 	mainCmd.AddCommand(network.Cmd())
-	mainCmd.AddCommand(peerchaincode.Cmd())
+	mainCmd.AddCommand(chaincode.Cmd())
 
 	runtime.GOMAXPROCS(viper.GetInt("peer.gomaxprocs"))
 
