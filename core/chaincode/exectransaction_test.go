@@ -1432,6 +1432,111 @@ func TestGetEvent(t *testing.T) {
 	closeListenerAndSleep(lis)
 }
 
+// TestGetRows tests two ways of getting rows
+func TestGetRows(t *testing.T) {
+	var opts []grpc.ServerOption
+	if viper.GetBool("peer.tls.enabled") {
+		creds, err := credentials.NewServerTLSFromFile(viper.GetString("peer.tls.cert.file"), viper.GetString("peer.tls.key.file"))
+		if err != nil {
+			grpclog.Fatalf("Failed to generate credentials %v", err)
+		}
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+	grpcServer := grpc.NewServer(opts...)
+	viper.Set("peer.fileSystemPath", "/var/hyperledger/test/tmpdb")
+
+	//use a different address than what we usually use for "peer"
+	//we override the peerAddress set in chaincode_support.go
+	peerAddress := "0.0.0.0:21212"
+
+	lis, err := net.Listen("tcp", peerAddress)
+	if err != nil {
+		t.Fail()
+		t.Logf("Error starting peer listener %s", err)
+		return
+	}
+
+	getPeerEndpoint := func() (*pb.PeerEndpoint, error) {
+		return &pb.PeerEndpoint{ID: &pb.PeerID{Name: "testpeer"}, Address: peerAddress}, nil
+	}
+
+	ccStartupTimeout := time.Duration(chaincodeStartupTimeoutDefault) * time.Millisecond
+	pb.RegisterChaincodeSupportServer(grpcServer, NewChaincodeSupport(DefaultChain, getPeerEndpoint, false, ccStartupTimeout, nil))
+
+	go grpcServer.Serve(lis)
+
+	var ctxt = context.Background()
+
+	url := "github.com/hyperledger/fabric/examples/chaincode/go/largerowsiterator"
+	cID := &pb.ChaincodeID{Path: url}
+
+	args := []string{}
+	f := "init"
+
+	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	_, err = deploy(ctxt, spec)
+	chaincodeID := spec.ChaincodeID.Name
+	if err != nil {
+		t.Fail()
+		t.Logf("Error initializing chaincode %s(%s)", chaincodeID, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	//invoke using GetRows
+	f = ""
+	args = []string{}
+
+	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+
+	var retval []byte
+	_, _, retval, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+
+	if err != nil || retval == nil {
+		t.Fail()
+		t.Logf("Error invoking <%s>: %s", chaincodeID, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if string(retval) != "250" {
+		t.Fail()
+		t.Logf("Invalid return value <%s>: %s", chaincodeID, string(retval))
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	//invoke using GetRows2
+	f = "new"
+	args = []string{}
+
+	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: cID, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
+	_, _, retval, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
+
+	if err != nil || retval == nil {
+		t.Fail()
+		t.Logf("Error invoking <%s>: %s", chaincodeID, err)
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	if string(retval) != "250" {
+		t.Fail()
+		t.Logf("Invalid return value <%s>: %s", chaincodeID, string(retval))
+		GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+		closeListenerAndSleep(lis)
+		return
+	}
+
+	GetChain(DefaultChain).Stop(ctxt, &pb.ChaincodeDeploymentSpec{ChaincodeSpec: spec})
+	closeListenerAndSleep(lis)
+}
+
 func TestMain(m *testing.M) {
 	SetupTestConfig()
 	os.Exit(m.Run())
