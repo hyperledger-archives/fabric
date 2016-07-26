@@ -8,16 +8,10 @@
 			"revisionTime": "2015-05-01T06:40:42-04:00"
 		},
 		{
-<<<<<<< HEAD
 			"checksumSHA1": "yXrS4e4yxaRBu/MX+39X3cS4kbg=",
 			"path": "github.com/Sirupsen/logrus",
 			"revision": "a283a10442df8dc09befd873fab202bf8a253d6a",
 			"revisionTime": "2016-07-16T02:56:31Z"
-=======
-			"checksumSHA1": "NdFZ4/37DTu199/ckt0RSRrp8AM=",
-			"path": "github.com/Sirupsen/logrus",
-			"revision": ""
->>>>>>> a6943e7452c65be4e907893e3eefdaa186cee610
 		},
 		{
 			"path": "github.com/cpuguy83/go-md2man/md2man",
@@ -29,8 +23,6 @@
 			"path": "github.com/docker/docker/opts",
 			"revision": "bad654b00c954e31007c5004629e236c06ca4046",
 			"revisionTime": "2016-07-26T09:12:10Z"
-<<<<<<< HEAD
-=======
 		},
 		{
 			"path": "github.com/docker/docker/pkg",
@@ -48,7 +40,6 @@
 			"path": "github.com/fsouza/go-dockerclient",
 			"revision": "d433254bb83b41d7072ce470e312ea3cee257882",
 			"revisionTime": "2016-07-25T13:44:23Z"
->>>>>>> a6943e7452c65be4e907893e3eefdaa186cee610
 		},
 		{
 			"checksumSHA1": "/Q1GjTd4UDnPMJxI10PTazyN37k=",
