@@ -123,7 +123,8 @@ func (vm *DockerVM) deployImage(client *docker.Client, ccid ccintf.CCID, args []
 	}
 
 	if err := client.BuildImage(opts); err != nil {
-		dockerLogger.Error(fmt.Sprintf("Error building images: %s", err))
+		dockerLogger.Errorf("Error building images: %s", err)
+		dockerLogger.Errorf("Image Output:\n********************\n%s\n********************", outputbuf.String())
 		return err
 	}
 
@@ -246,7 +247,7 @@ func (vm *DockerVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, 
 	id, _ := vm.GetVMName(ccid)
 	client, err := cutil.NewDockerClient()
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("destroy-cannot create client %s", err))
+		dockerLogger.Errorf("destroy-cannot create client %s", err)
 		return err
 	}
 	id = strings.Replace(id, ":", "_", -1)
@@ -254,7 +255,7 @@ func (vm *DockerVM) Destroy(ctxt context.Context, ccid ccintf.CCID, force bool, 
 	err = client.RemoveImageExtended(id, docker.RemoveImageOptions{Force: force, NoPrune: noprune})
 
 	if err != nil {
-		dockerLogger.Error(fmt.Sprintf("error while destroying image: %s", err))
+		dockerLogger.Errorf("error while destroying image: %s", err)
 	} else {
 		dockerLogger.Debug("Destroyed image %s", id)
 	}
