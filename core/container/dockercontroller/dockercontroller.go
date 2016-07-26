@@ -102,7 +102,7 @@ func getDockerHostConfig() *docker.HostConfig {
 
 func (vm *DockerVM) createContainer(ctxt context.Context, client *docker.Client, imageID string, containerID string, args []string, env []string, attachstdin bool, attachstdout bool) error {
 	config := docker.Config{Cmd: args, Image: imageID, Env: env, AttachStdin: attachstdin, AttachStdout: attachstdout}
-	copts := docker.CreateContainerOptions{Name: containerID, Config: &config}
+	copts := docker.CreateContainerOptions{Name: containerID, Config: &config, HostConfig: getDockerHostConfig()}
 	dockerLogger.Debugf("Create container: %s", containerID)
 	_, err := client.CreateContainer(copts)
 	if err != nil {
@@ -191,6 +191,9 @@ func (vm *DockerVM) Start(ctxt context.Context, ccid ccintf.CCID, args []string,
 		}
 	}
 
+	// Baohua: getDockerHostConfig() will be ignored when communicating with docker API 1.24+.
+	// I keep it here for a short-term compatibility.
+	// See https://goo.gl/ZvtkKm for more details.
 	err = client.StartContainer(containerID, getDockerHostConfig())
 	if err != nil {
 		dockerLogger.Errorf("start-could not start container %s", err)
