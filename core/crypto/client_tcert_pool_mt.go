@@ -231,7 +231,7 @@ type tCertPoolMultithreadingImpl struct {
 func (tCertPool *tCertPoolMultithreadingImpl) Start() (err error) {
 	// Start the filler, initializes a poolEntry without attributes.
 	var attributes []string
-	_, err := tCertPool.getPoolEntry(attributes)
+	_, err = tCertPool.getPoolEntry(attributes)
 	return
 }
 
