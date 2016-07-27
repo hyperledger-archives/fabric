@@ -234,7 +234,7 @@ public class Handler {
 				// Call chaincode's Run
 				ByteString result;
 				try {
-					result = chaincode.runHelper(stub, input.getFunction(), arrayHelper(input.getArgsList()));
+					result = chaincode.runHelper(stub, input.getFunction(), arrayHelper(input.getArgs()));
 				} catch (Exception e) {
 					// Send ERROR message to chaincode support and change state
 					logger.debug(String.format("[%s]Init failed. Sending %s", shortUUID(message), ERROR));
@@ -272,10 +272,9 @@ public class Handler {
 	}
 
 
-	private String[] arrayHelper(ProtocolStringList argsList) {
-		String[] array = new String[argsList.size()];
-		argsList.toArray(array);
-		return array;
+	private String[] arrayHelper(ByteString args) {
+		String oneBigSStr = args.toStringUtf8();
+		return oneBigSStr.split("\0");
 	}
 
 	// enterInitState will initialize the chaincode if entering init from established.
@@ -327,7 +326,7 @@ public class Handler {
 				// Call chaincode's Run
 				ByteString response;
 				try {
-					response = chaincode.runHelper(stub, input.getFunction(), arrayHelper(input.getArgsList()));
+					response = chaincode.runHelper(stub, input.getFunction(), arrayHelper(input.getArgs()));
 				} catch (Exception e) {
 					e.printStackTrace();
 					System.err.flush();
@@ -393,7 +392,7 @@ public class Handler {
 
 				ByteString response;
 				try {
-					response = chaincode.queryHelper(stub, input.getFunction(), arrayHelper(input.getArgsList()));
+					response = chaincode.queryHelper(stub, input.getFunction(), arrayHelper(input.getArgs()));
 				} catch (Exception e) {
 					// Send ERROR message to chaincode support and change state
 					logger.debug(String.format("[%s]Query execution failed. Sending %s",
@@ -763,7 +762,7 @@ public class Handler {
 //		}
 //	}
 
-	public ByteString handleInvokeChaincode(String chaincodeName, String function, String[] args, String uuid) {
+	public ByteString handleInvokeChaincode(String chaincodeName, String function, ByteString args, String uuid) {
 		// Check if this is a transaction
 		if (!isTransaction.containsKey(uuid)) {
 			throw new RuntimeException("Cannot invoke chaincode in query context");
@@ -773,7 +772,7 @@ public class Handler {
 				.setName(chaincodeName).build();
 		ChaincodeInput input = ChaincodeInput.newBuilder()
 				.setFunction(function)
-				.addAllArgs(Arrays.asList(args))
+				.setArgs(args)
 				.build();
 		ChaincodeSpec payload = ChaincodeSpec.newBuilder()
 				.setChaincodeID(id)
@@ -838,11 +837,11 @@ public class Handler {
 		}
 	}
 
-	public ByteString handleQueryChaincode(String chaincodeName, String function, String[] args, String uuid) {
+	public ByteString handleQueryChaincode(String chaincodeName, String function, ByteString args, String uuid) {
 		ChaincodeID id = ChaincodeID.newBuilder().setName(chaincodeName).build();
 		ChaincodeInput input = ChaincodeInput.newBuilder()
 				.setFunction(function)
-				.addAllArgs(Arrays.asList(args))
+				.setArgs(args)
 				.build();
 		ChaincodeSpec payload = ChaincodeSpec.newBuilder()
 				.setChaincodeID(id)

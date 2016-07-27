@@ -349,8 +349,8 @@ Feature: Network of Peers
 
 #    @doNotDecompose
 #    @wip
-#    Arg[0] = a, base64 = 'YQ=='
-#    sha256 = 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb'
+#    Arg[0] = a
+#    sha256 = '349f9cecc9c11987c23a78ecd8ce45c5...'
 	Scenario: chaincode map single peer content generated ID
 	    Given we compose "docker-compose-1.yml"
 	    When requesting "/chain" from "vp0"
@@ -363,10 +363,10 @@ Feature: Network of Peers
 
         When I invoke chaincode "map" function name "put" on "vp0" with "sha256base64"
 	    | arg1  |arg2|
-            | YQ==  | 10 |
+            |   a   | 10 |
 	    Then I should have received a transactionID
 	    Then I wait up to "25" seconds for transaction to be committed to all peers
-	    Then I check the transaction ID if it is "ca978112-ca1b-bdca-fac2-31b39a23dc4d"
+	    Then I check the transaction ID if it is "349f9cec-c9c1-1987-c23a-78ecd8ce45c5"
 
     Scenario: chaincode example 01 single peer rejection message
 	    Given we compose "docker-compose-1-exp.yml"

@@ -16,8 +16,13 @@ limitations under the License.
 
 package example;
 
+import com.google.protobuf.ByteString;
 import org.hyperledger.java.shim.ChaincodeBase;
 import org.hyperledger.java.shim.ChaincodeStub;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 public class LinkExample extends ChaincodeBase {
 
@@ -33,7 +38,7 @@ public class LinkExample extends ChaincodeBase {
 			mapChaincode = args[0];
 			break;
 		case "put":
-			stub.invokeChaincode(mapChaincode, function, args);			
+			stub.invokeChaincode(mapChaincode, function, toBytes(args));
 		default:
 			break;
 		}
@@ -42,7 +47,7 @@ public class LinkExample extends ChaincodeBase {
 
 	@Override
 	public String query(ChaincodeStub stub, String function, String[] args) {
-		String tmp = stub.queryChaincode("map", function, args);
+		String tmp = stub.queryChaincode("map", function, toBytes(args));
 		if (tmp.isEmpty()) tmp = "NULL";
 		else tmp = "\"" + tmp + "\"";
 		tmp += " (queried from map chaincode)";
@@ -58,5 +63,18 @@ public class LinkExample extends ChaincodeBase {
 	public String getChaincodeID() {
 		return "link";
 	}
-	
+
+	private ByteString toBytes(String[] args) {
+		ByteArrayOutputStream bas = new ByteArrayOutputStream();
+		for (int i=0; i<args.length; ++i) {
+			try {
+				bas.write(args[i].getBytes(StandardCharsets.UTF_8));
+				if (i>0) {
+					bas.write(0);
+				}
+			} catch (IOException e) {
+			}
+		}
+		return ByteString.copyFrom(bas.toByteArray());
+	}
 }
