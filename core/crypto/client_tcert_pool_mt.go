@@ -37,7 +37,7 @@ func newTCertPoolEntry(client *clientImpl, attributes []string) *tCertPoolEntry 
 	tCertChannel := make(chan *TCertBlock, client.conf.getTCertBatchSize()*2)
 	tCertChannelFeedback := make(chan struct{}, client.conf.getTCertBatchSize()*2)
 	done := make(chan struct{}, 1)
-	return &tCertPoolEntry{attributes, tCertChannel, tCertChannelFeedback, done, client, nil}
+	return &tCertPoolEntry{attributes, tCertChannel, tCertChannelFeedback, done, client}
 }
 
 //Start starts the pool entry filler loop.
