@@ -1143,7 +1143,7 @@ func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 ```
 这个函数读取为`peer`过程指定的`core.yaml`配置文件中的`peer.validator.consensus`的值。键`peer.validator.consensus`的有效值指定运行`noops`还是`pbft`共识插件。（注意，它最终被改变为`noops`或`custom`。在`custom`情况下，验证 peer 将会运行由`consensus/config.yaml`中定义的共识插件）
 
-插件的作者需要编辑函数体，来保证路由到它们包中正确的构造函数。例如，对于`pbft` 我们指向`obcpft.GetPlugin`构造器。
+插件的作者需要编辑函数体，来保证路由到它们包中正确的构造函数。例如，对于`pbft` 我们指向`pbft.GetPlugin`构造器。
 
 这个函数是当设置返回信息处理器的`consenter`域时，被`helper.NewConsensusHandler`调用的。输入参数`cpi`是由`helper.NewHelper`构造器输出的，并实现了`consensus.CPI`接口
 
