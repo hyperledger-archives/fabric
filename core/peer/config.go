@@ -135,7 +135,7 @@ func GetLocalAddress() (string, error) {
 	return localAddress, localAddressError
 }
 
-// GetPeerEndpoint returns peerEndpoint from cached configuration 
+// GetPeerEndpoint returns peerEndpoint from cached configuration
 func GetPeerEndpoint() (*pb.PeerEndpoint, error) {
 	if !configurationCached {
 		cacheConfiguration()
