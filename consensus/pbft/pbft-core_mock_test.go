@@ -38,7 +38,7 @@ func (pe *pbftEndpoint) deliver(msgPayload []byte, senderHandle *pb.PeerID) {
 	msg := &Message{}
 	err := proto.Unmarshal(msgPayload, msg)
 	if err != nil {
-		panic("Told deliver something which did not unmarshal")
+		panic("Asked to deliver something which did not unmarshal")
 	}
 
 	pe.manager.Queue() <- &pbftMessage{msg: msg, sender: senderID}
@@ -78,7 +78,7 @@ type simpleConsumer struct {
 	executions    uint64
 	lastSeqNo     uint64
 	skipOccurred  bool
-	lastExecution []byte
+	lastExecution string
 	mockPersist
 }
 
@@ -96,10 +96,6 @@ func (sc *simpleConsumer) unicast(msgPayload []byte, receiverID uint64) error {
 
 func (sc *simpleConsumer) Close() {
 	// No-op
-}
-
-func (sc *simpleConsumer) validate(txRaw []byte) error {
-	return nil
 }
 
 func (sc *simpleConsumer) sign(msg []byte) ([]byte, error) {
@@ -131,12 +127,14 @@ func (sc *simpleConsumer) skipTo(seqNo uint64, id []byte, replicas []uint64) {
 	sc.pbftNet.debugMsg("TEST: skipping to %d\n", seqNo)
 }
 
-func (sc *simpleConsumer) execute(seqNo uint64, tx []byte) {
-	sc.pbftNet.debugMsg("TEST: executing request\n")
-	sc.lastExecution = tx
-	sc.executions++
-	sc.lastSeqNo = seqNo
-	go func() { sc.pe.manager.Queue() <- execDoneEvent{} }()
+func (sc *simpleConsumer) execute(seqNo uint64, reqBatch *RequestBatch) {
+	for _, req := range reqBatch.GetBatch() {
+		sc.pbftNet.debugMsg("TEST: executing request\n")
+		sc.lastExecution = hash(req)
+		sc.executions++
+		sc.lastSeqNo = seqNo
+		go func() { sc.pe.manager.Queue() <- execDoneEvent{} }()
+	}
 }
 
 func (sc *simpleConsumer) getState() []byte {

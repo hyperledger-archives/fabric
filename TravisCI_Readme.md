@@ -22,7 +22,7 @@ Continuous Integration is a development practice that requires developers to int
 
 This will enable integration between Travis CI and GitHub for the selected repository. After successful integration, **Travis CI** service will appear in Services menu.
 
-![Webhook_Travis](images/Travis_service.png)
+![Webhook_Travis](docs/images/Travis_service.png)
 
 ###### Sync and Enable fabric repository in Travis:
 
@@ -34,7 +34,7 @@ This will enable integration between Travis CI and GitHub for the selected repos
  
 - In more options menu, click on **Settings** and enable general settings (**Build only if .travis.yml is present** ,  **Build Pushes** ,  **Limit Current jobs**  , **Build pull requests**) for the selected repository. 
 
-![Settings](images/Travis_Settings.png) 
+![Settings](docs/images/Travis_Settings.png) 
 
 - Disable **Build Pull Requests** option if you don't want to trigger automation build deployment for any `Pull Requests`.
 
@@ -65,7 +65,7 @@ slack:<Slack account name>:<User Slack Token> ex: slack:openchain:<user slack to
 
 Now you have completed with Travis CI setup process. If you make any changes in your code and push code to remote repository, Travis CI automatically starts the build process and shows you the build results on your notification settings (Slack, email and on GitHub Readme.md).
 
-![Build Results](images/BuildStatus.png)
+![Build Results](docs/images/BuildStatus.png)
 
 **Build Process includes below steps:**
 
@@ -93,9 +93,6 @@ git commit -m "Ignore build process [ci skip]"
 
 - What is the slack channel to view build results?
   - We are sending build notifications to hyperledger `#fabric-ci-status` slack channel. (User must join in #fabric-ci-status slack channel to receive build notifications)
-  
-- What is build status `errored` mean?
-  - When "go build" and "Unit tests" fails, Travis stops the build process and exits and mark the build status as `errored`. When unit tests fail, Travis CI will not execute behave test scripts. `Failed`: If Behave test cases fail, Travis continues executing remaining test cases and exits with build status as `failed`.
   
 - How to restart build without committing any changes to remote GitHub?
 

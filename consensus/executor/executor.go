@@ -119,7 +119,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.RolledBack(et.tag)
 	case stateUpdateEvent:
-		logger.Debug("Executor is processing an stateUpdateEvent")
+		logger.Debug("Executor is processing a stateUpdateEvent")
 		if co.batchInProgress {
 			err := co.rawExecutor.RollbackTxBatch(co)
 			_ = err // TODO This should probably panic, see issue 752

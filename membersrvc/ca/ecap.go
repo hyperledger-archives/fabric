@@ -24,6 +24,7 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"google/protobuf"
+	"io/ioutil"
 	"math/big"
 	"strconv"
 	"time"
@@ -106,6 +107,7 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 
 	id := in.Id.Id
 	err := ecap.eca.readUser(id).Scan(&role, &tok, &state, &prev, &enrollID)
+
 	if err != nil {
 		errMsg := "Identity lookup error: " + err.Error()
 		Trace.Println(errMsg)
@@ -127,7 +129,10 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 		// initial request, create encryption challenge
 		tok = []byte(randomString(12))
 
+		mutex.Lock()
 		_, err = ecap.eca.db.Exec("UPDATE Users SET token=?, state=?, key=? WHERE id=?", tok, 1, in.Enc.Key, id)
+		mutex.Unlock()
+
 		if err != nil {
 			Error.Println(err)
 			return nil, err
@@ -187,17 +192,25 @@ func (ecap *ECAP) CreateCertificatePair(ctx context.Context, in *pb.ECertCreateR
 			return nil, err
 		}
 
+		_ = ioutil.WriteFile("/tmp/ecert_"+id, sraw, 0644)
+
 		spec = NewDefaultCertificateSpecWithCommonName(id, enrollID, ekey.(*ecdsa.PublicKey), x509.KeyUsageDataEncipherment, pkix.Extension{Id: ECertSubjectRole, Critical: true, Value: []byte(strconv.Itoa(ecap.eca.readRole(id)))})
 		eraw, err := ecap.eca.createCertificateFromSpec(spec, ts, nil, true)
 		if err != nil {
+			mutex.Lock()
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
+			mutex.Unlock()
 			Error.Println(err)
 			return nil, err
 		}
 
+		mutex.Lock()
 		_, err = ecap.eca.db.Exec("UPDATE Users SET state=? WHERE id=?", 2, id)
+		mutex.Unlock()
 		if err != nil {
+			mutex.Lock()
 			ecap.eca.db.Exec("DELETE FROM Certificates Where id=?", id)
+			mutex.Unlock()
 			Error.Println(err)
 			return nil, err
 		}

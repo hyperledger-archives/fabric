@@ -80,15 +80,30 @@ def getUserRegistration(context, enrollId):
 
 def ipFromContainerNamePart(namePart, containerDataList):
     """Returns the IPAddress based upon a name part of the full container name"""
-    ip = None
-    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-    for containerData in containerDataList:
-        if containerData.containerName.startswith(containerNamePrefix + namePart):
-            ip = containerData.ipAddress
-    if ip == None:
-        raise Exception("Could not find container with namePart = {0}".format(namePart))
-    return ip
+    containerData = containerDataFromNamePart(namePart, containerDataList)
 
+    if containerData == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+
+    return containerData.ipAddress
+
+def fullNameFromContainerNamePart(namePart, containerDataList):
+    containerData = containerDataFromNamePart(namePart, containerDataList)
+
+    if containerData == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+
+    return containerData.containerName
+
+def containerDataFromNamePart(namePart, containerDataList):
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    fullContainerName = containerNamePrefix + namePart
+
+    for containerData in containerDataList:
+        if containerData.containerName.startswith(fullContainerName):
+            return containerData
+
+    return None
 
 def getContainerDataValuesFromContext(context, aliases, callback):
     """Returns the IPAddress based upon a name part of the full container name"""

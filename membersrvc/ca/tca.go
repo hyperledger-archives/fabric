@@ -194,7 +194,7 @@ func (tca *TCA) initializePreKeyTree() error {
 }
 
 func (tca *TCA) getPreKFrom(enrollmentCertificate *x509.Certificate) ([]byte, error) {
-	_, _, affiliation, err := tca.eca.parseEnrollID(enrollmentCertificate.Subject.CommonName)
+	_, affiliation, err := tca.eca.parseEnrollID(enrollmentCertificate.Subject.CommonName)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +240,9 @@ func (tca *TCA) startTCAA(srv *grpc.Server) {
 }
 
 func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	var sets = []*TCertSet{}
 	var err error
 
@@ -269,6 +272,9 @@ func (tca *TCA) getCertificateSets(enrollmentID string) ([]*TCertSet, error) {
 }
 
 func (tca *TCA) persistCertificateSet(enrollmentID string, timestamp int64, nonce []byte, kdfKey []byte) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var err error
 
 	if _, err = tca.db.Exec("INSERT INTO TCertificateSets (enrollmentID, timestamp, nonce, kdfkey) VALUES (?, ?, ?, ?)", enrollmentID, timestamp, nonce, kdfKey); err != nil {

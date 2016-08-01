@@ -1441,18 +1441,17 @@ func filterError(errFromFSMEvent error) error {
 	if errFromFSMEvent != nil {
 		if noTransitionErr, ok := errFromFSMEvent.(*fsm.NoTransitionError); ok {
 			if noTransitionErr.Err != nil {
-				// Only allow NoTransitionError's, all others are considered true error.
+				// Squash the NoTransitionError
 				return errFromFSMEvent
 			}
-			chaincodeLogger.Warningf("Ignoring NoTransitionError: %s", noTransitionErr)
+			chaincodeLogger.Debugf("Ignoring NoTransitionError: %s", noTransitionErr)
 		}
 		if canceledErr, ok := errFromFSMEvent.(*fsm.CanceledError); ok {
 			if canceledErr.Err != nil {
-				// Only allow NoTransitionError's, all others are considered true error.
+				// Squash the CanceledError
 				return canceledErr
-				//t.Error("expected only 'NoTransitionError'")
 			}
-			chaincodeLogger.Warningf("Ignoring CanceledError: %s", canceledErr)
+			chaincodeLogger.Debugf("Ignoring CanceledError: %s", canceledErr)
 		}
 	}
 	return nil
