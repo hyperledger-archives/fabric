@@ -1,3 +1,9 @@
+***NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE*** 
+
+This repository is a ***static archive*** of the Hyperledger Fabric project. It is no longer being actively developed. We have transitioned active development for all Hyperledger projects to [Gerrit](https://gerrit.hyperledger.org/r/#/admin/projects/fabric) and [Jira](https://jira.hyperledger.org/projects/FAB/issues/). Note that you will need a [Linux Foundation ID](https://identity.linuxfoundation.org/) to contribute code or issues. 
+
+***NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE*** 
+
 [![Build Status](https://travis-ci.org/hyperledger/fabric.svg?branch=master)](https://travis-ci.org/hyperledger/fabric)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/fabric)](https://goreportcard.com/report/github.com/hyperledger/fabric)
 [![GoDoc](https://godoc.org/github.com/hyperledger/fabric?status.svg)](https://godoc.org/github.com/hyperledger/fabric)
