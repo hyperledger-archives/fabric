@@ -2228,7 +2228,7 @@ class MemberServicesImpl implements MemberServices {
      * @param config The config information required by this member services implementation.
      * @returns {MemberServices} A MemberServices object.
      */
-    constructor(url:string,pem:string) {
+    constructor(private url:string,pem:string) {
         let ep = new Endpoint(url,pem);
         var options = {
               'grpc.ssl_target_name_override' : 'tlsca',
@@ -2241,6 +2241,25 @@ class MemberServicesImpl implements MemberServices {
         this.cryptoPrimitives = new crypto.Crypto(DEFAULT_HASH_ALGORITHM, DEFAULT_SECURITY_LEVEL);
     }
 
+    private checkUrl (cb, action) {
+        if( this.url != null ) {
+            // Check if the host/port is operated - does not check if GRPC is being served.
+	    let p = urlParser.parse(this.url);
+	    let client = new net.Socket();
+	    client.on('timeout', () => { cb("Timeout contacting member services "+this.url) });
+	    client.on('error', (err) => { cb("Failed to contact member services "+this.url+": "+err) });
+	    client.connect(p.port, p.hostname, () => {
+                // Host/port seems live - stop verifying
+                this.url = null;
+                client.destroy();
+                action();
+            })
+        } else {
+            // If null we managed to verify that URI is live
+            action();
+        }
+    }
+    
     /**
      * Get the security level
      * @returns The security level
@@ -2316,9 +2335,11 @@ class MemberServicesImpl implements MemberServices {
             }
         ));
         // Send the registration request
-        self.ecaaClient.registerUser(protoReq, function (err, token) {
-            debug("register %j: err=%j, token=%s", protoReq, err, token);
-            if (cb) return cb(err, token ? token.tok.toString() : null);
+        self.checkUrl(cb, () => {
+            self.ecaaClient.registerUser(protoReq, function (err, token) {
+                debug("register %j: err=%j, token=%s", protoReq, err, token);
+                if (cb) return cb(err, token ? token.tok.toString() : null);
+            });
         });
     }
 
@@ -2377,44 +2398,48 @@ class MemberServicesImpl implements MemberServices {
         debug("[MemberServicesImpl.enroll] Assding encryption key!");
 
         debug("[MemberServicesImpl.enroll] [Contact ECA] %j ", eCertCreateRequest);
-        self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
-            if (err) {
-                debug("[MemberServicesImpl.enroll] failed to create cert pair: err=%j", err);
-                return cb(err);
-            }
-            let cipherText = eCertCreateResp.tok.tok;
-            var decryptedTokBytes = self.cryptoPrimitives.eciesDecrypt(encryptionKeyPair.prvKeyObj, cipherText);
-
-            //debug(decryptedTokBytes);
-            // debug(decryptedTokBytes.toString());
-            // debug('decryptedTokBytes [%s]', decryptedTokBytes.toString());
-            eCertCreateRequest.setTok({tok: decryptedTokBytes});
-            eCertCreateRequest.setSig(null);
-
-            var buf = eCertCreateRequest.toBuffer();
-
-            var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(signingKeyPair.prvKeyObj.prvKeyHex, 'hex');
-            //debug(new Buffer(sha3_384(buf),'hex'));
-            var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
-
-            eCertCreateRequest.setSig(new _caProto.Signature(
-                {
-                    type: _caProto.CryptoType.ECDSA,
-                    r: new Buffer(sig.r.toString()),
-                    s: new Buffer(sig.s.toString())
-                }
-            ));
+        self.checkUrl(cb, () => {
             self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
-                if (err) return cb(err);
-                debug('[MemberServicesImpl.enroll] eCertCreateResp : [%j]' + eCertCreateResp);
+                if (err) {
+                    debug("[MemberServicesImpl.enroll] failed to create cert pair: err=%j", err);
+                    return cb(err);
+                }
+                let cipherText = eCertCreateResp.tok.tok;
+                var decryptedTokBytes = self.cryptoPrimitives.eciesDecrypt(encryptionKeyPair.prvKeyObj, cipherText);
 
-                let enrollment = {
-                    key: signingKeyPair.prvKeyObj.prvKeyHex,
-                    cert: eCertCreateResp.certs.sign.toString('hex'),
-                    chainKey: eCertCreateResp.pkchain.toString('hex')
-                };
-                // debug('cert:\n\n',enrollment.cert)
-                cb(null, enrollment);
+                //debug(decryptedTokBytes);
+                // debug(decryptedTokBytes.toString());
+                // debug('decryptedTokBytes [%s]', decryptedTokBytes.toString());
+                eCertCreateRequest.setTok({tok: decryptedTokBytes});
+                eCertCreateRequest.setSig(null);
+
+                var buf = eCertCreateRequest.toBuffer();
+
+                var signKey = self.cryptoPrimitives.ecdsaKeyFromPrivate(signingKeyPair.prvKeyObj.prvKeyHex, 'hex');
+                //debug(new Buffer(sha3_384(buf),'hex'));
+                var sig = self.cryptoPrimitives.ecdsaSign(signKey, buf);
+
+                eCertCreateRequest.setSig(new _caProto.Signature(
+                    {
+                        type: _caProto.CryptoType.ECDSA,
+                        r: new Buffer(sig.r.toString()),
+                        s: new Buffer(sig.s.toString())
+                    }
+                ));
+                self.checkUrl(cb, () => {
+                    self.ecapClient.createCertificatePair(eCertCreateRequest, function (err, eCertCreateResp) {
+                        if (err) return cb(err);
+                        debug('[MemberServicesImpl.enroll] eCertCreateResp : [%j]' + eCertCreateResp);
+
+                        let enrollment = {
+                            key: signingKeyPair.prvKeyObj.prvKeyHex,
+                            cert: eCertCreateResp.certs.sign.toString('hex'),
+                            chainKey: eCertCreateResp.pkchain.toString('hex')
+                        };
+                        // debug('cert:\n\n',enrollment.cert)
+                        cb(null, enrollment);
+                    });
+                });
             });
         });
 
@@ -2463,10 +2488,12 @@ class MemberServicesImpl implements MemberServices {
         ));
 
         // send the request
-        self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, resp) {
-            if (err) return cb(err);
-            // debug('tCertCreateSetResp:\n', resp);
-            cb(null, self.processTCertBatch(req, resp));
+        self.checkUrl(cb, () => {
+            self.tcapClient.createCertificateSet(tCertCreateSetReq, function (err, resp) {
+                if (err) return cb(err);
+                // debug('tCertCreateSetResp:\n', resp);
+                cb(null, self.processTCertBatch(req, resp));
+            });
         });
     }
 
