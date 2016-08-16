@@ -88,19 +88,22 @@ func main() {
 	}
 
 	ca.LogInit(iotrace, ioinfo, iowarning, ioerror, iopanic)
+	// cache configure
+	ca.CacheConfiguration()
+
 	ca.Info.Println("CA Server (" + viper.GetString("server.version") + ")")
 
 	aca := ca.NewACA()
-	defer aca.Close()
+	defer aca.Stop()
 
 	eca := ca.NewECA()
-	defer eca.Close()
+	defer eca.Stop()
 
 	tca := ca.NewTCA(eca)
-	defer tca.Close()
+	defer tca.Stop()
 
 	tlsca := ca.NewTLSCA(eca)
-	defer tlsca.Close()
+	defer tlsca.Stop()
 
 	runtime.GOMAXPROCS(viper.GetInt("server.gomaxprocs"))
 

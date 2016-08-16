@@ -27,7 +27,7 @@ var testDBWrapper = db.NewTestDBWrapper()
 
 //InitTestLedger provides a ledger for testing. This method creates a fresh db and constructs a ledger instance on that.
 func InitTestLedger(t *testing.T) *Ledger {
-	testDBWrapper.CreateFreshDB(t)
+	testDBWrapper.CleanDB(t)
 	_, err := GetLedger()
 	testutil.AssertNoError(t, err, "Error while constructing ledger")
 	newLedger, err := GetNewLedger()

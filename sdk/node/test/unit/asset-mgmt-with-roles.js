@@ -22,7 +22,7 @@
  * Simple asset management use case where authentication is performed
  * with the help of TCerts only (use-case 1) or attributes only (use-case 2).*/
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var crypto = require('../../lib/crypto');
@@ -37,9 +37,8 @@ var devMode = process.env.DEPLOY_MODE == 'dev';
 // Create the chain and enroll users as deployer, assigner, and nonAssigner (who doesn't have privilege to assign.
 function setup(cb) {
    console.log("initializing ...");
-
-   var chain = hlc.newChain("testChain");
-   chain.setKeyValStore(hlc.newFileKeyValStore("/tmp/keyValStore"));
+   var chain = hfc.newChain("testChain");
+   chain.setKeyValStore(hfc.newFileKeyValStore("/tmp/keyValStore"));
    chain.setMemberServicesUrl("grpc://localhost:50051");
    chain.addPeer("grpc://localhost:30303");
    if (devMode) chain.setDevMode(true);
@@ -151,6 +150,7 @@ test('setup asset management with roles', function (t) {
     setup(function(err) {
         if (err) {
             t.fail("error: "+err.toString());
+            // Exit the test script after a failure
             process.exit(1);
         } else {
             t.pass("setup successful");
@@ -161,14 +161,22 @@ test('setup asset management with roles', function (t) {
 test('assign asset management with roles', function (t) {
     t.plan(1);
     alice.getUserCert(["role", "account"], function (err, aliceCert) {
-        if (err) fail(t, "Failed getting Application certificate for Alice.");
+        if (err) {
+          fail(t, "Failed getting Application certificate for Alice.");
+          // Exit the test script after a failure
+          process.exit(1);
+        }
         assignOwner(assigner, aliceCert.encode().toString('base64'), function(err) {
             if (err) {
                 t.fail("error: "+err.toString());
+                // Exit the test script after a failure
+                process.exit(1);
             } else {
                 checkOwner(assigner, aliceAccount, function(err) {
                     if(err){
                         t.fail("error: "+err.toString());
+                        // Exit the test script after a failure
+                        process.exit(1);
                     } else {
                         t.pass("assign successful");
                     }
@@ -182,10 +190,16 @@ test('not assign asset management with roles', function (t) {
     t.plan(1);
 
     bob.getUserCert(["role", "account"], function (err, bobCert) {
-        if (err) fail(t, "Failed getting Application certificate for Alice.");
+        if (err) {
+          fail(t, "Failed getting Application certificate for Alice.");
+          // Exit the test script after a failure
+          process.exit(1);
+        }
         assignOwner(alice, bobCert.encode().toString('base64'), function(err) {
             if (err) {
                 t.fail("error: "+err.toString());
+                // Exit the test script after a failure
+                process.exit(1);
             } else {
                 checkOwner(alice, bobAccount, function(err) {
                     if(err){
@@ -193,6 +207,8 @@ test('not assign asset management with roles', function (t) {
                     } else {
                         err = new Error ("this user should not have been allowed to assign");
                         t.fail("error: "+err.toString());
+                        // Exit the test script after a failure
+                        process.exit(1);
                     }
                 });
             }

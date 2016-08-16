@@ -22,7 +22,7 @@
  * Simple asset management use case where authentication is performed
  * with the help of TCerts only (use-case 1) or attributes only (use-case 2).*/
 
-var hlc = require('../..');
+var hfc = require('../..');
 var test = require('tape');
 var util = require('util');
 var fs = require('fs');
@@ -49,8 +49,8 @@ var testChaincodeID;
 //
 //  Create and configure a test chain
 //
-var chain = hlc.newChain("testChain");
-chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+var chain = hfc.newChain("testChain");
+chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
 chain.setMemberServicesUrl("grpc://localhost:50051");
 chain.addPeer("grpc://localhost:30303");
 
@@ -78,8 +78,7 @@ function getUser(name, cb) {
         // User is not enrolled yet, so perform both registration and enrollment
         var registrationRequest = {
             enrollmentID: name,
-            account: "bank_a",
-            affiliation: "00001"
+            affiliation: "bank_a"
         };
         user.registerAndEnroll(registrationRequest, function (err) {
             if (err) cb(err, null)
@@ -101,11 +100,19 @@ function fail(t, msg, err) {
 test('Enroll the registrar', function (t) {
     // Get the WebAppAdmin member
     chain.getUser(registrar.name, function (err, user) {
-        if (err) return fail(t, "get registrar", err);
+        if (err) {
+            fail(t, "get registrar", err);
+            // Exit the test script after a failure
+            process.exit(1);
+        }
         // Enroll the WebAppAdmin user with the certificate authority using
         // the one time password hard coded inside the membersrvc.yaml.
         user.enroll(registrar.secret, function (err) {
-            if (err) return fail(t, "enroll registrar", err);
+            if (err) {
+                fail(t, "enroll registrar", err);
+                // Exit the test script after a failure
+                process.exit(1);
+            }
             chain.setRegistrar(user);
             pass(t, "enrolled " + registrar.name);
         });
@@ -114,10 +121,18 @@ test('Enroll the registrar', function (t) {
 
 test('Enroll Alice', function (t) {
     getUser('Alice', function (err, user) {
-        if (err) return fail(t, "enroll Alice", err);
+        if (err) {
+            fail(t, "enroll Alice", err);
+            // Exit the test script after a failure
+            process.exit(1);
+        }
         alice = user;
         alice.getUserCert(null, function (err, userCert) {
-            if (err) fail(t, "Failed getting Application certificate.");
+            if (err) {
+                fail(t, "Failed getting Application certificate.");
+                // Exit the test script after a failure
+                process.exit(1);
+            }
             alicesCert = userCert;
             pass(t, "enroll Alice");
         })
@@ -126,10 +141,18 @@ test('Enroll Alice', function (t) {
 
 test('Enroll Bob', function (t) {
     getUser('Bob', function (err, user) {
-        if (err) return fail(t, "enroll Bob", err);
+        if (err) {
+            fail(t, "enroll Bob", err);
+            // Exit the test script after a failure
+            process.exit(1);
+        }
         bob = user;
         bob.getUserCert(null, function (err, userCert) {
-            if (err) fail(t, "Failed getting Application certificate.");
+            if (err) {
+                fail(t, "Failed getting Application certificate.");
+                // Exit the test script after a failure
+                process.exit(1);
+            }
             bobAppCert = userCert;
             pass(t, "enroll Bob");
         })
@@ -138,10 +161,18 @@ test('Enroll Bob', function (t) {
 
 test('Enroll Charlie', function (t) {
     getUser('Charlie', function (err, user) {
-        if (err) return fail(t, "enroll Charlie", err);
+        if (err) {
+            fail(t, "enroll Charlie", err);
+            // Exit the test script after a failure
+            process.exit(1);
+        }
         charlie = user;
         charlie.getUserCert(null, function (err, userCert) {
-            if (err) fail(t, "Failed getting Application certificate.");
+            if (err) {
+                fail(t, "Failed getting Application certificate.");
+                // Exit the test script after a failure
+                process.exit(1);
+            }
             charlieAppCert = userCert;
             pass(t, "enroll Charlie");
         })
@@ -188,6 +219,8 @@ test("Alice deploys chaincode", function (t) {
     deployTx.on('error', function(err) {
       // Deploy request failed
       t.fail(util.format("Failed to deploy chaincode: request=%j, error=%j", deployRequest, err));
+      // Exit the test script after a failure
+      process.exit(1);
     });
 });
 
@@ -219,6 +252,8 @@ test("Alice assign ownership", function (t) {
     });
     tx.on('error', function (err) {
         fail(t, "Alice invoke", err);
+        // Exit the test script after a failure
+        process.exit(1);
     });
 });
 
@@ -247,6 +282,8 @@ test("Bob transfers ownership to Charlie", function (t) {
     });
     tx.on('error', function (err) {
         fail(t, "Bob invoke", err);
+        // Exit the test script after a failure
+        process.exit(1);
     });
 });
 
@@ -272,10 +309,14 @@ test("Alice queries chaincode", function (t) {
 
         if (results.result != charlieAppCert.encode().toString('hex')) {
             fail(t, "Charlie is not the owner of the asset.")
+            // Exit the test script after a failure
+            process.exit(1);
         }
         pass(t, "Alice query. Result: " + results);
     });
     tx.on('error', function (err) {
         fail(t, "Alice query", err);
+        // Exit the test script after a failure
+        process.exit(1);
     });
 });

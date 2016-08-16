@@ -556,7 +556,8 @@
                     "enum":[
                         "UNDEFINED",
                         "GOLANG",
-                        "NODE"
+                        "NODE",
+                        "JAVA"
                     ],
                     "description": "Chaincode specification language."
                 },

@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -65,6 +66,12 @@ type ServerOpenchainREST struct {
 type restResult struct {
 	OK    string `json:",omitempty"`
 	Error string `json:",omitempty"`
+}
+
+// tcertsResult defines the response payload for the GetTransactionCert REST
+// interface request.
+type tcertsResult struct {
+	OK []string
 }
 
 // rpcRequest defines the JSON RPC 2.0 request payload for the /chaincode endpoint.
@@ -182,10 +189,42 @@ func getRESTFilePath() string {
 	return localStore
 }
 
+// isEnrollmentIDValid returns true if the given enrollmentID matches the valid
+// pattern defined in the configuration.
+func isEnrollmentIDValid(enrollmentID string) (bool, error) {
+	pattern := viper.GetString("rest.validPatterns.enrollmentID")
+	if pattern == "" {
+		return false, errors.New("Missing configuration key rest.validPatterns.enrollmentID")
+	}
+	return regexp.MatchString(pattern, enrollmentID)
+}
+
+// validateEnrollmentIDParameter checks whether the given enrollmentID is
+// valid: if valid, returns true and does nothing; if not, writes the HTTP
+// error response and returns false.
+func validateEnrollmentIDParameter(rw web.ResponseWriter, enrollmentID string) bool {
+	validID, err := isEnrollmentIDValid(enrollmentID)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(rw).Encode(restResult{Error: err.Error()})
+		restLogger.Errorf("Error when validating enrollment ID: %s", err)
+		return false
+	}
+	if !validID {
+		rw.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(rw).Encode(restResult{Error: "Invalid enrollment ID parameter"})
+		restLogger.Errorf("Invalid enrollment ID parameter '%s'.\n", enrollmentID)
+		return false
+	}
+
+	return true
+}
+
 // Register confirms the enrollmentID and secret password of the client with the
 // CA and stores the enrollment certificate and key in the Devops server.
 func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) {
 	restLogger.Info("REST client login...")
+	encoder := json.NewEncoder(rw)
 
 	// Decode the incoming JSON payload
 	var loginSpec pb.Secret
@@ -193,20 +232,15 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 
 	// Check for proper JSON syntax
 	if err != nil {
-		// Unmarshall returns a " character around unrecognized fields in the case
-		// of a schema validation failure. These must be replaced with a ' character.
-		// Otherwise, the returned JSON is invalid.
-		errVal := strings.Replace(err.Error(), "\"", "'", -1)
-
 		// Client must supply payload
 		if err == io.EOF {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
-			restLogger.Error("{\"Error\": \"Payload must contain object Secret with enrollId and enrollSecret fields.\"}")
+			encoder.Encode(restResult{Error: "Payload must contain object Secret with enrollId and enrollSecret fields."})
+			restLogger.Error("Error: Payload must contain object Secret with enrollId and enrollSecret fields.")
 		} else {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", errVal)
-			restLogger.Errorf("{\"Error\": \"%s\"}", errVal)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 		}
 
 		return
@@ -215,9 +249,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// Check that the enrollId and enrollSecret are not left blank.
 	if (loginSpec.EnrollId == "") || (loginSpec.EnrollSecret == "") {
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
-		restLogger.Error("{\"Error\": \"enrollId and enrollSecret may not be blank.\"}")
+		encoder.Encode(restResult{Error: "enrollId and enrollSecret may not be blank."})
+		restLogger.Error("Error: enrollId and enrollSecret may not be blank.")
 
+		return
+	}
+
+	if !validateEnrollmentIDParameter(rw, loginSpec.EnrollId) {
 		return
 	}
 
@@ -229,7 +267,7 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 	// If the user is already logged in, return
 	if _, err := os.Stat(localStore + "loginToken_" + loginSpec.EnrollId); err == nil {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is already logged in.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is already logged in.", loginSpec.EnrollId)})
 		restLogger.Infof("User '%s' is already logged in.\n", loginSpec.EnrollId)
 
 		return
@@ -248,13 +286,13 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 				// Directory does not exist, create it
 				if err := os.Mkdir(localStore, 0755); err != nil {
 					rw.WriteHeader(http.StatusInternalServerError)
-					fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+					encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 					panic(fmt.Errorf("Fatal error when creating %s directory: %s\n", localStore, err))
 				}
 			} else {
 				// Unexpected error
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+				encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 				panic(fmt.Errorf("Fatal error on os.Stat of %s directory: %s\n", localStore, err))
 			}
 		}
@@ -264,19 +302,17 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 		err = ioutil.WriteFile(localStore+"loginToken_"+loginSpec.EnrollId, []byte(loginSpec.EnrollId), 0755)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Fatal error -- %s\"}", err)
+			encoder.Encode(restResult{Error: fmt.Sprintf("Fatal error -- %s", err)})
 			panic(fmt.Errorf("Fatal error when storing client login token: %s\n", err))
 		}
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"Login successful for user '%s'.\"}", loginSpec.EnrollId)
+		encoder.Encode(restResult{OK: fmt.Sprintf("Login successful for user '%s'.", loginSpec.EnrollId)})
 		restLogger.Infof("Login successful for user '%s'.\n", loginSpec.EnrollId)
 	} else {
-		loginErr := strings.Replace(string(loginResult.Msg), "\"", "'", -1)
-
 		rw.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(rw, "{\"Error\": \"%s\"}", loginErr)
-		restLogger.Errorf("Error on client login: %s", loginErr)
+		encoder.Encode(restResult{Error: string(loginResult.Msg)})
+		restLogger.Errorf("Error on client login: %s", string(loginResult.Msg))
 	}
 
 	return
@@ -287,6 +323,10 @@ func (s *ServerOpenchainREST) Register(rw web.ResponseWriter, req *web.Request) 
 func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
@@ -304,8 +344,6 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 		encoder.Encode(restResult{Error: fmt.Sprintf("User %s must log in.", enrollmentID)})
 		restLogger.Infof("User '%s' must log in.\n", enrollmentID)
 	}
-
-	return
 }
 
 // DeleteEnrollmentID removes the login token of the specified user from the
@@ -315,6 +353,10 @@ func (s *ServerOpenchainREST) GetEnrollmentID(rw web.ResponseWriter, req *web.Re
 func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web.Request) {
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
+
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
 
 	// Retrieve the REST data storage path
 	// Returns /var/hyperledger/production/client/
@@ -331,10 +373,12 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	_, err1 := os.Stat(loginTok)
 	_, err2 := os.Stat(cryptoDir)
 
+	encoder := json.NewEncoder(rw)
+
 	// If the user is not logged in, nothing to delete. Return OK.
 	if os.IsNotExist(err1) && os.IsNotExist(err2) {
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"User %s is not logged in.\"}", enrollmentID)
+		encoder.Encode(restResult{OK: fmt.Sprintf("User %s is not logged in.", enrollmentID)})
 		restLogger.Infof("User '%s' is not logged in.\n", enrollmentID)
 
 		return
@@ -343,8 +387,8 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's login token
 	if err := os.RemoveAll(loginTok); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login token for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login token for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login token for user %s: %s", enrollmentID, err)
 
 		return
 	}
@@ -352,14 +396,14 @@ func (s *ServerOpenchainREST) DeleteEnrollmentID(rw web.ResponseWriter, req *web
 	// The user is logged in, delete the user's cert and key directory
 	if err := os.RemoveAll(cryptoDir); err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(rw, "{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
-		restLogger.Errorf("{\"Error\": \"Error trying to delete login directory for user %s: %s\"}", enrollmentID, err)
+		encoder.Encode(restResult{Error: fmt.Sprintf("Error trying to delete login directory for user %s: %s", enrollmentID, err)})
+		restLogger.Errorf("Error: Error trying to delete login directory for user %s: %s", enrollmentID, err)
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	fmt.Fprintf(rw, "{\"OK\": \"Deleted login token and directory for user %s.\"}", enrollmentID)
+	encoder.Encode(restResult{OK: fmt.Sprintf("Deleted login token and directory for user %s.", enrollmentID)})
 	restLogger.Infof("Deleted login token and directory for user %s.\n", enrollmentID)
 
 	return
@@ -370,7 +414,13 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	restLogger.Debugf("REST received enrollment certificate retrieval request for registrationID '%s'", enrollmentID)
+
+	encoder := json.NewEncoder(rw)
 
 	// If security is enabled, initialize the crypto client
 	if core.SecurityEnabled() {
@@ -382,8 +432,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -392,8 +442,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		handler, err := sec.GetEnrollmentCertificateHandler()
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -401,8 +451,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -413,8 +463,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate is not nil
 		if certDER == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate is nil.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate is nil.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate is nil."})
+			restLogger.Errorf("Error: Enrollment certificate is nil.")
 
 			return
 		}
@@ -422,8 +472,8 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		// Confirm the retrieved enrollment certificate has non-zero length
 		if len(certDER) == 0 {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Enrollment certificate length is 0.\"}")
-			restLogger.Error("{\"Error\": \"Enrollment certificate length is 0.\"}")
+			encoder.Encode(restResult{Error: "Enrollment certificate length is 0."})
+			restLogger.Errorf("Error: Enrollment certificate length is 0.")
 
 			return
 		}
@@ -438,13 +488,13 @@ func (s *ServerOpenchainREST) GetEnrollmentCert(rw web.ResponseWriter, req *web.
 		crypto.CloseClient(sec)
 
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": \"%s\"}", urlEncodedCert)
+		encoder.Encode(restResult{OK: urlEncodedCert})
 		restLogger.Debugf("Successfully retrieved enrollment certificate for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request enrollment certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}
@@ -455,7 +505,13 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 	// Parse out the user enrollment ID
 	enrollmentID := req.PathParams["id"]
 
+	if !validateEnrollmentIDParameter(rw, enrollmentID) {
+		return
+	}
+
 	restLogger.Debugf("REST received transaction certificate retrieval request for registrationID '%s'", enrollmentID)
+
+	encoder := json.NewEncoder(rw)
 
 	// Parse out the count query parameter
 	req.ParseForm()
@@ -473,8 +529,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Check for count parameter being a non-negative integer
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
-			restLogger.Error("{\"Error\": \"Count query parameter must be a non-negative integer.\"}")
+			encoder.Encode(restResult{Error: "Count query parameter must be a non-negative integer."})
+			restLogger.Errorf("Error: Count query parameter must be a non-negative integer.")
 
 			return
 		}
@@ -500,8 +556,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		sec, err := crypto.InitClient(enrollmentID, nil)
 		if err != nil {
 			rw.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -512,8 +568,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		handler, err := sec.GetTCertificateHandlerNext(attributes...)
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error\": \"%s\"}", err)
+			encoder.Encode(restResult{Error: err.Error()})
+			restLogger.Errorf("Error: %s", err)
 
 			return
 		}
@@ -521,8 +577,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Certificate handler can not be hil
 		if handler == nil {
 			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"Error retrieving certificate handler.\"}")
-			restLogger.Error("{\"Error\": \"Error retrieving certificate handler.\"}")
+			encoder.Encode(restResult{Error: "Error retrieving certificate handler."})
+			restLogger.Errorf("Error: Error retrieving certificate handler.")
 
 			return
 		}
@@ -537,8 +593,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate is not nil
 			if certDER == nil {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate is nil.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate is nil.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate is nil."})
+				restLogger.Errorf("Error: Transaction certificate is nil.")
 
 				return
 			}
@@ -546,8 +602,8 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 			// Confirm the retrieved enrollment certificate has non-zero length
 			if len(certDER) == 0 {
 				rw.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(rw, "{\"Error\": \"Transaction certificate length is 0.\"}")
-				restLogger.Error("{\"Error\": \"Transaction certificate length is 0.\"}")
+				encoder.Encode(restResult{Error: "Transaction certificate length is 0."})
+				restLogger.Errorf("Error: Transaction certificate length is 0.")
 
 				return
 			}
@@ -565,24 +621,14 @@ func (s *ServerOpenchainREST) GetTransactionCert(rw web.ResponseWriter, req *web
 		// Close the security client
 		crypto.CloseClient(sec)
 
-		// Construct a JSON formatted response
-		jsonResponse, err := json.Marshal(tcertArray)
-		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(rw, "{\"Error\": \"%s\"}", err)
-			restLogger.Errorf("{\"Error marshalling TCert array\": \"%s\"}", err)
-
-			return
-		}
-
 		rw.WriteHeader(http.StatusOK)
-		fmt.Fprintf(rw, "{\"OK\": %s}", string(jsonResponse))
+		encoder.Encode(tcertsResult{OK: tcertArray})
 		restLogger.Debugf("Successfully retrieved transaction certificates for secure context '%s'", enrollmentID)
 	} else {
 		// Security must be enabled to request transaction certificates
 		rw.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rw, "{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
-		restLogger.Error("{\"Error\": \"Security functionality must be enabled before requesting client certificates.\"}")
+		encoder.Encode(restResult{Error: "Security functionality must be enabled before requesting client certificates."})
+		restLogger.Errorf("Error: Security functionality must be enabled before requesting client certificates.")
 
 		return
 	}
@@ -620,26 +666,27 @@ func (s *ServerOpenchainREST) GetBlockByNumber(rw web.ResponseWriter, req *web.R
 		// Failure
 		rw.WriteHeader(http.StatusBadRequest)
 		encoder.Encode(restResult{Error: "Block id must be an integer (uint64)."})
-	} else {
-		// Retrieve Block from blockchain
-		block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
-
-		// Check for error
-		if err != nil || block == nil {
-			// Failure
-			switch {
-			case err == ErrNotFound || block == nil:
-				rw.WriteHeader(http.StatusNotFound)
-			default:
-				rw.WriteHeader(http.StatusInternalServerError)
-			}
-			encoder.Encode(restResult{Error: err.Error()})
-		} else {
-			// Success
-			rw.WriteHeader(http.StatusOK)
-			encoder.Encode(block)
-		}
+		return
 	}
+
+	// Retrieve Block from blockchain
+	block, err := s.server.GetBlockByNumber(context.Background(), &pb.BlockNumber{Number: blockNumber})
+
+	if (err == ErrNotFound) || (err == nil && block == nil) {
+		rw.WriteHeader(http.StatusNotFound)
+		encoder.Encode(restResult{Error: ErrNotFound.Error()})
+		return
+	}
+
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		encoder.Encode(restResult{Error: err.Error()})
+		return
+	}
+
+	// Success
+	rw.WriteHeader(http.StatusOK)
+	encoder.Encode(block)
 }
 
 // GetTransactionByUUID returns a transaction matching the specified UUID

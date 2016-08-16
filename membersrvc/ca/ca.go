@@ -25,9 +25,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -72,7 +74,11 @@ type AffiliationGroup struct {
 }
 
 var (
-	mutex = &sync.Mutex{}
+	mutex          = &sync.RWMutex{}
+	caOrganization string
+	caCountry      string
+	rootPath       string
+	caDir          string
 )
 
 // NewCertificateSpec creates a new certificate spec
@@ -115,6 +121,13 @@ func NewDefaultCertificateSpec(id string, pub interface{}, usage x509.KeyUsage, 
 func NewDefaultCertificateSpecWithCommonName(id string, commonName string, pub interface{}, usage x509.KeyUsage, opt ...pkix.Extension) *CertificateSpec {
 	serialNumber := big.NewInt(1)
 	return NewDefaultPeriodCertificateSpecWithCommonName(id, commonName, serialNumber, pub, usage, opt...)
+}
+
+func CacheConfiguration() {
+	caOrganization = viper.GetString("pki.ca.subject.organization")
+	caCountry = viper.GetString("pki.ca.subject.country")
+	rootPath = viper.GetString("server.rootpath")
+	caDir = viper.GetString("server.cadir")
 }
 
 // GetID returns the spec's ID field/value
@@ -162,13 +175,13 @@ func (spec *CertificateSpec) GetNotAfter() *time.Time {
 // GetOrganization returns the spec's Organization field/value
 //
 func (spec *CertificateSpec) GetOrganization() string {
-	return viper.GetString("pki.ca.subject.organization")
+	return caOrganization
 }
 
 // GetCountry returns the spec's Country field/value
 //
 func (spec *CertificateSpec) GetCountry() string {
-	return viper.GetString("pki.ca.subject.country")
+	return caCountry
 }
 
 // GetSubjectKeyID returns the spec's subject KeyID
@@ -208,7 +221,7 @@ func initializeCommonTables(db *sql.DB) error {
 // NewCA sets up a new CA.
 func NewCA(name string, initTables TableInitializer) *CA {
 	ca := new(CA)
-	ca.path = viper.GetString("server.rootpath") + "/" + viper.GetString("server.cadir")
+	ca.path = filepath.Join(rootPath, caDir)
 
 	if _, err := os.Stat(ca.path); err != nil {
 		Info.Println("Fresh start; creating databases, key pairs, and certificates.")
@@ -257,8 +270,14 @@ func NewCA(name string, initTables TableInitializer) *CA {
 }
 
 // Close closes down the CA.
-func (ca *CA) Close() {
-	ca.db.Close()
+func (ca *CA) Stop() error {
+	err := ca.db.Close()
+	if err == nil {
+		Trace.Println("Shutting down CA - Successfully")
+	} else {
+		Trace.Println(fmt.Sprintf("Shutting down CA - Error closing DB [%s]", err))
+	}
+	return err
 }
 
 func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
@@ -348,9 +367,6 @@ func (ca *CA) createCertificate(id string, pub interface{}, usage x509.KeyUsage,
 }
 
 func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, kdfKey []byte, persist bool) ([]byte, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	Trace.Println("Creating certificate for " + spec.GetID() + ".")
 
 	raw, err := ca.newCertificateFromSpec(spec)
@@ -367,6 +383,9 @@ func (ca *CA) createCertificateFromSpec(spec *CertificateSpec, timestamp int64, 
 }
 
 func (ca *CA) persistCertificate(id string, timestamp int64, usage x509.KeyUsage, certRaw []byte, kdfKey []byte) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	hash := primitives.NewHash()
 	hash.Write(certRaw)
 	var err error
@@ -432,6 +451,9 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte, error) {
 	Trace.Printf("Reading certificate for %s and usage %v", id, usage)
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND usage=?", id, usage).Scan(&raw)
 
@@ -445,6 +467,9 @@ func (ca *CA) readCertificateByKeyUsage(id string, usage x509.KeyUsage) ([]byte,
 func (ca *CA) readCertificateByTimestamp(id string, ts int64) ([]byte, error) {
 	Trace.Println("Reading certificate for " + id + ".")
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	var raw []byte
 	err := ca.db.QueryRow("SELECT cert FROM Certificates WHERE id=? AND timestamp=?", id, ts).Scan(&raw)
 
@@ -453,6 +478,9 @@ func (ca *CA) readCertificateByTimestamp(id string, ts int64) ([]byte, error) {
 
 func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificatess for " + id + ".")
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	if len(opt) > 0 && opt[0] != 0 {
 		return ca.db.Query("SELECT cert, kdfkey FROM Certificates WHERE id=? AND timestamp=? ORDER BY usage", id, opt[0])
@@ -464,11 +492,17 @@ func (ca *CA) readCertificates(id string, opt ...int64) (*sql.Rows, error) {
 func (ca *CA) readCertificateSets(id string, start, end int64) (*sql.Rows, error) {
 	Trace.Println("Reading certificate sets for " + id + ".")
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	return ca.db.Query("SELECT cert, kdfKey, timestamp FROM Certificates WHERE id=? AND timestamp BETWEEN ? AND ? ORDER BY timestamp", id, start, end)
 }
 
 func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 	Trace.Println("Reading certificate for hash " + string(hash) + ".")
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	var raw []byte
 	row := ca.db.QueryRow("SELECT cert FROM Certificates WHERE hash=?", hash)
@@ -479,6 +513,9 @@ func (ca *CA) readCertificateByHash(hash []byte) ([]byte, error) {
 
 func (ca *CA) isValidAffiliation(affiliation string) (bool, error) {
 	Trace.Println("Validating affiliation: " + affiliation)
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	var count int
 	var err error
@@ -509,9 +546,9 @@ func (ca *CA) requireAffiliation(role pb.Role) bool {
 }
 
 // validateAndGenerateEnrollID validates the affiliation subject
-func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole string, role pb.Role) (string, error) {
+func (ca *CA) validateAndGenerateEnrollID(id, affiliation string, role pb.Role) (string, error) {
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Println("Validating and generating enrollID for user id: " + id + ", affiliation: " + affiliation + ", affiliationRole: " + affiliationRole + ", role: " + roleStr + ".")
+	Trace.Println("Validating and generating enrollID for user id: " + id + ", affiliation: " + affiliation + ", role: " + roleStr + ".")
 
 	// Check whether the affiliation is required for the current user.
 	//
@@ -528,7 +565,7 @@ func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole strin
 			return "", errors.New("Invalid affiliation group " + affiliation)
 		}
 
-		return ca.generateEnrollID(id, affiliationRole, affiliation)
+		return ca.generateEnrollID(id, affiliation)
 	}
 
 	return "", nil
@@ -536,11 +573,11 @@ func (ca *CA) validateAndGenerateEnrollID(id, affiliation, affiliationRole strin
 
 // registerUser registers a new member with the CA
 //
-func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role, registrar, memberMetadata string, opt ...string) (string, error) {
+func (ca *CA) registerUser(id, affiliation string, role pb.Role, registrar, memberMetadata string, opt ...string) (string, error) {
 	memberMetadata = removeQuotes(memberMetadata)
 	roleStr, _ := MemberRoleToString(role)
-	Trace.Printf("Received request to register user with id: %s, affiliation: %s, affiliationRole: %s, role: %s, registrar: %s, memberMetadata: %s\n",
-		id, affiliation, affiliationRole, roleStr, registrar, memberMetadata)
+	Trace.Printf("Received request to register user with id: %s, affiliation: %s, role: %s, registrar: %s, memberMetadata: %s\n",
+		id, affiliation, roleStr, registrar, memberMetadata)
 
 	var enrollID, tok string
 	var err error
@@ -560,7 +597,7 @@ func (ca *CA) registerUser(id, affiliation, affiliationRole string, role pb.Role
 		}
 	}
 
-	enrollID, err = ca.validateAndGenerateEnrollID(id, affiliation, affiliationRole, role)
+	enrollID, err = ca.validateAndGenerateEnrollID(id, affiliation, role)
 	if err != nil {
 		return "", err
 	}
@@ -643,6 +680,9 @@ func (ca *CA) registerAffiliationGroup(name string, parentName string) error {
 func (ca *CA) deleteUser(id string) error {
 	Trace.Println("Deleting user " + id + ".")
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var row int
 	err := ca.db.QueryRow("SELECT row FROM Users WHERE id=?", id).Scan(&row)
 	if err == nil {
@@ -665,6 +705,9 @@ func (ca *CA) deleteUser(id string) error {
 func (ca *CA) readUser(id string) *sql.Row {
 	Trace.Println("Reading token for " + id + ".")
 
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	return ca.db.QueryRow("SELECT role, token, state, key, enrollmentId FROM Users WHERE id=?", id)
 }
 
@@ -680,6 +723,9 @@ func (ca *CA) readUsers(role int) (*sql.Rows, error) {
 //
 func (ca *CA) readRole(id string) int {
 	Trace.Println("Reading role for " + id + ".")
+
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	var role int
 	ca.db.QueryRow("SELECT role FROM Users WHERE id=?", id).Scan(&role)
@@ -717,32 +763,31 @@ func (ca *CA) readAffiliationGroups() ([]*AffiliationGroup, error) {
 	return groupList, nil
 }
 
-func (ca *CA) generateEnrollID(id string, role string, affiliation string) (string, error) {
-	if id == "" || role == "" || affiliation == "" {
-		return "", errors.New("Please provide all the input parameters, id, role and affiliation")
+func (ca *CA) generateEnrollID(id string, affiliation string) (string, error) {
+	if id == "" || affiliation == "" {
+		return "", errors.New("Please provide all the input parameters, id and role")
 	}
 
-	if strings.Contains(id, "\\") || strings.Contains(role, "\\") || strings.Contains(affiliation, "\\") {
+	if strings.Contains(id, "\\") || strings.Contains(affiliation, "\\") {
 		return "", errors.New("Do not include the escape character \\ as part of the values")
 	}
 
-	return id + "\\" + affiliation + "\\" + role, nil
+	return id + "\\" + affiliation, nil
 }
 
-func (ca *CA) parseEnrollID(enrollID string) (id string, role string, affiliation string, err error) {
+func (ca *CA) parseEnrollID(enrollID string) (id string, affiliation string, err error) {
 
 	if enrollID == "" {
-		return "", "", "", errors.New("Input parameter missing")
+		return "", "", errors.New("Input parameter missing")
 	}
 
 	enrollIDSections := strings.Split(enrollID, "\\")
 
-	if len(enrollIDSections) != 3 {
-		return "", "", "", errors.New("Either the userId, Role or affiliation is missing from the enrollmentID")
+	if len(enrollIDSections) != 2 {
+		return "", "", errors.New("Either the userId or affiliation is missing from the enrollmentID. EnrollID was " + enrollID)
 	}
 
 	id = enrollIDSections[0]
-	role = enrollIDSections[2]
 	affiliation = enrollIDSections[1]
 	err = nil
 	return
@@ -752,6 +797,9 @@ func (ca *CA) parseEnrollID(enrollID string) (id string, role string, affiliatio
 // and with metadata associated with 'newMemberMetadataStr'
 // Return nil if allowed, or an error if not allowed
 func (ca *CA) canRegister(registrar string, newMemberRole string, newMemberMetadataStr string) error {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	// Read the user metadata associated with 'registrar'
 	var registrarMetadataStr string
 	err := ca.db.QueryRow("SELECT metadata FROM Users WHERE id=?", registrar).Scan(&registrarMetadataStr)

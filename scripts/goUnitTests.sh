@@ -2,6 +2,9 @@
 
 set -e
 
+echo "Cleaning membership services folder"
+rm -rf membersrvc/ca/.ca/
+
 echo -n "Obtaining list of tests to run.."
 PKGS=`go list github.com/hyperledger/fabric/... | grep -v /vendor/ | grep -v /examples/`
 echo "DONE!"

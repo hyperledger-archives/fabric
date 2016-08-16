@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/hyperledger/fabric/protos"
 	"github.com/op/go-logging"
+	"github.com/spf13/viper"
 )
 
 var sysccLogger = logging.MustGetLogger("sysccapi")
@@ -58,7 +59,7 @@ func RegisterSysCC(syscc *SystemChaincode) error {
 		sysccLogger.Warning(fmt.Sprintf("Currently system chaincode does support security(%s,%s)", syscc.Name, syscc.Path))
 		return nil
 	}
-	if !syscc.Enabled {
+	if !syscc.Enabled || !isWhitelisted(syscc) {
 		sysccLogger.Info(fmt.Sprintf("system chaincode (%s,%s) disabled", syscc.Name, syscc.Path))
 		return nil
 	}
@@ -108,4 +109,11 @@ func deploySysCC(ctx context.Context, spec *protos.ChaincodeSpec) error {
 	_, _, err = chaincode.Execute(ctx, chaincode.GetChain(chaincode.DefaultChain), transaction)
 
 	return err
+}
+
+func isWhitelisted(syscc *SystemChaincode) bool {
+	chaincodes := viper.GetStringMapString("chaincode.system")
+	val, ok := chaincodes[syscc.Name]
+	enabled := val == "enable" || val == "true" || val == "yes"
+	return ok && enabled
 }

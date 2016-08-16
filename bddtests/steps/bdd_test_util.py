@@ -46,9 +46,9 @@ def cli_call(context, arg_list, expect_success=True):
 class UserRegistration:
     def __init__(self, secretMsg, composeService):
         self.secretMsg = secretMsg
-        self.composeService = composeService   
-        self.tags = {}   
-        self.lastResult = None  
+        self.composeService = composeService
+        self.tags = {}
+        self.lastResult = None
 
     def getUserName(self):
         return self.secretMsg['enrollId']
@@ -61,8 +61,8 @@ def registerUser(context, secretMsg, composeService):
     else:
         context.users = {}
     if userName in context.users:
-        raise Exception("User already registered: {0}".format(userName)) 
-    context.users[userName] = UserRegistration(secretMsg, composeService) 
+        raise Exception("User already registered: {0}".format(userName))
+    context.users[userName] = UserRegistration(secretMsg, composeService)
 
 # Registerses a user on a specific composeService
 def getUserRegistration(context, enrollId):
@@ -72,23 +72,38 @@ def getUserRegistration(context, enrollId):
     else:
         context.users = {}
     if enrollId in context.users:
-        userRegistration = context.users[enrollId] 
+        userRegistration = context.users[enrollId]
     else:
-        raise Exception("User has not been registered: {0}".format(enrollId)) 
+        raise Exception("User has not been registered: {0}".format(enrollId))
     return userRegistration
 
-    
+
 def ipFromContainerNamePart(namePart, containerDataList):
     """Returns the IPAddress based upon a name part of the full container name"""
-    ip = None
-    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
-    for containerData in containerDataList:
-        if containerData.containerName.startswith(containerNamePrefix + namePart):
-            ip = containerData.ipAddress
-    if ip == None:
-        raise Exception("Could not find container with namePart = {0}".format(namePart))
-    return ip
+    containerData = containerDataFromNamePart(namePart, containerDataList)
 
+    if containerData == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+
+    return containerData.ipAddress
+
+def fullNameFromContainerNamePart(namePart, containerDataList):
+    containerData = containerDataFromNamePart(namePart, containerDataList)
+
+    if containerData == None:
+        raise Exception("Could not find container with namePart = {0}".format(namePart))
+
+    return containerData.containerName
+
+def containerDataFromNamePart(namePart, containerDataList):
+    containerNamePrefix = os.path.basename(os.getcwd()) + "_"
+    fullContainerName = containerNamePrefix + namePart
+
+    for containerData in containerDataList:
+        if containerData.containerName.startswith(fullContainerName):
+            return containerData
+
+    return None
 
 def getContainerDataValuesFromContext(context, aliases, callback):
     """Returns the IPAddress based upon a name part of the full container name"""
@@ -103,5 +118,6 @@ def getContainerDataValuesFromContext(context, aliases, callback):
     return values
 
 
-
-
+def start_background_process(context, program_name, arg_list):
+    p = subprocess.Popen(arg_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    setattr(context, program_name, p)

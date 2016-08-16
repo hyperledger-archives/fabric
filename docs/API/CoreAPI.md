@@ -11,7 +11,7 @@ This document covers the available APIs for interacting with a peer node. Three 
    * [Marbles Demo Application](#marbles-demo-application)
    * [Commercial Paper Demo Application](#commercial-paper-demo-application)
 
-**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/docs/API/SandboxSetup.md#security-setup-optional) before proceeding.
+**Note:** If you are working with APIs with security enabled, please review the [security setup instructions](https://github.com/hyperledger/fabric/blob/master/docs/Setup/Chaincode-setup.md#security-setup-optional) before proceeding.
 
 ## CLI
 
@@ -23,10 +23,12 @@ To view the currently available CLI commands, execute the following:
 You will see output similar to the example below (**NOTE:** rootcommand below is hardcoded in [main.go](https://github.com/hyperledger/fabric/blob/master/main.go). Currently, the build will create a *peer* executable file).
 
 ```
-    Usage:
+    Usage: 
+      peer [flags]
       peer [command]
-
-    Available Commands:
+    
+    Available Commands: 
+      version     Print fabric peer version.
       node        node specific commands.
       network     network specific commands.
       chaincode   chaincode specific commands.
@@ -35,13 +37,15 @@ You will see output similar to the example below (**NOTE:** rootcommand below is
     Flags:
       -h, --help[=false]: help for peer
           --logging-level="": Default logging level and overrides, see core.yaml for full syntax
+          --test.coverprofile="coverage.cov": Done
+      -v, --version[=false]: Show current version number of fabric peer server
 
 
     Use "peer [command] --help" for more information about a command.
 
 ```
 
-The `peer` command supports several subcommands, as shown above. To
+The `peer` command supports several subcommands and flags, as shown above. To
 facilitate its use in scripted applications, the `peer` command always
 produces a non-zero return code in the event of command failure. Upon success,
 many of the subcommands produce a result on **stdout** as shown in the table
@@ -49,6 +53,7 @@ below:
 
 Command | **stdout** result in the event of success
 --- | ---
+`version`          | String form of `peer.version` defined in [core.yaml](https://github.com/hyperledger/fabric/blob/master/peer/core.yaml)
 `node start`       | N/A
 `node status`      | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)
 `node stop`        | String form of [StatusCode](https://github.com/hyperledger/fabric/blob/master/protos/server_admin.proto#L36)

@@ -18,7 +18,7 @@ package executor
 
 import (
 	"github.com/hyperledger/fabric/consensus"
-	"github.com/hyperledger/fabric/consensus/obcpbft/events"
+	"github.com/hyperledger/fabric/consensus/util/events"
 	"github.com/hyperledger/fabric/core/peer/statetransfer"
 	pb "github.com/hyperledger/fabric/protos"
 
@@ -119,7 +119,7 @@ func (co *coordinatorImpl) ProcessEvent(event events.Event) events.Event {
 
 		co.consumer.RolledBack(et.tag)
 	case stateUpdateEvent:
-		logger.Debug("Executor is processing an stateUpdateEvent")
+		logger.Debug("Executor is processing a stateUpdateEvent")
 		if co.batchInProgress {
 			err := co.rawExecutor.RollbackTxBatch(co)
 			_ = err // TODO This should probably panic, see issue 752

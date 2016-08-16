@@ -185,7 +185,7 @@ if {[null [parms explicitPeers]]} {
     if {[catch {busywork::networkToArray ::parms network.} msg]} {
         errorExit $msg
     }
-    if {[parms network.consensus] eq "noops"]} {
+    if {[parms network.consensus] eq "noops"} {
         puts stderr $usage
         err err "checkAgreement does not support NOOPS consensus"
         errorExit "Search for 'NOOPS' in the usage statement to understand why"
@@ -245,7 +245,7 @@ foreach peer [parms peers] file [parms files] {
 }
 
 waitPIDs $pids digest
-foreach pid $pids {
+foreach pid $pids peer [parms peers] file [parms files] {
     if {$digest($pid.ok)} {
         lappend goodPeers $peer
         lappend goodFiles $file
@@ -267,6 +267,8 @@ for {set i 0; set j 1} {$j < [llength $goodPeers]} {incr i; incr j} {
             "Peers [lindex $goodPeers $i] and [lindex $goodPeers $j] " \
             "disagree."
         incr errors
+    } else {
+        note {} "Peers [lindex $goodPeers $i] and [lindex $goodPeers $j] agree"
     }
 }
 

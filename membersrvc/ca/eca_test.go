@@ -21,11 +21,10 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"errors"
+	"google/protobuf"
 	"os"
 	"testing"
 	"time"
-
-	"google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -35,20 +34,29 @@ import (
 )
 
 type User struct {
-	enrollID        string
-	enrollPwd       []byte
-	enrollPrivKey   *ecdsa.PrivateKey
-	role            int
-	affiliation     string
-	affiliationRole string
+	enrollID               string
+	enrollPwd              []byte
+	enrollPrivKey          *ecdsa.PrivateKey
+	role                   int
+	affiliation            string
+	registrarRoles         []string
+	registrarDelegateRoles []string
 }
 
 var (
 	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
 	testAdmin   = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
-	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
-	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a", affiliationRole: "00001"}
+	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a"}
+	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a"}
 	testAuditor = User{enrollID: "testAuditor", role: 8}
+	testClient1 = User{enrollID: "testClient1", role: 1, affiliation: "institution_a",
+		registrarRoles: []string{"client"}, registrarDelegateRoles: []string{"client"}}
+	testClient2 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a",
+		registrarRoles: []string{"client"}}
+	testClient3 = User{enrollID: "testClient2", role: 1, affiliation: "institution_a",
+		registrarRoles: []string{"client"}}
+	testPeer = User{enrollID: "testPeer", role: 2, affiliation: "institution_a",
+		registrarRoles: []string{"peer"}}
 )
 
 //helper function for multiple tests
@@ -158,10 +166,13 @@ func registerUser(registrar User, user *User) error {
 	req := &pb.RegisterUserReq{
 		Id:          &pb.Identity{Id: user.enrollID},
 		Role:        pb.Role(user.role),
-		Account:     user.affiliation,
-		Affiliation: user.affiliationRole,
-		Registrar:   &pb.Registrar{Id: &pb.Identity{Id: registrar.enrollID}},
-		Sig:         nil}
+		Affiliation: user.affiliation,
+		Registrar: &pb.Registrar{
+			Id:            &pb.Identity{Id: registrar.enrollID},
+			Roles:         user.registrarRoles,
+			DelegateRoles: user.registrarDelegateRoles,
+		},
+		Sig: nil}
 
 	//sign the req
 	hash := primitives.NewHash()
@@ -286,6 +297,70 @@ func TestRegisterUserNonRegistrar(t *testing.T) {
 	if err == nil {
 		t.Fatal("User without registrar metadata should not be able to register a new user")
 	}
+	t.Logf("Expected an error and indeed received: [%s]", err.Error())
+}
+
+//testAdmin should NOT be able to register testPeer since testAdmin's
+//delegateRoles field DOES NOT contain the value "peer"
+func TestRegisterUserPeer(t *testing.T) {
+
+	err := registerUser(testAdmin, &testPeer)
+
+	if err == nil {
+		t.Fatal("User without appropriate delegateRoles should not be able to register a new user")
+	}
+	t.Logf("Expected an error and indeed received: [%s]", err.Error())
+}
+
+//testAdmin should be able to register testClient1 since testAdmin's
+//delegateRoles field contains the value "client"
+func TestRegisterUserClient(t *testing.T) {
+
+	err := registerUser(testAdmin, &testClient1)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+//testClient1 registered in the previous test should be able to enroll
+func TestCreateCertificatePairClient(t *testing.T) {
+
+	err := enrollUser(&testClient1)
+
+	if err != nil {
+		t.Fatalf("Failed to enroll testClient1: [%s]", err.Error())
+	}
+}
+
+//testClient1 should be able to register testClient2 since testClient1's
+//delegateRoles field contains the value "client"
+func TestRegisterUserClientAsRegistrar(t *testing.T) {
+
+	err := registerUser(testClient1, &testClient2)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+}
+
+//testClient2 should NOT be able to register testClient3 since testClient2's
+//delegateRoles field is empty
+func TestRegisterUserNoDelegateRoles(t *testing.T) {
+
+	err := enrollUser(&testClient2)
+
+	if err != nil {
+		t.Fatalf("Failed to enroll testClient2: [%s]", err.Error())
+	}
+
+	err = registerUser(testClient2, &testClient3)
+
+	if err == nil {
+		t.Fatal("User without delegateRoles should not be able to register a new user")
+	}
+
 	t.Logf("Expected an error and indeed received: [%s]", err.Error())
 }
 

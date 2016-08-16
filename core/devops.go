@@ -221,7 +221,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		id = util.GenerateUUID()
 	}
-	devopsLogger.Info("Transaction ID: %v", id)
+	devopsLogger.Infof("Transaction ID: %v", id)
 	var transaction *pb.Transaction
 	var err error
 	var sec crypto.Client
@@ -251,7 +251,7 @@ func (d *Devops) invokeOrQuery(ctx context.Context, chaincodeInvocationSpec *pb.
 	} else {
 		if !invoke && nil != sec && viper.GetBool("security.privacy") {
 			if resp.Msg, err = sec.DecryptQueryResult(transaction, resp.Msg); nil != err {
-				devopsLogger.Debugf("Failed decrypting query transaction result %s", string(resp.Msg[:]))
+				devopsLogger.Errorf("Failed decrypting query transaction result %s", string(resp.Msg[:]))
 				//resp = &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(err.Error())}
 			}
 		}
@@ -462,17 +462,4 @@ func (d *Devops) EXP_ExecuteWithBinding(ctx context.Context, executeWithBinding 
 	}
 	devopsLogger.Warning("Security NOT enabled")
 	return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte("Security NOT enabled")}, nil
-}
-
-// GetTransactionResult request a TransactionResult.  The Response.Msg will contain the TransactionResult if successfully found the transaction in the chain.
-func (d *Devops) GetTransactionResult(ctx context.Context, txRequest *pb.TransactionRequest) (*pb.Response, error) {
-	txResult, err := d.coord.GetTransactionResultByUUID(txRequest.TransactionUuid)
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result: %s", err.Error()))}, nil
-	}
-	txResultBytes, err := proto.Marshal(txResult)
-	if err != nil {
-		return &pb.Response{Status: pb.Response_FAILURE, Msg: []byte(fmt.Sprintf("Error getting transaction Result for tx UUID = %s, could not marshal txResult: %s", txRequest.TransactionUuid, err.Error()))}, nil
-	}
-	return &pb.Response{Status: pb.Response_SUCCESS, Msg: txResultBytes}, nil
 }

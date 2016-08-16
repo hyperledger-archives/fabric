@@ -96,6 +96,8 @@ export class Crypto {
      * @params securityLevel The security level
      */
     setSecurityLevel(securityLevel:number):void {
+        this.checkSecurityLevel(securityLevel);
+
         this.securityLevel = securityLevel;
         this.initialize();
     }
@@ -113,6 +115,8 @@ export class Crypto {
      * @params hashAlgorithm The hash algorithm ('SHA2' or 'SHA3')
      */
     setHashAlgorithm(hashAlgorithm:string):void {
+        this.checkHashFunction(hashAlgorithm);
+
         this.hashAlgorithm = hashAlgorithm;
         this.initialize();
     }
@@ -385,23 +389,23 @@ export class Crypto {
         return this.hashFunction(bytes);
     }
 
-    private checkSecurityLevel() {
-        if (this.securityLevel != 256 && this.securityLevel != 384)
+    private checkSecurityLevel(securityLevel:number) {
+        if (securityLevel != 256 && securityLevel != 384)
             throw new Error("Illegal level: " + this.securityLevel + " - must be either 256 or 384");
     }
 
-    private checkHashFunction() {
-        if (!_isString(this.hashAlgorithm))
-            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
+    private checkHashFunction(hashAlgorithm: string) {
+        if (!_isString(hashAlgorithm))
+            throw new Error("Illegal Hash function family: " + hashAlgorithm + " - must be either SHA2 or SHA3");
 
-        this.hashAlgorithm = this.hashAlgorithm.toUpperCase();
-        if (this.hashAlgorithm != SHA2 && this.hashAlgorithm != SHA3)
-            throw new Error("Illegal Hash function family: " + this.hashAlgorithm + " - must be either SHA2 or SHA3");
+        hashAlgorithm = hashAlgorithm.toUpperCase();
+        if (hashAlgorithm != SHA2 && hashAlgorithm != SHA3)
+            throw new Error("Illegal Hash function family: " + hashAlgorithm + " - must be either SHA2 or SHA3");
     }
 
     private initialize() {
-        this.checkSecurityLevel();
-        this.checkHashFunction();
+        this.checkSecurityLevel(this.securityLevel);
+        this.checkHashFunction(this.hashAlgorithm);
 
         this.suite = this.hashAlgorithm.toLowerCase() + '-' + this.securityLevel;
         if (this.securityLevel == CURVE_P_256_Size) {

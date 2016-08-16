@@ -99,7 +99,7 @@ func BenchmarkLedgerSingleKeyTransaction(b *testing.B) {
 	}
 	b.StopTimer()
 
-	//varify value persisted
+	//verify value persisted
 	value, _ = ledger.GetState(chaincode, *key, true)
 	size := ledger.GetBlockchainSize()
 	b.Logf("Value size=%d, Blockchain height=%d", len(value), size)
@@ -202,7 +202,7 @@ func BenchmarkLedgerRandomTransactions(b *testing.B) {
 
 func populateDB(tb testing.TB, kvSize int, totalKeys int, keyPrefix string) {
 	dbWrapper := db.NewTestDBWrapper()
-	dbWrapper.CreateFreshDB(tb)
+	dbWrapper.CleanDB(tb)
 	batch := gorocksdb.NewWriteBatch()
 	for i := 0; i < totalKeys; i++ {
 		key := []byte(keyPrefix + strconv.Itoa(i))

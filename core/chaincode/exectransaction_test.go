@@ -57,6 +57,7 @@ func initMemSrvc() (net.Listener, error) {
 	finitMemSrvc(nil)
 
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	ca.CacheConfiguration() // Cache configuration
 
 	aca := ca.NewACA()
 	eca := ca.NewECA()

@@ -37,18 +37,18 @@ eca:
 
     users:
         # clients
-        userthread: 1 9gvZQRwhUq9q bank_a	00001
-        user1: 1 9gvZQRwhUq9q bank_a	00001
-        user2: 1 9gvZQRwhUq9q bank_a	00001
-        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q bank_a	00001
+        userthread: 1 9gvZQRwhUq9q bank_a
+        user1: 1 9gvZQRwhUq9q bank_a
+        user2: 1 9gvZQRwhUq9q bank_a
+        TestRegistrationSameEnrollIDDifferentRole: 1 9gvZQRwhUq9q bank_a
 
         # peers
-        peer: 2 9gvZQRwhUq9q bank_a	00001
-        peerthread: 2 9gvZQRwhUq9q bank_a	00001
+        peer: 2 9gvZQRwhUq9q bank_a
+        peerthread: 2 9gvZQRwhUq9q bank_a
 
         # validators
-        validator: 4 9gvZQRwhUq9q bank_a 00001
-        validatorthread: 4 9gvZQRwhUq9q bank_a	00001
+        validator: 4 9gvZQRwhUq9q bank_a
+        validatorthread: 4 9gvZQRwhUq9q bank_a
 
 tca:
     attribute-encryption:

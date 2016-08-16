@@ -70,6 +70,7 @@ func setupTestConfig() {
 
 func initPKI() {
 	LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	CacheConfiguration() // Cache configuration
 	aca = NewACA()
 	eca = NewECA()
 	tca = NewTCA(eca)
@@ -108,8 +109,8 @@ func cleanupFiles() {
 }
 
 func stopPKI() {
-	aca.Close()
-	eca.Close()
-	tca.Close()
+	aca.Stop()
+	eca.Stop()
+	tca.Stop()
 	server.Stop()
 }

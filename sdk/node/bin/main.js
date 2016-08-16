@@ -19,13 +19,13 @@
  * © Copyright IBM Corp. 2016
  */
 
-var hlc = require('..');
+var hfc = require('..');
 var fs = require('fs');
 var util = require('util');
 
 function usage(msg) {
     if (msg) console.log("ERROR: %s",msg);
-    console.log("Usage: hlc test <config-file>");
+    console.log("Usage: hfc test <config-file>");
     process.exit(0);
 }
 
@@ -53,11 +53,11 @@ function runTests(cfgFile) {
     var cfg = require('./'+cfgFile);
 
     console.log("configuring chain ...");
-    var chain = hlc.newChain("testChain");
+    var chain = hfc.newChain("testChain");
     // Set member services URL
     chain.setMemberServicesUrl(getVal(cfg,"memberServicesUrl"));
     // Set keyValStore
-    chain.setKeyValStore(hlc.newFileKeyValStore('/tmp/keyValStore'));
+    chain.setKeyValStore(hfc.newFileKeyValStore('/tmp/keyValStore'));
     // Add peeers
     var peers = getVal(cfg,"peers");
     for (var i = 0; i < peers.length; i++) {
@@ -81,8 +81,7 @@ function runTests(cfgFile) {
             console.log("registering %s",userName);
             var registration = {
                 enrollmentID: userName,
-                account: "bank_a",
-                affiliation: "00001"
+                affiliation: "bank_a"
             };
             chain.registerAndEnroll(registration,function(err,user) {
                if (err) throw Error("failed to register and enroll "+userName+": "+err);

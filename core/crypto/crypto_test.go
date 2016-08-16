@@ -83,15 +83,6 @@ func TestMain(m *testing.M) {
 		os.Exit(ret)
 	}
 
-	//properties["security.multithreading.enabled"] = "false"
-	//Third scenario using confidentialityProtocolVersion = 1.1
-	/*
-		properties["security.confidentialityProtocolVersion"] = "1.1"
-		ret = runTestsOnScenario(m, properties, "Using confidentialityProtocolVersion = 1.1 enabled")
-		if ret != 0 {
-			os.Exit(ret)
-		}
-	*/
 	//Fourth scenario with security level = 384
 	properties["security.hashAlgorithm"] = "SHA3"
 	properties["security.level"] = "384"
@@ -262,6 +253,55 @@ func TestRegistrationSameEnrollIDDifferentRole(t *testing.T) {
 	if err := RegisterPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err == nil {
 		t.Fatal("Reusing the same enrollment id must be forbidden", err)
 	}
+}
+
+func TestTLSCertificateDeletion(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
+
+	peer, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+
+	if peer.ks.certMissing(peer.conf.getTLSCertFilename()) {
+		t.Fatal("TLS shouldn't be missing after peer registration")
+	}
+
+	if err := peer.deleteTLSCertificate(conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed deleting TLS certificate [%s]", err)
+	}
+
+	if !peer.ks.certMissing(peer.conf.getTLSCertFilename()) {
+		t.Fatal("TLS certificate should be missing after deletion")
+	}
+}
+
+func TestRegistrationAfterDeletingTLSCertificate(t *testing.T) {
+	conf := utils.NodeConfiguration{Type: "peer", Name: "peer"}
+
+	peer, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD())
+	if err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+
+	if err := peer.deleteTLSCertificate(conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed deleting TLS certificate [%s]", err)
+	}
+
+	if _, err := registerAndReturnPeer(conf.Name, nil, conf.GetEnrollmentID(), conf.GetEnrollmentPWD()); err != nil {
+		t.Fatalf("Failed peer registration [%s]", err)
+	}
+}
+
+func registerAndReturnPeer(name string, pwd []byte, enrollID, enrollPWD string) (*peerImpl, error) {
+	peer := newPeer()
+	if err := peer.register(NodePeer, name, pwd, enrollID, enrollPWD, nil); err != nil {
+		return nil, err
+	}
+	if err := peer.close(); err != nil {
+		return nil, err
+	}
+	return peer, nil
 }
 
 func TestInitialization(t *testing.T) {
@@ -751,6 +791,19 @@ func TestPeerDeployTransaction(t *testing.T) {
 		// Test Invalid Cert
 		oldCert = tx.Cert
 		tx.Cert = []byte{0, 1, 2, 3, 4}
+		_, err = peer.TransactionPreValidation(tx)
+		if err == nil {
+			t.Fatalf("Pre Validatiotn should fail. Invalid Cert. %s", err)
+		}
+		tx.Cert = oldCert
+
+		// Test self signed certificate Cert
+		oldCert = tx.Cert
+		rawSelfSignedCert, _, err := primitives.NewSelfSignedCert()
+		if err != nil {
+			t.Fatalf("Failed creating self signed cert [%s]", err)
+		}
+		tx.Cert = rawSelfSignedCert
 		_, err = peer.TransactionPreValidation(tx)
 		if err == nil {
 			t.Fatalf("Pre Validatiotn should fail. Invalid Cert. %s", err)
@@ -1472,6 +1525,7 @@ func setup() {
 
 func initPKI() {
 	ca.LogInit(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr, os.Stdout)
+	ca.CacheConfiguration() // Need cache the configuration first
 	aca = ca.NewACA()
 	eca = ca.NewECA()
 	tca = ca.NewTCA(eca)
@@ -2084,10 +2138,10 @@ func cleanup() {
 }
 
 func stopPKI() {
-	aca.Close()
-	eca.Close()
-	tca.Close()
-	tlsca.Close()
+	aca.Stop()
+	eca.Stop()
+	tca.Stop()
+	tlsca.Stop()
 
 	server.Stop()
 }
