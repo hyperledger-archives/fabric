@@ -29,7 +29,7 @@ type SimpleChaincode struct {
 
 // Init intializes the chaincode by reading the transaction attributes and storing
 // the attrbute values in the state
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	attributes, err := stub.CertAttributes()
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 }
 
 // Invoke takes two arguements, a key and value, and stores these in the state
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	var A string // Entities
 	var err error
 
@@ -72,7 +72,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 }
 
 // Deletes an entity from state
-func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	if len(args) != 1 {
 		return nil, errors.New("Incorrect number of arguments. Expecting 3")
 	}
@@ -89,7 +89,7 @@ func (t *SimpleChaincode) delete(stub *shim.ChaincodeStub, args []string) ([]byt
 }
 
 // Query callback representing the query of a chaincode
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}

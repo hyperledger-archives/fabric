@@ -30,7 +30,7 @@ import (
 type SimpleChaincode struct {
 }
 
-func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
+func (t *SimpleChaincode) getChaincodeToCall(stub shim.ChaincodeStubInterface) (string, error) {
 	//This is the hashcode for github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
 	chainCodeToCall := "a5389f7dfb9efae379900a41db1503fea2199fe400272b61ac5fe7bd0c6b97cf10ce3aa8dd00cd7626ce02f18accc7e5f2059dae6eb0786838042958352b89fb" //with SHA3
@@ -39,7 +39,7 @@ func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, 
 }
 
 // Init takes two arguements, a string and int. These are stored in the key/value pair in the state
-func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	var event string // Indicates whether event has happened. Initially 0
 	var eventVal int // State of event
 	var err error
@@ -65,7 +65,7 @@ func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args [
 }
 
 // Invoke invokes another chaincode - chaincode_example02, upon receipt of an event and changes event state
-func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	var event string // Event entity
 	var eventVal int // State of event
 	var err error
@@ -112,7 +112,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 }
 
 // Query callback representing the query of a chaincode
-func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function string, args []string) ([]byte, error) {
 	if function != "query" {
 		return nil, errors.New("Invalid query function name. Expecting \"query\"")
 	}
