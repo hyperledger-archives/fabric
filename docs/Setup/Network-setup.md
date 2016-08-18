@@ -137,7 +137,7 @@ This single peer configuration, running the `NOOPS` 'consensus' plugin, should s
 
 #### Running with the CA
 
-If you want to take advantage of security (authentication and authorization), privacy and confidentiality, then you'll need to run the Fabric's certificate authority (CA). Please refer to the [CA Setup](#Setup/ca-setup.md) instructions.
+If you want to take advantage of security (authentication and authorization), privacy and confidentiality, then you'll need to run the Fabric's certificate authority (CA). Please refer to the [CA Setup](/docs/Setup/ca-setup.md) instructions.
 
 #### Start up additional validating peers:
 
