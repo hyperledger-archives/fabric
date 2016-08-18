@@ -115,6 +115,14 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	Bval = Bval + X
 	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
+	// Chaincode should verify that value transfered does not result in a negative
+	// balance for A and throw an error if the balance is valid.
+	// This check is commented out to preserve compaitibility with the existsing
+	// test suite.
+	// if Aval < 0 {
+	// 	return nil, errors.New("Transaction amount exceeds available balance")
+	// }
+
 	// Write the state back to the ledger
 	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
 	if err != nil {
