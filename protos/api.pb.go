@@ -41,6 +41,7 @@ It has these top-level messages:
 	Interest
 	Register
 	Rejection
+	Unregister
 	Event
 	Transaction
 	TransactionBlock
@@ -52,6 +53,7 @@ It has these top-level messages:
 	PeerID
 	PeerEndpoint
 	PeersMessage
+	PeersAddresses
 	HelloMessage
 	Message
 	Response

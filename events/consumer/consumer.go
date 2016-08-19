@@ -31,13 +31,22 @@ import (
 //EventsClient holds the stream and adapter for consumer to work with
 type EventsClient struct {
 	peerAddress string
+	regTimeout  int
 	stream      ehpb.Events_ChatClient
 	adapter     EventAdapter
 }
 
 //NewEventsClient Returns a new grpc.ClientConn to the configured local PEER.
-func NewEventsClient(peerAddress string, adapter EventAdapter) *EventsClient {
-	return &EventsClient{peerAddress, nil, adapter}
+func NewEventsClient(peerAddress string, regTimeout int, adapter EventAdapter) (*EventsClient, error) {
+	var err error
+	if regTimeout <= 0 {
+		regTimeout = 1
+		err = fmt.Errorf("regTimeout >= 0, setting to 1 sec")
+	} else if regTimeout > 60 {
+		regTimeout = 60
+		err = fmt.Errorf("regTimeout > 60, setting to 60 sec")
+	}
+	return &EventsClient{peerAddress, regTimeout, nil, adapter}, err
 }
 
 //newEventsClientConnectionWithAddress Returns a new grpc.ClientConn to the configured local PEER.
@@ -48,11 +57,20 @@ func newEventsClientConnectionWithAddress(peerAddress string) (*grpc.ClientConn,
 	return comm.NewClientConnectionWithAddress(peerAddress, true, false, nil)
 }
 
-func (ec *EventsClient) register(ies []*ehpb.Interest) error {
+// RegisterASync - registers interest in a event and doesn't wait for a response
+func (ec *EventsClient) RegisterASync(ies []*ehpb.Interest) error {
 	emsg := &ehpb.Event{Event: &ehpb.Event_Register{Register: &ehpb.Register{Events: ies}}}
 	var err error
 	if err = ec.stream.Send(emsg); err != nil {
 		fmt.Printf("error on Register send %s\n", err)
+	}
+	return err
+}
+
+// Register - registers interest in a event
+func (ec *EventsClient) Register(ies []*ehpb.Interest) error {
+	var err error
+	if err = ec.RegisterASync(ies); err != nil {
 		return err
 	}
 
@@ -74,12 +92,72 @@ func (ec *EventsClient) register(ies []*ehpb.Interest) error {
 	}()
 	select {
 	case <-regChan:
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(ec.regTimeout) * time.Second):
 		err = fmt.Errorf("timeout waiting for registration")
 	}
 	return err
 }
 
+// UnregisterASync - Unregisters interest in a event and doesn't wait for a response
+func (ec *EventsClient) UnregisterASync(ies []*ehpb.Interest) error {
+	emsg := &ehpb.Event{Event: &ehpb.Event_Unregister{Unregister: &ehpb.Unregister{Events: ies}}}
+	var err error
+	if err = ec.stream.Send(emsg); err != nil {
+		fmt.Printf("error on unregister send %s\n", err)
+	}
+
+	return err
+}
+
+// Unregister - unregisters interest in a event
+func (ec *EventsClient) Unregister(ies []*ehpb.Interest) error {
+	var err error
+	if err = ec.UnregisterASync(ies); err != nil {
+		return err
+	}
+
+	regChan := make(chan struct{})
+	go func() {
+		defer close(regChan)
+		in, inerr := ec.stream.Recv()
+		if inerr != nil {
+			err = inerr
+			return
+		}
+		switch in.Event.(type) {
+		case *ehpb.Event_Unregister:
+		case nil:
+			err = fmt.Errorf("invalid nil object for unregister")
+		default:
+			err = fmt.Errorf("invalid unregistration object")
+		}
+	}()
+	select {
+	case <-regChan:
+	case <-time.After(time.Duration(ec.regTimeout) * time.Second):
+		err = fmt.Errorf("timeout waiting for unregistration")
+	}
+	return err
+}
+
+// Recv recieves next event - use when client has not called Start
+func (ec *EventsClient) Recv() (*ehpb.Event, error) {
+	in, err := ec.stream.Recv()
+	if err == io.EOF {
+		// read done.
+		if ec.adapter != nil {
+			ec.adapter.Disconnected(nil)
+		}
+		return nil, err
+	}
+	if err != nil {
+		if ec.adapter != nil {
+			ec.adapter.Disconnected(err)
+		}
+		return nil, err
+	}
+	return in, nil
+}
 func (ec *EventsClient) processEvents() error {
 	defer ec.stream.CloseSend()
 	for {
@@ -128,7 +206,7 @@ func (ec *EventsClient) Start() error {
 		return fmt.Errorf("Could not create client conn to %s", ec.peerAddress)
 	}
 
-	if err = ec.register(ies); err != nil {
+	if err = ec.Register(ies); err != nil {
 		return err
 	}
 
