@@ -436,7 +436,7 @@ func (handler *Handler) handleGetState(key string, uuid string) ([]byte, error) 
 	// Create the channel on which to communicate the response from validating peer
 	respChan, uniqueReqErr := handler.createChannel(uuid)
 	if uniqueReqErr != nil {
-		chaincodeLogger.Debug("Another state request pending for this Uuid. Cannot process.")
+		chaincodeLogger.Errorf("[%s]Another state request pending for this Uuid. Cannot process.", shortuuid(uuid))
 		return nil, uniqueReqErr
 	}
 
