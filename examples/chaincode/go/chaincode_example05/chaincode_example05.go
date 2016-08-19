@@ -73,7 +73,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 
 	// Query chaincode_example02
 	f := "query"
-	queryArgs := []string{"a"}
+	queryArgs := []byte("a")
 	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
@@ -87,7 +87,7 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 		return nil, errors.New(errStr)
 	}
 
-	queryArgs = []string{"b"}
+	queryArgs = []byte("b")
 	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
@@ -133,7 +133,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 
 	// Query chaincode_example02
 	f := "query"
-	queryArgs := []string{"a"}
+	queryArgs := []byte("a")
 	response, err := stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())
@@ -147,7 +147,7 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
 		return nil, errors.New(errStr)
 	}
 
-	queryArgs = []string{"b"}
+	queryArgs = []byte("b")
 	response, err = stub.QueryChaincode(chaincodeURL, f, queryArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to query chaincode. Got error: %s", err.Error())

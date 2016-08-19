@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -48,10 +49,10 @@ func (p *PassthruChaincode) iq(invoke bool, stub *shim.ChaincodeStub, function s
 	chaincodeID := function
 
 	var f string
-	var cargs []string
+	var cargs []byte
 	if len(args) > 0 {
 		f = args[0]
-		cargs = args[1:]
+		cargs = toByteArray(args[1:])
 	}
 
 	if invoke {
@@ -68,6 +69,14 @@ func (p *PassthruChaincode) Invoke(stub *shim.ChaincodeStub, function string, ar
 // Query passes through the query call
 func (p *PassthruChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
 	return p.iq(false, stub, function, args)
+}
+
+func toByteArray(a []string) []byte {
+	b := make([][]byte, 0, len(a))
+	for _, e := range a {
+		b = append(b, []byte(e))
+	}
+	return bytes.Join(b, []byte{0})
 }
 
 func main() {

@@ -17,6 +17,7 @@ limitations under the License.
 package system_chaincode
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -106,7 +107,7 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 			Enabled:   true,
 			Name:      "sample_syscc",
 			Path:      "github.com/hyperledger/fabric/core/system_chaincode/samplesyscc",
-			InitArgs:  []string{},
+			InitArgs:  []byte{},
 			Chaincode: &samplesyscc.SampleSysCC{},
 		},
 	}
@@ -117,7 +118,8 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 
 	url := "github.com/hyperledger/fabric/core/system_chaincode/sample_syscc"
 	f := "putval"
-	args := []string{"greeting", "hey there"}
+	bargs := [][]byte{[]byte("greeting"), []byte("hey there")}
+	args := bytes.Join(bargs, []byte{0})
 
 	spec := &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: "sample_syscc", Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_INVOKE)
@@ -129,7 +131,7 @@ func TestExecuteDeploySysChaincode(t *testing.T) {
 	}
 
 	f = "getval"
-	args = []string{"greeting"}
+	args = []byte("greeting")
 	spec = &pb.ChaincodeSpec{Type: 1, ChaincodeID: &pb.ChaincodeID{Name: "sample_syscc", Path: url}, CtorMsg: &pb.ChaincodeInput{Function: f, Args: args}}
 	_, _, _, err = invoke(ctxt, spec, pb.Transaction_CHAINCODE_QUERY)
 	if err != nil {

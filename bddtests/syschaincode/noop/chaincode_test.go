@@ -115,7 +115,7 @@ func (ml mockLedger) GetTransactionByUUID(txUUID string) (*protos.Transaction, e
 	if txUUID == "noSuchTX" {
 		return nil, fmt.Errorf("Some error")
 	}
-	newCCIS := &protos.ChaincodeInvocationSpec{ChaincodeSpec: &protos.ChaincodeSpec{CtorMsg: &protos.ChaincodeInput{Function: "execute", Args: []string{something}}}}
+	newCCIS := &protos.ChaincodeInvocationSpec{ChaincodeSpec: &protos.ChaincodeSpec{CtorMsg: &protos.ChaincodeInput{Function: "execute", Args: []byte(something)}}}
 	pl, _ := proto.Marshal(newCCIS)
 	return &protos.Transaction{Payload: pl}, nil
 }

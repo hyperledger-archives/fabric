@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -33,7 +34,7 @@ type SimpleChaincode struct {
 func (t *SimpleChaincode) getChaincodeToCall(stub *shim.ChaincodeStub) (string, error) {
 	//This is the hashcode for github.com/hyperledger/fabric/core/example/chaincode/chaincode_example02
 	//if the example is modifed this hashcode will change!!
-	chainCodeToCall := "a5389f7dfb9efae379900a41db1503fea2199fe400272b61ac5fe7bd0c6b97cf10ce3aa8dd00cd7626ce02f18accc7e5f2059dae6eb0786838042958352b89fb" //with SHA3
+	chainCodeToCall := "7cf907edf69ab687cb64f3a14cb23722bc92d9f4a1c669b12ff5b2b9da4250c144503c60293d7df5a048fa2e9ad70e1d9209bf0fb4cc64af8caa5ba7d289d291" //with SHA3
 
 	return chainCodeToCall, nil
 }
@@ -92,7 +93,8 @@ func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args
 	}
 
 	f := "invoke"
-	invokeArgs := []string{"a", "b", "10"}
+	bargs := [][]byte{[]byte("a"), []byte("b"), []byte("10")}
+	invokeArgs := bytes.Join(bargs, []byte{0})
 	response, err := stub.InvokeChaincode(chainCodeToCall, f, invokeArgs)
 	if err != nil {
 		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", err.Error())

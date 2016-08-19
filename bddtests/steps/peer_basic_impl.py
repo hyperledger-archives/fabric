@@ -20,6 +20,7 @@ import re
 import time
 import copy
 from datetime import datetime, timedelta
+import base64
 
 import sys, requests, json
 
@@ -194,7 +195,6 @@ def getArgsFromContext(context):
     if 'table' in context:
        # There is ctor arguments
        args = context.table[0].cells
-
     return args
 
 @when(u'I deploy chaincode "{chaincodePath}" with ctor "{ctor}" to "{containerName}"')
@@ -240,6 +240,8 @@ def deployChainCodeToContainer(context, chaincode, containerName):
 def createChaincodeSpec(context, chaincode):
     chaincode = validateChaincodeDictionary(chaincode)
 
+    args = to_bytes(chaincode["args"])
+    # Create a ChaincodeSpec structure
     chaincodeSpec = {
         "type": getChaincodeTypeValue(chaincode["language"]),
         "chaincodeID": {
@@ -248,7 +250,7 @@ def createChaincodeSpec(context, chaincode):
         },
         "ctorMsg":  {
             "function" : chaincode["constructor"],
-            "args" : chaincode["args"]
+            "args" : args
         },
     }
 
@@ -359,14 +361,13 @@ def invokeChaincode(context, devopsFunc, functionName, containerName, idGenAlg=N
     if 'table' in context:
        # There is ctor arguments
        args = context.table[0].cells
-
+    args = to_bytes(args)
     for idx, attr in enumerate(attributes):
         attributes[idx] = attr.strip()
 
     context.chaincodeSpec['ctorMsg']['function'] = functionName
     context.chaincodeSpec['ctorMsg']['args'] = args
     context.chaincodeSpec['attributes'] = attributes
-
     #If idGenAlg is passed then, we still using the deprecated devops API because this parameter can't be passed in the new API.
     if idGenAlg != None:
         invokeUsingDevopsService(context, devopsFunc, functionName, containerName, idGenAlg)
@@ -418,6 +419,7 @@ def invokeMasterChaincode(context, devopsFunc, chaincodeName, functionName, cont
     args = []
     if 'table' in context:
        args = context.table[0].cells
+    args = to_bytes(args)
     typeGolang = 1
     chaincodeSpec = {
         "type": typeGolang,
@@ -597,6 +599,7 @@ def step_impl(context, chaincodeName, functionName):
     if 'table' in context:
        # There is ctor arguments
        args = context.table[0].cells
+    args = to_bytes(args)
     context.chaincodeSpec['ctorMsg']['function'] = functionName
     context.chaincodeSpec['ctorMsg']['args'] = args #context.table[0].cells if ('table' in context) else []
     # Invoke the POST
@@ -630,7 +633,7 @@ def query_common(context, chaincodeName, functionName, value, failOnError):
 
     # Update the chaincodeSpec ctorMsg for invoke
     context.chaincodeSpec['ctorMsg']['function'] = functionName
-    context.chaincodeSpec['ctorMsg']['args'] = [value]
+    context.chaincodeSpec['ctorMsg']['args'] = to_bytes([value])
     # Invoke the POST
     # Make deep copy of chaincodeSpec as we will be changing the SecurityContext per call.
     chaincodeOpPayload = createChaincodeOpPayload("query", copy.deepcopy(context.chaincodeSpec))
@@ -770,3 +773,6 @@ def compose_op(context, op):
        else:
            parseComposeOutput(context)
        print("After {0}ing, the container service list is = {1}".format(op, [containerData.composeService for  containerData in context.compose_containers]))
+
+def to_bytes(strlist):
+    return base64.standard_b64encode('\0'.join(strlist).encode('ascii'))

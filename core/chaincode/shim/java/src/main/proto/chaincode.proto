@@ -49,7 +49,7 @@ message ChaincodeID {
 message ChaincodeInput {
 
     string function = 1;
-    repeated string args  = 2;
+    bytes args  = 2;
 
 }
 

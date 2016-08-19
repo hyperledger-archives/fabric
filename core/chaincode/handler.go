@@ -1236,21 +1236,22 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 		msg.SecurityContext.Binding = binding
 		msg.SecurityContext.Metadata = tx.Metadata
 
-		if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
-			cis := &pb.ChaincodeInvocationSpec{}
-			if err := proto.Unmarshal(tx.Payload, cis); err != nil {
-				chaincodeLogger.Errorf("Failed getting payload [%s]", err)
-				return err
-			}
-
-			ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
-			if err != nil {
-				chaincodeLogger.Errorf("Failed getting ctorMsgRaw [%s]", err)
-				return err
-			}
-
-			msg.SecurityContext.Payload = ctorMsgRaw
+		// if tx.Type == pb.Transaction_CHAINCODE_INVOKE || tx.Type == pb.Transaction_CHAINCODE_QUERY {
+		// we always need to set this
+		cis := &pb.ChaincodeInvocationSpec{}
+		if err := proto.Unmarshal(tx.Payload, cis); err != nil {
+			chaincodeLogger.Errorf("Failed getting payload [%s]", err)
+			return err
 		}
+
+		ctorMsgRaw, err := proto.Marshal(cis.ChaincodeSpec.GetCtorMsg())
+		if err != nil {
+			chaincodeLogger.Errorf("Failed getting ctorMsgRaw [%s]", err)
+			return err
+		}
+
+		msg.SecurityContext.Payload = ctorMsgRaw
+		// }
 		msg.SecurityContext.TxTimestamp = tx.Timestamp
 	}
 	return nil
@@ -1258,7 +1259,7 @@ func (handler *Handler) setChaincodeSecurityContext(tx *pb.Transaction, msg *pb.
 
 //if initArgs is set (should be for "deploy" only) move to Init
 //else move to ready
-func (handler *Handler) initOrReady(uuid string, f *string, initArgs []string, tx *pb.Transaction, depTx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
+func (handler *Handler) initOrReady(uuid string, f *string, initArgs []byte, tx *pb.Transaction, depTx *pb.Transaction) (chan *pb.ChaincodeMessage, error) {
 	var ccMsg *pb.ChaincodeMessage
 	var send bool
 

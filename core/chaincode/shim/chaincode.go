@@ -69,6 +69,8 @@ type ChaincodeStub struct {
 	UUID            string
 	securityContext *pb.ChaincodeSecurityContext
 	chaincodeEvent  *pb.ChaincodeEvent
+	function        string
+	args            []byte
 }
 
 // Peer address derived from command line or env var
@@ -244,9 +246,21 @@ func chatWithPeer(chaincodename string, stream PeerChaincodeStream, cc Chaincode
 }
 
 // -- init stub ---
+// ChaincodeInvocation functionality
+
 func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityContext) {
 	stub.UUID = uuid
 	stub.securityContext = secContext
+	stub.function = ""
+	stub.args = []byte{}
+	newCI := pb.ChaincodeInput{}
+	err := proto.Unmarshal(secContext.Payload, &newCI)
+	if err == nil {
+		stub.function = newCI.Function
+		stub.args = newCI.Args
+	} else {
+		panic("Arguments cannot be unmarshalled.")
+	}
 }
 
 // --------- Security functions ----------
@@ -257,14 +271,14 @@ func (stub *ChaincodeStub) init(uuid string, secContext *pb.ChaincodeSecurityCon
 // InvokeChaincode locally calls the specified chaincode `Invoke` using the
 // same transaction context; that is, chaincode calling chaincode doesn't
 // create a new transaction message.
-func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+func (stub *ChaincodeStub) InvokeChaincode(chaincodeName string, function string, args []byte) ([]byte, error) {
 	return handler.handleInvokeChaincode(chaincodeName, function, args, stub.UUID)
 }
 
 // QueryChaincode locally calls the specified chaincode `Query` using the
 // same transaction context; that is, chaincode calling chaincode doesn't
 // create a new transaction message.
-func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []string) ([]byte, error) {
+func (stub *ChaincodeStub) QueryChaincode(chaincodeName string, function string, args []byte) ([]byte, error) {
 	return handler.handleQueryChaincode(chaincodeName, function, args, stub.UUID)
 }
 
@@ -378,6 +392,25 @@ func (iter *StateRangeQueryIterator) Next() (string, []byte, error) {
 func (iter *StateRangeQueryIterator) Close() error {
 	_, err := iter.handler.handleRangeQueryStateClose(iter.response.ID, iter.uuid)
 	return err
+}
+
+// ChaincodeInvocation functionality
+func (stub *ChaincodeStub) GetFunction() string {
+	return stub.function
+}
+
+func (stub *ChaincodeStub) GetArgs() []byte {
+	return stub.args
+}
+
+func (stub *ChaincodeStub) GetStringArgs() []string {
+	args := stub.GetArgs()
+	splittedargs := bytes.Split(args, []byte{0})
+	strargs := make([]string, 0, len(splittedargs))
+	for _, bargs := range splittedargs {
+		strargs = append(strargs, string(bargs))
+	}
+	return strargs
 }
 
 // TABLE FUNCTIONALITY
