@@ -24,6 +24,10 @@ import (
 //NewDockerClient creates a docker client
 func NewDockerClient() (client *docker.Client, err error) {
 	endpoint := viper.GetString("vm.endpoint")
+	if endpoint == "" {
+		return docker.NewClientFromEnv()
+	}
+
 	tlsenabled := viper.GetBool("vm.docker.tls.enabled")
 	if tlsenabled {
 		cert := viper.GetString("vm.docker.tls.cert.file")
