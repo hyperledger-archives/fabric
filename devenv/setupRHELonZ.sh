@@ -46,16 +46,17 @@ nohup docker daemon -g /data/docker -H tcp://0.0.0.0:2375 -H unix:///var/run/doc
 cd $HOME
 git clone http://github.com/linux-on-ibm-z/go.git
 cd go
-git checkout release-branch.go1.6
+git checkout release-branch.go1.6-p256
 
 cat > crosscompile.sh <<HEREDOC
+apt-get update -qq
 cd /tmp/home/go/src	
-yum install -y git wget tar gcc bzip2
-export GOROOT_BOOTSTRAP=/usr/local/go
+apt-get install -y golang git wget tar gcc bzip2
+export GOROOT_BOOTSTRAP=/usr/lib/go
 GOOS=linux GOARCH=s390x ./bootstrap.bash
 HEREDOC
 
-docker run --privileged --rm -ti -v $HOME:/tmp/home brunswickheads/openchain-peer /bin/bash /tmp/home/go/crosscompile.sh
+docker run --privileged --rm -ti -v $HOME:/tmp/home s390x/ubuntu /bin/bash /tmp/home/go/crosscompile.sh
 
 export GOROOT_BOOTSTRAP=$HOME/go-linux-s390x-bootstrap
 cd $HOME/go/src
