@@ -86,6 +86,17 @@ curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
 python get-pip.py
 pip install --upgrade pip
 pip install behave nose docker-compose
+pip install -U "grpcio==0.13.1"
+
+################
+#grpcio package
+
+git clone https://github.com/grpc/grpc.git
+cd grpc
+git submodule update --init
+pip install -rrequirements.txt
+git checkout tags/release-0_13_1
+GRPC_PYTHON_BUILD_WITH_CYTHON=1 pip install .
 
 ################
 #grpcio package
