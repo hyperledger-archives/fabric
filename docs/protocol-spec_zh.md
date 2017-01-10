@@ -446,14 +446,14 @@ message ChaincodeInvocationSpec {
 ### 3.1.3 同步消息    
 同步协议以3.1.1节描述的，当 peer 知道它自己的区块落后于其它 peer 或和它们不一样后所发起的。peer 广播`SYNC_GET_BLOCKS`，`SYNC_STATE_GET_SNAPSHOT`或`SYNC_STATE_GET_DELTAS`并分别接收`SYNC_BLOCKS`, `SYNC_STATE_SNAPSHOT`或 `SYNC_STATE_DELTAS`。
 
-安装的共识插件（如：pbft）决定同步协议是如何被应用的。每个小时是针对具体的状态来设计的：
+安装的共识插件（如：pbft）决定同步协议是如何被应用的。每个消息是针对具体的状态来设计的：
 
 **SYNC_GET_BLOCKS** 是一个`SyncBlockRange`对象，包含一个连续区块的范围的`payload`的请求。
 
 ```
 message SyncBlockRange {
-    uint64 start = 1;
-    uint64 end = 2;
+    uint64 correlationId = 1;
+    uint64 start = 2;
     uint64 end = 3;
 }
 ```
@@ -597,7 +597,7 @@ message TransactionResult {
 
 ### 3.2.2 世界状态    
 
-peer 的*世界状态*涉及到所有被部署的链码的*状态*集合。进一步说，链码的状态由键值对集合来表示。所以，逻辑上说，peer 的世界状态也是键值对的集合，其中键有元组`{chaincodeID, ckey}`组成。这里我们使用术语`key`来标识世界状态的键，如：元组`{chaincodeID, ckey}` ，而且我们使用`cKey`来标识链码中的唯一键。
+peer 的*世界状态*涉及到所有被部署的链码的*状态*集合。进一步说，链码的状态由键值对集合来表示。所以，逻辑上说，peer 的世界状态也是键值对的集合，其中键由元组`{chaincodeID, ckey}`组成。这里我们使用术语`key`来标识世界状态的键，如：元组`{chaincodeID, ckey}` ，而且我们使用`cKey`来标识链码中的唯一键。
 
 为了下面描述的目的，假定`chaincodeID`是有效的utf8字符串，且`ckey`和`value`是一个或多个任意的字节的序列
 
@@ -659,7 +659,7 @@ peer 的*世界状态*涉及到所有被部署的链码的*状态*集合。进�
 
 
 ### 3.3 链码（Chaincode）    
-链码是在交易（参看3.1.2节）被部署是分发到网络上，并被所有验证 peer 通过隔离的沙箱来管理的应用级代码。尽管任意的虚拟技术都可以支持沙箱，现在是通过Docker容器来运行链码的。这节中描述的协议可以启用不同虚拟实现的插入与运行。
+链码是在交易（参看3.1.2节）被部署时分发到网络上，并被所有验证 peer 通过隔离的沙箱来管理的应用级代码。尽管任意的虚拟技术都可以支持沙箱，现在是通过Docker容器来运行链码的。这节中描述的协议可以启用不同虚拟实现的插入与运行。
 
 
 ### 3.3.1 虚拟机实例化    
@@ -722,12 +722,13 @@ message ChaincodeMessage {
 
 ```
 type Chaincode interface {
+    Init(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 	Invoke(stub *ChaincodeStub, function string, args []string) (error)
 	Query(stub *ChaincodeStub, function string, args []string) ([]byte, error)
 }
 ```
 
-`Init`, `Invoke` 和 `Query`函数使用`function` and `args`参数来支持多种交易。`Init`是构造函数，它只在部署交易是被执行。`Query`函数是不允许修改链码的状态的；它只能读取和计算并以byte数组的形式返回。    
+`Init`, `Invoke` 和 `Query`函数使用`function` and `args`参数来支持多种交易。`Init`是构造函数，它只在部署交易时被执行。`Query`函数是不允许修改链码的状态的；它只能读取和计算并以byte数组的形式返回。    
 
 ### 3.3.2.1 链码部署    
 当部署时（链码容器已经启动），shim层发送一次性的具有包含`ChaincodeID`的`payload`的`REGISTER`消息给验证 peer。然后 peer 以`REGISTERED`或`ERROR`来响应成功或失败。当收到`ERROR`后shim关闭连接并退出。     
@@ -739,7 +740,7 @@ shim根据`Init`函数的返回值，响应`RESPONSE`或`ERROR`消息。如果�
 ### 3.3.2.2 链码调用    
 当处理调用交易时，验证 peer 发送`TRANSACTION`消息给链码容器的shim，由它来调用链码的`Invoke`函数，并传递从`ChaincodeInput`得到的参数。shim响应`RESPONSE`或`ERROR`消息来表示函数完成。如果接收到`ERROR`函数，`payload`包含链码所产生的错误信息。
 
-### 3.3.2.3 来代码查询    
+### 3.3.2.3 链码查询    
 与调用交易一样，验证 peer 发送`QUERY`消息给链码容器的shim，由它来调用链码的`Query`函数，并传递从`ChaincodeInput`得到的参数。`Query`函数可能会返回状态值或错误，它会把它通过`RESPONSE`或`ERROR`消息来传递给验证 peer。
 
 ### 3.3.2.4 链码状态    
@@ -867,9 +868,9 @@ type Inquirer interface {
         GetNetworkHandles() (self *pb.PeerID, network []*pb.PeerID, err error)
 }
 ```
-这个接口是`consensus.CPI`接口的一部分。它是用来获取网络中验证 peer 的（`GetNetworkHandles`）处理，以及那些验证 peer 的明细(`GetNetworkInfo`)：
+这个接口是`consensus.CPI`接口的一部分。它是用来获取网络中验证 peer 的（`GetNetworkHandles`）句柄，以及那些验证 peer 的明细(`GetNetworkInfo`)：
 
-注意pees由`pb.PeerID`对象确定。这是一个protobuf消息，当前定义为（注意这个定义很可能会被修改）：
+注意peers由`pb.PeerID`对象确定。这是一个protobuf消息，当前定义为（注意这个定义很可能会被修改）：
 
 ```
 message PeerID {
@@ -914,7 +915,7 @@ type LedgerStack interface {
 	RemoteLedgers
 }
 ```
-`CPI`接口的主要成员，`LedgerStack` 组与fabric的其它部分与共识相互作用，如执行交易，查询和更新总账。这个接口支持对本地区块链和状体的查询，更新本地区块链和状态，查询共识网络上其它节点的区块链和状态。它是有`Executor`, `Ledger`和`RemoteLedgers`这三个接口组成的。下面会描述它们。
+`CPI`接口的主要成员，`LedgerStack` 组与fabric的其它部分与共识相互作用，如执行交易，查询和更新总账。这个接口支持对本地区块链和状体的查询，更新本地区块链和状态，查询共识网络上其它节点的区块链和状态。它是由`Executor`, `Ledger`和`RemoteLedgers`这三个接口组成的。下面会描述它们。
 
 ### 3.4.7 `Executor` 接口
 
@@ -952,7 +953,7 @@ ExecTXs(id interface{}, txs []*pb.Transaction) ([]byte, []error)
 RollbackTxBatch(id interface{}) error
 ```
 
-这个调用忽略了批量执行。这会废弃掉对当前状态的操作，并把总账状态回归到之前的状态。批量是从`BeginBatchTx`开始的，如果需要开始一个新的就需要在执行任意交易之前重新创建一个。
+这个调用中止了批量执行。这会废弃掉对当前状态的操作，并把总账状态回归到之前的状态。批量是从`BeginBatchTx`开始的，如果需要开始一个新的就需要在执行任意交易之前重新创建一个。
 
 ```
 PreviewCommitTxBatchBlock(id interface{}, transactions []*pb.Transaction, metadata []byte) (*pb.Block, error)
@@ -1014,7 +1015,7 @@ GetBlock(id uint64) (block *pb.Block, err error)
 GetCurrentStateHash() (stateHash []byte, err error)
 ```
 
-这个盗用返回总账的当前状态的哈希。一般来说，这个函数永远不会失败，在这种不太可能发生情况下，错误被传递给调用者，由它确定是否需要恢复。
+这个调用返回总账的当前状态的哈希。一般来说，这个函数永远不会失败，在这种不太可能发生情况下，错误被传递给调用者，由它确定是否需要恢复。
 
 
 #### 3.4.8.2 `UtilLedger` 接口
@@ -1063,7 +1064,7 @@ type WritableLedger interface {
   	```
 	PutBlock(blockNumber uint64, block *pb.Block) error
 	```
-     这个函数根据给定的区块编号把底层区块插入到区块链中。注意这是一个不安全的接口，所以它不会有错误返回或返回。插入一个比当前区块高度更高的区块是被允许的，通用，重写一个已经提交的区块也是被允许的。记住，由于哈希技术使得创建一个链上的更早的块是不可行的，所以这并不影响链的可审计性和不可变性。任何尝试重写区块链的历史的操作都能很容易的被侦测到。这个函数一般只用于状态转移API。
+     这个函数根据给定的区块编号把底层区块插入到区块链中。注意这是一个不安全的接口，所以它不会有错误返回或返回。插入一个比当前区块高度更高的区块是被允许的，同样，重写一个已经提交的区块也是被允许的。记住，由于哈希技术使得创建一个链上的更早的块是不可行的，所以这并不影响链的可审计性和不可变性。任何尝试重写区块链的历史的操作都能很容易的被侦测到。这个函数一般只用于状态转移API。
 
   -
   	```
@@ -1092,7 +1093,7 @@ type WritableLedger interface {
    	EmptyState() error
    	```
 
-    这个函数将会删除整个当前状态，得到原始的空状态。这通常是通过变化量加载整个新的状态时调用的。这一样只对状态转移API有用。
+    这个函数将会删除整个当前状态，得到原始的空状态。这通常是通过变化量加载整个新的状态时调用的。这一般只对状态转移API有用。
 
 ### 3.4.9 `RemoteLedgers` 接口
 
@@ -1140,9 +1141,9 @@ type RemoteLedgers interface {
 ```
 func NewConsenter(cpi consensus.CPI) (consenter consensus.Consenter)
 ```
-这个函数读取为`peer`过程指定的`core.yaml`配置文件中的`peer.validator.consensus`的值。键`peer.validator.consensus`的有效值指定运行`noops`还是`obcpbft`共识。（注意，它最终被改变为`noops`或`custom`。在`custom`情况下，验证 peer 将会运行由`consensus/config.yaml`中定义的共识插件）
+这个函数读取为`peer`过程指定的`core.yaml`配置文件中的`peer.validator.consensus`的值。键`peer.validator.consensus`的有效值指定运行`noops`还是`pbft`共识插件。（注意，它最终被改变为`noops`或`custom`。在`custom`情况下，验证 peer 将会运行由`consensus/config.yaml`中定义的共识插件）
 
-插件的作者需要编辑函数体，来保证路由到它们包中正确的构造函数。例如，对于`obcpbft` 我们指向`obcpft.GetPlugin`构造器。
+插件的作者需要编辑函数体，来保证路由到它们包中正确的构造函数。例如，对于`pbft` 我们指向`pbft.GetPlugin`构造器。
 
 这个函数是当设置返回信息处理器的`consenter`域时，被`helper.NewConsensusHandler`调用的。输入参数`cpi`是由`helper.NewHelper`构造器输出的，并实现了`consensus.CPI`接口
 
