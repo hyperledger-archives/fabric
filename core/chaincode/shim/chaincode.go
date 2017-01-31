@@ -572,11 +572,11 @@ func (stub *ChaincodeStub) GetRows(tableName string, key []Column) (<-chan Row, 
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching rows: %s", err)
 	}
-	defer iter.Close()
 
 	rows := make(chan Row)
 
 	go func() {
+		defer iter.Close()
 		for iter.HasNext() {
 			_, rowBytes, err := iter.Next()
 			if err != nil {
