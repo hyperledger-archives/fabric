@@ -1,7 +1,7 @@
 site_name: Hyperledger Fabric
-site_url: http://hyperledger-fabric.readthedocs.io
+site_url: http://openblockchain.readthedocs.io
 theme: readthedocs
-repo_url: https://github.com/hyperledger/fabric
+repo_url: https://github.com/hyperledger-archives/fabric
 site_description: 'Welcome to the Hyperledger fabric documentation'
 
 pages:
