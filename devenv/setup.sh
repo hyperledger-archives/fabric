@@ -67,7 +67,7 @@ case "${DOCKER_STORAGE_BACKEND}" in
 esac
 
 # Install docker
-apt-get install -y linux-image-extra-$(uname -r) apparmor docker-engine
+apt-get install -y linux-image-extra-$(uname -r) apparmor docker-engine=1.10.2-0~trusty
 
 # Configure docker
 DOCKER_OPTS="-s=${DOCKER_STORAGE_BACKEND_STRING} -r=true --api-cors-header='*' -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock ${DOCKER_OPTS}"
